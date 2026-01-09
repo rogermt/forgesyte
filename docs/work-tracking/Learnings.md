@@ -977,13 +977,88 @@ This document captures learnings from each work unit to help future work and avo
 
 ---
 
+## Final Commit: Fix TypeScript Compilation Errors
+
+**Status**: ✅ Complete  
+**Completed**: 2026-01-09 23:15  
+**Duration**: 30 minutes
+
+### What Went Well
+- Build failures identified quickly with `npm run build`
+- Systematic approach to fixing errors (type definitions first, then unused variables, then casts)
+- Test exclusion from main tsconfig resolved duplicate type checking
+- All fixes were straightforward once root causes identified
+
+### Challenges & Solutions
+- Issue: Test files being included in TypeScript compilation
+- Solution: Added `exclude: ["**/*.test.ts", "**/*.test.tsx"]` to tsconfig
+- Issue: `global` namespace not recognized in tests
+- Solution: Type cast to `(global as any)` to satisfy TypeScript
+- Issue: Vitest globals not recognized
+- Solution: Added `types: ["vitest/globals", "@testing-library/jest-dom"]` to tsconfig
+- Issue: NodeJS.Timeout not available
+- Solution: Used `ReturnType<typeof setTimeout>` instead
+- Issue: Type narrowing errors on Record to interface casts
+- Solution: Cast through `unknown` first: `as unknown as Job`
+
+### Key Insights
+- TypeScript strict mode catches many issues at compile time (helpful!)
+- Test files need separate type context from production code
+- Vitest globals require explicit type declarations in tsconfig
+- React imports no longer needed when only using hooks (JSX transform)
+- Environment variable types need vite-env.d.ts for import.meta.env
+- Mock objects in tests need proper type annotations to catch bugs
+
+### Tips for Similar Work
+- Always check tsconfig excludes when test files cause compilation issues
+- Use `as unknown as T` pattern for type-unsafe conversions
+- Add type definitions to tsconfig before fixing all compile errors
+- Remove unused imports/variables systematically (helps catch real issues)
+- Test the build before declaring victory
+- Vitest projects should always have vite-env.d.ts for environment variables
+
+### Blockers Found
+- None
+
+---
+
 ## Cross-Cutting Insights
 
-(To be added as patterns emerge across units)
+### Successful Patterns
+- TDD workflow with test files created before implementation
+- Systematic type configuration through tsconfig
+- Pre-commit hooks ensure code quality automatically
+- Comprehensive README enables quick onboarding
 
-- Common extraction patterns
-- Integration gotchas
-- TypeScript/Vite configuration best practices
-- Testing patterns
-- Component styling conventions
-- API integration patterns
+### Integration Gotchas
+- Test files included in main tsconfig compilation (exclude them)
+- Vitest globals need explicit type configuration
+- React imports unnecessary with modern JSX transform
+- Environment variables require vite-env.d.ts type definitions
+
+### TypeScript/Vite Configuration Best Practices
+- Use `include` and `exclude` carefully in tsconfig
+- Define `types` array for global type augmentations
+- Create vite-env.d.ts for import.meta.env typing
+- Keep tsconfig strict mode on from the start
+- Use separate tsconfig.node.json for Vite config file
+
+### Testing Patterns
+- Mock complex objects (like WebSocket) with custom classes
+- Use renderHook + act + waitFor for async hook testing
+- Mock browser APIs globally in setup.ts
+- Type test fixtures properly (catches bugs early)
+- Test both happy path and error cases
+
+### Component Styling Conventions
+- Use CSS variables for brand colors (defined in root styles)
+- Consistent spacing/gap patterns across layouts
+- Brand color palette: primary (#0066cc), accent-red (#dc3545)
+- Dark theme baseline (#1a1a2e background, #eee text)
+
+### API Integration Patterns
+- Centralize API client in single file with full interface definitions
+- Use environment variables for base URLs and API keys
+- Test API methods both with/without wrappers
+- Handle optional response fields gracefully
+- Implement polling with finite timeouts to prevent hanging tests
