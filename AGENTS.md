@@ -82,6 +82,52 @@ uv sync
 - Format with `black` (if configured)
 - Lint with `ruff` (cache in `.ruff_cache/`)
 
+### Linting and Type Checking
+
+This project enforces strict code quality with automated tools:
+
+**Setup (one-time)**:
+```bash
+uv pip install pre-commit
+uv run pre-commit install
+```
+
+**Version pinning** - Versions matter for consistency:
+- black==24.1.1
+- ruff==0.9.1
+- mypy==1.14.0
+- types-Pillow (stub package for PIL type hints)
+
+**Workflow before committing**:
+1. **Black formatting** - Automatically formats code on commit
+   - If files are modified, the commit fails - review changes and commit again
+   - Runs automatically via pre-commit hook
+2. **Ruff linting** - Checks for code quality issues
+   - Run manually: `uv run ruff check --fix .`
+   - Auto-fixes most issues (unused imports, trailing whitespace, etc.)
+3. **Mypy type checking** - Enforces type safety
+   - Run manually: `uv run mypy . --no-site-packages`
+   - Use `cast()` from typing module for type inference issues
+   - Add `# type: ignore[error-code]` only as last resort
+
+**Common issues and fixes**:
+- **"Undefined name" with Optional/Dict** - Add imports: `from typing import Optional, Dict, cast`
+- **Generator type errors** - Use `cast(type, value)` for complex type inference
+- **Missing type stubs** - Add to `additional_dependencies` in `.pre-commit-config.yaml`
+- **Local/remote version mismatch** - Ensure `.pre-commit-config.yaml` versions match requirements-lint.txt
+
+**Running locally before push** (required):
+```bash
+# Everything runs automatically on commit via pre-commit
+# But you can manually run all hooks:
+uv run pre-commit run --all-files
+
+# Or individual tools:
+uv run black . --exclude original_vision_mcp
+uv run ruff check --fix . --exclude original_vision_mcp
+uv run mypy . --exclude original_vision_mcp --no-site-packages
+```
+
 ### Dependencies
 
 - Document in `requirements.txt` or `pyproject.toml`
