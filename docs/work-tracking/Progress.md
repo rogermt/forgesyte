@@ -1,8 +1,8 @@
 # TypeScript Migration Progress
 
 **Last Updated**: 2026-01-09  
-**Current Context Usage**: 58%  
-**Overall Progress**: 13/22 units completed
+**Current Context Usage**: 62%  
+**Overall Progress**: 14/22 units completed
 
 ## Work Unit Status
 
@@ -20,6 +20,7 @@
 - [x] WU-11: Improve API client endpoints (20 min, completed 2026-01-09 21:20)
 - [x] WU-12: Improve WebSocket hook (30 min, completed 2026-01-09 21:28)
 - [x] WU-13: Update App.tsx branding (20 min, completed 2026-01-09 21:35)
+- [x] WU-14: Update CameraPreview styling (45 min, completed 2026-01-09 21:42)
 
 ### In Progress
 (none)
@@ -39,11 +40,11 @@
 - [ ] WU-21: Write WebSocket tests (1 hour)
 - [ ] WU-22: Update documentation (1 hour)
 
-## Current Work Unit: WU-14
+## Current Work Unit: WU-15
 - **Status**: Ready to start
-- **Task**: Update CameraPreview styling
+- **Task**: Update JobList with API integration
 - **Blockers**: None
-- **Next Steps**: Apply ForgeSyte brand colors and improve visual consistency
+- **Next Steps**: Connect JobList to apiClient for fetching jobs
 
 ## Parallel Work Possible
 Can work on these in parallel (independent):

@@ -514,24 +514,42 @@ This document captures learnings from each work unit to help future work and avo
 
 ## WU-14: Update CameraPreview styling
 
-**Status**: Not yet started  
+**Status**: ✅ Complete  
 **Estimated**: 45 minutes  
-**Completed**: TBD
+**Completed**: 2026-01-09 21:42
 
 ### What Went Well
-(To be filled after completion)
+- Video element styling consistent with brand palette
+- Error message now styled as an alert box with proper visual weight
+- Device selector wrapped in labeled form group for better UX
+- Status indicator changes color based on state (green when streaming)
+- CSS variables provide clean, maintainable approach
+- Test suite validates styling structure
 
 ### Challenges & Solutions
-(To be filled after completion)
+- Issue: Error message needed more visual prominence
+- Solution: Added background color and border to create alert box styling
+- Issue: Device selector needed better labeling
+- Solution: Wrapped in form group with semantic label element
+- Issue: Status indicator needed state-based colors
+- Solution: Used ternary operator to switch between green and muted colors
 
 ### Key Insights
-(To be filled after completion)
+- Form elements (select) benefit from consistent padding and styling
+- Labels improve accessibility and provide context
+- State-dependent colors (streaming vs not streaming) improve user feedback
+- Spacing consistency (12px margins) makes layout feel polished
+- Border styling on video creates visual separation from background
 
 ### Tips for Similar Work
-(To be filled after completion)
+- Always wrap selects/form inputs with labels for accessibility
+- Use state-based color changes to provide visual feedback
+- Add consistent margins/padding for spacing consistency
+- Error messages benefit from alert box styling (color + background + border)
+- Test form elements in isolation to ensure styling consistency
 
 ### Blockers Found
-(To be filled after completion)
+- None
 
 ---
 
