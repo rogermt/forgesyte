@@ -107,7 +107,9 @@ class ConnectionManager:
         }
         await self.send_personal(client_id, message)
 
-    async def send_error(self, client_id: str, error: str, frame_id: Optional[str] = None):
+    async def send_error(
+        self, client_id: str, error: str, frame_id: Optional[str] = None
+    ):
         """Send an error message to a client."""
         message = {
             "type": "error",

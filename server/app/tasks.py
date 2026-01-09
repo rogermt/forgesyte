@@ -55,7 +55,10 @@ class JobStore:
         return self._jobs.get(job_id)
 
     async def list_jobs(
-        self, status: Optional[JobStatus] = None, plugin: Optional[str] = None, limit: int = 50
+        self,
+        status: Optional[JobStatus] = None,
+        plugin: Optional[str] = None,
+        limit: int = 50,
     ) -> list:
         """List jobs with optional filtering."""
         jobs = list(self._jobs.values())

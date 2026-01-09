@@ -55,7 +55,9 @@ class BasePlugin(ABC):
         """Synchronous analysis - override this."""
         pass
 
-    async def analyze_async(self, image_bytes: bytes, options: Optional[dict] = None) -> dict:
+    async def analyze_async(
+        self, image_bytes: bytes, options: Optional[dict] = None
+    ) -> dict:
         """Async wrapper for analysis."""
         loop = asyncio.get_event_loop()
         return await loop.run_in_executor(
@@ -100,7 +102,11 @@ class PluginManager:
         self.plugins: Dict[str, PluginInterface] = {}
         self._watchers: list = []
 
-    def load_plugins(self) -> Dict[str, Dict[str, str]]:
+    def load_plugins(
+        self,
+    ) -> Dict[
+        str, Dict[str, str]
+    ]:  # Fixed: Original annotation Dict[str, str] was incorrect
         """Load all plugins from the plugins directory."""
         loaded: Dict[str, str] = {}
         errors: Dict[str, str] = {}
@@ -124,7 +130,7 @@ class PluginManager:
                         errors[item.name] = str(e)
                         logger.error(f"Failed to load plugin {item.name}: {e}")
 
-        return {"loaded": loaded, "errors": errors}
+        return {"loaded": loaded, "errors": errors}  # type: ignore[return-value] # Intentionally correcting original incorrect return type annotation
 
     def _load_plugin_from_file(
         self, plugin_file: Path, module_name: str
@@ -184,7 +190,7 @@ class PluginManager:
 
         return False
 
-    def reload_all(self) -> Dict[str, str]:
+    def reload_all(self) -> Dict[str, Dict[str, str]]:
         """Reload all plugins."""
         # Unload existing
         for plugin in self.plugins.values():

@@ -119,7 +119,9 @@ class Plugin:
             logger.error(f"OCR failed: {e}")
             return {"error": str(e), "text": "", "blocks": [], "confidence": 0}
 
-    def _fallback_analyze(self, image_bytes: bytes, options: Dict[str, Any]) -> Dict[str, Any]:
+    def _fallback_analyze(
+        self, image_bytes: bytes, options: Dict[str, Any]
+    ) -> Dict[str, Any]:
         """Fallback when tesseract is not available."""
         return {
             "text": "",

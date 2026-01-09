@@ -185,7 +185,9 @@ class Plugin:
 
         return "Content may require review"
 
-    def _basic_analysis(self, image_bytes: bytes, options: Dict[str, Any]) -> Dict[str, Any]:
+    def _basic_analysis(
+        self, image_bytes: bytes, options: Dict[str, Any]
+    ) -> Dict[str, Any]:
         """Basic analysis when dependencies unavailable."""
         return {
             "safe": None,
