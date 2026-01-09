@@ -209,6 +209,200 @@ The following are intentionally ignored and should not be committed:
 4. Ensure commit messages are descriptive
 5. Pull latest changes if merging to main
 
+## Unit Work & Context Management
+
+Large tasks are broken into small work units (1-2 hours each) to respect AI context limits. Each work unit follows this workflow:
+
+### Work Unit Lifecycle
+
+1. **Start Unit**: Read docs/work-tracking/Progress.md to understand current status
+2. **Do Work**: Complete the specific tasks for the work unit
+3. **Test**: Run verification commands to confirm acceptance criteria
+4. **Commit**: Make atomic commit with conventional message (feat:, refactor:, etc.)
+5. **Document Learnings**: Update docs/work-tracking/Learnings.md with:
+   - What was learned during implementation
+   - Unexpected issues encountered
+   - Decisions made and rationale
+   - Tips for next similar work unit
+   - Any blockers or dependencies discovered
+6. **Update Progress**: Update docs/work-tracking/Progress.md with:
+   - Mark completed unit as done with timestamp
+   - Update current context usage
+   - Note any blockers or changed estimates
+   - List what unit is ready for next session
+
+7. **Thread Boundary**: When context reaches 70-80% usage, the current thread ends
+   - Next thread begins with updated Progress.md and Learnings.md as context
+   - No need to re-explain completed work
+   - Next agent continues from exact point
+
+### Documentation Files
+
+**docs/work-tracking/Progress.md**:
+- Current work unit status (in progress, done, blocked, todo)
+- Timestamp when each unit started and completed
+- Estimated vs actual time spent
+- Any blockers or dependencies
+- Context usage meter
+- Next recommended work unit
+
+**docs/work-tracking/Learnings.md**:
+- What was learned in each work unit
+- Unexpected issues and solutions
+- Code patterns discovered
+- Integration points and gotchas
+- Tips for future similar work
+- Architecture insights
+
+### Progress.md Format
+
+```markdown
+# TypeScript Migration Progress
+
+**Last Updated**: [timestamp]
+**Current Context Usage**: [50%]
+**Overall Progress**: [12/22 units completed]
+
+## Work Unit Status
+
+### Completed
+- [x] WU-01: Extract package.json (2 hours, completed [time])
+- [x] WU-02: Extract TypeScript config (1.5 hours, completed [time])
+
+### In Progress
+- [ ] WU-03: Extract Vite config (45 min elapsed, 0 blockers)
+
+### Blocked
+- [ ] WU-15: JobList API integration (blocked on WU-11 completion)
+
+### Todo
+- [ ] WU-04: Extract React components
+- [ ] WU-05: Extract hooks and API client
+
+## Current Work Unit: WU-03
+- **Status**: In Progress
+- **Time Elapsed**: 45 minutes
+- **Blockers**: None
+- **Next Steps**: Extract vite.config.ts and index.html from code2.md
+
+## Notes for Next Session
+- WU-03 is 75% complete, needs 15 more minutes
+- WU-01 and WU-02 both validated successfully
+- No major blockers discovered so far
+```
+
+### Learnings.md Format
+
+```markdown
+# TypeScript Migration Learnings
+
+## WU-01: Extract package.json
+
+**Completed**: [timestamp]
+**Duration**: 30 minutes
+**Status**: ✅ Complete
+
+### What Went Well
+- Extraction was straightforward
+- JSON syntax validation caught no errors
+- npm install succeeded on first try
+
+### Challenges & Solutions
+- Issue: package-lock.json created, need to ensure node_modules ignored
+- Solution: Created comprehensive .gitignore in WU-06
+
+### Key Insights
+- ForgeSyte branding should be consistent across all package.json files
+- Keep version numbers consistent with backend
+
+### Tips for Similar Work
+- Always validate JSON syntax immediately after creation
+- Test npm install before proceeding to next dependency-requiring unit
+
+### Blockers Found
+- None
+
+---
+
+## WU-02: Extract TypeScript config
+
+**Completed**: [timestamp]
+**Duration**: 45 minutes
+**Status**: ✅ Complete
+
+### What Went Well
+- tsconfig template was well-structured
+- Strict mode validation worked immediately
+
+### Challenges & Solutions
+- Issue: Had to verify both tsconfig.json and tsconfig.node.json
+- Solution: Created clear dependency in WU-03 for Vite config
+
+### Key Insights
+- Path aliases need matching in both tsconfig.json and vite.config.ts
+- Strict mode catches many issues early
+
+### Tips for Similar Work
+- Always test type checking after tsconfig updates
+- Verify both tsconfig files are in sync
+
+### Blockers Found
+- None
+```
+
+### At Work Unit Completion
+
+Before marking a unit done, always:
+
+```bash
+# 1. Run verification commands from unit
+npm run build        # if applicable
+npm run type-check   # if applicable
+npm test             # if applicable
+
+# 2. Check git status
+git status
+git diff
+
+# 3. Create atomic commit
+git add .
+git commit -m "feat: Complete WU-XX - [description]"
+
+# 4. Update Learnings.md
+# Add section for this work unit with:
+# - What was learned
+# - Unexpected issues
+# - Decisions made
+# - Tips for similar work
+# - Any blockers
+
+# 5. Update Progress.md
+# - Mark unit as complete with timestamp
+# - Update context usage
+# - Note next recommended unit
+# - List any changed blockers
+
+# 6. Verify no uncommitted changes
+git status  # Should show clean working directory
+```
+
+### Context Limit Management
+
+- **Current Thread Limit**: 200k tokens
+- **Safe Stopping Point**: 160k tokens (80%)
+- **When Approaching Limit**:
+  1. Finish current work unit
+  2. Make final commit with all changes
+  3. Update Progress.md with current status
+  4. Update Learnings.md with findings
+  5. End thread gracefully
+
+- **Next Thread Start**:
+  1. Read Progress.md and Learnings.md first
+  2. Continue with next work unit in queue
+  3. No re-explanation needed
+  4. Build on previously documented learnings
+
 ## Quick Reference
 
 | Command | Purpose |
