@@ -225,6 +225,58 @@ function App() {
                     {viewMode === "stream" && (
                         <>
                             <div style={styles.panel}>
+                                <div
+                                    style={{
+                                        display: "flex",
+                                        justifyContent: "space-between",
+                                        alignItems: "center",
+                                        marginBottom: "12px",
+                                    }}
+                                >
+                                    <h3 style={{ margin: 0 }}>Stream</h3>
+                                    <button
+                                        onClick={() =>
+                                            setStreamEnabled(!streamEnabled)
+                                        }
+                                        disabled={!isConnected}
+                                        style={{
+                                            padding: "8px 16px",
+                                            backgroundColor: streamEnabled
+                                                ? "var(--accent-green)"
+                                                : "var(--bg-tertiary)",
+                                            color: "var(--text-primary)",
+                                            border: "1px solid var(--border-light)",
+                                            borderRadius: "4px",
+                                            cursor: isConnected
+                                                ? "pointer"
+                                                : "not-allowed",
+                                            fontWeight: 500,
+                                            fontSize: "13px",
+                                            transition: "all 0.2s",
+                                            opacity: isConnected ? 1 : 0.6,
+                                        }}
+                                        onMouseOver={(e) => {
+                                            if (isConnected && !streamEnabled) {
+                                                e.currentTarget.style.backgroundColor =
+                                                    "var(--accent-green)";
+                                                e.currentTarget.style.color =
+                                                    "var(--text-primary)";
+                                            }
+                                        }}
+                                        onMouseOut={(e) => {
+                                            if (isConnected && !streamEnabled) {
+                                                e.currentTarget.style.backgroundColor =
+                                                    "var(--bg-tertiary)";
+                                                e.currentTarget.style.color =
+                                                    "var(--text-primary)";
+                                            }
+                                        }}
+                                    >
+                                        {streamEnabled
+                                            ? "Stop Streaming"
+                                            : "Start Streaming"}
+                                    </button>
+                                </div>
                                 <CameraPreview
                                     onFrame={handleFrame}
                                     enabled={streamEnabled}
