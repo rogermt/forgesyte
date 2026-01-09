@@ -3,7 +3,7 @@
 import asyncio
 import logging
 from datetime import datetime
-from typing import Dict, Set, Optional
+from typing import Dict, Optional, Set
 
 from fastapi import WebSocket
 

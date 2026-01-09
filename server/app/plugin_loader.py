@@ -7,7 +7,7 @@ import sys
 from abc import ABC, abstractmethod
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from typing import Dict, Optional, Protocol, TypedDict, runtime_checkable
+from typing import Dict, Optional, Protocol, runtime_checkable
 
 logger = logging.getLogger(__name__)
 

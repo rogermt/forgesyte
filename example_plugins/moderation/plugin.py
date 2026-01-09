@@ -1,6 +1,6 @@
 """Moderation Plugin - Content safety detection."""
 
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 import io
 import logging
 import hashlib

@@ -1,6 +1,6 @@
 """Motion Detector Plugin - Detect motion between frames."""
 
-from typing import Dict, Any, Optional, List, Tuple
+from typing import Dict, Any, Optional, List
 import io
 import logging
 import time

@@ -1,9 +1,8 @@
 """Block Mapper Plugin - Map real-world objects to Minecraft blocks."""
 
-from typing import Dict, Any, List, Tuple
+from typing import Dict, Any, List, Tuple, Optional
 import io
 import logging
-import colorsys
 
 logger = logging.getLogger(__name__)
 

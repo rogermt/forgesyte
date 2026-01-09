@@ -4,7 +4,6 @@ Script to extract Python code from markdown files and recreate the vision-mcp st
 """
 
 import re
-import os
 from pathlib import Path
 
 def extract_file_paths_and_content(markdown_content):
