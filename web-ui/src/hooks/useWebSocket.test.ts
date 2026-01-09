@@ -15,15 +15,15 @@ class MockWebSocket {
     onclose: ((event: CloseEvent) => void) | null = null;
 
     send = vi.fn();
-    close = vi.fn((code?: number, reason?: string) => {
-        this.readyState = WebSocket.CLOSED;
+    close = vi.fn((code?: number) => {
+        this.readyState = 3; // WebSocket.CLOSED
         this.onclose?.(
             new CloseEvent("close", { code: code || 1000, wasClean: true })
         );
     });
 
     simulateOpen() {
-        this.readyState = WebSocket.OPEN;
+        this.readyState = 1; // WebSocket.OPEN
         this.onopen?.(new Event("open"));
     }
 
@@ -36,7 +36,7 @@ class MockWebSocket {
     }
 
     simulateClose(code = 1000, wasClean = true) {
-        this.readyState = WebSocket.CLOSED;
+        this.readyState = 3; // WebSocket.CLOSED
         this.onclose?.(new CloseEvent("close", { code, wasClean }));
     }
 }
@@ -46,7 +46,7 @@ describe("useWebSocket", () => {
 
     beforeEach(() => {
         mockWs = new MockWebSocket();
-        global.WebSocket = vi.fn(() => mockWs) as any;
+        (global as any).WebSocket = vi.fn(() => mockWs) as any;
     });
 
     afterEach(() => {
@@ -73,7 +73,7 @@ describe("useWebSocket", () => {
             });
 
             await waitFor(() => {
-                expect(global.WebSocket).toHaveBeenCalledWith(
+                expect((global as any).WebSocket).toHaveBeenCalledWith(
                     expect.stringContaining("ws://")
                 );
             });
@@ -88,7 +88,7 @@ describe("useWebSocket", () => {
             );
 
             await waitFor(() => {
-                expect(global.WebSocket).toHaveBeenCalledWith(
+                expect((global as any).WebSocket).toHaveBeenCalledWith(
                     expect.stringContaining("motion_detector")
                 );
             });
@@ -103,7 +103,7 @@ describe("useWebSocket", () => {
             );
 
             await waitFor(() => {
-                expect(global.WebSocket).toHaveBeenCalledWith(
+                expect((global as any).WebSocket).toHaveBeenCalledWith(
                     expect.stringContaining("api_key=secret-key")
                 );
             });
@@ -259,7 +259,7 @@ describe("useWebSocket", () => {
 
         it("should handle connection messages", async () => {
             const onConnect = vi.fn();
-            const { result } = renderHook(() =>
+            renderHook(() =>
                 useWebSocket({
                     url: "ws://localhost:8000/v1/stream",
                     onConnect,

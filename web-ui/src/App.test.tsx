@@ -91,7 +91,7 @@ describe("App - Branding Updates", () => {
 
     describe("Error messages", () => {
         it("should use brand error color for WebSocket errors", () => {
-            const { container } = render(<App />);
+            render(<App />);
             const errorStyle = {
                 backgroundColor: "rgba(220, 53, 69, 0.1)",
                 border: "1px solid var(--accent-red)",

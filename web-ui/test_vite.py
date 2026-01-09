@@ -41,12 +41,12 @@ def test_index_html_is_valid():
 
 
 def test_index_html_has_app_root():
-    """Test that index.html has div#app for React."""
+    """Test that index.html has div#root for React."""
     index = Path(__file__).parent / "index.html"
     content = index.read_text()
     assert (
-        'id="app"' in content or "id='app'" in content
-    ), "Should have div#app for React"
+        'id="root"' in content or "id='root'" in content
+    ), "Should have div#root for React"
 
 
 def test_index_html_has_script():

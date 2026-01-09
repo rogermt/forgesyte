@@ -74,7 +74,7 @@ export function useWebSocket(
 
     const wsRef = useRef<WebSocket | null>(null);
     const reconnectAttemptsRef = useRef(0);
-    const reconnectTimeoutRef = useRef<NodeJS.Timeout>();
+    const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
 
     const [isConnected, setIsConnected] = useState(false);
     const [isConnecting, setIsConnecting] = useState(false);
@@ -131,7 +131,7 @@ export function useWebSocket(
                         break;
 
                     case "result": {
-                        const result = message.payload as FrameResult;
+                        const result = message.payload as unknown as FrameResult;
                         setLatestResult(result);
 
                         processingTimesRef.current.push(

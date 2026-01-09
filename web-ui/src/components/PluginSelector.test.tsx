@@ -2,7 +2,7 @@
  * Tests for PluginSelector styling and API integration
  */
 
-import { render, screen, waitFor, fireEvent } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { PluginSelector } from "./PluginSelector";
 import * as client from "../api/client";
 

@@ -4,11 +4,12 @@
 
 import { render, screen } from "@testing-library/react";
 import { ResultsPanel } from "./ResultsPanel";
+import { Job } from "../api/client";
 
 describe("ResultsPanel - Styling Updates", () => {
     describe("heading and layout", () => {
         it("should display Results heading with brand colors", () => {
-            const { container } = render(
+            render(
                 <ResultsPanel mode="stream" streamResult={null} />
             );
             const header = screen.getByText("Results");
@@ -39,9 +40,9 @@ describe("ResultsPanel - Styling Updates", () => {
     describe("stream results display", () => {
         const mockStreamResult = {
             frame_id: "frame-001",
+            plugin: "motion_detector",
             processing_time_ms: 45,
             result: { motion_detected: true, confidence: 0.95 },
-            timestamp: Date.now(),
         };
 
         it("should display frame ID and processing time", () => {
@@ -79,7 +80,7 @@ describe("ResultsPanel - Styling Updates", () => {
     });
 
     describe("job results display", () => {
-        const mockJob = {
+        const mockJob: Job = {
             id: "job-123456",
             status: "done",
             plugin: "motion_detector",
@@ -120,9 +121,9 @@ describe("ResultsPanel - Styling Updates", () => {
     describe("code block styling", () => {
         const mockStreamResult = {
             frame_id: "frame-001",
+            plugin: "motion_detector",
             processing_time_ms: 45,
             result: { test: true },
-            timestamp: Date.now(),
         };
 
         it("should style code blocks with brand colors", () => {

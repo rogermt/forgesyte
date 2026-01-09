@@ -113,7 +113,7 @@ export class ForgeSyteAPIClient {
             string,
             unknown
         >;
-        return result.job ? (result.job as Job) : (result as Job);
+        return result.job ? (result.job as unknown as Job) : (result as unknown as Job);
     }
 
     async listJobs(

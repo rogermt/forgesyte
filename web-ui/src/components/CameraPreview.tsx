@@ -2,7 +2,7 @@
  * Camera preview component with frame capture
  */
 
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 export interface CameraPreviewProps {
     onFrame?: (imageData: string) => void;
@@ -24,7 +24,7 @@ export function CameraPreview({
     const videoRef = useRef<HTMLVideoElement>(null);
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const streamRef = useRef<MediaStream | null>(null);
-    const intervalRef = useRef<NodeJS.Timeout>();
+    const intervalRef = useRef<ReturnType<typeof setInterval>>();
 
     const [isStreaming, setIsStreaming] = useState(false);
     const [error, setError] = useState<string | null>(null);

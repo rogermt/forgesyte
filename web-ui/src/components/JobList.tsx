@@ -2,7 +2,7 @@
  * Job list component
  */
 
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { apiClient, Job } from "../api/client";
 
 export interface JobListProps {

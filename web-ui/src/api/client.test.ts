@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { ForgeSyteAPIClient, Plugin, Job } from "./client";
+import { ForgeSyteAPIClient } from "./client";
 
 describe("ForgeSyteAPIClient", () => {
     let client: ForgeSyteAPIClient;
@@ -11,7 +11,7 @@ describe("ForgeSyteAPIClient", () => {
 
     beforeEach(() => {
         fetchMock = vi.fn();
-        global.fetch = fetchMock;
+        (global as any).fetch = fetchMock;
         client = new ForgeSyteAPIClient("http://localhost:3000/v1");
     });
 

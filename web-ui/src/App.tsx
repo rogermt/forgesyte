@@ -28,7 +28,6 @@ function App() {
         sendFrame,
         switchPlugin,
         latestResult,
-        stats,
     } = useWebSocket({
         url: "/v1/stream",
         plugin: selectedPlugin,
