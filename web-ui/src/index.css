@@ -1,16 +1,29 @@
 /* ForgeSyte Web UI - Global Styles */
 
-/* Color Palette */
+/* ForgeSyte Color Palette */
 :root {
-    --bg-primary: #1a1a2e;
-    --bg-secondary: #16162a;
-    --bg-tertiary: #1e1e2e;
-    --bg-hover: #2a2a3e;
-    --border-color: #333333;
-    --border-light: #444444;
+    /* Brand Colors */
+    --primary-charcoal: #111318;
+    --secondary-steel: #2b3038;
+    --accent-orange: #ff6a00; /* Forge Orange */
+    --accent-cyan: #00e5ff; /* Electric Cyan */
+
+    /* Background Colors (derived from brand) */
+    --bg-primary: #111318; /* Charcoal */
+    --bg-secondary: #1a1a22;
+    --bg-tertiary: #232329;
+    --bg-hover: #2a2a32;
+
+    /* Border Colors */
+    --border-color: #2b3038; /* Steel */
+    --border-light: #3a3a42;
+
+    /* Text Colors */
     --text-primary: #ffffff;
-    --text-secondary: #eeeeee;
+    --text-secondary: #e8e8e8;
     --text-muted: #888888;
+
+    /* Legacy Accent Colors (for compatibility) */
     --accent-green: #4caf50;
     --accent-red: #dc3545;
     --accent-yellow: #ffc107;
