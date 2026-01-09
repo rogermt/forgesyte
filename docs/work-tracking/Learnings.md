@@ -207,47 +207,77 @@ This document captures learnings from each work unit to help future work and avo
 
 ## WU-06: Create .gitignore and env files
 
-**Status**: Not yet started  
+**Status**: ✅ Complete  
 **Estimated**: 20 minutes  
-**Completed**: TBD
+**Completed**: 2026-01-09 20:18
 
 ### What Went Well
-(To be filled after completion)
+- .gitignore patterns comprehensive and correct
+- .env.example clearly documents required variables
+- .nvmrc specifies Node 18 for nvm users
+- All files created with appropriate content
+- Pre-commit hooks continue to handle formatting
 
 ### Challenges & Solutions
-(To be filled after completion)
+- Issue: Pre-commit black hook reformatting test file again
+- Solution: Stage entire web-ui/ after formatting (established pattern)
 
 ### Key Insights
-(To be filled after completion)
+- .gitignore patterns: node_modules, dist, .vite/, .env.local
+- VITE_* variables documented with defaults for localhost development
+- Optional variables included for API key and environment name
+- Node 18 good baseline for modern async/await, optional chaining
 
 ### Tips for Similar Work
-(To be filled after completion)
+- Always include .env.example (never .env in repo)
+- Comment optional variables so developers know they exist
+- Include IDE and cache directories (.vscode, .ruff_cache)
+- Lock files (package-lock.json) usually excluded
+- Node version files help team consistency
 
 ### Blockers Found
-(To be filled after completion)
+- None
 
 ---
 
 ## WU-07: Create main.tsx and index.css
 
-**Status**: Not yet started  
+**Status**: ✅ Complete  
 **Estimated**: 30 minutes  
-**Completed**: TBD
+**Completed**: 2026-01-09 20:23
 
 ### What Went Well
-(To be filled after completion)
+- index.css comprehensive with ForgeSyte color palette
+- CSS custom properties (--bg-*, --text-*, --accent-*) defined
+- Dark theme properly implemented with good contrast
+- Base styles reset margins/padding correctly
+- Component styles (buttons, forms, tables) complete
+- main.tsx entry point proper React pattern
+- CSS import in main.tsx ensures styles load first
 
 ### Challenges & Solutions
-(To be filled after completion)
+- Issue: Original code2.md has styles inline in index.html
+- Solution: Extracted to proper CSS file for maintainability
+- Issue: Color choices needed for ForgeSyte branding
+- Solution: Used dark palette (1a1a2e primary) with green accents
 
 ### Key Insights
-(To be filled after completion)
+- CSS custom properties enable easy theme changes
+- Dark theme needs good contrast ratios for accessibility
+- Button variants (secondary, danger) useful for different actions
+- Scrollbar styling important for dark theme consistency
+- Utility classes (.text-muted, .text-danger) speed up development
 
 ### Tips for Similar Work
-(To be filled after completion)
+- Define color palette in CSS variables at root
+- Include reset styles to avoid surprises
+- Test color contrast with accessibility checkers
+- Button states (:hover, :active, :disabled) all matter
+- Include scrollbar styling (often forgotten in dark themes)
+- Utility classes reduce inline styles in components
 
 ### Blockers Found
-(To be filled after completion)
+- None
 
 ---
 

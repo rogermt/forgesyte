@@ -1,8 +1,8 @@
 # TypeScript Migration Progress
 
 **Last Updated**: 2026-01-09  
-**Current Context Usage**: 75%  
-**Overall Progress**: 5/22 units completed
+**Current Context Usage**: 62%  
+**Overall Progress**: 7/22 units completed
 
 ## Work Unit Status
 
@@ -12,6 +12,8 @@
 - [x] WU-03: Extract Vite config and HTML (45 min, completed 2026-01-09 20:00)
 - [x] WU-04: Extract React components (1 hour, completed 2026-01-09 20:08)
 - [x] WU-05: Extract hooks and API client (1 hour, completed 2026-01-09 20:14)
+- [x] WU-06: Create .gitignore and env files (20 min, completed 2026-01-09 20:18)
+- [x] WU-07: Create main.tsx and index.css (30 min, completed 2026-01-09 20:23)
 
 ### In Progress
 (none)
