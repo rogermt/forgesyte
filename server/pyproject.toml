@@ -24,6 +24,7 @@ dependencies = [
 [dependency-groups]
 dev = [
     "pytest>=7.0",
+    "pytest-cov>=4.0",
     "ruff>=0.1",
     "mypy>=1.0",
     "black>=23.0.0",
@@ -50,6 +51,8 @@ select = [
 ]
 extend-ignore = [
     "PLR",  # Design related codes
+    "B008", # Allow function calls in FastAPI defaults (Query, Depends, etc.)
+    "C901", # Allow complex functions where needed (like websocket handlers)
 ]
 
 [tool.ruff.format]
@@ -72,3 +75,10 @@ addopts = [
 [tool.coverage.run]
 source = ["src/"]
 omit = ["*/tests/*", "*/conftest.py"]
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = false
+warn_unused_configs = false
+disallow_untyped_defs = false
+ignore_missing_imports = true

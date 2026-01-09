@@ -1,9 +1,10 @@
 """Pydantic models for request/response validation."""
 
-from pydantic import BaseModel, Field
-from typing import Optional, Dict, Any, List
-from enum import Enum
 from datetime import datetime
+from enum import Enum
+from typing import Any, Dict, List, Optional
+
+from pydantic import BaseModel, Field
 
 
 class JobStatus(str, Enum):
@@ -16,8 +17,12 @@ class JobStatus(str, Enum):
 
 class AnalyzeRequest(BaseModel):
     plugin: str = Field(default="default", description="Plugin to use for analysis")
-    options: Optional[Dict[str, Any]] = Field(default=None, description="Plugin-specific options")
-    image_url: Optional[str] = Field(default=None, description="URL of image to analyze")
+    options: Optional[Dict[str, Any]] = Field(
+        default=None, description="Plugin-specific options"
+    )
+    image_url: Optional[str] = Field(
+        default=None, description="URL of image to analyze"
+    )
 
 
 class JobResponse(BaseModel):

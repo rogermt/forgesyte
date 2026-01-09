@@ -1,3 +1,3 @@
-"""Vision MCP Server - A modular vision processing server for Gemini-CLI."""
+"""ForgeSyte - A modular AI-vision MCP server for Gemini-CLI."""
 
 __version__ = "0.1.0"

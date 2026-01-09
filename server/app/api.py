@@ -1,16 +1,16 @@
 """REST API endpoints for the Vision MCP Server."""
 
-from fastapi import APIRouter, UploadFile, File, Query, Depends, HTTPException, Request
-from fastapi.responses import JSONResponse
-from typing import Optional, List
 import base64
-import httpx
 import logging
+from typing import Optional
 
-from .models import AnalyzeRequest, JobResponse, JobStatus, PluginMetadata
-from .tasks import task_processor, job_store
+import httpx
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, UploadFile
+
+from .auth import get_api_key, require_auth
 from .mcp_adapter import MCPAdapter, build_gemini_extension_manifest
-from .auth import require_auth, get_api_key
+from .models import JobResponse, JobStatus, PluginMetadata
+from .tasks import job_store, task_processor
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -19,20 +19,20 @@ router = APIRouter()
 @router.post("/analyze", response_model=dict)
 async def analyze_image(
     request: Request,
-    file: Optional[UploadFile] = File(None),
+    file: Optional[UploadFile] = None,
     plugin: str = Query(default="ocr", description="Plugin to use"),
     image_url: Optional[str] = Query(None, description="URL of image to analyze"),
     options: Optional[str] = Query(None, description="JSON options for plugin"),
-    auth: dict = Depends(get_api_key)
+    auth: dict = Depends(get_api_key),
 ):
     """
     Analyze an image using the specified plugin.
-    
+
     Either upload a file or provide an image URL.
     Returns a job ID for tracking the analysis.
     """
     image_bytes = None
-    
+
     if file:
         image_bytes = await file.read()
     elif image_url:
@@ -42,7 +42,7 @@ async def analyze_image(
                 response.raise_for_status()
                 image_bytes = response.content
         except Exception as e:
-            raise HTTPException(400, f"Failed to fetch image: {e}")
+            raise HTTPException(400, f"Failed to fetch image: {e}") from e
     else:
         # Check for base64 in body
         body = await request.body()
@@ -50,44 +50,40 @@ async def analyze_image(
             try:
                 image_bytes = base64.b64decode(body)
             except Exception:
-                raise HTTPException(400, "No valid image provided")
-    
+                raise HTTPException(400, "No valid image provided") from None
+
     if not image_bytes:
         raise HTTPException(400, "No image provided")
-    
+
     # Parse options
     parsed_options = {}
     if options:
         import json
+
         try:
             parsed_options = json.loads(options)
         except json.JSONDecodeError:
-            raise HTTPException(400, "Invalid JSON in options")
-    
+            raise HTTPException(400, "Invalid JSON in options") from None
+
     # Submit job
     if not task_processor:
         raise HTTPException(503, "Server not fully initialized")
-    
+
     job_id = await task_processor.submit_job(
-        image_bytes=image_bytes,
-        plugin_name=plugin,
-        options=parsed_options
+        image_bytes=image_bytes, plugin_name=plugin, options=parsed_options
     )
-    
+
     return {"job_id": job_id, "status": "queued", "plugin": plugin}
 
 
 @router.get("/jobs/{job_id}")
-async def get_job_status(
-    job_id: str,
-    auth: dict = Depends(get_api_key)
-):
+async def get_job_status(job_id: str, auth: dict = Depends(get_api_key)):
     """Get the status and results of an analysis job."""
     job = await job_store.get(job_id)
-    
+
     if not job:
         raise HTTPException(404, "Job not found")
-    
+
     return JobResponse(**job)
 
 
@@ -96,7 +92,7 @@ async def list_jobs(
     status: Optional[JobStatus] = None,
     plugin: Optional[str] = None,
     limit: int = Query(50, ge=1, le=200),
-    auth: dict = Depends(require_auth(["analyze"]))
+    auth: dict = Depends(require_auth(["analyze"])),
 ):
     """List recent analysis jobs."""
     jobs = await job_store.list_jobs(status=status, plugin=plugin, limit=limit)
@@ -104,19 +100,18 @@ async def list_jobs(
 
 
 @router.delete("/jobs/{job_id}")
-async def cancel_job(
-    job_id: str,
-    auth: dict = Depends(require_auth(["analyze"]))
-):
+async def cancel_job(job_id: str, auth: dict = Depends(require_auth(["analyze"]))):
     """Cancel a queued job."""
     if not task_processor:
         raise HTTPException(503, "Server not initialized")
-    
+
     success = await task_processor.cancel_job(job_id)
     if success:
         return {"status": "cancelled", "job_id": job_id}
     else:
-        raise HTTPException(400, "Job cannot be cancelled (may already be running or completed)")
+        raise HTTPException(
+            400, "Job cannot be cancelled (may already be running " "or completed)"
+        )
 
 
 @router.get("/plugins")
@@ -124,12 +119,10 @@ async def list_plugins(request: Request):
     """List all available vision plugins."""
     pm = request.app.state.plugins
     plugins = pm.list()
-    
+
     return {
-        "plugins": [
-            PluginMetadata(**meta) for meta in plugins.values()
-        ],
-        "count": len(plugins)
+        "plugins": [PluginMetadata(**meta) for meta in plugins.values()],
+        "count": len(plugins),
     }
 
 
@@ -138,23 +131,21 @@ async def get_plugin_info(name: str, request: Request):
     """Get detailed information about a plugin."""
     pm = request.app.state.plugins
     plugin = pm.get(name)
-    
+
     if not plugin:
         raise HTTPException(404, f"Plugin '{name}' not found")
-    
+
     return PluginMetadata(**plugin.metadata())
 
 
 @router.post("/plugins/{name}/reload")
 async def reload_plugin(
-    name: str,
-    request: Request,
-    auth: dict = Depends(require_auth(["admin"]))
+    name: str, request: Request, auth: dict = Depends(require_auth(["admin"]))
 ):
     """Reload a specific plugin (admin only)."""
     pm = request.app.state.plugins
     success = pm.reload_plugin(name)
-    
+
     if success:
         return {"status": "reloaded", "plugin": name}
     else:
@@ -163,8 +154,7 @@ async def reload_plugin(
 
 @router.post("/plugins/reload-all")
 async def reload_all_plugins(
-    request: Request,
-    auth: dict = Depends(require_auth(["admin"]))
+    request: Request, auth: dict = Depends(require_auth(["admin"]))
 ):
     """Reload all plugins (admin only)."""
     pm = request.app.state.plugins
@@ -173,6 +163,7 @@ async def reload_all_plugins(
 
 
 # MCP Discovery Endpoints
+
 
 @router.get("/.well-known/mcp-manifest")
 async def mcp_manifest(request: Request):
@@ -192,12 +183,9 @@ async def gemini_extension_manifest(request: Request):
 
 # Health Check
 
+
 @router.get("/health")
 async def health_check(request: Request):
     """Health check endpoint."""
     pm = request.app.state.plugins
-    return {
-        "status": "healthy",
-        "plugins_loaded": len(pm.plugins),
-        "version": "0.1.0"
-    }
+    return {"status": "healthy", "plugins_loaded": len(pm.plugins), "version": "0.1.0"}
