@@ -1,6 +1,6 @@
 """Moderation Plugin - Content safety detection."""
 
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, cast
 import io
 import logging
 import hashlib
@@ -125,11 +125,10 @@ class Plugin:
                 }
             )
 
-        overall_confidence = (
-            sum(float(r["confidence"]) for r in results) / len(results)
-            if results
-            else 0.0
+        confidence_sum: float = sum(
+            cast(float, r["confidence"]) for r in results
         )
+        overall_confidence = confidence_sum / len(results) if results else 0.0
 
         return {"categories": results, "overall_confidence": overall_confidence}
 
