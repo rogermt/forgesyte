@@ -15,3 +15,4 @@ repos:
     hooks:
       - id: mypy
         additional_dependencies: [types-requests]
+        exclude: ^original_vision_mcp/

@@ -12,8 +12,8 @@ from fastapi.testclient import TestClient
 # Add the server directory to the path so we can import modules
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from app.main import app
-from app.plugin_loader import PluginManager
+from app.main import app  # noqa: E402
+from app.plugin_loader import PluginManager  # noqa: E402
 
 
 def test_app_imports_successfully():

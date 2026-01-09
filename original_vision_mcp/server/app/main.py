@@ -47,7 +47,7 @@ async def lifespan(app: FastAPI):
     app.state.plugins = plugin_manager
     
     # Initialize task processor
-    processor = init_task_processor(plugin_manager)
+    init_task_processor(plugin_manager)
     logger.info("Task processor initialized")
     
     yield
