@@ -125,9 +125,7 @@ class Plugin:
                 }
             )
 
-        confidence_sum: float = sum(
-            cast(float, r["confidence"]) for r in results
-        )
+        confidence_sum: float = sum(cast(float, r["confidence"]) for r in results)
         overall_confidence = confidence_sum / len(results) if results else 0.0
 
         return {"categories": results, "overall_confidence": overall_confidence}
