@@ -22,7 +22,7 @@ class PluginInterface(Protocol):
         """Return plugin metadata."""
         ...
 
-    def analyze(self, image_bytes: bytes, options: dict = None) -> dict:
+    def analyze(self, image_bytes: bytes, options: Optional[dict] = None) -> dict:
         """Analyze an image and return results."""
         ...
 
@@ -43,11 +43,11 @@ class BasePlugin(ABC):
         pass
 
     @abstractmethod
-    def analyze(self, image_bytes: bytes, options: dict = None) -> dict:
+    def analyze(self, image_bytes: bytes, options: Optional[dict] = None) -> dict:
         """Synchronous analysis - override this."""
         pass
 
-    async def analyze_async(self, image_bytes: bytes, options: dict = None) -> dict:
+    async def analyze_async(self, image_bytes: bytes, options: Optional[dict] = None) -> dict:
         """Async wrapper for analysis."""
         loop = asyncio.get_event_loop()
         return await loop.run_in_executor(

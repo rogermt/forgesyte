@@ -66,7 +66,7 @@ class Plugin:
         }
 
     def analyze(
-        self, image_bytes: bytes, options: Dict[str, Any] = None
+        self, image_bytes: bytes, options: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
         """Detect motion in the current frame."""
         options = options or {}

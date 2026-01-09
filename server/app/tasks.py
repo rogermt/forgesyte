@@ -55,7 +55,7 @@ class JobStore:
         return self._jobs.get(job_id)
 
     async def list_jobs(
-        self, status: JobStatus = None, plugin: str = None, limit: int = 50
+        self, status: Optional[JobStatus] = None, plugin: Optional[str] = None, limit: int = 50
     ) -> list:
         """List jobs with optional filtering."""
         jobs = list(self._jobs.values())
@@ -99,8 +99,8 @@ class TaskProcessor:
         self,
         image_bytes: bytes,
         plugin_name: str,
-        options: dict = None,
-        callback: Callable = None,
+        options: Optional[dict] = None,
+        callback: Optional[Callable] = None,
     ) -> str:
         """Submit a new analysis job."""
         job_id = str(uuid.uuid4())

@@ -97,7 +97,7 @@ class Plugin:
         }
 
     def analyze(
-        self, image_bytes: bytes, options: Dict[str, Any] = None
+        self, image_bytes: bytes, options: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
         """Convert an image to a Minecraft block map."""
         options = options or {}

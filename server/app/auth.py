@@ -59,7 +59,7 @@ async def get_api_key(
     return API_KEYS.get(key_hash)
 
 
-def require_auth(permissions: list[str] = None):
+def require_auth(permissions: Optional[list[str]] = None):
     """Dependency that requires authentication with specific permissions."""
 
     async def auth_dependency(api_key: Optional[dict] = Depends(get_api_key)) -> dict:

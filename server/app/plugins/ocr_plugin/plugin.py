@@ -2,7 +2,7 @@
 
 import io
 import logging
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -51,7 +51,7 @@ class Plugin:
         }
 
     def analyze(
-        self, image_bytes: bytes, options: Dict[str, Any] = None
+        self, image_bytes: bytes, options: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
         """Extract text from an image."""
         options = options or {}

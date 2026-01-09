@@ -3,7 +3,7 @@
 import asyncio
 import logging
 from datetime import datetime
-from typing import Dict, Set
+from typing import Dict, Set, Optional
 
 from fastapi import WebSocket
 
@@ -64,7 +64,7 @@ class ConnectionManager:
                 logger.error(f"Failed to send to {client_id}: {e}")
                 await self.disconnect(client_id)
 
-    async def broadcast(self, message: dict, topic: str = None):
+    async def broadcast(self, message: dict, topic: Optional[str] = None):
         """Broadcast a message to all clients or topic subscribers."""
         targets = set()
 
@@ -107,7 +107,7 @@ class ConnectionManager:
         }
         await self.send_personal(client_id, message)
 
-    async def send_error(self, client_id: str, error: str, frame_id: str = None):
+    async def send_error(self, client_id: str, error: str, frame_id: Optional[str] = None):
         """Send an error message to a client."""
         message = {
             "type": "error",

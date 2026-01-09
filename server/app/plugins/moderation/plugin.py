@@ -52,7 +52,7 @@ class Plugin:
         }
 
     def analyze(
-        self, image_bytes: bytes, options: Dict[str, Any] = None
+        self, image_bytes: bytes, options: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
         """Analyze image for content safety."""
         options = options or {}
