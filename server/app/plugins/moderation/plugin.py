@@ -170,7 +170,7 @@ class Plugin:
         thresholds = {"low": 0.8, "medium": 0.5, "high": 0.3}
         return thresholds.get(sensitivity, 0.5)
 
-    def _get_recommendation(self, is_safe: bool, results: Dict) -> str:
+    def _get_recommendation(self, is_safe: bool, results: Dict[str, Any]) -> str:
         """Generate recommendation based on results."""
         if is_safe:
             return "Content appears safe for general viewing"
@@ -185,7 +185,7 @@ class Plugin:
 
         return "Content may require review"
 
-    def _basic_analysis(self, image_bytes: bytes, options: Dict) -> Dict[str, Any]:
+    def _basic_analysis(self, image_bytes: bytes, options: Dict[str, Any]) -> Dict[str, Any]:
         """Basic analysis when dependencies unavailable."""
         return {
             "safe": None,
@@ -195,11 +195,11 @@ class Plugin:
             "image_size_bytes": len(image_bytes),
         }
 
-    def on_load(self):
+    def on_load(self) -> None:
         logger.info("Moderation plugin loaded (placeholder mode)")
         logger.warning(
             "Using heuristic analysis - replace with real ML model for production"
         )
 
-    def on_unload(self):
+    def on_unload(self) -> None:
         logger.info("Moderation plugin unloaded")

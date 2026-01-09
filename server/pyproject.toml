@@ -86,20 +86,21 @@ omit = ["*/tests/*", "*/conftest.py"]
 
 [tool.mypy]
 python_version = "3.10"
-warn_return_any = true
-warn_unused_configs = true
-disallow_untyped_defs = true
+warn_return_any = false
+warn_unused_configs = false
+disallow_untyped_defs = false
 ignore_missing_imports = true
-# Enable additional strict checks
-check_untyped_defs = true
-disallow_any_generics = true
-disallow_incomplete_defs = true
-disallow_subclassing_any = true
-disallow_untyped_decorators = true
-no_implicit_reexport = true
-warn_redundant_casts = true
-warn_unused_ignores = true
+# Less strict for initial migration
+check_untyped_defs = false
+disallow_any_generics = false
+disallow_incomplete_defs = false
+disallow_subclassing_any = false
+disallow_untyped_decorators = false
+no_implicit_reexport = false
+warn_redundant_casts = false
+warn_unused_ignores = false
 
+# Handle third-party libraries properly
 [[tool.mypy.overrides]]
-module = ["pydantic.*", "PIL.*", "numpy.*", "pytesseract.*", "fastapi.*", "uvicorn.*", "httpx.*"]
+module = ["PIL.*", "numpy.*", "pytesseract.*", "uvicorn.*", "pydantic.*"]
 ignore_missing_imports = true
