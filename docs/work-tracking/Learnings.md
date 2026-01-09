@@ -555,24 +555,44 @@ This document captures learnings from each work unit to help future work and avo
 
 ## WU-15: Update JobList with API
 
-**Status**: Not yet started  
+**Status**: ✅ Complete  
 **Estimated**: 1 hour  
-**Completed**: TBD
+**Completed**: 2026-01-09 21:50
 
 ### What Went Well
-(To be filled after completion)
+- API integration straightforward with existing apiClient.listJobs()
+- Status-based color coding provides clear visual hierarchy
+- Hover effects with cyan accent create elegant interaction feedback
+- Job item layout now displays more information (plugin, timestamp)
+- Error and loading states properly styled as alert boxes
+- Mock-based test suite validates integration points
 
 ### Challenges & Solutions
-(To be filled after completion)
+- Issue: Status colors needed to be semantic and match job states
+- Solution: Implemented getStatusColor() and getStatusBackground() helper functions
+- Issue: Needed to show more job information in compact space
+- Solution: Used flexbox layout with justified space-between for efficient layout
+- Issue: Hover effects needed to work with CSS variables
+- Solution: Used inline style updates for dynamic hover states since CSS:hover can't access variables
 
 ### Key Insights
-(To be filled after completion)
+- Status badges benefit from both color and background for maximum visibility
+- Cyan accent color (--accent-cyan) works well for hover effects
+- Monospace font for job IDs improves visual distinction
+- Timestamp display improves job tracking UX
+- Helper functions for status-based styling make code maintainable
+- API integration happens at component mount via useEffect (standard React pattern)
 
 ### Tips for Similar Work
-(To be filled after completion)
+- Use helper functions for state-based color logic
+- Combine color + background for better status visibility
+- Flex layout with space-between efficiently displays multiple data points
+- Inline style updates for hover effects when using CSS variables
+- Always test API error scenarios in unit tests
+- Status badges should use textTransform: "uppercase" for emphasis
 
 ### Blockers Found
-(To be filled after completion)
+- None
 
 ---
 
