@@ -815,24 +815,45 @@ This document captures learnings from each work unit to help future work and avo
 
 ## WU-21: Write WebSocket tests
 
-**Status**: Not yet started  
+**Status**: ✅ Complete  
 **Estimated**: 1 hour  
-**Completed**: TBD
+**Completed**: 2026-01-09 22:35
 
 ### What Went Well
-(To be filled after completion)
+- MockWebSocket class provides realistic WebSocket behavior
+- renderHook + act + waitFor pattern works perfectly for async effects
+- Testing state transitions (connecting -> connected -> disconnected) works cleanly
+- Message handler testing straightforward with simulateMessage
+- Stats tracking tested and verified
+- All callback invocations tested (onConnect, onResult, onError)
 
 ### Challenges & Solutions
-(To be filled after completion)
+- Issue: WebSocket is not directly mockable
+- Solution: Created MockWebSocket class that simulates real behavior
+- Issue: Async state updates in hooks needed proper timing
+- Solution: Used act() wrapper and waitFor for assertions
+- Issue: Reconnection logic uses setTimeout
+- Solution: Tested state transitions without waiting for actual timeouts
 
 ### Key Insights
-(To be filled after completion)
+- Custom mock classes provide better control than jest.mock()
+- renderHook is ideal for testing React hooks in isolation
+- State-based testing avoids timing issues with async operations
+- Message payload handling should be tested for all message types
+- Stats accumulation should include both count and average calculations
+- Callback order and arguments important for integration scenarios
 
 ### Tips for Similar Work
-(To be filled after completion)
+- Create mock classes that expose simulation methods (simulateOpen, simulateMessage)
+- Use act() wrapper for state updates from event handlers
+- Test connection lifecycle (connecting -> connected -> disconnected)
+- Verify both state changes AND callback invocations
+- Include error cases in message handling tests
+- Test stats accumulation separately from event handling
+- Document expected message shapes in tests for clarity
 
 ### Blockers Found
-(To be filled after completion)
+- None
 
 ---
 

@@ -1,8 +1,8 @@
 # TypeScript Migration Progress
 
 **Last Updated**: 2026-01-09  
-**Current Context Usage**: 42%  
-**Overall Progress**: 20/22 units completed
+**Current Context Usage**: 40%  
+**Overall Progress**: 21/22 units completed
 
 ## Work Unit Status
 
@@ -27,6 +27,7 @@
 - [x] WU-18: Integrate WebSocket (40 min, completed 2026-01-09 22:12)
 - [x] WU-19: Setup testing framework (30 min, completed 2026-01-09 22:20)
 - [x] WU-20: Write API client tests (40 min, completed 2026-01-09 22:27)
+- [x] WU-21: Write WebSocket tests (35 min, completed 2026-01-09 22:35)
 
 ### In Progress
 (none)
@@ -46,11 +47,11 @@
 - [ ] WU-21: Write WebSocket tests (1 hour)
 - [ ] WU-22: Update documentation (1 hour)
 
-## Current Work Unit: WU-21
+## Current Work Unit: WU-22
 - **Status**: Ready to start
-- **Task**: Write WebSocket hook tests
+- **Task**: Update documentation
 - **Blockers**: None
-- **Next Steps**: Test useWebSocket connection, frame sending, plugin switching
+- **Next Steps**: Create README, update CONTRIBUTING.md, document test setup
 
 ## Parallel Work Possible
 Can work on these in parallel (independent):
@@ -66,17 +67,17 @@ Can work on these in parallel (independent):
 5. WU-05: Extract hooks and API client
 
 ## Notes for Next Session
-- **Context Usage**: At 47%, room for WU-19-22
-- **WU-19 Ready**: Testing framework setup
-  - Configure Vitest if needed, or use existing Jest setup
-  - Ensure test infrastructure supports React components
-  - Setup test utilities (render, screen, waitFor, userEvent)
-  - Enable API mocking with @testing-library/react
-- **Completed This Session**: WU-13 through WU-18 complete (6 units!)
-  - All component branding done (5 components)
-  - API integration working (JobList, PluginSelector)
-  - WebSocket streaming controls integrated
-  - Component tests written (TDD approach)
-- **Still Todo**: WU-19-22 (testing and documentation)
-- **Tests Written**: 8 test files created (all components covered)
-- **No blockers** - on track to complete all units this session
+- **Context Usage**: At 40%, room for WU-22 final documentation unit
+- **WU-22 Ready**: Documentation (final unit!)
+  - Create web-ui/README.md with setup and testing instructions
+  - Update CONTRIBUTING.md with test patterns and best practices
+  - Document Vitest configuration and test scripts
+  - Add examples of TDD workflow for future developers
+- **Completed This Session**: All functional units (21/22) complete!
+  - WU-13-18: All components branding and streaming integrated ✅
+  - WU-19: Testing framework setup with Vitest ✅
+  - WU-20-21: Comprehensive test suite written ✅
+  - Total: 6 components updated, API + WebSocket fully tested
+- **Final Unit**: WU-22 (documentation) will wrap up TypeScript migration
+- **Test Coverage**: 11 test files created covering all components, hooks, and API
+- **No blockers** - ready to complete migration with final documentation
