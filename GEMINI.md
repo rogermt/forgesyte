@@ -238,27 +238,25 @@ def call_gemini_api(prompt: str):
     pass
 ```
 
-## 5. Performance and Observability
+## Performance and Observability
 *   **Structured Logging:** Replace all `print` statements with **logging** using Python's built-in `logging` module to allow for better monitoring and integration with services like Sentry.
 *   **Lazy Loading & Generators:** Use **generators (`yield`)** for large datasets to stream data row-by-row, keeping memory overhead low.
 *   **Strategic Caching:** Use `functools.cache` for expensive computations and implement **TTL (Time-To-Live) caches** for data that changes over time, like API-fetched exchange rates.
 *   **Health Checks:** Include a **`/health`** endpoint in all services so infrastructure (e.g., Kubernetes) can monitor availability.
 
-## 6. Testing Standards
+## Testing Standards
 *   **Isolated Environments:** Use **in-memory databases** (like SQLite) for testing to ensure a clean setup and prevent pollution of production data.
 *   **Coverage Goals:** Aim for **80%+ test coverage**, ensuring success paths, invalid inputs, and edge cases are all verified.
 *   **Mocking:** Always mock external dependencies to ensure tests are fast and reliable.
 
-## 7. Development Workflow & Mandatory Tools
+## Development Workflow & Mandatory Tools
 Before committing any code, the following tools must be run to ensure compliance:
 1.  **Formatting:** `black . && isort .`
 2.  **Linting:** `ruff check --fix .`
 3.  **Type Checking:** `mypy .`
 4.  **Testing:** `pytest`
 
----
-*Last Updated: 2025*
-*Version: 1.0*
+
 
 ---
 

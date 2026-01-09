@@ -1,8 +1,8 @@
 # TypeScript Migration Progress
 
 **Last Updated**: 2026-01-09  
-**Current Context Usage**: 70%  
-**Overall Progress**: 16/22 units completed
+**Current Context Usage**: 51%  
+**Overall Progress**: 17/22 units completed
 
 ## Work Unit Status
 
@@ -23,6 +23,7 @@
 - [x] WU-14: Update CameraPreview styling (45 min, completed 2026-01-09 21:42)
 - [x] WU-15: Update JobList with API (1 hour, completed 2026-01-09 21:50)
 - [x] WU-16: Update PluginSelector (1 hour, completed 2026-01-09 21:58)
+- [x] WU-17: Update ResultsPanel (45 min, completed 2026-01-09 22:05)
 
 ### In Progress
 (none)
@@ -42,11 +43,11 @@
 - [ ] WU-21: Write WebSocket tests (1 hour)
 - [ ] WU-22: Update documentation (1 hour)
 
-## Current Work Unit: WU-17
+## Current Work Unit: WU-18
 - **Status**: Ready to start
-- **Task**: Update ResultsPanel component
+- **Task**: Integrate WebSocket in App.tsx main loop
 - **Blockers**: None
-- **Next Steps**: Apply branding colors and improve result display formatting
+- **Next Steps**: Enable streaming toggle and frame sending in camera view
 
 ## Parallel Work Possible
 Can work on these in parallel (independent):
@@ -62,15 +63,15 @@ Can work on these in parallel (independent):
 5. WU-05: Extract hooks and API client
 
 ## Notes for Next Session
-- **Context Usage**: At 70%, safe to continue with WU-17
-- **WU-17 Ready**: ResultsPanel component styling with brand colors
-  - Replace hardcoded hex colors with CSS variables  
-  - --bg-primary for pre code blocks
-  - --text-primary for headers, --text-secondary for status text
-  - Consider adding JSON syntax highlighting
-- **Completed This Session**: WU-13 through WU-16 complete
-  - All component branding updates done
-  - API integration for JobList and PluginSelector done
-  - CameraPreview styling improved with better error handling
-- **Still Todo**: WU-17 (ResultsPanel), WU-18 (WebSocket), WU-19-21 (Testing), WU-22 (Docs)
-- **No blockers** - migration proceeding on schedule
+- **Context Usage**: At 51%, plenty of room for WU-18 and beyond
+- **WU-18 Ready**: WebSocket integration in App.tsx
+  - Add streaming toggle button in camera view
+  - Enable frame capture when streaming active
+  - Connect sendFrame from useWebSocket hook
+  - Update status display for WebSocket state
+- **Completed This Session**: WU-13 through WU-17 complete (5 units!)
+  - All component branding done (App, CameraPreview, JobList, PluginSelector, ResultsPanel)
+  - API integration complete (JobList, PluginSelector)
+  - Status-based color coding implemented
+- **Still Todo**: WU-18 (WebSocket), WU-19-21 (Testing), WU-22 (Docs)
+- **No blockers** - moving fast on schedule

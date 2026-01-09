@@ -640,24 +640,44 @@ This document captures learnings from each work unit to help future work and avo
 
 ## WU-17: Update ResultsPanel
 
-**Status**: Not yet started  
+**Status**: ✅ Complete  
 **Estimated**: 1 hour  
-**Completed**: TBD
+**Completed**: 2026-01-09 22:05
 
 ### What Went Well
-(To be filled after completion)
+- Code block styling extracted to reusable style object
+- Monospace font preserved for JSON display with green syntax color (#a8ff60)
+- Meta information layout improved with flexbox space-between
+- Consistent application of CSS variables across all UI elements
+- Border styling added to panel for better visual separation
+- Semantic style object organization makes code more maintainable
 
 ### Challenges & Solutions
-(To be filled after completion)
+- Issue: Code blocks needed specific formatting for readability
+- Solution: Created dedicated codeBlock style with lineHeight 1.5 and monospace font
+- Issue: Meta info layout needed alignment control
+- Solution: Used flexbox with space-between for efficient spacing
+- Issue: Style object was getting complex
+- Solution: Created semantic named styles (metaInfo, label, subLabel, emptyState)
 
 ### Key Insights
-(To be filled after completion)
+- Code display benefits from monospace font + line-height for readability
+- Meta information (like processing time) deserves visual hierarchy with smaller, muted text
+- JSON output looks better with light syntax coloring (green on dark)
+- Border on panel helps separate it from background
+- Right-side padding on scrollable content prevents scrollbar overlap
+- Style objects should be organized semantically by function
 
 ### Tips for Similar Work
-(To be filled after completion)
+- Always add line-height to monospace code blocks for readability
+- Use flexbox space-between for efficient label + value layouts
+- Create semantic style names (not just container1, container2, etc.)
+- Add borders to panels for visual separation and hierarchy
+- Right padding on scrollable areas prevents scrollbar overlap issues
+- Green syntax coloring (#a8ff60) works well on dark backgrounds
 
 ### Blockers Found
-(To be filled after completion)
+- None
 
 ---
 
