@@ -726,24 +726,45 @@ This document captures learnings from each work unit to help future work and avo
 
 ## WU-19: Setup testing framework
 
-**Status**: Not yet started  
+**Status**: ✅ Complete  
 **Estimated**: 45 minutes  
-**Completed**: TBD
+**Completed**: 2026-01-09 22:20
 
 ### What Went Well
-(To be filled after completion)
+- Vitest selected as test runner (better ES module support than Jest)
+- jsdom environment configured for DOM simulation
+- Test setup file handles cleanup and mocks automatically
+- Custom render utility simplifies test component rendering
+- All test scripts added (test, test:ui, test:coverage)
+- Dependencies pinned to exact versions for consistency
+- Test files already exist from TDD work (8 files ready to run)
 
 ### Challenges & Solutions
-(To be filled after completion)
+- Issue: Vitest vs Jest decision needed
+- Solution: Chose Vitest for native ESM support in Vite projects
+- Issue: Navigator.mediaDevices API needed mocking
+- Solution: Mocked in setup.ts before tests run
+- Issue: Test utilities needed custom render function
+- Solution: Created test/utils.tsx wrapper around @testing-library/react
 
 ### Key Insights
-(To be filled after completion)
+- ESM-native test runners work better with modern tooling
+- Centralizing setup and cleanup reduces test boilerplate
+- Test utilities (custom render) improve consistency across test files
+- jsdom environment is sufficient for most React component tests
+- Having test files written first (TDD) means framework setup is straightforward
+- @testing-library best practices (render, screen, waitFor) encourage good test patterns
 
 ### Tips for Similar Work
-(To be filled after completion)
+- Choose test runner that matches your bundler (Vitest for Vite projects)
+- Mock browser APIs in setup.ts, not in individual tests
+- Create reusable test utilities early
+- Use jsdom for quick DOM testing, happy-dom as lighter alternative
+- Keep test scripts organized: test (watch), test:ui (interactive), test:coverage
+- Document test patterns in README for new contributors
 
 ### Blockers Found
-(To be filled after completion)
+- None
 
 ---
 
