@@ -137,14 +137,29 @@ export function CameraPreview({
     return (
         <div>
             <h3>Camera Preview</h3>
-            {error && <p style={{ color: "#dc3545" }}>{error}</p>}
+            {error && (
+                <p
+                    style={{
+                        color: "var(--accent-red)",
+                        padding: "8px",
+                        backgroundColor: "rgba(220, 53, 69, 0.1)",
+                        borderRadius: "4px",
+                        border: "1px solid var(--accent-red)",
+                    }}
+                >
+                    {error}
+                </p>
+            )}
             <video
                 ref={videoRef}
                 style={{
                     width: "100%",
                     height: "auto",
-                    backgroundColor: "#000",
+                    backgroundColor: "var(--bg-primary)",
                     borderRadius: "8px",
+                    border: "1px solid var(--border-light)",
+                    display: "block",
+                    marginBottom: "12px",
                 }}
             />
             <canvas
@@ -152,23 +167,50 @@ export function CameraPreview({
                 style={{ display: "none" }}
             />
             {devices.length > 1 && (
-                <select
-                    value={selectedDevice}
-                    onChange={(e) => setSelectedDevice(e.target.value)}
-                    style={{
-                        marginTop: "10px",
-                        padding: "8px",
-                        borderRadius: "4px",
-                    }}
-                >
-                    {devices.map((device) => (
-                        <option key={device.deviceId} value={device.deviceId}>
-                            {device.label || `Camera ${device.deviceId.slice(0, 5)}`}
-                        </option>
-                    ))}
-                </select>
+                <div style={{ marginBottom: "12px" }}>
+                    <label
+                        style={{
+                            display: "block",
+                            marginBottom: "4px",
+                            fontSize: "12px",
+                            fontWeight: 500,
+                            color: "var(--text-secondary)",
+                        }}
+                    >
+                        Camera Device
+                    </label>
+                    <select
+                        value={selectedDevice}
+                        onChange={(e) => setSelectedDevice(e.target.value)}
+                        style={{
+                            width: "100%",
+                            padding: "8px 12px",
+                            borderRadius: "4px",
+                            border: "1px solid var(--border-light)",
+                            backgroundColor: "var(--bg-tertiary)",
+                            color: "var(--text-secondary)",
+                            fontSize: "13px",
+                        }}
+                    >
+                        {devices.map((device) => (
+                            <option key={device.deviceId} value={device.deviceId}>
+                                {device.label ||
+                                    `Camera ${device.deviceId.slice(0, 5)}`}
+                            </option>
+                        ))}
+                    </select>
+                </div>
             )}
-            <p style={{ fontSize: "13px", color: "#888" }}>
+            <p
+                style={{
+                    fontSize: "12px",
+                    color: isStreaming
+                        ? "var(--accent-green)"
+                        : "var(--text-muted)",
+                    margin: 0,
+                    fontWeight: 500,
+                }}
+            >
                 {isStreaming ? "● Streaming" : "○ Not streaming"}
             </p>
         </div>
