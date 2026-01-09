@@ -283,24 +283,39 @@ This document captures learnings from each work unit to help future work and avo
 
 ## WU-08: Add path aliases to tsconfig
 
-**Status**: Not yet started  
+**Status**: ✅ Complete  
 **Estimated**: 20 minutes  
-**Completed**: TBD
+**Completed**: 2026-01-09 20:27
 
 ### What Went Well
-(To be filled after completion)
+- Path aliases configured cleanly in tsconfig.json
+- All major directories aliased (@/components, @/hooks, @/api)
+- Wildcard pattern @/* provides generic fallback
+- JSON syntax valid and passes validation
+- Improves import readability significantly
 
 ### Challenges & Solutions
-(To be filled after completion)
+- Issue: Need to match with vite.config.ts in next unit
+- Solution: Document that vite.config must mirror these aliases
+- Issue: Test files need to check multiple path patterns
+- Solution: Created individual tests for each alias
 
 ### Key Insights
-(To be filled after completion)
+- baseUrl must be set for paths to work
+- Path aliases are relative to baseUrl (.)
+- Wildcard @/* makes any file under src/ accessible
+- Pattern: @/components/* maps to src/components/*
+- Must also configure in vite.config for build system
 
 ### Tips for Similar Work
-(To be filled after completion)
+- Define baseUrl before paths
+- Use wildcards for flexibility
+- Keep alias names short and memorable (@/X)
+- Mirror aliases in both tsconfig and vite.config
+- Test that imports work before committing
 
 ### Blockers Found
-(To be filled after completion)
+- None (vite.config aliases needed in WU-09)
 
 ---
 

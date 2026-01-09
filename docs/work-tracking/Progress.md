@@ -1,8 +1,8 @@
 # TypeScript Migration Progress
 
 **Last Updated**: 2026-01-09  
-**Current Context Usage**: 62%  
-**Overall Progress**: 7/22 units completed
+**Current Context Usage**: 68%  
+**Overall Progress**: 8/22 units completed
 
 ## Work Unit Status
 
@@ -14,6 +14,7 @@
 - [x] WU-05: Extract hooks and API client (1 hour, completed 2026-01-09 20:14)
 - [x] WU-06: Create .gitignore and env files (20 min, completed 2026-01-09 20:18)
 - [x] WU-07: Create main.tsx and index.css (30 min, completed 2026-01-09 20:23)
+- [x] WU-08: Add path aliases to tsconfig (20 min, completed 2026-01-09 20:27)
 
 ### In Progress
 (none)
