@@ -476,24 +476,39 @@ This document captures learnings from each work unit to help future work and avo
 
 ## WU-13: Update App.tsx branding
 
-**Status**: Not yet started  
+**Status**: ✅ Complete  
 **Estimated**: 30 minutes  
-**Completed**: TBD
+**Completed**: 2026-01-09 21:35
 
 ### What Went Well
-(To be filled after completion)
+- CSS variable approach provided clean, maintainable branding implementation
+- ForgeSyte color palette from index.css integrated seamlessly
+- TDD with tests written before implementation ensured quality
+- Active button color (--accent-orange) provides clear visual feedback
+- Pre-commit hooks passed on first attempt
 
 ### Challenges & Solutions
-(To be filled after completion)
+- Issue: Inline styles in React components made color refactoring difficult
+- Solution: Replaced hardcoded hex colors with CSS variables for consistency
+- Issue: Navigation buttons needed distinct active/inactive states
+- Solution: Used --accent-orange for active and --bg-tertiary for inactive
 
 ### Key Insights
-(To be filled after completion)
+- CSS variables enable consistent branding across all components
+- Status indicator colors still use inline definitions for dynamic states (connected/disconnected)
+- Panels now have subtle borders (--border-light) for better visual hierarchy
+- Brand consistency makes UI feel more cohesive and professional
+- ForgeSyte orange (#ff6a00) as active state color is distinctive and brandable
 
 ### Tips for Similar Work
-(To be filled after completion)
+- Always extract hardcoded colors to CSS variables for maintainability
+- Use CSS variables from the global palette defined in index.css
+- Consider state-based styling (active/inactive, hover/normal)
+- Write tests before implementing color changes to ensure consistency
+- Use semantic variable names (--accent-orange vs --primary-action-color)
 
 ### Blockers Found
-(To be filled after completion)
+- None
 
 ---
 
