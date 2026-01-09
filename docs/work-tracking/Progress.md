@@ -1,8 +1,8 @@
 # TypeScript Migration Progress
 
 **Last Updated**: 2026-01-09  
-**Current Context Usage**: 45%  
-**Overall Progress**: 19/22 units completed
+**Current Context Usage**: 42%  
+**Overall Progress**: 20/22 units completed
 
 ## Work Unit Status
 
@@ -26,6 +26,7 @@
 - [x] WU-17: Update ResultsPanel (45 min, completed 2026-01-09 22:05)
 - [x] WU-18: Integrate WebSocket (40 min, completed 2026-01-09 22:12)
 - [x] WU-19: Setup testing framework (30 min, completed 2026-01-09 22:20)
+- [x] WU-20: Write API client tests (40 min, completed 2026-01-09 22:27)
 
 ### In Progress
 (none)
@@ -45,11 +46,11 @@
 - [ ] WU-21: Write WebSocket tests (1 hour)
 - [ ] WU-22: Update documentation (1 hour)
 
-## Current Work Unit: WU-20
+## Current Work Unit: WU-21
 - **Status**: Ready to start
-- **Task**: Write API client tests
+- **Task**: Write WebSocket hook tests
 - **Blockers**: None
-- **Next Steps**: Test apiClient methods (getPlugins, listJobs, analyzeImage, etc.)
+- **Next Steps**: Test useWebSocket connection, frame sending, plugin switching
 
 ## Parallel Work Possible
 Can work on these in parallel (independent):

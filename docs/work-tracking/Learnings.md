@@ -770,24 +770,46 @@ This document captures learnings from each work unit to help future work and avo
 
 ## WU-20: Write API client tests
 
-**Status**: Not yet started  
+**Status**: ✅ Complete  
 **Estimated**: 1 hour  
-**Completed**: TBD
+**Completed**: 2026-01-09 22:27
 
 ### What Went Well
-(To be filled after completion)
+- Comprehensive test coverage for all public methods
+- Fetch mocking works seamlessly with Vitest
+- Test structure mirrors API client structure for clarity
+- Error cases tested alongside success paths
+- API key handling tested in both scenarios
+- Job polling with timeout tested properly
+- 13 test suites provide solid foundation
 
 ### Challenges & Solutions
-(To be filled after completion)
+- Issue: Job response can be wrapped or unwrapped
+- Solution: Tested both response formats in getJob tests
+- Issue: Pagination needs multiple query parameters
+- Solution: Tested URL construction with stringContaining matcher
+- Issue: Form data upload needs special handling
+- Solution: Tested that analyzeImage uses correct POST method
 
 ### Key Insights
-(To be filled after completion)
+- Fetch mocking is straightforward with vi.fn()
+- Test suite organization mirrors code structure
+- Response wrapper/unwrapper patterns should be tested both ways
+- API errors should include status code for debugging
+- Polling timeout should be finite to prevent hanging tests
+- Query parameter construction should be verified in URLs
 
 ### Tips for Similar Work
-(To be filled after completion)
+- Mock fetch with vi.fn() for complete API control
+- Test both success and error paths for each method
+- Verify URL construction in fetch calls
+- Test API key presence/absence separately
+- Use stringContaining for flexible URL matching
+- Include timeout tests for polling operations
+- Test response handling (with and without wrappers)
 
 ### Blockers Found
-(To be filled after completion)
+- None
 
 ---
 
