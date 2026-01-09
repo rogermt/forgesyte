@@ -2,7 +2,7 @@
 
 import io
 import logging
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -120,7 +120,7 @@ class Plugin:
 
             # Map each pixel to nearest block
             block_map = []
-            block_counts = {}
+            block_counts: Dict[str, int] = {}
 
             for y in range(target_height):
                 row = []

@@ -83,7 +83,7 @@ class BasePlugin(ABC):
 class PluginManager:
     """Manages plugin discovery, loading, and lifecycle."""
 
-    def __init__(self, plugins_dir: str = None):
+    def __init__(self, plugins_dir: Optional[str] = None):
         if plugins_dir is None:
             # Default to example_plugins directory outside of server
             self.plugins_dir = Path(__file__).parent.parent.parent / "example_plugins"

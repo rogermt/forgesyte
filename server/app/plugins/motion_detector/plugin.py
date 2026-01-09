@@ -240,7 +240,7 @@ class Plugin:
         """Reset detector state."""
         self._previous_frame = None
         self._frame_count = 0
-        self._last_motion_time: float = 0.0
+        self._last_motion_time = 0.0
         self._motion_history = []
 
     def on_load(self) -> None:

@@ -109,7 +109,7 @@ class Plugin:
 
         arr = np.array(img.convert("RGB"))
 
-        results = []
+        results: List[Dict[str, Any]] = []
         for category in categories:
             # Placeholder scores based on image statistics
             # In production, use actual ML models
