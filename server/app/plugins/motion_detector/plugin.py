@@ -23,7 +23,7 @@ class Plugin:
     version = "1.0.0"
     description = "Detect motion between consecutive frames"
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._previous_frame: Optional[np.ndarray] = None
         self._frame_count = 0
         self._last_motion_time = 0

@@ -24,7 +24,7 @@ class Plugin:
     version = "1.0.0"
     description = "Extract text from images using OCR"
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.supported_languages = ["eng", "fra", "deu", "spa", "ita"]
 
     def metadata(self) -> Dict[str, Any]:
@@ -83,7 +83,7 @@ class Plugin:
             )
 
             # Build blocks with positions
-            blocks = []
+            blocks: List[Dict[str, Any]] = []
             n_boxes = len(data["level"])
             for i in range(n_boxes):
                 if int(data["conf"][i]) > 0:  # Filter low confidence
@@ -129,7 +129,7 @@ class Plugin:
             "image_size_bytes": len(image_bytes),
         }
 
-    def on_load(self):
+    def on_load(self) -> None:
         """Called when plugin is loaded."""
         if HAS_TESSERACT:
             try:
@@ -140,6 +140,6 @@ class Plugin:
         else:
             logger.warning("OCR plugin loaded without Tesseract support")
 
-    def on_unload(self):
+    def on_unload(self) -> None:
         """Called when plugin is unloaded."""
         logger.info("OCR plugin unloaded")

@@ -61,7 +61,7 @@ class Plugin:
     version = "1.0.0"
     description = "Map image colors to Minecraft blocks for building"
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.block_colors = MINECRAFT_BLOCKS
         self._color_tree = None
 

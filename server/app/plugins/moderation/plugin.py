@@ -23,7 +23,7 @@ class Plugin:
     version = "1.0.0"
     description = "Detect potentially unsafe or inappropriate content"
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.sensitivity = "medium"
         # In production, load a real model here
         self._model = None
