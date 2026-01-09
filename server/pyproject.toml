@@ -78,7 +78,16 @@ omit = ["*/tests/*", "*/conftest.py"]
 
 [tool.mypy]
 python_version = "3.10"
-warn_return_any = false
-warn_unused_configs = false
-disallow_untyped_defs = false
-ignore_missing_imports = true
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+ignore_missing_imports = false
+# Enable additional strict checks
+check_untyped_defs = true
+disallow_any_generics = true
+disallow_incomplete_defs = true
+disallow_subclassing_any = true
+disallow_untyped_decorators = true
+no_implicit_reexport = true
+warn_redundant_casts = true
+warn_unused_ignores = true
