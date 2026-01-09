@@ -127,7 +127,11 @@ class Plugin:
                 "confidence": 0.5 + (0.5 - abs(score - 0.5))  # Higher near extremes
             })
         
-        overall_confidence = sum(float(r["confidence"]) for r in results) / len(results) if results else 0.0
+        overall_confidence = (
+            sum(float(r["confidence"]) for r in results) / len(results)
+            if results
+            else 0.0
+        )
         
         return {
             "categories": results,
