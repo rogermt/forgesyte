@@ -1,8 +1,14 @@
 /**
  * API client for ForgeSyte Server
+ *
+ * Uses environment variables:
+ * - VITE_API_URL: Full API endpoint URL (default: /v1)
+ * - VITE_API_KEY: Optional API authentication key
  */
 
-const API_BASE = "/v1";
+const API_BASE =
+    import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE || "/v1";
+const API_KEY = import.meta.env.VITE_API_KEY;
 
 export interface Plugin {
     name: string;
@@ -34,7 +40,7 @@ export class ForgeSyteAPIClient {
     private baseUrl: string;
     private apiKey?: string;
 
-    constructor(baseUrl = API_BASE, apiKey?: string) {
+    constructor(baseUrl: string = API_BASE, apiKey: string | undefined = API_KEY) {
         this.baseUrl = baseUrl;
         this.apiKey = apiKey;
     }
@@ -103,7 +109,11 @@ export class ForgeSyteAPIClient {
     }
 
     async getJob(jobId: string): Promise<Job> {
-        return this.fetch(`/jobs/${jobId}`) as Promise<Job>;
+        const result = (await this.fetch(`/jobs/${jobId}`)) as Record<
+            string,
+            unknown
+        >;
+        return result.job ? (result.job as Job) : (result as Job);
     }
 
     async listJobs(
@@ -128,9 +138,13 @@ export class ForgeSyteAPIClient {
     async cancelJob(
         jobId: string
     ): Promise<{ status: string; job_id: string }> {
-        return this.fetch(`/jobs/${jobId}`, {
+        const result = (await this.fetch(`/jobs/${jobId}`, {
             method: "DELETE",
-        }) as Promise<{ status: string; job_id: string }>;
+        })) as Record<string, unknown>;
+        return {
+            status: (result.status as string) || "cancelled",
+            job_id: (result.job_id as string) || jobId,
+        };
     }
 
     async getHealth(): Promise<{
