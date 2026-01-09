@@ -2,7 +2,7 @@
 
 import io
 import logging
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -119,7 +119,7 @@ class Plugin:
             logger.error(f"OCR failed: {e}")
             return {"error": str(e), "text": "", "blocks": [], "confidence": 0}
 
-    def _fallback_analyze(self, image_bytes: bytes, options: Dict) -> Dict[str, Any]:
+    def _fallback_analyze(self, image_bytes: bytes, options: Dict[str, Any]) -> Dict[str, Any]:
         """Fallback when tesseract is not available."""
         return {
             "text": "",

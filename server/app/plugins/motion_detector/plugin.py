@@ -27,7 +27,7 @@ class Plugin:
         self._previous_frame: Optional[np.ndarray] = None
         self._frame_count = 0
         self._last_motion_time = 0
-        self._motion_history: List[Dict] = []
+        self._motion_history: List[Dict[str, Any]] = []
 
     def metadata(self) -> Dict[str, Any]:
         return {
@@ -198,7 +198,7 @@ class Plugin:
         self, motion_mask: np.ndarray, min_size: int = 100
     ) -> List[Dict[str, Any]]:
         """Find bounding boxes of motion regions."""
-        regions = []
+        regions: List[Dict[str, Any]] = []
 
         # Find rows and columns with motion
         rows = np.any(motion_mask, axis=1)
@@ -236,16 +236,16 @@ class Plugin:
 
         return regions
 
-    def reset(self):
+    def reset(self) -> None:
         """Reset detector state."""
         self._previous_frame = None
         self._frame_count = 0
         self._last_motion_time = 0
         self._motion_history = []
 
-    def on_load(self):
+    def on_load(self) -> None:
         logger.info("Motion detector plugin loaded")
 
-    def on_unload(self):
+    def on_unload(self) -> None:
         self.reset()
         logger.info("Motion detector plugin unloaded")
