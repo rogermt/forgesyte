@@ -86,11 +86,12 @@ function App() {
             minHeight: "100vh",
             display: "flex",
             flexDirection: "column",
+            backgroundColor: "var(--bg-primary)",
         },
         header: {
             padding: "16px 24px",
-            backgroundColor: "#16162a",
-            borderBottom: "1px solid #333",
+            backgroundColor: "var(--bg-primary)",
+            borderBottom: "1px solid var(--border-color)",
             display: "flex",
             justifyContent: "space-between",
             alignItems: "center",
@@ -98,7 +99,7 @@ function App() {
         logo: {
             fontSize: "20px",
             fontWeight: 700,
-            color: "#fff",
+            color: "var(--text-primary)",
         },
         nav: {
             display: "flex",
@@ -106,17 +107,20 @@ function App() {
         },
         navButton: {
             padding: "8px 16px",
-            border: "none",
+            border: "1px solid transparent",
             borderRadius: "4px",
             cursor: "pointer",
             fontSize: "14px",
             transition: "all 0.2s",
+            color: "var(--text-primary)",
+            fontWeight: 500,
         },
         status: {
             display: "flex",
             alignItems: "center",
             gap: "12px",
             fontSize: "13px",
+            color: "var(--text-secondary)",
         },
         indicator: {
             width: "8px",
@@ -136,9 +140,10 @@ function App() {
             gap: "16px",
         },
         panel: {
-            backgroundColor: "#1e1e2e",
+            backgroundColor: "var(--bg-secondary)",
             borderRadius: "8px",
             padding: "16px",
+            border: "1px solid var(--border-light)",
         },
         content: {
             display: "flex",
@@ -160,8 +165,13 @@ function App() {
                             style={{
                                 ...styles.navButton,
                                 backgroundColor:
-                                    viewMode === mode ? "#4CAF50" : "#2a2a3e",
-                                color: "#fff",
+                                    viewMode === mode
+                                        ? "var(--accent-orange)"
+                                        : "var(--bg-tertiary)",
+                                borderColor:
+                                    viewMode === mode
+                                        ? "var(--accent-orange)"
+                                        : "var(--border-light)",
                             }}
                             onClick={() => setViewMode(mode)}
                         >
@@ -255,9 +265,9 @@ function App() {
                             style={{
                                 padding: "12px",
                                 backgroundColor: "rgba(220, 53, 69, 0.1)",
-                                border: "1px solid #dc3545",
+                                border: "1px solid var(--accent-red)",
                                 borderRadius: "4px",
-                                color: "#dc3545",
+                                color: "var(--accent-red)",
                             }}
                         >
                             WebSocket Error: {wsError}

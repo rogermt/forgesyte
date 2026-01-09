@@ -21,7 +21,7 @@
 - [x] WU-12: Improve WebSocket hook (30 min, completed 2026-01-09 21:28)
 
 ### In Progress
-(none)
+- [ ] WU-13: Update App.tsx branding (20 min elapsed, 0 blockers)
 
 ### Blocked
 (none yet)
