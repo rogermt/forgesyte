@@ -397,24 +397,41 @@ This document captures learnings from each work unit to help future work and avo
 
 ## WU-11: Update API client endpoints
 
-**Status**: Not yet started  
+**Status**: ✅ Complete  
 **Estimated**: 1 hour  
-**Completed**: TBD
+**Completed**: 2026-01-09 21:20
 
 ### What Went Well
-(To be filled after completion)
+- API client already well-structured with proper interfaces and error handling
+- TDD tests validated existing functionality (all 14 tests passed immediately)
+- Environment variable integration straightforward with `import.meta.env`
+- Response type narrowing improved type safety for getJob and cancelJob
+- All hooks (black, ruff, mypy) passed after minor formatting fixes
 
 ### Challenges & Solutions
-(To be filled after completion)
+- Issue: API client was hard-coded with `/v1` endpoint
+- Solution: Added VITE_API_URL environment variable support with fallback
+- Issue: Some response handlers used loose casting
+- Solution: Added explicit type narrowing with optional chaining fallbacks
+- Issue: Ruff auto-fixed unused variable issue
+- Solution: Let ruff auto-fix and re-staged changes
 
 ### Key Insights
-(To be filled after completion)
+- Environment variables prefixed with VITE_ are exposed to Vite build
+- `import.meta.env.VITE_*` is the correct way to access env vars in Vite
+- Response parsing can handle both wrapped and direct responses
+- API_KEY environment variable allows optional authentication
+- Constructor defaults now use environment values, can be overridden
 
 ### Tips for Similar Work
-(To be filled after completion)
+- Always use TypeScript type guards when parsing API responses
+- Use union types for response fields that may come in different formats
+- Environment variables should be optional with sensible defaults
+- Test files that already pass all tests don't need major refactoring
+- Fallback to sensible defaults (e.g., jobId in cancelJob response)
 
 ### Blockers Found
-(To be filled after completion)
+- None
 
 ---
 
