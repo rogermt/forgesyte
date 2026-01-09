@@ -598,24 +598,43 @@ This document captures learnings from each work unit to help future work and avo
 
 ## WU-16: Update PluginSelector
 
-**Status**: Not yet started  
+**Status**: ✅ Complete  
 **Estimated**: 1 hour  
-**Completed**: TBD
+**Completed**: 2026-01-09 21:58
 
 ### What Went Well
-(To be filled after completion)
+- Plugin detail panel provides rich context about selected plugin
+- Color-coded inputs (cyan) and outputs (orange) improve scanability
+- Disabled state now visually distinct with brand colors
+- Error and loading states consistent with other components
+- Plugin metadata (inputs/outputs) displayed effectively
+- Monospace font for version numbers improves readability
 
 ### Challenges & Solutions
-(To be filled after completion)
+- Issue: Needed to display plugin metadata without cluttering
+- Solution: Created information box panel with semantic color coding
+- Issue: Plugin detail finder was called twice (inefficiency)
+- Solution: Memoized selectedPluginData lookup at component top
+- Issue: Inputs/outputs can be empty arrays
+- Solution: Added conditional rendering to only show non-empty sections
 
 ### Key Insights
-(To be filled after completion)
+- Information boxes benefit from subtle background color (semi-transparent cyan)
+- Color coding inputs (cyan) and outputs (orange) leverages ForgeSyte palette semantically
+- Version numbers deserve monospace font and muted color for visual hierarchy
+- Structured metadata display improves user understanding of plugin capabilities
+- Alert boxes should appear consistently across error states
 
 ### Tips for Similar Work
-(To be filled after completion)
+- Use semantic color coding for data categories (cyan = input, orange = output)
+- Create subtle information boxes with semi-transparent brand color backgrounds
+- Memoize selectors/finders at component top to avoid redundant calculations
+- Display version numbers in monospace with muted color
+- Show structured metadata with clear visual hierarchy
+- Always check for empty arrays before rendering lists
 
 ### Blockers Found
-(To be filled after completion)
+- None
 
 ---
 

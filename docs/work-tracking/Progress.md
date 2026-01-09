@@ -1,8 +1,8 @@
 # TypeScript Migration Progress
 
 **Last Updated**: 2026-01-09  
-**Current Context Usage**: 66%  
-**Overall Progress**: 15/22 units completed
+**Current Context Usage**: 70%  
+**Overall Progress**: 16/22 units completed
 
 ## Work Unit Status
 
@@ -22,6 +22,7 @@
 - [x] WU-13: Update App.tsx branding (20 min, completed 2026-01-09 21:35)
 - [x] WU-14: Update CameraPreview styling (45 min, completed 2026-01-09 21:42)
 - [x] WU-15: Update JobList with API (1 hour, completed 2026-01-09 21:50)
+- [x] WU-16: Update PluginSelector (1 hour, completed 2026-01-09 21:58)
 
 ### In Progress
 (none)
@@ -41,11 +42,11 @@
 - [ ] WU-21: Write WebSocket tests (1 hour)
 - [ ] WU-22: Update documentation (1 hour)
 
-## Current Work Unit: WU-16
+## Current Work Unit: WU-17
 - **Status**: Ready to start
-- **Task**: Update PluginSelector component
+- **Task**: Update ResultsPanel component
 - **Blockers**: None
-- **Next Steps**: Apply branding colors and integrate with apiClient.getPlugins()
+- **Next Steps**: Apply branding colors and improve result display formatting
 
 ## Parallel Work Possible
 Can work on these in parallel (independent):
