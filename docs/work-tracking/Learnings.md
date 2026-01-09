@@ -683,24 +683,44 @@ This document captures learnings from each work unit to help future work and avo
 
 ## WU-18: Integrate WebSocket
 
-**Status**: Not yet started  
+**Status**: ✅ Complete  
 **Estimated**: 1 hour  
-**Completed**: TBD
+**Completed**: 2026-01-09 22:12
 
 ### What Went Well
-(To be filled after completion)
+- Streaming toggle button provides clear control over frame capture
+- Button state reflects actual streaming status (green = active)
+- Disabled state prevents accidental streaming when disconnected
+- useWebSocket hook integration works seamlessly with button state
+- Hover effects provide good visual feedback
+- Integration tests validate WebSocket state handling
 
 ### Challenges & Solutions
-(To be filled after completion)
+- Issue: Button needed conditional styling based on two states (connected + streaming)
+- Solution: Used ternary operators for backgroundColor and cursor properties
+- Issue: Hover effects shouldn't apply to disabled button
+- Solution: Added isConnected check in hover handlers
+- Issue: Needed clean integration between state and useWebSocket hook
+- Solution: streamEnabled state controls CameraPreview enabled prop
 
 ### Key Insights
-(To be filled after completion)
+- Toggle buttons work better with state that reflects actual condition
+- Disabled state should have visual (opacity) and functional feedback
+- Hover effects improve UX but must respect disabled state
+- Stream header works well with flexbox space-between for layout
+- Green color (#4caf50) provides good active state indication
+- Button state (enabled/disabled) should match WebSocket connection state
 
 ### Tips for Similar Work
-(To be filled after completion)
+- Use ternary operators for state-dependent button styling
+- Check disabled state in mouse handlers to prevent hover on disabled buttons
+- Consider opacity for disabled elements
+- Use space-between flexbox for header + controls layout
+- Color the button based on active/inactive state (green = active)
+- Integration tests should verify both UI state and WebSocket state
 
 ### Blockers Found
-(To be filled after completion)
+- None
 
 ---
 

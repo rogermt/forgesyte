@@ -1,8 +1,8 @@
 # TypeScript Migration Progress
 
 **Last Updated**: 2026-01-09  
-**Current Context Usage**: 51%  
-**Overall Progress**: 17/22 units completed
+**Current Context Usage**: 47%  
+**Overall Progress**: 18/22 units completed
 
 ## Work Unit Status
 
@@ -24,6 +24,7 @@
 - [x] WU-15: Update JobList with API (1 hour, completed 2026-01-09 21:50)
 - [x] WU-16: Update PluginSelector (1 hour, completed 2026-01-09 21:58)
 - [x] WU-17: Update ResultsPanel (45 min, completed 2026-01-09 22:05)
+- [x] WU-18: Integrate WebSocket (40 min, completed 2026-01-09 22:12)
 
 ### In Progress
 (none)
@@ -43,11 +44,11 @@
 - [ ] WU-21: Write WebSocket tests (1 hour)
 - [ ] WU-22: Update documentation (1 hour)
 
-## Current Work Unit: WU-18
+## Current Work Unit: WU-19
 - **Status**: Ready to start
-- **Task**: Integrate WebSocket in App.tsx main loop
+- **Task**: Setup testing framework (Jest/Vitest configuration)
 - **Blockers**: None
-- **Next Steps**: Enable streaming toggle and frame sending in camera view
+- **Next Steps**: Configure test runner, setup test utilities, enable test execution
 
 ## Parallel Work Possible
 Can work on these in parallel (independent):
@@ -63,15 +64,17 @@ Can work on these in parallel (independent):
 5. WU-05: Extract hooks and API client
 
 ## Notes for Next Session
-- **Context Usage**: At 51%, plenty of room for WU-18 and beyond
-- **WU-18 Ready**: WebSocket integration in App.tsx
-  - Add streaming toggle button in camera view
-  - Enable frame capture when streaming active
-  - Connect sendFrame from useWebSocket hook
-  - Update status display for WebSocket state
-- **Completed This Session**: WU-13 through WU-17 complete (5 units!)
-  - All component branding done (App, CameraPreview, JobList, PluginSelector, ResultsPanel)
-  - API integration complete (JobList, PluginSelector)
-  - Status-based color coding implemented
-- **Still Todo**: WU-18 (WebSocket), WU-19-21 (Testing), WU-22 (Docs)
-- **No blockers** - moving fast on schedule
+- **Context Usage**: At 47%, room for WU-19-22
+- **WU-19 Ready**: Testing framework setup
+  - Configure Vitest if needed, or use existing Jest setup
+  - Ensure test infrastructure supports React components
+  - Setup test utilities (render, screen, waitFor, userEvent)
+  - Enable API mocking with @testing-library/react
+- **Completed This Session**: WU-13 through WU-18 complete (6 units!)
+  - All component branding done (5 components)
+  - API integration working (JobList, PluginSelector)
+  - WebSocket streaming controls integrated
+  - Component tests written (TDD approach)
+- **Still Todo**: WU-19-22 (testing and documentation)
+- **Tests Written**: 8 test files created (all components covered)
+- **No blockers** - on track to complete all units this session
