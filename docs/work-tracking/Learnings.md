@@ -437,24 +437,40 @@ This document captures learnings from each work unit to help future work and avo
 
 ## WU-12: Update useWebSocket hook
 
-**Status**: Not yet started  
+**Status**: ✅ Complete  
 **Estimated**: 45 minutes  
-**Completed**: TBD
+**Completed**: 2026-01-09 21:28
 
 ### What Went Well
-(To be filled after completion)
+- TDD tests revealed hook was already well-implemented (all 14 tests passed)
+- Environment variable integration straightforward with `import.meta.env`
+- Enhanced logging with [WebSocket] prefix for easier debugging
+- Added better error code and reconnection attempt tracking
+- Differentiated between clean and unexpected closes
+- All hooks and linting passed on second attempt
 
 ### Challenges & Solutions
-(To be filled after completion)
+- Issue: WebSocket hook was already highly functional, limited improvements needed
+- Solution: Focused on env var support and logging enhancements for consistency
+- Issue: Black reformatted test file on first commit
+- Solution: Re-staged changes and committed cleanly
 
 ### Key Insights
-(To be filled after completion)
+- WebSocket reconnection needs detailed logging for debugging connection issues
+- Close codes (from CloseEvent.code) help identify connection problems
+- Environment variables should provide sensible defaults (localhost:8000)
+- Logging prefix consistency ([WebSocket]) helps trace issues in mixed logs
+- Statistics tracking (processing time, frame count) crucial for performance monitoring
 
 ### Tips for Similar Work
-(To be filled after completion)
+- Use consistent logging prefixes across hooks for easier debugging
+- Include reconnection attempt counts in warnings for visibility
+- Differentiate between clean and unexpected closes in error handling
+- Environment variables with good defaults reduce configuration burden
+- Test files that already pass shouldn't need major refactoring
 
 ### Blockers Found
-(To be filled after completion)
+- None
 
 ---
 

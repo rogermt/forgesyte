@@ -1,8 +1,8 @@
 # TypeScript Migration Progress
 
 **Last Updated**: 2026-01-09  
-**Current Context Usage**: 49%  
-**Overall Progress**: 11/22 units completed
+**Current Context Usage**: 54%  
+**Overall Progress**: 12/22 units completed
 
 ## Work Unit Status
 
@@ -18,6 +18,7 @@
 - [x] WU-09: Add path aliases to vite.config (20 min, completed 2026-01-09 21:00)
 - [x] WU-10: Add ForgeSyte brand colors to CSS (30 min, completed 2026-01-09 21:10)
 - [x] WU-11: Improve API client endpoints (20 min, completed 2026-01-09 21:20)
+- [x] WU-12: Improve WebSocket hook (30 min, completed 2026-01-09 21:28)
 
 ### In Progress
 (none)
@@ -26,7 +27,6 @@
 (none yet)
 
 ### Todo
-- [ ] WU-12: Update useWebSocket hook (45 min)
 - [ ] WU-13: Update App.tsx branding (30 min)
 - [ ] WU-14: Update CameraPreview styling (45 min)
 - [ ] WU-15: Update JobList with API (1 hour)
@@ -38,11 +38,11 @@
 - [ ] WU-21: Write WebSocket tests (1 hour)
 - [ ] WU-22: Update documentation (1 hour)
 
-## Current Work Unit: WU-12
+## Current Work Unit: WU-13
 - **Status**: Ready to start
-- **Task**: Update useWebSocket hook
+- **Task**: Update App.tsx branding
 - **Blockers**: None
-- **Next Steps**: Add env var support and improve reconnection logic
+- **Next Steps**: Add ForgeSyte branding elements to main component
 
 ## Parallel Work Possible
 Can work on these in parallel (independent):
