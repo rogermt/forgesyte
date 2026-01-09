@@ -1,8 +1,16 @@
 /**
  * WebSocket hook for real-time frame streaming
+ *
+ * Uses environment variables:
+ * - VITE_WS_URL: WebSocket endpoint URL (default: ws://localhost:8000/v1/stream)
+ * - VITE_API_KEY: Optional API authentication key
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
+
+const WS_URL =
+    import.meta.env.VITE_WS_URL || "ws://localhost:8000/v1/stream";
+const WS_API_KEY = import.meta.env.VITE_API_KEY;
 
 export interface WebSocketMessage {
     type: "connected" | "result" | "error" | "plugin_switched" | "pong";
@@ -54,9 +62,9 @@ export function useWebSocket(
     options: UseWebSocketOptions
 ): UseWebSocketReturn {
     const {
-        url,
+        url = WS_URL,
         plugin = "motion_detector",
-        apiKey,
+        apiKey = WS_API_KEY,
         onResult,
         onError,
         onConnect,
@@ -102,7 +110,9 @@ export function useWebSocket(
             setIsConnected(true);
             setIsConnecting(false);
             reconnectAttemptsRef.current = 0;
-            console.log("WebSocket connected");
+            console.log(
+                `[WebSocket] Connected to ${url} (plugin: ${plugin})`
+            );
         };
 
         ws.onmessage = (event) => {
@@ -153,8 +163,9 @@ export function useWebSocket(
 
                     case "plugin_switched":
                         console.log(
-                            "Plugin switched to:",
-                            message.payload.plugin
+                            `[WebSocket] Plugin switched to: ${
+                                message.payload.plugin as string
+                            }`
                         );
                         break;
 
@@ -167,8 +178,9 @@ export function useWebSocket(
         };
 
         ws.onerror = (event) => {
-            console.error("WebSocket error:", event);
-            setError("WebSocket connection error");
+            const errorMsg = "WebSocket connection error";
+            console.error(`[WebSocket] Error:`, event);
+            setError(errorMsg);
         };
 
         ws.onclose = (event) => {
@@ -176,13 +188,16 @@ export function useWebSocket(
             setIsConnecting(false);
             wsRef.current = null;
 
+            const wasClean = (event as CloseEvent).wasClean;
+            const code = (event as CloseEvent).code;
+
             if (
-                !(event as CloseEvent).wasClean &&
+                !wasClean &&
                 reconnectAttemptsRef.current < maxReconnectAttempts
             ) {
                 reconnectAttemptsRef.current++;
-                console.log(
-                    `WebSocket closed, reconnecting (attempt ${reconnectAttemptsRef.current})...`
+                console.warn(
+                    `[WebSocket] Closed unexpectedly (code: ${code}). Reconnecting (attempt ${reconnectAttemptsRef.current}/${maxReconnectAttempts})...`
                 );
                 reconnectTimeoutRef.current = setTimeout(
                     connect,
@@ -191,7 +206,13 @@ export function useWebSocket(
             } else if (
                 reconnectAttemptsRef.current >= maxReconnectAttempts
             ) {
-                setError("Max reconnection attempts reached");
+                const maxAttemptMsg = "Max reconnection attempts reached";
+                console.error(`[WebSocket] ${maxAttemptMsg}`);
+                setError(maxAttemptMsg);
+            } else if (wasClean) {
+                console.log(
+                    `[WebSocket] Closed cleanly (code: ${code})`
+                );
             }
         };
     }, [url, plugin, apiKey, onResult, onError, onConnect, reconnectInterval, maxReconnectAttempts]);
