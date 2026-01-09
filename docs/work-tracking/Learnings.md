@@ -321,24 +321,39 @@ This document captures learnings from each work unit to help future work and avo
 
 ## WU-09: Update vite config with aliases
 
-**Status**: Not yet started  
+**Status**: ✅ Complete  
 **Estimated**: 20 minutes  
-**Completed**: TBD
+**Completed**: 2026-01-09 21:00
 
 ### What Went Well
-(To be filled after completion)
+- TDD approach with test_vite_aliases.py defined all requirements upfront
+- Tests clearly specified which aliases needed to be in vite.config.ts
+- `path.resolve(__dirname, ...)` pattern works correctly in Vite config
+- All path aliases successfully added without breaking build config
+- Pre-commit hooks passed on second attempt (black formatting)
 
 ### Challenges & Solutions
-(To be filled after completion)
+- Issue: Tests initially expected wildcard patterns `@/*` in vite config
+- Solution: Recognized that tsconfig uses wildcards but Vite uses base aliases; updated tests to match Vite's actual behavior
+- Issue: Tests needed proper Path handling to work from any directory
+- Solution: Used `Path(__file__).parent` to make tests location-independent
 
 ### Key Insights
-(To be filled after completion)
+- TypeScript (tsconfig) path patterns are `@/*` (wildcard format) but Vite alias config uses base paths like `@`
+- Vite's `resolve.alias` maps string patterns to filesystem paths using `path.resolve()`
+- Must import `path` module from Node.js in vite.config.ts for `__dirname` support
+- Vite resolves all four base aliases: `@`, `@/components`, `@/hooks`, `@/api`
+- Module resolution now works in both TypeScript checking and at Vite bundling time
 
 ### Tips for Similar Work
-(To be filled after completion)
+- Always clarify tsconfig path patterns vs Vite's alias format (they're different)
+- Test file paths with `Path(__file__).parent` for portability
+- Verify base aliases in Vite config by checking all required directories resolve correctly
+- Include direct path alias tests (not just wildcard pattern matching)
+- Pre-commit black hook may reformat test files; stage everything if needed
 
 ### Blockers Found
-(To be filled after completion)
+- None
 
 ---
 
