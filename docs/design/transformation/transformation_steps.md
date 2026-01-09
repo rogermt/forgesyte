@@ -239,22 +239,59 @@ echo "API docs: http://localhost:8000/docs"
 echo "MCP manifest: http://localhost:8000/v1/mcp-manifest"
 ```
 
-## Phase 5: Verification
+## Phase 5: TypeScript Frontend Integration
 
-### Step 11: Run the Server
+### Step 11: Extract TypeScript Files
+```bash
+# Extract TypeScript files from code2.md
+# Create web-ui directory structure
+mkdir -p web-ui/src/components
+mkdir -p web-ui/src/hooks
+mkdir -p web-ui/src/api
+
+# Extract and create TypeScript files:
+# - App.tsx
+# - src/components/CameraPreview.tsx
+# - src/components/JobList.tsx
+# - src/components/PluginSelector.tsx
+# - src/components/ResultsPanel.tsx
+# - src/hooks/useWebSocket.ts
+# - src/api/client.ts
+# - package.json
+# - tsconfig.json
+# - vite.config.ts
+```
+
+### Step 12: Update TypeScript Branding
+- Replace all "Vision MCP Server" references with "ForgeSyte"
+- Update color palette to match ForgeSyte branding (#111318, #2B3038, #FF6A00, #00E5FF)
+- Update component styling to match sci-fi industrial theme
+- Update API endpoint references to match new backend structure
+
+## Phase 6: Verification
+
+### Step 13: Run the Server
 ```bash
 cd server
 uv sync
 uv run fastapi dev app/main.py
 ```
 
-### Step 12: Verify Endpoints
+### Step 14: Verify Endpoints
 - Check that `/` returns ForgeSyte branding
 - Check that `/v1/mcp-manifest` returns correct server name
 - Test plugin loading from example_plugins directory
 - Verify all API endpoints work correctly
+- Test WebSocket connections for real-time streaming
 
-### Step 13: Run Tests
+### Step 15: Run Frontend
+```bash
+cd web-ui
+npm install
+npm run dev
+```
+
+### Step 16: Run Tests
 ```bash
 cd server
 uv run pytest
@@ -269,6 +306,8 @@ After completing these steps:
 4. Environment variables will use FORGESYTE_ prefix
 5. The project structure will match the design specification
 6. All functionality will remain intact but with improved tooling
+7. TypeScript frontend will be integrated with proper branding
+8. UI will reflect the sci-fi industrial theme with correct color palette
 
 ## Potential Issues to Watch For
 
@@ -277,3 +316,6 @@ After completing these steps:
 3. Docker configuration will need to be updated if used
 4. Web UI may need path adjustments for API endpoints
 5. Any hardcoded paths in the code will need updating
+6. TypeScript files may need dependency updates for new API structure
+7. WebSocket connections may need updates for new backend changes
+8. UI components may need styling updates to match new branding

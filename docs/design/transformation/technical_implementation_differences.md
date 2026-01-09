@@ -281,3 +281,54 @@ addopts = [
 [tool.coverage.run]
 source = ["src/"]
 omit = ["*/tests/*", "*/conftest.py"]
+```
+
+## 11. TypeScript Frontend Implementation
+
+### Current Vision-MCP TypeScript Files:
+```
+web-ui/
+├── src/
+│   ├── App.tsx
+│   ├── index.tsx
+│   ├── components/
+│   │   ├── CameraPreview.tsx
+│   │   ├── JobList.tsx
+│   │   ├── PluginSelector.tsx
+│   │   └── ResultsPanel.tsx
+│   ├── hooks/
+│   │   └── useWebSocket.ts
+│   └── api/
+│       └── client.ts
+├── package.json
+├── tsconfig.json
+└── vite.config.ts
+```
+
+### Required ForgeSyte TypeScript Updates:
+- Update branding from "Vision MCP Server" to "ForgeSyte"
+- Apply ForgeSyte color palette (Charcoal #111318, Steel #2B3038, Forge Orange #FF6A00, Electric Cyan #00E5FF)
+- Update API endpoints to match new server structure
+- Update component styling to match sci-fi industrial theme
+- Update WebSocket connection handling to match new backend
+
+### TypeScript Component Updates:
+- CameraPreview.tsx: Update styling and branding
+- JobList.tsx: Update to match new API response structure
+- PluginSelector.tsx: Update plugin loading to match new plugin system
+- ResultsPanel.tsx: Update to handle new result formats
+- useWebSocket.ts: Update to match new WebSocket API
+- api/client.ts: Update endpoints and authentication
+
+## 12. UI Theming and Styling
+
+### Current Vision-MCP Styling:
+- Generic styling without specific branding
+- Standard UI components
+
+### Required ForgeSyte Styling:
+- Sci-fi industrial theme with dark backgrounds
+- ForgeSyte color palette implementation
+- Custom component styling matching branding
+- Responsive design for various screen sizes
+- Accessibility improvements

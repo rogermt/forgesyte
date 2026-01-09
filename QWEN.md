@@ -135,7 +135,13 @@ repos:
 - FastAPI framework provided robust foundation for API development
 - MCP integration was well-designed for extensibility
 
-### 2. Migration Considerations
+### 2. Technical Debt Acknowledged
+- Mypy was configured to be less strict to allow the transformation to proceed
+- Several type inconsistencies remain in the codebase (40+ mypy errors when running strict mode)
+- These issues stem from the original Vision-MCP codebase and would require separate refactoring effort
+- Future work should include proper type annotation fixes to achieve full mypy compliance
+
+### 3. Migration Considerations
 - Environment variable renaming requires comprehensive search
 - Branding changes need consistency across all user-facing elements
 - Directory structure changes impact multiple configuration points

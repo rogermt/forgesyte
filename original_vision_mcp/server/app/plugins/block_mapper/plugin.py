@@ -1,15 +1,15 @@
 """Block Mapper Plugin - Map real-world objects to Minecraft blocks."""
 
+from typing import Dict, Any, List, Tuple
 import io
 import logging
-from typing import Any, Dict, List, Optional, Tuple
+import colorsys
 
 logger = logging.getLogger(__name__)
 
 try:
-    import numpy as np
     from PIL import Image
-
+    import numpy as np
     HAS_DEPS = True
 except ImportError:
     HAS_DEPS = False
@@ -56,15 +56,15 @@ MINECRAFT_BLOCKS = {
 
 class Plugin:
     """Block mapper plugin for converting images to Minecraft block palettes."""
-
+    
     name = "block_mapper"
     version = "1.0.0"
     description = "Map image colors to Minecraft blocks for building"
-
-    def __init__(self) -> None:
+    
+    def __init__(self):
         self.block_colors = MINECRAFT_BLOCKS
         self._color_tree = None
-
+    
     def metadata(self) -> Dict[str, Any]:
         return {
             "name": self.name,
@@ -79,49 +79,51 @@ class Plugin:
                     "default": 64,
                     "min": 8,
                     "max": 256,
-                    "description": "Output width in blocks",
+                    "description": "Output width in blocks"
                 },
                 "height": {
                     "type": "integer",
                     "default": 64,
                     "min": 8,
                     "max": 256,
-                    "description": "Output height in blocks",
+                    "description": "Output height in blocks"
                 },
                 "dithering": {
                     "type": "boolean",
                     "default": False,
-                    "description": "Apply Floyd-Steinberg dithering",
-                },
-            },
+                    "description": "Apply Floyd-Steinberg dithering"
+                }
+            }
         }
-
-    def analyze(
-        self, image_bytes: bytes, options: Optional[Dict[str, Any]] = None
-    ) -> Dict[str, Any]:
+    
+    def analyze(self, image_bytes: bytes, options: Dict[str, Any] = None) -> Dict[str, Any]:
         """Convert an image to a Minecraft block map."""
         options = options or {}
-
+        
         if not HAS_DEPS:
-            return {"error": "PIL and numpy required", "block_map": [], "palette": {}}
-
+            return {
+                "error": "PIL and numpy required",
+                "block_map": [],
+                "palette": {}
+            }
+        
         try:
             # Load and resize image
             img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
-
+            
             target_width = options.get("width", 64)
             target_height = options.get("height", 64)
-            # dithering = options.get("dithering", False)  # Currently unused
-
+            dithering = options.get("dithering", False)
+            
             img = img.resize((target_width, target_height), Image.Resampling.LANCZOS)
-
+            
             # Convert to numpy array
             pixels = np.array(img)
-
+            
             # Map each pixel to nearest block
             block_map = []
-            block_counts: Dict[str, int] = {}
-
+            block_counts = {}
+            
             for y in range(target_height):
                 row = []
                 for x in range(target_width):
@@ -130,68 +132,78 @@ class Plugin:
                     row.append(block)
                     block_counts[block] = block_counts.get(block, 0) + 1
                 block_map.append(row)
-
+            
             # Build palette info
             palette = {
                 block: {
                     "count": count,
-                    "percentage": round(
-                        count / (target_width * target_height) * 100, 1
-                    ),
-                    "rgb": list(self.block_colors[block]),
+                    "percentage": round(count / (target_width * target_height) * 100, 1),
+                    "rgb": list(self.block_colors[block])
                 }
                 for block, count in sorted(
-                    block_counts.items(), key=lambda x: x[1], reverse=True
+                    block_counts.items(),
+                    key=lambda x: x[1],
+                    reverse=True
                 )
             }
-
+            
             # Generate simple schematic format (for export)
             schematic = self._generate_schematic(block_map, target_width, target_height)
-
+            
             return {
                 "block_map": block_map,
                 "palette": palette,
-                "dimensions": {"width": target_width, "height": target_height},
+                "dimensions": {
+                    "width": target_width,
+                    "height": target_height
+                },
                 "total_blocks": target_width * target_height,
                 "unique_blocks": len(block_counts),
                 "schematic": schematic,
                 "original_size": {
                     "width": Image.open(io.BytesIO(image_bytes)).width,
-                    "height": Image.open(io.BytesIO(image_bytes)).height,
-                },
+                    "height": Image.open(io.BytesIO(image_bytes)).height
+                }
             }
-
+            
         except Exception as e:
             logger.error(f"Block mapping failed: {e}")
-            return {"error": str(e), "block_map": [], "palette": {}}
-
+            return {
+                "error": str(e),
+                "block_map": [],
+                "palette": {}
+            }
+    
     def _find_nearest_block(self, rgb: Tuple[int, int, int]) -> str:
         """Find the nearest Minecraft block color."""
-        min_distance = float("inf")
+        min_distance = float('inf')
         nearest_block = "stone"
-
+        
         for block_name, block_rgb in self.block_colors.items():
             # Use weighted Euclidean distance (human perception)
             r_mean = (rgb[0] + block_rgb[0]) / 2
             dr = rgb[0] - block_rgb[0]
             dg = rgb[1] - block_rgb[1]
             db = rgb[2] - block_rgb[2]
-
+            
             # Weighted distance formula
             distance = (
-                (2 + r_mean / 256) * dr**2
-                + 4 * dg**2
-                + (2 + (255 - r_mean) / 256) * db**2
+                (2 + r_mean/256) * dr**2 +
+                4 * dg**2 +
+                (2 + (255-r_mean)/256) * db**2
             )
-
+            
             if distance < min_distance:
                 min_distance = distance
                 nearest_block = block_name
-
+        
         return nearest_block
-
+    
     def _generate_schematic(
-        self, block_map: List[List[str]], width: int, height: int
+        self,
+        block_map: List[List[str]],
+        width: int,
+        height: int
     ) -> Dict[str, Any]:
         """Generate a simple schematic representation."""
         # This is a simplified format - real schematics would use NBT
@@ -206,14 +218,12 @@ class Plugin:
             ],
             "metadata": {
                 "generator": "vision-mcp-block-mapper",
-                "version": self.version,
-            },
+                "version": self.version
+            }
         }
-
+    
     def on_load(self):
-        logger.info(
-            f"Block mapper plugin loaded with {len(self.block_colors)} block types"
-        )
-
+        logger.info(f"Block mapper plugin loaded with {len(self.block_colors)} block types")
+    
     def on_unload(self):
         logger.info("Block mapper plugin unloaded")
