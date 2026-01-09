@@ -113,8 +113,7 @@ class Plugin:
             
             target_width = options.get("width", 64)
             target_height = options.get("height", 64)
-            dithering = options.get("dithering", False)
-            
+
             img = img.resize((target_width, target_height), Image.Resampling.LANCZOS)
             
             # Convert to numpy array

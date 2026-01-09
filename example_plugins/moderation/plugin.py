@@ -50,7 +50,7 @@ class Plugin:
             }
         }
     
-    def analyze(self, image_bytes: bytes, options: Dict[str, Any] = None) -> Dict[str, Any]:
+    def analyze(self, image_bytes: bytes, options: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """Analyze image for content safety."""
         options = options or {}
         
@@ -127,7 +127,7 @@ class Plugin:
                 "confidence": 0.5 + (0.5 - abs(score - 0.5))  # Higher near extremes
             })
         
-        overall_confidence = sum(r["confidence"] for r in results) / len(results)
+        overall_confidence = sum(float(r["confidence"]) for r in results) / len(results) if results else 0.0
         
         return {
             "categories": results,

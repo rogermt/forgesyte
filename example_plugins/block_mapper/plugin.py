@@ -96,7 +96,7 @@ class Plugin:
             }
         }
     
-    def analyze(self, image_bytes: bytes, options: Dict[str, Any] = None) -> Dict[str, Any]:
+    def analyze(self, image_bytes: bytes, options: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """Convert an image to a Minecraft block map."""
         options = options or {}
         
@@ -120,8 +120,8 @@ class Plugin:
             pixels = np.array(img)
             
             # Map each pixel to nearest block
-            block_map = []
-            block_counts = {}
+            block_map: List[List[str]] = []
+            block_counts: Dict[str, int] = {}
             
             for y in range(target_height):
                 row = []

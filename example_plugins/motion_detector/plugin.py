@@ -64,7 +64,7 @@ class Plugin:
             }
         }
     
-    def analyze(self, image_bytes: bytes, options: Dict[str, Any] = None) -> Dict[str, Any]:
+    def analyze(self, image_bytes: bytes, options: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """Detect motion in the current frame."""
         options = options or {}
         
@@ -193,7 +193,7 @@ class Plugin:
         min_size: int = 100
     ) -> List[Dict[str, Any]]:
         """Find bounding boxes of motion regions."""
-        regions = []
+        regions: List[Dict[str, Any]] = []
         
         # Find rows and columns with motion
         rows = np.any(motion_mask, axis=1)

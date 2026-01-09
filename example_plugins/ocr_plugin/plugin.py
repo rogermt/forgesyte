@@ -49,7 +49,7 @@ class Plugin:
             }
         }
     
-    def analyze(self, image_bytes: bytes, options: Dict[str, Any] = None) -> Dict[str, Any]:
+    def analyze(self, image_bytes: bytes, options: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """Extract text from an image."""
         options = options or {}
         
