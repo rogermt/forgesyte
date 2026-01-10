@@ -8,7 +8,13 @@ import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, UploadFile
 
 from .auth import get_api_key, require_auth
-from .mcp_adapter import MCPAdapter, build_gemini_extension_manifest
+from .mcp_adapter import (
+    MCP_PROTOCOL_VERSION,
+    MCP_SERVER_NAME,
+    MCP_SERVER_VERSION,
+    MCPAdapter,
+    build_gemini_extension_manifest,
+)
 from .models import JobResponse, JobStatus, PluginMetadata
 from .tasks import job_store, task_processor
 
@@ -165,9 +171,28 @@ async def reload_all_plugins(
 # MCP Discovery Endpoints
 
 
-@router.get("/.well-known/mcp-manifest")
+@router.get("/mcp-manifest")
 async def mcp_manifest(request: Request):
     """MCP manifest for Gemini-CLI discovery."""
+    pm = request.app.state.plugins
+    base_url = str(request.base_url).rstrip("/")
+    adapter = MCPAdapter(pm, base_url)
+    return adapter.get_manifest()
+
+
+@router.get("/mcp-version")
+async def mcp_version():
+    """MCP protocol version and server information."""
+    return {
+        "server_name": MCP_SERVER_NAME,
+        "server_version": MCP_SERVER_VERSION,
+        "mcp_version": MCP_PROTOCOL_VERSION,
+    }
+
+
+@router.get("/.well-known/mcp-manifest")
+async def well_known_mcp_manifest(request: Request):
+    """MCP manifest at well-known location for discovery."""
     pm = request.app.state.plugins
     base_url = str(request.base_url).rstrip("/")
     adapter = MCPAdapter(pm, base_url)
