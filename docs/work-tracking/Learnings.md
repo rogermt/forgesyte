@@ -1416,6 +1416,96 @@ Coverage: 100% for mcp_adapter.py core functionality
 
 ---
 
+## WU-05: Gemini-CLI Integration Testing
+
+**Completed**: 2026-01-10 13:15  
+**Duration**: 1.5 hours  
+**Status**: ✅ Complete
+
+### What Went Well
+- Comprehensive integration test suite created (27 tests covering 7 workflow categories)
+- Tests follow realistic Gemini-CLI client patterns (init → discover → invoke)
+- All tests passing with correct assertions (290 total tests across codebase)
+- Fixture-based test isolation with transport reset prevents cross-test pollution
+- Pre-commit hooks (black, ruff, mypy) pass on first attempt
+- Test structure emphasizes behavior verification over implementation details
+
+### Challenges & Solutions
+- **Issue**: Initial tests failed due to incorrect assertions about tool response format
+  - **Solution**: Analyzed mcp_adapter.py and models.py to understand actual MCPTool structure (id vs name, invoke_endpoint vs inputSchema)
+- **Issue**: Transport global variable was being reused across different test fixtures
+  - **Solution**: Added reset_transport fixture to clear _transport cache before each test
+- **Issue**: Tests with different MockPluginManager instances interfering with each other
+  - **Solution**: Transport reset ensures fresh MCPProtocolHandlers with correct plugin manager per test
+
+### Key Insights
+- MockPluginManager fixture isolation critical: tests must reset global transport state
+- Tool format uses id (e.g., "vision.ocr") not name, and invoke_endpoint not inputSchema
+- Integration tests should simulate real Gemini-CLI workflows: 3-step sequence (init → list → call)
+- Server info name is "forgesyte" (lowercase), not "ForgeSyte"
+- JSON-RPC error codes matter: -32602 (INVALID_PARAMS) vs -32603 (METHOD_NOT_FOUND)
+- Health check (ping) should respond instantly; tools/call returns structured content array
+
+### Architecture Decisions
+- **Test organization by workflow**: 8 test classes grouping related client behaviors
+  - Initialization, Tool Discovery, Tool Invocation, Health/Keepalive, Sequential Requests, Error Handling, Content Types, Large Payloads, Edge Cases, Resource Discovery
+- **Fixture hierarchy**: reset_transport dependency in mock_plugin_manager ensures cleanup
+- **Mock plugin manager**: Provides consistent, testable set (ocr, motion_detector) for most tests
+- **Realistic workflows**: Tests follow the 3-step Gemini-CLI interaction pattern
+- **Error case coverage**: Invalid versions, missing fields, unknown methods, invalid params all tested
+
+### Tips for Similar Work
+- Use fixture dependencies for test isolation and cleanup (reset_transport in mock_plugin_manager)
+- Understand the actual API response format before writing tests (check adapters and models)
+- Group related tests in classes by workflow (not just by component)
+- Test edge cases: null params, empty params, zero id, string id, large payloads
+- Validate error codes match spec (JSON-RPC 2.0 standard error codes)
+- Use descriptive test names that explain the behavior being tested
+- Include both success paths (tools exist, methods work) and error paths (tools missing, invalid inputs)
+- Reset global state between tests to prevent cross-test pollution
+
+### Test Coverage Summary
+- **27 integration tests** covering:
+  - Initialization workflow (3 tests)
+  - Tool discovery (4 tests)
+  - Tool invocation (3 tests)
+  - Health and keepalive (2 tests)
+  - Sequential request handling (2 tests)
+  - Error handling (4 tests)
+  - Content types (2 tests)
+  - Large payloads (1 test)
+  - Edge cases (4 tests)
+  - Resource discovery (2 tests)
+
+### Files Created/Modified
+- `server/tests/test_mcp_gemini_integration.py` (new, 810 lines, 27 tests)
+  - MockPlugin class for test data
+  - MockPluginManager for plugin discovery simulation
+  - TestGeminiCLIInitializationWorkflow (3 tests)
+  - TestGeminiCLIToolDiscoveryWorkflow (4 tests)
+  - TestGeminiCLIToolInvocationWorkflow (3 tests)
+  - TestGeminiCLIHealthAndKeepalive (2 tests)
+  - TestGeminiCLIMultipleSequentialRequests (2 tests)
+  - TestGeminiCLIErrorHandling (4 tests)
+  - TestGeminiCLIContentTypes (2 tests)
+  - TestGeminiCLILargePayloads (1 test)
+  - TestGeminiCLIEdgeCases (4 tests)
+  - TestGeminiCLIResourceDiscovery (2 tests)
+
+### Test Results
+- ✅ 27/27 new integration tests passing
+- ✅ 290/290 total tests passing (no regressions)
+- ✅ All pre-commit hooks passing (black, ruff, mypy)
+- ✅ No code quality issues
+
+### Blockers Found
+- None
+
+### Next Steps
+- WU-06: Optimization and Backwards Compatibility (batching, caching, v1.0 support)
+
+---
+
 ## WU-05: Gemini Extension Manifest & Documentation
 
 **Status**: ✅ Complete  
