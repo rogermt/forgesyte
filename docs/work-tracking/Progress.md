@@ -104,3 +104,48 @@ Can work on these in parallel (independent):
 - E2E testing setup
 - CI/CD pipeline integration
 - Component storybook documentation
+
+---
+
+# MCP Adapter Implementation Progress
+
+**Last Updated**: 2026-01-10  
+**Current Context Usage**: N/A (not started)  
+**Overall Progress**: 0/5 units planned  
+**Branch**: `feature/mcp-adapter` (planned)
+
+## Work Unit Status
+
+### Planned
+- [ ] WU-01: Core MCP Adapter Implementation (3 days, estimated)
+- [ ] WU-02: API Endpoints for MCP (2 days, estimated)
+- [ ] WU-03: Plugin Metadata Schema & Validation (2 days, estimated)
+- [ ] WU-04: MCP Testing Framework (2-3 days, estimated)
+- [ ] WU-05: Gemini Extension Manifest & Documentation (2 days, estimated)
+
+### In Progress
+(none)
+
+### Completed
+(none)
+
+### Blocked
+(none)
+
+## MCP Implementation Status: 📋 PLANNED
+
+**Total Estimated Effort**: 11-12 days (~3 weeks)
+
+**Reference**: 
+- Implementation plan: `docs/implementation/MCP_IMPLEMENTATION_PLAN.md`
+- Design specification: `docs/design/MCP.md`
+- Issue: #11 (Implement MCP adapter and Gemini integration)
+
+## Current Work Unit
+(Not yet started - awaiting kick-off)
+
+## Notes for Next Session
+- Review implementation plan with team
+- Assign WU-01 (Core Adapter Implementation)
+- Set up feature branch `feature/mcp-adapter`
+- Begin implementation phase

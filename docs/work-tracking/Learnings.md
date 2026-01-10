@@ -1062,3 +1062,153 @@ This document captures learnings from each work unit to help future work and avo
 - Test API methods both with/without wrappers
 - Handle optional response fields gracefully
 - Implement polling with finite timeouts to prevent hanging tests
+
+---
+
+# MCP Adapter Implementation Learnings
+
+This section tracks learnings from the MCP adapter implementation (Issue #11).
+
+**Project**: ForgeSyte MCP Integration  
+**Start Date**: Planned  
+**Status**: In Planning
+
+## WU-01: Core MCP Adapter Implementation
+
+**Status**: 📋 Planned  
+**Estimated Duration**: 3 days  
+**Actual Duration**: TBD  
+**Completed**: TBD  
+
+### What Went Well
+(To be filled in after completion)
+
+### Challenges & Solutions
+(To be filled in after completion)
+
+### Key Insights
+(To be filled in after completion)
+
+### Tips for Similar Work
+(To be filled in after completion)
+
+### Blockers Found
+(To be filled in after completion)
+
+---
+
+## WU-02: API Endpoints for MCP
+
+**Status**: 📋 Planned  
+**Estimated Duration**: 2 days  
+**Actual Duration**: TBD  
+**Completed**: TBD  
+
+### What Went Well
+(To be filled in after completion)
+
+### Challenges & Solutions
+(To be filled in after completion)
+
+### Key Insights
+(To be filled in after completion)
+
+### Tips for Similar Work
+(To be filled in after completion)
+
+### Blockers Found
+(To be filled in after completion)
+
+---
+
+## WU-03: Plugin Metadata Schema & Validation
+
+**Status**: 📋 Planned  
+**Estimated Duration**: 2 days  
+**Actual Duration**: TBD  
+**Completed**: TBD  
+
+### What Went Well
+(To be filled in after completion)
+
+### Challenges & Solutions
+(To be filled in after completion)
+
+### Key Insights
+(To be filled in after completion)
+
+### Tips for Similar Work
+(To be filled in after completion)
+
+### Blockers Found
+(To be filled in after completion)
+
+---
+
+## WU-04: MCP Testing Framework
+
+**Status**: 📋 Planned  
+**Estimated Duration**: 2-3 days  
+**Actual Duration**: TBD  
+**Completed**: TBD  
+
+### What Went Well
+(To be filled in after completion)
+
+### Challenges & Solutions
+(To be filled in after completion)
+
+### Key Insights
+(To be filled in after completion)
+
+### Tips for Similar Work
+(To be filled in after completion)
+
+### Blockers Found
+(To be filled in after completion)
+
+---
+
+## WU-05: Gemini Extension Manifest & Documentation
+
+**Status**: 📋 Planned  
+**Estimated Duration**: 2 days  
+**Actual Duration**: TBD  
+**Completed**: TBD  
+
+### What Went Well
+(To be filled in after completion)
+
+### Challenges & Solutions
+(To be filled in after completion)
+
+### Key Insights
+(To be filled in after completion)
+
+### Tips for Similar Work
+(To be filled in after completion)
+
+### Blockers Found
+(To be filled in after completion)
+
+---
+
+## MCP Implementation Summary
+
+(To be completed after all WUs are done)
+
+### Overall Status
+- [ ] All 5 work units completed
+- [ ] All tests passing
+- [ ] MCP manifest valid and discoverable
+- [ ] Gemini-CLI integration verified
+- [ ] Documentation complete
+
+### Total Metrics
+- **Estimated Total**: 11-12 days
+- **Actual Total**: TBD hours
+- **Context Efficiency**: TBD
+- **Test Coverage**: TBD%
+
+### Key Takeaways
+(To be filled in after completion)
