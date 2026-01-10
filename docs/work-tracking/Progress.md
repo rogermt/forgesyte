@@ -118,12 +118,12 @@ Can work on these in parallel (independent):
 
 ### Completed
 - [x] WU-01: Core MCP Adapter Implementation (2.5 hours, completed 2026-01-10 16:45)
+- [x] WU-02: API Endpoints for MCP (1.5 hours, completed 2026-01-10 17:30)
 
 ### In Progress
 (none)
 
 ### Planned
-- [ ] WU-02: API Endpoints for MCP (2 days, estimated)
 - [ ] WU-03: Plugin Metadata Schema & Validation (2 days, estimated)
 - [ ] WU-04: MCP Testing Framework (2-3 days, estimated)
 - [ ] WU-05: Gemini Extension Manifest & Documentation (2 days, estimated)
@@ -131,15 +131,16 @@ Can work on these in parallel (independent):
 ### Blocked
 (none)
 
-## MCP Implementation Status: ✅ WU-01 COMPLETE
+## MCP Implementation Status: ✅ WU-02 COMPLETE
 
-**WU-01 Results**:
-- ✅ Added MCPServerInfo Pydantic model for server metadata
-- ✅ Added MCPToolSchema for tool descriptor validation
-- ✅ Refactored MCPAdapter with clean method separation
-- ✅ Implemented _plugin_metadata_to_mcp_tool converter
-- ✅ Added 23 comprehensive unit tests
-- ✅ All tests passing, code passes pre-commit hooks (black, ruff, mypy)
+**WU-02 Results**:
+- ✅ Added GET /v1/mcp-manifest endpoint that returns full MCP manifest
+- ✅ Added GET /v1/mcp-version endpoint that returns version information
+- ✅ Integrated MCPAdapter to build manifest from loaded plugins
+- ✅ Added 13 comprehensive integration tests
+- ✅ All 49 tests passing (including existing tests)
+- ✅ Code passes pre-commit hooks (black, ruff, mypy)
+- ✅ Maintained backward compatibility with /.well-known/mcp-manifest endpoint
 
 **Reference**: 
 - Implementation plan: `docs/implementation/MCP_IMPLEMENTATION_PLAN.md`
@@ -147,10 +148,10 @@ Can work on these in parallel (independent):
 - Issue: #11 (Implement MCP adapter and Gemini integration)
 
 ## Current Work Unit
-Ready for WU-02: API Endpoints for MCP
+Ready for WU-03: Plugin Metadata Schema & Validation
 
 ## Notes for Next Session
-- WU-01 commit: adf11ba
-- MCPAdapter is fully functional with clean architecture
-- Next: Add /v1/mcp-manifest and /v1/mcp-version endpoints
-- Tests serve as living documentation for expected behavior
+- WU-02 commit: 9bd1232
+- Both API endpoints fully functional and tested
+- Integration tests provide excellent coverage for edge cases (empty plugins, multiple plugins)
+- Next: Enhanced plugin metadata schema with validation rules

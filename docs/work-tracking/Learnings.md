@@ -1097,25 +1097,65 @@ This section tracks learnings from the MCP adapter implementation (Issue #11).
 
 ## WU-02: API Endpoints for MCP
 
-**Status**: 📋 Planned  
+**Status**: ✅ Complete  
 **Estimated Duration**: 2 days  
-**Actual Duration**: TBD  
-**Completed**: TBD  
+**Actual Duration**: 1.5 hours  
+**Completed**: 2026-01-10 17:30  
 
 ### What Went Well
-(To be filled in after completion)
+- TDD approach: wrote all 13 tests before implementation
+- FastAPI test client (TestClient) integration straightforward
+- Endpoint implementation required minimal code (2 endpoints)
+- Pre-commit hooks passed on first commit (black, ruff, mypy)
+- Existing MCP adapter from WU-01 integrated cleanly
+- All 49 tests passing (13 new + 36 existing)
 
 ### Challenges & Solutions
-(To be filled in after completion)
+- Issue: Tests were getting real plugins loaded during test execution
+- Solution: Created minimal mock PluginManager class with just list() method
+- Issue: Had to understand FastAPI request context for base_url handling
+- Solution: Used Request parameter and request.app.state.plugins pattern from existing code
 
 ### Key Insights
-(To be filled in after completion)
+- FastAPI TestClient automatically handles lifespan events (startup/shutdown)
+- app.state is the right place for shared application state (plugin manager)
+- Mock plugin managers need only the methods being called (minimal mocking)
+- Integration tests can set app.state directly to inject dependencies
+- Version endpoints are stateless and don't need request context
+
+### Architecture Decisions
+- `/v1/mcp-manifest` at v1 prefix alongside other API endpoints
+- `/v1/mcp-version` separate from manifest for version negotiation support
+- Kept `/.well-known/mcp-manifest` for backward compatibility and discovery
+- mcp_version endpoint returns all three version fields (server_name, server_version, mcp_version)
 
 ### Tips for Similar Work
-(To be filled in after completion)
+- Use FastAPI TestClient for integration testing - it handles the full request/response cycle
+- Mock external dependencies at the app.state level for integration tests
+- Write one test per behavior (not all assertions in one test)
+- Test both success paths and edge cases (empty plugins)
+- Integration tests catch issues unit tests miss (routing, middleware, etc.)
+- Keep endpoints simple and delegate complex logic to service classes
+
+### Test Coverage
+- 13 integration tests covering:
+  - Manifest endpoint returns valid JSON
+  - Manifest contains all required fields (tools, server, version)
+  - Tools have correct structure (id, title, description, inputs, outputs, invoke_endpoint)
+  - Version endpoint returns protocol version, server version, and server name
+  - Both endpoints work with empty plugins
+  - Invoke endpoints include base URL and plugin parameters
+  
+Coverage: 100% for new endpoints
 
 ### Blockers Found
-(To be filled in after completion)
+- None
+
+### Next Steps for WU-03
+- Enhanced plugin metadata schema with validation rules
+- Plugin capabilities definition (inputs, outputs with types)
+- Metadata version tracking
+- Permission/capability assertions
 
 ---
 
