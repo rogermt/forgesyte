@@ -1,11 +1,14 @@
 """MCP (Model Context Protocol) adapter for Gemini-CLI integration."""
 
+import logging
 from typing import Any, Dict, List
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError
 
-from .models import MCPManifest, MCPTool
+from .models import MCPManifest, MCPTool, PluginMetadata
 from .plugin_loader import PluginManager
+
+logger = logging.getLogger(__name__)
 
 # MCP Version constant
 MCP_PROTOCOL_VERSION = "1.0.0"
@@ -73,6 +76,9 @@ class MCPAdapter:
     def _build_tools(self) -> List[MCPTool]:
         """Build tool list from registered plugins.
 
+        Validates each plugin's metadata against the PluginMetadata schema.
+        Invalid plugins are logged and skipped.
+
         Returns:
             List of MCPTool objects converted from plugin metadata.
         """
@@ -80,8 +86,20 @@ class MCPAdapter:
 
         # Convert plugin metadata to MCP tools
         for name, meta in self.plugin_manager.list().items():
-            tool = self._plugin_metadata_to_mcp_tool(name, meta)
-            tools.append(tool)
+            # Validate metadata against schema
+            try:
+                validated_meta = PluginMetadata(**meta)
+                tool = self._plugin_metadata_to_mcp_tool(
+                    name, validated_meta.model_dump()
+                )
+                tools.append(tool)
+            except ValidationError as e:
+                logger.error(
+                    f"Invalid plugin metadata for '{name}': "
+                    f"{e.error_count()} error(s) - {e}"
+                )
+                # Continue processing other plugins instead of failing entirely
+                continue
 
         return tools
 

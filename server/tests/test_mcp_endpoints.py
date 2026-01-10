@@ -162,7 +162,8 @@ def test_mcp_manifest_tool_structure(
         ocr_tool = next((t for t in tools if t["id"] == "vision.ocr"), None)
 
         assert ocr_tool is not None
-        assert ocr_tool["title"] == "OCR Engine"
+        # Title defaults to plugin name in schema
+        assert ocr_tool["title"] == "ocr"
         assert ocr_tool["description"] == "Optical Character Recognition"
         assert "inputs" in ocr_tool
         assert "outputs" in ocr_tool

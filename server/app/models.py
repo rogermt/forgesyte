@@ -4,7 +4,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class JobStatus(str, Enum):
@@ -37,13 +37,73 @@ class JobResponse(BaseModel):
 
 
 class PluginMetadata(BaseModel):
-    name: str
-    description: str
-    version: str = "1.0.0"
-    inputs: List[str] = ["image"]
-    outputs: List[str] = ["json"]
-    permissions: List[str] = []
-    config_schema: Optional[Dict[str, Any]] = None
+    """Plugin metadata schema with strict validation.
+
+    Attributes:
+        name: Plugin identifier (required, non-empty string).
+              Use lowercase with underscores or hyphens.
+              Examples: "ocr_plugin", "motion-detector"
+        description: Human-readable plugin description (required, non-empty)
+        version: Semantic version string (default: "1.0.0")
+                 Supports: "1.0.0", "2.1", "1.0.0-alpha", "1.0.0+build.123"
+        inputs: List of input types the plugin accepts (default: ["image"])
+                Examples: ["image"], ["image", "config"], []
+        outputs: List of output types the plugin produces (default: ["json"])
+                 Examples: ["json"], ["text", "confidence"], ["regions"]
+        permissions: List of permissions required (default: [])
+                     Format: "resource:action"
+                     Examples: "read:files", "write:results", "gpu:access"
+        config_schema: Optional JSON Schema defining configuration options.
+                       Structure: dict with parameter names as keys containing
+                       type, default, description, etc.
+    """
+
+    name: str = Field(
+        ...,
+        min_length=1,
+        description="Plugin identifier (non-empty, required)",
+    )
+    description: str = Field(
+        ...,
+        min_length=1,
+        description="Human-readable plugin description (non-empty, required)",
+    )
+    version: str = Field(
+        default="1.0.0",
+        description="Semantic version string (default: 1.0.0)",
+    )
+    inputs: List[str] = Field(
+        default_factory=lambda: ["image"],
+        description="Input types accepted by plugin",
+    )
+    outputs: List[str] = Field(
+        default_factory=lambda: ["json"],
+        description="Output types produced by plugin",
+    )
+    permissions: List[str] = Field(
+        default_factory=list,
+        description="Required permissions (format: resource:action)",
+    )
+    config_schema: Optional[Dict[str, Any]] = Field(
+        default=None,
+        description="JSON Schema for plugin configuration options",
+    )
+
+    @field_validator("name", mode="before")
+    @classmethod
+    def validate_name(cls, v: Any) -> str:
+        """Validate plugin name is non-empty string."""
+        if isinstance(v, str) and v.strip():
+            return v
+        raise ValueError("name must be a non-empty string")
+
+    @field_validator("description", mode="before")
+    @classmethod
+    def validate_description(cls, v: Any) -> str:
+        """Validate description is non-empty string."""
+        if isinstance(v, str) and v.strip():
+            return v
+        raise ValueError("description must be a non-empty string")
 
 
 class MCPTool(BaseModel):
