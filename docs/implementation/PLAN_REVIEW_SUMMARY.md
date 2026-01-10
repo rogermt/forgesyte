@@ -1,9 +1,10 @@
 # MCP JSON-RPC 2.0 Transport - Plan Review Summary
 
 ## Branch & Files
-- **Branch**: `feature/mcp-jsonrpc-transport` (pushed to origin)
+- **Branch**: `feature/issue-13-mcp-jsonrpc-transport`
+- **GitHub Issue**: #13 - https://github.com/rogermt/forgesyte/issues/13
 - **Plan Document**: `docs/implementation/MCP_JSONRPC_TRANSPORT_PLAN.md`
-- **Issue Draft**: `ISSUE_12_DRAFT.md`
+- **Issue Draft**: `docs/implementation/ISSUE_MCP_JSON__DRAFT.md`
 
 ---
 

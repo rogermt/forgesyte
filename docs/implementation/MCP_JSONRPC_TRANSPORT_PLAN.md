@@ -1,10 +1,11 @@
-# MCP JSON-RPC 2.0 Transport Implementation Plan (Issue #12)
+# MCP JSON-RPC 2.0 Transport Implementation Plan (Issue #13)
 
 **Status**: Planning  
 **Start Date**: TBD  
 **Target Completion**: TBD  
 **Total Effort**: ~2-3 weeks (6 work units × 2-3 days each)  
-**Dependency**: Issue #11 (MCP Adapter - COMPLETE)
+**Dependency**: Issue #11 (MCP Adapter - COMPLETE)  
+**GitHub Issue**: https://github.com/rogermt/forgesyte/issues/13
 
 ---
 
@@ -430,7 +431,7 @@ Both can coexist; clients choose which to use.
 ## Related Issues
 
 - **#11**: MCP Adapter and Gemini integration (COMPLETE)
-- **#12**: MCP JSON-RPC 2.0 Transport (this issue)
+- **#13**: MCP JSON-RPC 2.0 Transport (this issue)
 
 ---
 
