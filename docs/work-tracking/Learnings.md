@@ -1683,3 +1683,62 @@ Coverage: 100% for mcp_adapter.py core functionality
 
 ### Blockers Found
 - None
+
+---
+
+## MCP Protocol Methods - Part 2 (WU-03)
+
+**Completed**: 2026-01-10 11:45  
+**Duration**: 1 hour  
+**Status**: ✅ Complete
+
+### What Went Well
+- TDD approach with tests first clearly defined required handler signatures
+- Handler implementation straightforward using existing transport layer
+- Job store integration seamless via existing task_processor infrastructure
+- Three new method handlers (tools/call, resources/list, resources/read) implemented
+- All 139 MCP tests passing (up from 136)
+- Test files comprehensive: tools/call (6 tests), resources (7 tests), capabilities (3 tests)
+- Pre-commit hooks passed on second attempt (black auto-format)
+
+### Challenges & Solutions
+- **Issue**: Import ordering violations with new imports added to mcp_handlers.py
+  - **Solution**: Reorganized imports alphabetically (mcp_jsonrpc before mcp_transport)
+- **Issue**: Unused import (task_processor) caught by ruff
+  - **Solution**: Removed unused import, kept only job_store needed for resources/list
+- **Issue**: Line length violation in description field (93 > 88 chars)
+  - **Solution**: Extracted plugin_name to intermediate variable before f-string
+
+### Key Insights
+- Job resources naturally map to URI scheme: `forgesyte://job/{job_id}`
+- Resources can serve as bridge between MCP protocol and internal job system
+- Empty resources list acceptable (not all systems have resources to expose)
+- Tools/call error handling mirrors initialize/tools/list (MCPTransportError pattern)
+- Pagination prepared in resources/list but optional (cursor parameter accepted, not used)
+- JSON serialization with `default=str` handles datetime objects in jobs
+
+### Architecture Decisions
+- **tools/call handler** raises INVALID_PARAMS for missing tool (not INTERNAL_ERROR)
+- **resources/list** builds job list from job_store (extensible for other resource types)
+- **resources/read** parses URI scheme to dispatch to appropriate handler
+- **Job resources** use uuid prefix for URI uniqueness and human readability (first 8 chars)
+- **MIME type application/json** standard for resource contents
+
+### Tips for Similar Work
+- Define handler contracts in test files before implementation (TDD advantage)
+- Use intermediate variables to avoid line-length violations in f-strings
+- Extend error handling consistently (all handlers use MCPTransportError)
+- Resource URIs with scheme (forgesyte://type/id) enable flexible parsing
+- Integration tests validate complete workflows (initialize → resources/list → resources/read)
+- Test edge cases: missing params, nonexistent resources, empty lists
+- Keep handler signatures async for future async operations (database, APIs)
+
+### Test Coverage
+- **tools/call**: 6 tests covering success, missing params, nonexistent tool, response structure
+- **resources/list**: 3 tests covering basic list, resource structure, pagination
+- **resources/read**: 4 tests covering missing URI, nonexistent resource, structure, job resources
+- **Integration**: 3 tests covering capability verification and method registration
+- **Total new tests**: 13 tests, all passing
+
+### Blockers Found
+- None
