@@ -1,0 +1,32 @@
+{
+  "name": "ForgeSyte",
+  "description": "Modular AI-vision MCP server exposing pluggable vision tools.",
+  "version": "0.1.0",
+  "mcp": {
+    "manifestUrl": "http://localhost:8000/v1/mcp-manifest",
+    "transport": "http"
+  },
+  "categories": [
+    "vision",
+    "analysis",
+    "developer-tools"
+  ],
+  "author": {
+    "name": "ForgeSyte",
+    "url": "https://github.com/rogermt/forgesyte"
+  },
+  "homepage": "https://github.com/rogermt/forgesyte",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/rogermt/forgesyte.git"
+  },
+  "license": "MIT",
+  "requirements": {
+    "python": ">=3.9"
+  },
+  "documentation": {
+    "guide": "docs/guides/MCP_CONFIGURATION.md",
+    "api": "docs/guides/MCP_API_REFERENCE.md",
+    "plugins": "docs/guides/PLUGIN_IMPLEMENTATION.md"
+  }
+}

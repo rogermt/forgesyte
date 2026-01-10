@@ -121,59 +121,56 @@ Can work on these in parallel (independent):
 - [x] WU-02: API Endpoints for MCP (1.5 hours, completed 2026-01-10 17:30)
 - [x] WU-03: Plugin Metadata Schema & Validation (1 hour, completed 2026-01-10 18:15)
 - [x] WU-04: MCP Testing Framework (1.5 hours, completed 2026-01-10 20:00)
+- [x] WU-05: Gemini Extension Manifest & Documentation (1.5 hours, completed 2026-01-10 21:15)
 
 ### In Progress
 (none)
 
-### Planned
-- [ ] WU-05: Gemini Extension Manifest & Documentation (2 days, estimated)
-
 ### Blocked
 (none)
 
-## MCP Implementation Status: ✅ WU-04 COMPLETE
+## MCP Implementation Status: ✅ ALL UNITS COMPLETE
 
-**WU-04 Results**:
-- ✅ Created comprehensive MCP protocol validation test suite (`server/tests/test_mcp.py`)
-- ✅ Added 39 new protocol compliance and edge case tests
-- ✅ Implemented tool invocation tests
-- ✅ Added Gemini extension manifest tests (13 tests)
-- ✅ Created manual testing script (`server/scripts/test_mcp.py`)
-- ✅ All 86 MCP tests passing
-- ✅ 100% code coverage for `mcp_adapter.py`
-- ✅ Code passes pre-commit hooks (black, ruff, mypy)
+**WU-05 Results** (Final Unit):
+- ✅ Created `gemini_extension_manifest.json` with Gemini-CLI configuration
+- ✅ Created comprehensive MCP Configuration Guide (`docs/guides/MCP_CONFIGURATION.md`)
+- ✅ Created complete API Reference (`docs/guides/MCP_API_REFERENCE.md`)
+- ✅ Created Plugin Implementation Guide (`docs/guides/PLUGIN_IMPLEMENTATION.md`)
+- ✅ Implemented `negotiate_mcp_version()` version negotiation function
+- ✅ Created version negotiation test suite (7 tests)
+- ✅ All 93 MCP tests passing (39 + 34 + 13 + 7)
+- ✅ Code passes pre-commit hooks (black, ruff)
 
-**Key Deliverables**:
-- `server/tests/test_mcp.py`: 39 comprehensive protocol validation tests
-  - TestMCPProtocolValidation: 12 tests
-  - TestMCPAdapterToolInvocation: 6 tests
-  - TestGeminiExtensionManifest: 14 tests
-  - TestMCPAdapterEdgeCases: 7 tests
-- `server/scripts/test_mcp.py`: Interactive manual testing script with 6 test suites
-- `mcp_adapter.py`: 100% code coverage (53/53 statements)
+**Complete Deliverables**:
+- `gemini_extension_manifest.json`: Static manifest for Gemini-CLI integration
+- `docs/guides/MCP_CONFIGURATION.md`: Setup guide with Gemini-CLI configuration
+- `docs/guides/MCP_API_REFERENCE.md`: Complete API endpoint documentation with examples
+- `docs/guides/PLUGIN_IMPLEMENTATION.md`: Plugin development guide with templates
+- `server/app/mcp_adapter.py`: Updated with `negotiate_mcp_version()` function
+- `server/tests/test_mcp_version_negotiation.py`: Version negotiation tests (7 tests)
 
 **Test Results**:
-- 86 total MCP tests passing
-- 100% coverage of mcp_adapter.py (all lines, including invoke_tool and build_gemini_extension_manifest)
-- Manual testing script validates:
-  - Manifest generation with multiple plugins
-  - Empty plugin list handling
-  - Tool invocation flow
-  - Base URL handling (HTTP/HTTPS, trailing slashes)
-  - Gemini extension manifest generation
-  - Protocol compliance
+- ✅ 93 total MCP tests passing (from 86):
+  - test_mcp.py: 39 tests
+  - test_mcp_adapter.py: 34 tests
+  - test_mcp_endpoints.py: 13 tests
+  - test_mcp_version_negotiation.py: 7 tests (new)
+- ✅ 100% code coverage maintained for mcp_adapter.py
+- ✅ All JSON validation passing (manifest structure)
+- ✅ Version negotiation logic tested for compatible/incompatible versions
 
 **Reference**: 
 - Implementation plan: `docs/implementation/MCP_IMPLEMENTATION_PLAN.md`
 - Design specification: `docs/design/MCP.md`
 - Issue: #11 (Implement MCP adapter and Gemini integration)
 
-## Current Work Unit
-Ready for WU-05: Gemini Extension Manifest & Documentation
+## MCP Implementation Complete: ✅ 5/5 UNITS DONE
 
-## Notes for Next Session
-- WU-04 tests: test_mcp.py (39 tests) + existing test_mcp_adapter.py (34 tests) + test_mcp_endpoints.py (13 tests)
-- Manual script passes all 6 test suites (36 individual checks)
-- 100% coverage achieved on mcp_adapter.py
-- All protocol compliance tests passing
-- Ready to proceed with WU-05: Documentation and Gemini manifest
+All five MCP work units are now complete:
+1. ✅ WU-01: Core MCP Adapter Implementation
+2. ✅ WU-02: API Endpoints for MCP
+3. ✅ WU-03: Plugin Metadata Schema & Validation
+4. ✅ WU-04: MCP Testing Framework
+5. ✅ WU-05: Gemini Extension Manifest & Documentation
+
+**Ready for**: PR review, merge to main, and production deployment

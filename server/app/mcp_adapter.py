@@ -189,3 +189,60 @@ def build_gemini_extension_manifest(
         "requirements": {"python": ">=3.9"},
         "install": {"type": "pip", "package": "vision-mcp-server"},
     }
+
+
+def negotiate_mcp_version(
+    client_version: str | None = None,
+) -> dict:
+    """
+    Negotiate MCP protocol version compatibility.
+
+    This function supports future version negotiation with MCP clients.
+    It checks if the client's requested version is compatible with the
+    server's supported version.
+
+    Args:
+        client_version: MCP version requested by client (e.g., "1.0.0")
+                       If None, returns server's version info.
+
+    Returns:
+        Dictionary containing:
+            - server_version: Server's MCP protocol version
+            - compatible: Whether client_version is compatible (if provided)
+            - supported_versions: List of supported MCP versions
+            - message: Compatibility message for client
+    """
+    supported_versions = [MCP_PROTOCOL_VERSION]
+
+    if client_version is None:
+        return {
+            "server_version": MCP_PROTOCOL_VERSION,
+            "supported_versions": supported_versions,
+            "compatible": True,
+            "message": f"Server supports MCP {MCP_PROTOCOL_VERSION}",
+        }
+
+    # Check if client version is supported
+    is_compatible = (
+        client_version in supported_versions or client_version == MCP_PROTOCOL_VERSION
+    )
+
+    if is_compatible:
+        return {
+            "server_version": MCP_PROTOCOL_VERSION,
+            "client_version": client_version,
+            "compatible": True,
+            "message": f"Client MCP version {client_version} is compatible",
+        }
+    else:
+        supported_str = ", ".join(supported_versions)
+        return {
+            "server_version": MCP_PROTOCOL_VERSION,
+            "client_version": client_version,
+            "compatible": False,
+            "supported_versions": supported_versions,
+            "message": (
+                f"Client MCP version {client_version} is not compatible. "
+                f"Server supports: {supported_str}"
+            ),
+        }
