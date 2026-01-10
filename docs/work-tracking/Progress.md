@@ -38,16 +38,7 @@
 (none yet)
 
 ### Todo
-- [ ] WU-13: Update App.tsx branding (30 min)
-- [ ] WU-14: Update CameraPreview styling (45 min)
-- [ ] WU-15: Update JobList with API (1 hour)
-- [ ] WU-16: Update PluginSelector (1 hour)
-- [ ] WU-17: Update ResultsPanel (1 hour)
-- [ ] WU-18: Integrate WebSocket (1 hour)
-- [ ] WU-19: Setup testing framework (45 min)
-- [ ] WU-20: Write API client tests (1 hour)
-- [ ] WU-21: Write WebSocket tests (1 hour)
-- [ ] WU-22: Update documentation (1 hour)
+(none)
 
 ## Migration Status: ✅ COMPLETE & MERGED
 
