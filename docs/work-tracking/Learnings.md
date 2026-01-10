@@ -1161,25 +1161,67 @@ Coverage: 100% for new endpoints
 
 ## WU-03: Plugin Metadata Schema & Validation
 
-**Status**: 📋 Planned  
+**Status**: ✅ Complete  
 **Estimated Duration**: 2 days  
-**Actual Duration**: TBD  
-**Completed**: TBD  
+**Actual Duration**: 1 hour  
+**Completed**: 2026-01-10 18:15  
 
 ### What Went Well
-(To be filled in after completion)
+- TDD approach: Writing 53 tests before implementation ensured complete coverage
+- Pydantic field_validator approach is clean and maintainable
+- Integration with MCPAdapter validation was straightforward
+- All existing tests continued to pass (backward compatible)
+- Comprehensive documentation created (PLUGIN_METADATA_SCHEMA.md)
+- Pre-commit hooks (black, ruff, mypy) all passed immediately
 
 ### Challenges & Solutions
-(To be filled in after completion)
+- Issue: Tests initially expected a "title" field that wasn't in schema
+- Solution: Updated tests to reflect PluginMetadata schema reality (use name)
+- Issue: Some tests provided incomplete metadata (missing description)
+- Solution: Made description required (non-empty) and updated tests accordingly
+- Issue: Initial docstring exceeded line length limits
+- Solution: Reformatted docstrings to meet 88-character line limit
 
 ### Key Insights
-(To be filled in after completion)
+- Field validators with mode="before" allow custom validation before type coercion
+- Pydantic defaults with default_factory prevent mutable default issues
+- ValidationError.error_count() provides useful logging information
+- Gracefully skipping invalid plugins (with logging) is better than failing entirely
+- Comprehensive documentation prevents implementation confusion
+- Real-world examples in docs (OCR, motion detection, moderation) are invaluable
 
 ### Tips for Similar Work
-(To be filled in after completion)
+- Write tests before implementation (TDD is powerful)
+- Use Pydantic's built-in validators rather than custom logic when possible
+- Test both success and failure paths thoroughly
+- Include real-world examples in documentation
+- Ensure backward compatibility by handling missing optional fields
+- Log validation errors with plugin names for debugging
+- Keep validation error messages clear and actionable
+- Document why fields are required/optional in docstrings
+
+### Test Coverage
+- 53 tests covering:
+  - Basic model functionality (defaults, required fields)
+  - Name validation (non-empty, special characters)
+  - Version validation (semantic versions, prerelease, build metadata)
+  - Inputs/outputs validation (types, empty lists, multiple values)
+  - Permissions validation (format, standard types)
+  - Config schema validation (dict structure, empty dict, complex schemas)
+  - Serialization (model_dump, exclude_none, exclude_defaults)
+  - Edge cases (large inputs, long descriptions, special characters)
+  - Real-world examples (OCR, motion detection, moderation plugins)
+  
+Coverage: 100% for PluginMetadata model and validators
 
 ### Blockers Found
-(To be filled in after completion)
+- None
+
+### Integration Notes
+- MCPAdapter now validates each plugin metadata before including in manifest
+- Invalid plugins are logged with error details and skipped gracefully
+- System continues operating even with partially invalid plugins
+- All 113 tests passing (53 new metadata + 60 existing tests)
 
 ---
 
