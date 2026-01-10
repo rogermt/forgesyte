@@ -1733,3 +1733,56 @@ Coverage: 100% for mcp_adapter.py core functionality
 
 ### Blockers Found
 - None
+
+---
+
+## WU-04: HTTP Endpoint and Session Management
+
+**Completed**: 2026-01-10 12:30  
+**Duration**: 1.5 hours  
+**Status**: ✅ Complete
+
+### What Went Well
+- Created separate mcp_routes.py module for clean HTTP layer separation
+- TDD approach identified all error cases (validation, malformed JSON, notifications)
+- JSONResponse with explicit status codes (200, 204, 400, 500) properly implemented
+- Notification handling (requests without id) correctly returns 204 No Content
+- GET transport instance design allows lazy initialization with app's plugin manager
+- Router integration straightforward (added to main.py with prefix="/v1")
+- Full pre-commit hooks passed first attempt (black, ruff, mypy cleared)
+
+### Challenges & Solutions
+- **Issue**: Initial tests failing with 404 (endpoint not registered)
+  - **Solution**: Added mcp_routes import to main.py and included router in app
+- **Issue**: Returning 200 status code for validation errors (should be 400)
+  - **Solution**: Changed return type from dict to JSONResponse with explicit status codes
+- **Issue**: Notifications returning response body instead of empty
+  - **Solution**: Created JSONResponse with 204 No Content for requests without id
+
+### Key Insights
+- HTTP status codes critical for client error handling (400 for invalid requests, 500 for server errors)
+- JSONResponse from fastapi.responses needed for status code control
+- Global _transport variable pattern works but requires careful lazy initialization
+- Pydantic ValidationError provides detailed field/message info for error responses
+- JSON parsing errors (ValueError) distinct from validation errors (ValidationError)
+- Notifications (no id) have valid use case in pub/sub but shouldn't return response body
+
+### Architecture Decisions
+- **Separate mcp_routes.py** module keeps HTTP concerns isolated from JSON-RPC logic
+- **GET transport instance** uses lazy loading with app.state.plugins from current request
+- **JSONResponse with status codes** allows proper HTTP semantics while returning JSON-RPC format
+- **Global _transport variable** caches instance but recreates if plugin manager changes
+- **Error responses** follow JSON-RPC error format even for HTTP-level errors (400, 500)
+- **Handler routing** through MCPTransport preserves all existing handler logic
+
+### Tips for Similar Work
+- Use JSONResponse for explicit control over HTTP status codes in FastAPI
+- Create separate module for HTTP concerns (mcp_routes) vs protocol logic (mcp_transport)
+- TDD tests should cover both success and error paths (malformed, validation, edge cases)
+- Lazy initialization of shared resources (transport) reduces startup overhead
+- Notifications (no id) are valid but should be distinguished from regular requests
+- Keep request/response separate from business logic for reusability
+- Global state caching works if initialization is idempotent
+
+### Blockers Found
+- None
