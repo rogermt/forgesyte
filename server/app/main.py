@@ -14,6 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .api import router as api_router
 from .auth import init_api_keys
+from .mcp_routes import router as mcp_router
 from .plugin_loader import PluginManager
 from .tasks import init_task_processor
 from .websocket_manager import ws_manager
@@ -76,8 +77,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Include API router
+# Include API and MCP routers
 app.include_router(api_router, prefix="/v1")
+app.include_router(mcp_router, prefix="/v1")
 
 
 # Also mount at root for MCP discovery

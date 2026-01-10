@@ -1697,8 +1697,6 @@ Coverage: 100% for mcp_adapter.py core functionality
 - Handler implementation straightforward using existing transport layer
 - Job store integration seamless via existing task_processor infrastructure
 - Three new method handlers (tools/call, resources/list, resources/read) implemented
-- All 139 MCP tests passing (up from 136)
-- Test files comprehensive: tools/call (6 tests), resources (7 tests), capabilities (3 tests)
 - Pre-commit hooks passed on second attempt (black auto-format)
 
 ### Challenges & Solutions
@@ -1732,13 +1730,6 @@ Coverage: 100% for mcp_adapter.py core functionality
 - Integration tests validate complete workflows (initialize → resources/list → resources/read)
 - Test edge cases: missing params, nonexistent resources, empty lists
 - Keep handler signatures async for future async operations (database, APIs)
-
-### Test Coverage
-- **tools/call**: 6 tests covering success, missing params, nonexistent tool, response structure
-- **resources/list**: 3 tests covering basic list, resource structure, pagination
-- **resources/read**: 4 tests covering missing URI, nonexistent resource, structure, job resources
-- **Integration**: 3 tests covering capability verification and method registration
-- **Total new tests**: 13 tests, all passing
 
 ### Blockers Found
 - None
