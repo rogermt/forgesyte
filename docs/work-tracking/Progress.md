@@ -107,21 +107,17 @@ Can work on these in parallel (independent):
 
 ---
 
-# MCP Adapter Implementation Progress
+# MCP JSON-RPC 2.0 Transport Implementation Progress
 
-**Last Updated**: 2026-01-10 20:00  
-**Current Context Usage**: 52%  
-**Overall Progress**: 4/5 units completed  
-**Branch**: `feature/mcp-adapter`
+**Last Updated**: 2026-01-10 22:30  
+**Current Context Usage**: 65%  
+**Overall Progress**: 1/6 units completed  
+**Branch**: `feature/json-rpc-transport`
 
 ## Work Unit Status
 
 ### Completed
-- [x] WU-01: Core MCP Adapter Implementation (2.5 hours, completed 2026-01-10 16:45)
-- [x] WU-02: API Endpoints for MCP (1.5 hours, completed 2026-01-10 17:30)
-- [x] WU-03: Plugin Metadata Schema & Validation (1 hour, completed 2026-01-10 18:15)
-- [x] WU-04: MCP Testing Framework (1.5 hours, completed 2026-01-10 20:00)
-- [x] WU-05: Gemini Extension Manifest & Documentation (1.5 hours, completed 2026-01-10 21:15)
+- [x] WU-01: JSON-RPC 2.0 Transport Core (2.5 hours, completed 2026-01-10 22:30)
 
 ### In Progress
 (none)
@@ -129,48 +125,63 @@ Can work on these in parallel (independent):
 ### Blocked
 (none)
 
-## MCP Implementation Status: ✅ ALL UNITS COMPLETE
+### Todo
+- [ ] WU-02: MCP Protocol Methods - Part 1 (initialize, tools/list, ping)
+- [ ] WU-03: MCP Protocol Methods - Part 2 (tools/call, resources/*, job integration)
+- [ ] WU-04: HTTP Endpoint and Session Management (POST /mcp endpoint)
+- [ ] WU-05: Gemini-CLI Integration Testing
+- [ ] WU-06: Optimization and Backwards Compatibility
 
-**WU-05 Results** (Final Unit):
-- ✅ Created `gemini_extension_manifest.json` with Gemini-CLI configuration
-- ✅ Created comprehensive MCP Configuration Guide (`docs/guides/MCP_CONFIGURATION.md`)
-- ✅ Created complete API Reference (`docs/guides/MCP_API_REFERENCE.md`)
-- ✅ Created Plugin Implementation Guide (`docs/guides/PLUGIN_IMPLEMENTATION.md`)
-- ✅ Implemented `negotiate_mcp_version()` version negotiation function
-- ✅ Created version negotiation test suite (7 tests)
-- ✅ All 93 MCP tests passing (39 + 34 + 13 + 7)
-- ✅ Code passes pre-commit hooks (black, ruff)
+## JSON-RPC 2.0 Transport Core Implementation Status: ✅ WU-01 COMPLETE
+
+**WU-01 Results**:
+ - ✅ Implemented `JSONRPCRequest` Pydantic model with validation
+ - ✅ Implemented `JSONRPCError` model with all standard error codes
+ - ✅ Implemented `JSONRPCResponse` Pydantic model
+ - ✅ Created `MCPTransport` HTTP transport layer class
+ - ✅ Implemented `MCPTransportError` exception class
+ - ✅ Created comprehensive test suite (58 tests)
+ - ✅ All tests passing with 100% validation coverage
+ - ✅ Code passes pre-commit hooks (black, ruff, mypy)
+ - ✅ Added pytest-asyncio to dev dependencies
 
 **Complete Deliverables**:
-- `gemini_extension_manifest.json`: Static manifest for Gemini-CLI integration
-- `docs/guides/MCP_CONFIGURATION.md`: Setup guide with Gemini-CLI configuration
-- `docs/guides/MCP_API_REFERENCE.md`: Complete API endpoint documentation with examples
-- `docs/guides/PLUGIN_IMPLEMENTATION.md`: Plugin development guide with templates
-- `server/app/mcp_adapter.py`: Updated with `negotiate_mcp_version()` function
-- `server/tests/test_mcp_version_negotiation.py`: Version negotiation tests (7 tests)
+ - `server/app/mcp_jsonrpc.py`: JSON-RPC 2.0 protocol models (JSONRPCRequest, JSONRPCResponse, JSONRPCError)
+ - `server/app/mcp_transport.py`: HTTP transport layer with handler registration
+ - `server/tests/test_jsonrpc.py`: 41 comprehensive tests for protocol compliance
+ - `server/tests/test_mcp_transport.py`: 17 tests for transport layer
+ - `server/tests/conftest.py`: pytest configuration for tests
 
 **Test Results**:
-- ✅ 93 total MCP tests passing (from 86):
-  - test_mcp.py: 39 tests
-  - test_mcp_adapter.py: 34 tests
-  - test_mcp_endpoints.py: 13 tests
-  - test_mcp_version_negotiation.py: 7 tests (new)
-- ✅ 100% code coverage maintained for mcp_adapter.py
-- ✅ All JSON validation passing (manifest structure)
-- ✅ Version negotiation logic tested for compatible/incompatible versions
+ - ✅ 58 total JSON-RPC 2.0 tests passing:
+   - test_jsonrpc.py: 41 tests (request, response, error, protocol, edge cases)
+   - test_mcp_transport.py: 17 tests (transport, compliance, serialization, edge cases)
+ - ✅ 100% code coverage for JSON-RPC models
+ - ✅ All validation passing (request/response format, error codes)
+ - ✅ Pre-commit hooks passing (black, ruff, mypy)
+ - ✅ All edge cases tested (large payloads, unicode, special chars, ids)
+
+**Test Coverage**:
+ - JSONRPCRequest: valid requests, notifications, validation, serialization
+ - JSONRPCError: all standard error codes, custom codes, data field
+ - JSONRPCResponse: success/error responses, serialization, field validation
+ - MCPTransport: initialization, handler registration, error handling
+ - Protocol Compliance: JSON-RPC 2.0 spec adherence, field requirements
 
 **Reference**: 
-- Implementation plan: `docs/implementation/MCP_IMPLEMENTATION_PLAN.md`
-- Design specification: `docs/design/MCP.md`
-- Issue: #11 (Implement MCP adapter and Gemini integration)
+ - Implementation plan: Thread T-019ba872-b724-7068-b623-c54639d57960
+ - Issue: #13 (MCP JSON-RPC 2.0 Transport Implementation)
 
-## MCP Implementation Complete: ✅ 5/5 UNITS DONE
+## JSON-RPC 2.0 Transport Phase: 1/6 UNITS COMPLETE
 
-All five MCP work units are now complete:
-1. ✅ WU-01: Core MCP Adapter Implementation
-2. ✅ WU-02: API Endpoints for MCP
-3. ✅ WU-03: Plugin Metadata Schema & Validation
-4. ✅ WU-04: MCP Testing Framework
-5. ✅ WU-05: Gemini Extension Manifest & Documentation
+**Completed**:
+1. ✅ WU-01: JSON-RPC 2.0 Transport Core
 
-**Ready for**: PR review, merge to main, and production deployment
+**Next**:
+2. [ ] WU-02: MCP Protocol Methods - Part 1
+3. [ ] WU-03: MCP Protocol Methods - Part 2
+4. [ ] WU-04: HTTP Endpoint and Session Management
+5. [ ] WU-05: Gemini-CLI Integration Testing
+6. [ ] WU-06: Optimization and Backwards Compatibility
+
+**Ready for**: WU-02 (MCP protocol method handlers)
