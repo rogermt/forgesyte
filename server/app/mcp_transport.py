@@ -1,7 +1,7 @@
 """HTTP transport layer for JSON-RPC 2.0 MCP protocol."""
 
 import logging
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 from .mcp_jsonrpc import (
     JSONRPCError,
@@ -13,10 +13,41 @@ from .mcp_jsonrpc import (
 logger = logging.getLogger(__name__)
 
 
-class MCPTransportError(JSONRPCError):
-    """Transport-level error that can be converted to JSON-RPC error response."""
+class MCPTransportError(Exception):
+    """Transport-level error that can be converted to JSON-RPC error response.
 
-    pass
+    Holds error information that can be serialized to JSON-RPC error format.
+    """
+
+    def __init__(
+        self,
+        code: int,
+        message: str,
+        data: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        """Initialize transport error.
+
+        Args:
+            code: JSON-RPC error code
+            message: Error message
+            data: Optional error data dictionary
+        """
+        self.code = code
+        self.message = message
+        self.data = data
+        super().__init__(message)
+
+    def to_jsonrpc_error(self) -> JSONRPCError:
+        """Convert to JSONRPCError for serialization.
+
+        Returns:
+            JSONRPCError object
+        """
+        return JSONRPCError(
+            code=self.code,
+            message=self.message,
+            data=self.data,
+        )
 
 
 class MCPTransport:
@@ -36,16 +67,32 @@ class MCPTransport:
         response = await transport.handle_request(request)
     """
 
-    def __init__(self) -> None:
-        """Initialize the transport layer."""
+    def __init__(self, protocol_handlers: Optional[Any] = None) -> None:
+        """Initialize the transport layer.
+
+        Args:
+            protocol_handlers: Optional MCPProtocolHandlers instance.
+                If None, creates default handlers with default PluginManager.
+        """
         self._method_handlers: Dict[str, Any] = {}
+        self._protocol_handlers = protocol_handlers
         self._register_handlers()
 
     def _register_handlers(self) -> None:
         """Register standard JSON-RPC method handlers."""
-        # Handlers will be registered by subclasses or via decorator
-        # For now, keep empty - handlers added in WU-02
-        pass
+        # Import here to avoid circular imports
+        if self._protocol_handlers is None:
+            # Create default handlers with lazy-loaded PluginManager
+            from .mcp_handlers import MCPProtocolHandlers
+            from .plugin_loader import PluginManager
+
+            plugin_manager = PluginManager()
+            self._protocol_handlers = MCPProtocolHandlers(plugin_manager)
+
+        # Register core protocol handlers
+        self.register_handler("initialize", self._protocol_handlers.initialize)
+        self.register_handler("tools/list", self._protocol_handlers.tools_list)
+        self.register_handler("ping", self._protocol_handlers.ping)
 
     async def handle_request(
         self,
@@ -70,9 +117,10 @@ class MCPTransport:
         except MCPTransportError as e:
             # Transport-level error (invalid method, params, etc.)
             logger.warning(f"Transport error: {e.message}", extra={"code": e.code})
+            error = e.to_jsonrpc_error()
             return JSONRPCResponse(
                 jsonrpc="2.0",
-                error=e.model_dump(exclude_none=True),
+                error=error.model_dump(exclude_none=True),
                 id=request.id,
             )
         except Exception:
