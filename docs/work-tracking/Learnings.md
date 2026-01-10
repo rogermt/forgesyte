@@ -1597,92 +1597,43 @@ Coverage: 100% for mcp_adapter.py core functionality
 
 ## JSON-RPC 2.0 Transport Core Implementation (WU-01)
 
-**Status**: ✅ Complete  
-**Completed**: 2026-01-10 22:30  
-**Duration**: 2.5 hours  
-**Status**: ✅ Complete
-
 ### What Went Well
-- TDD approach worked perfectly: wrote 58 comprehensive tests before implementation
-- Pydantic models provided excellent validation and type safety
-- JSONRPCRequest/Response models enforce JSON-RPC 2.0 spec at model level
-- Error handling with proper error codes (IntEnum) prevents mistakes
-- Pre-commit hooks (black, ruff, mypy) all passed after minor fixes
-- Comprehensive edge case testing caught Unicode, large payloads, special IDs
-- MCPTransport design clean with handler registry pattern (extensible for WU-02)
+- TDD approach forced clear thinking about contracts before coding
+- Pydantic models enforce validation at instantiation (catches errors early)
+- IntEnum for error codes prevents mistakes and makes intent clear
+- Handler registry pattern (dict mapping) enables plugin architecture
+- Separating protocol layer from transport layer keeps concerns isolated
 
 ### Challenges & Solutions
-- Issue: pytest-asyncio not working initially with async tests
-- Solution: Shifted tests to focus on model validation (sync) rather than handler execution (async). Async handler tests will be in WU-02
-- Issue: Mypy errors on optional dict indexing (result["tools"])
-- Solution: Added type guards with `is not None` and `isinstance(dict)` checks
-- Issue: Multiple ruff violations (line length, unused variables, raise without from)
-- Solution: Split long docstrings, removed unused variables, added `from e` to raise statements
+- **Issue**: pytest-asyncio configuration didn't work initially for async tests
+  - **Solution**: Shifted to sync tests for model validation; async handler tests deferred to next unit
+- **Issue**: Mypy errors on optional dict indexing (`result["tools"]`)
+  - **Solution**: Add type guards with `is not None` and `isinstance(dict)` checks
+- **Issue**: Multiple ruff violations (line length, unused variables, raise without from)
+  - **Solution**: Split docstrings, removed unused vars, added `from e` to exception chains
 
 ### Key Insights
-- Pydantic field_validator for "2.0" string validation ensures spec compliance at instantiation
-- IntEnum for error codes (e.g., JSONRPCErrorCode.METHOD_NOT_FOUND = -32601) makes code self-documenting
-- model_dump(exclude_none=True) critical for proper JSON-RPC response formatting
-- Optional Union[int, str] for id field handles both numeric and string IDs correctly
-- Transport layer with register_handler() pattern enables plugin architecture (registry pattern)
+- Pydantic `field_validator` for string validation (e.g., "2.0") ensures spec compliance at instantiation
+- `model_dump(exclude_none=True)` critical for proper JSON-RPC response formatting (no null fields in JSON)
+- `Optional Union[int, str]` for id field handles both numeric and string request IDs
+- IntEnum error codes are self-documenting and prevent magic number mistakes
+- Handler registration pattern separates protocol from implementation
 
 ### Architecture Decisions
-- **Pydantic Models**: Used for strict validation vs custom classes (prevents invalid requests)
-- **JSONRPCErrorCode IntEnum**: Guarantees correct error codes vs magic numbers
-- **MCPTransport class**: Encapsulates handler dispatch vs standalone functions (testable, extensible)
-- **MCPTransportError inherits JSONRPCError**: Maintains type hierarchy for error handling
-- **Async method signatures prepared**: handle_request() is async (ready for WU-02 handlers)
+- **Pydantic Models** for strict validation (prevents invalid requests at boundary)
+- **IntEnum for error codes** vs magic numbers (guarantees correctness)
+- **MCPTransport class** with handler registry vs standalone functions (testable, extensible)
+- **MCPTransportError inherits JSONRPCError** (maintains type hierarchy)
+- **Async method signatures** prepared for async handlers in next unit
 
 ### Tips for Similar Work
-- Write test suite BEFORE implementation (TDD): forces you to think about contracts
-- Use Pydantic for strict validation of external data (request format)
-- Separate protocol layer (models) from transport layer (dispatch)
-- Test edge cases early: unicode, large payloads, special characters in IDs
-- Keep models focused: JSONRPCRequest/Response/Error don't need to know about handlers
-- Use IntEnum for error codes to prevent mistakes and document intent
-- Handler registration pattern (dict mapping) enables plugin architecture
-
-### Test Coverage Details
-**JSONRPCRequest (11 tests)**:
-- Valid requests with params/id, string ids, notifications (no id)
-- Validation: missing jsonrpc/method, invalid version, empty method
-- Edge cases: zero id, large nested params, unicode content
-
-**JSONRPCError (8 tests)**:
-- All standard error codes (-32700 to -32603)
-- Custom error codes (-32000)
-- Error with additional data field
-
-**JSONRPCResponse (8 tests)**:
-- Success responses with result, error responses with error
-- Null results, field exclusion with exclude_none
-- Complex nested results (tool list)
-
-**MCPTransport (10 tests)**:
-- Initialization and handler registration
-- Transport error creation and data field
-- Error handling for unknown methods
-
-**Protocol Compliance (3 tests)**:
-- Response fields required (jsonrpc, id, result/error)
-- Error structure (code, message)
-- ID preservation in responses
-
-**Serialization (2 tests)**:
-- JSON serialization of success/error responses
-- Round-trip serialization/deserialization
-
-**Edge Cases (8 tests)**:
-- Empty params, nested params, zero id, large payloads (100KB)
-- Special characters in method names
-- Unicode in params (emoji, international)
+- Write test suite BEFORE implementation (TDD clarifies contracts)
+- Use Pydantic for external data validation (HTTP requests, API payloads)
+- Separate protocol models from transport/dispatch logic
+- Test edge cases early: unicode, large payloads, boundary values
+- Use IntEnum for error codes and status values (self-documenting)
+- Registry pattern for handler dispatch enables plugin architecture
+- Keep models focused: don't mix protocol with handler logic
 
 ### Blockers Found
-- None: TDD approach and comprehensive testing prevented any surprises
-
-### Next Steps for WU-02
-- Implement initialize() handler (capability negotiation)
-- Implement tools/list() handler (use existing MCPAdapter.get_manifest())
-- Implement ping() handler (simple keep-alive)
-- Write handler-specific tests (async handler execution)
-- Integration test: full request → dispatch → handler → response flow
+- None
