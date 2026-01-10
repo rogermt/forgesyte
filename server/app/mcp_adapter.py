@@ -1,79 +1,138 @@
 """MCP (Model Context Protocol) adapter for Gemini-CLI integration."""
 
-from typing import List
+from typing import Any, Dict, List
+
+from pydantic import BaseModel, Field
 
 from .models import MCPManifest, MCPTool
 from .plugin_loader import PluginManager
+
+# MCP Version constant
+MCP_PROTOCOL_VERSION = "1.0.0"
+MCP_SERVER_NAME = "forgesyte"
+MCP_SERVER_VERSION = "0.1.0"
+
+
+class MCPServerInfo(BaseModel):
+    """Server metadata for MCP manifest."""
+
+    name: str = Field(..., description="Server name")
+    version: str = Field(..., description="Server version")
+    mcp_version: str = Field(..., description="MCP protocol version")
+
+
+class MCPToolSchema(BaseModel):
+    """Schema for MCP tool descriptor with validation."""
+
+    id: str = Field(..., description="Tool unique identifier")
+    title: str = Field(..., description="Tool display name")
+    description: str = Field(..., description="Tool description")
+    inputs: List[str] = Field(default_factory=list, description="Input types")
+    outputs: List[str] = Field(default_factory=list, description="Output types")
+    invoke_endpoint: str = Field(..., description="API endpoint to invoke tool")
+    permissions: List[str] = Field(
+        default_factory=list, description="Required permissions"
+    )
 
 
 class MCPAdapter:
     """Adapts vision server capabilities to MCP format."""
 
     def __init__(self, plugin_manager: PluginManager, base_url: str = ""):
+        """Initialize MCPAdapter.
+
+        Args:
+            plugin_manager: PluginManager instance for plugin discovery
+            base_url: Base URL for invoke endpoints (trailing slash removed)
+        """
         self.plugin_manager = plugin_manager
-        self.base_url = base_url.rstrip("/")
+        self.base_url = base_url.rstrip("/") if base_url else ""
 
     def get_manifest(self) -> dict:
-        """Generate MCP manifest for Gemini-CLI discovery."""
+        """Generate MCP manifest for Gemini-CLI discovery.
+
+        Returns:
+            Dictionary containing MCP manifest with server info and tools.
+        """
         tools = self._build_tools()
+
+        server_info = {
+            "name": MCP_SERVER_NAME,
+            "version": MCP_SERVER_VERSION,
+            "mcp_version": MCP_PROTOCOL_VERSION,
+        }
 
         manifest = MCPManifest(
             tools=tools,
-            server={
-                "name": "forgesyte",
-                "version": "0.1.0",
-                "description": "ForgeSyte: A vision core for engineered systems",
-            },
+            server=server_info,
             version="1.0",
         )
 
         return manifest.model_dump()
 
     def _build_tools(self) -> List[MCPTool]:
-        """Build tool list from registered plugins."""
-        tools = []
+        """Build tool list from registered plugins.
 
+        Returns:
+            List of MCPTool objects converted from plugin metadata.
+        """
+        tools: List[MCPTool] = []
+
+        # Convert plugin metadata to MCP tools
         for name, meta in self.plugin_manager.list().items():
-            tool = MCPTool(
-                id=f"vision.{name}",
-                title=meta.get("name", name),
-                description=meta.get("description", f"Analyze image using {name}"),
-                inputs=meta.get("inputs", ["image"]),
-                outputs=meta.get("outputs", ["json"]),
-                invoke_endpoint=f"{self.base_url}/v1/analyze?plugin={name}",
-                permissions=meta.get("permissions", []),
-            )
+            tool = self._plugin_metadata_to_mcp_tool(name, meta)
             tools.append(tool)
-
-        # Add built-in tools
-        tools.append(
-            MCPTool(
-                id="vision.list_plugins",
-                title="List Vision Plugins",
-                description="List all available vision analysis plugins",
-                inputs=[],
-                outputs=["json"],
-                invoke_endpoint=f"{self.base_url}/v1/plugins",
-                permissions=[],
-            )
-        )
-
-        tools.append(
-            MCPTool(
-                id="vision.job_status",
-                title="Check Job Status",
-                description="Check the status of an analysis job",
-                inputs=["job_id"],
-                outputs=["json"],
-                invoke_endpoint=f"{self.base_url}/v1/jobs/{{job_id}}",
-                permissions=[],
-            )
-        )
 
         return tools
 
+    def _plugin_metadata_to_mcp_tool(
+        self, plugin_name: str, meta: Dict[str, Any]
+    ) -> MCPTool:
+        """Convert plugin metadata to MCPTool.
+
+        Args:
+            plugin_name: Name of the plugin
+            meta: Plugin metadata dictionary
+
+        Returns:
+            MCPTool instance
+        """
+        # Use title field if present, otherwise fall back to name
+        title = meta.get("title") or meta.get("name") or plugin_name
+
+        # Description is optional, provide fallback
+        description = meta.get("description", f"ForgeSyte plugin: {plugin_name}")
+
+        # Inputs/outputs with sensible defaults
+        inputs = meta.get("inputs", ["image"])
+        outputs = meta.get("outputs", ["json"])
+
+        # Build invoke endpoint
+        invoke_endpoint = f"{self.base_url}/v1/analyze?plugin={plugin_name}"
+
+        # Permissions are optional
+        permissions = meta.get("permissions", [])
+
+        return MCPTool(
+            id=f"vision.{plugin_name}",
+            title=title,
+            description=description,
+            inputs=inputs,
+            outputs=outputs,
+            invoke_endpoint=invoke_endpoint,
+            permissions=permissions,
+        )
+
     def invoke_tool(self, tool_id: str, params: dict) -> dict:
-        """Handle tool invocation from MCP client."""
+        """Handle tool invocation from MCP client.
+
+        Args:
+            tool_id: Tool identifier
+            params: Tool parameters
+
+        Returns:
+            Dictionary with invocation information
+        """
         # This would be called by an MCP transport layer
         # For now, just return info about how to invoke
         return {
