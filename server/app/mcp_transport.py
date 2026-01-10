@@ -92,6 +92,9 @@ class MCPTransport:
         # Register core protocol handlers
         self.register_handler("initialize", self._protocol_handlers.initialize)
         self.register_handler("tools/list", self._protocol_handlers.tools_list)
+        self.register_handler("tools/call", self._protocol_handlers.tools_call)
+        self.register_handler("resources/list", self._protocol_handlers.resources_list)
+        self.register_handler("resources/read", self._protocol_handlers.resources_read)
         self.register_handler("ping", self._protocol_handlers.ping)
 
     async def handle_request(
