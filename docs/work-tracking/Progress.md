@@ -109,15 +109,16 @@ Can work on these in parallel (independent):
 
 # MCP JSON-RPC 2.0 Transport Implementation Progress
 
-**Last Updated**: 2026-01-10 22:30  
-**Current Context Usage**: 65%  
-**Overall Progress**: 1/6 units completed  
+**Last Updated**: 2026-01-10 23:45  
+**Current Context Usage**: 68%  
+**Overall Progress**: 2/6 units completed  
 **Branch**: `feature/json-rpc-transport`
 
 ## Work Unit Status
 
 ### Completed
-- [x] WU-01: JSON-RPC 2.0 Transport Core (2.5 hours, completed 2026-01-10 22:30)
+- [x] WU-01: JSON-RPC 2.0 Transport Core (2 hours, completed 2026-01-10 22:30)
+- [x] WU-02: MCP Protocol Methods - Part 1 (2.5 hours, completed 2026-01-10 23:45)
 
 ### In Progress
 (none)
@@ -126,7 +127,6 @@ Can work on these in parallel (independent):
 (none)
 
 ### Todo
-- [ ] WU-02: MCP Protocol Methods - Part 1 (initialize, tools/list, ping)
 - [ ] WU-03: MCP Protocol Methods - Part 2 (tools/call, resources/*, job integration)
 - [ ] WU-04: HTTP Endpoint and Session Management (POST /mcp endpoint)
 - [ ] WU-05: Gemini-CLI Integration Testing
@@ -172,16 +172,16 @@ Can work on these in parallel (independent):
  - Implementation plan: Thread T-019ba872-b724-7068-b623-c54639d57960
  - Issue: #13 (MCP JSON-RPC 2.0 Transport Implementation)
 
-## JSON-RPC 2.0 Transport Phase: 1/6 UNITS COMPLETE
+## JSON-RPC 2.0 Transport Phase: 2/6 UNITS COMPLETE
 
 **Completed**:
 1. ✅ WU-01: JSON-RPC 2.0 Transport Core
+2. ✅ WU-02: MCP Protocol Methods - Part 1 (initialize, tools/list, ping)
 
 **Next**:
-2. [ ] WU-02: MCP Protocol Methods - Part 1
-3. [ ] WU-03: MCP Protocol Methods - Part 2
+3. [ ] WU-03: MCP Protocol Methods - Part 2 (tools/call, resources/*)
 4. [ ] WU-04: HTTP Endpoint and Session Management
 5. [ ] WU-05: Gemini-CLI Integration Testing
 6. [ ] WU-06: Optimization and Backwards Compatibility
 
-**Ready for**: WU-02 (MCP protocol method handlers)
+**Ready for**: WU-03 (tools/call and resource methods)
