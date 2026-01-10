@@ -1643,102 +1643,43 @@ Coverage: 100% for mcp_adapter.py core functionality
 **Status**: ✅ Complete
 
 ### What Went Well
-- TDD approach with 13 comprehensive tests written before implementation
-- All tests passing on first implementation (tests were thorough)
-- Async/await handlers work perfectly with asyncio.run() wrapper for tests
-- MCPProtocolHandlers class cleanly separates handler logic from transport
-- Handler registration pattern from WU-01 worked flawlessly
-- MCPAdapter integration seamless - tools/list reuses get_manifest()
-- Pre-commit hooks handled formatting without issues
+- TDD with 13 tests written first ensured thorough coverage
+- All tests passed on first implementation
+- Async handlers with asyncio.run() test wrapper works perfectly
+- Handler registration pattern from WU-01 integrated seamlessly
+- MCPAdapter.get_manifest() reuse elegant for tools/list
+- Pre-commit hooks passed cleanly
 
 ### Challenges & Solutions
-- **Issue**: pytest-asyncio not working with pytest-asyncio plugin
-  - **Solution**: Used asyncio.run() wrapper in sync tests instead of @pytest.mark.asyncio
-  - This approach is simpler and doesn't require additional pytest plugins
-- **Issue**: MCPTransportError initially inherited from JSONRPCError (Pydantic model)
-  - **Solution**: Made MCPTransportError inherit from Exception, added to_jsonrpc_error() converter
-  - Exceptions must inherit from BaseException, Pydantic models don't
+- **Issue**: pytest-asyncio plugin not working initially
+  - **Solution**: Used asyncio.run() wrapper in sync tests instead (simpler, no plugin needed)
+- **Issue**: MCPTransportError inherited from Pydantic model (not proper Exception)
+  - **Solution**: Changed to inherit from Exception, added to_jsonrpc_error() converter
 - **Issue**: Line length violations in docstrings (88 char limit)
   - **Solution**: Reformatted argument descriptions with proper indentation
 
 ### Key Insights
-- Async handlers are elegant: `async def handler(params: Dict[str, Any]) -> Dict[str, Any]`
-- Handler registry (dict mapping) enables clean separation of concerns
-- Each handler focused on single responsibility (initialize, tools/list, ping)
-- MCPAdapter.get_manifest() returns ready-to-use tool list (no transformation needed)
-- Lazy-loading of PluginManager in MCPTransport.__init__ avoids circular imports
-- Pydantic model serialization with exclude_none=True critical for JSON-RPC format
+- Async handlers elegant: `async def handler(params: Dict) -> Dict`
+- Handler registry (dict mapping) enables clean separation of protocol and implementation
+- Each handler has single responsibility (initialize, tools/list, ping)
+- Lazy-loading PluginManager avoids circular imports
+- MCPAdapter integration requires no transformation (tools already in correct format)
+- exclude_none=True critical for JSON-RPC response serialization
 
 ### Architecture Decisions
-- **Async Handlers**: All handlers are async to support future I/O operations
-- **MCPProtocolHandlers Class**: Centralizes all protocol method implementations
-- **Lazy Initialization**: PluginManager created only if no handlers provided
-- **Handler Registry**: Dict-based dispatch pattern (method name → async callable)
-- **Error Conversion**: MCPTransportError.to_jsonrpc_error() keeps concerns separated
-
-### Test Coverage
-13 comprehensive tests covering:
-- **Initialize Handler** (3 tests):
-  - Success with client info and protocol version
-  - Success with empty params
-  - Capability negotiation (tools support)
-- **Tools/List Handler** (3 tests):
-  - Basic success response
-  - Tool structure validation (id, title, description fields)
-  - Params ignored (tools/list has no parameters)
-- **Ping Handler** (3 tests):
-  - Basic ping/pong response
-  - Response structure (status: "pong")
-  - Notification mode (no id required)
-- **Integration** (2 tests):
-  - Initialize → tools/list sequence
-  - Unknown method error handling
-- **Capability Negotiation** (2 tests):
-  - Server capabilities in initialize response
-  - Server info structure (name, version, protocolVersion)
-
-### Files Created/Modified
-- **Created**: `server/app/mcp_handlers.py` (113 lines)
-  - MCPProtocolHandlers class with three async handler methods
-  - initialize(), tools_list(), ping()
-- **Modified**: `server/app/mcp_transport.py`
-  - Refactored MCPTransportError to be proper Exception
-  - Added protocol_handlers parameter to __init__
-  - Handler registration in _register_handlers()
-- **Created**: `server/tests/test_mcp_protocol_methods.py` (293 lines)
-  - 13 comprehensive test methods
-  - Test classes organized by handler type
-
-### Test Results
-- ✅ 13 new protocol method tests: passing
-- ✅ 230 total tests in full suite: passing
-- ✅ Code quality: Black, Ruff, Mypy all passing
-- ✅ Edge cases: empty params, notifications, errors
+- **Async Handlers**: All handlers async to support future I/O operations
+- **MCPProtocolHandlers Class**: Centralizes protocol method implementations
+- **Lazy Initialization**: PluginManager created only when needed
+- **Handler Registry**: Dict-based dispatch (method name → async callable)
+- **Error Conversion**: MCPTransportError.to_jsonrpc_error() maintains separation of concerns
 
 ### Tips for Similar Work
-- Async handlers make test writing straightforward with asyncio.run()
-- Test organization by feature (TestInitializeHandler, TestToolsListHandler) improves clarity
-- Lazy-loading PluginManager avoids circular imports and initialization order issues
-- Each handler should have single responsibility and clear return type
+- Test-first approach catches design issues before implementation
+- Async handlers with asyncio.run() wrapper simpler than pytest-asyncio markers
+- Test organization by feature (TestInitializeHandler, TestToolsListHandler) improves readability
+- Lazy-loading PluginManager prevents initialization order issues
 - Handler registry pattern extensible for future methods (tools/call, resources/*)
-- Integration tests validate handler sequence and error cases
-- Pydantic serialization with exclude_none=True essential for JSON-RPC compliance
-
-### Blockers Found
-- None
-
-### Integration Points Discovered
-- MCPAdapter.get_manifest() returns tools in correct format (no transformation)
-- PluginManager injection enables testing without actual plugins
-- Handler registry pattern extensible for WU-03 (tools/call, resources/*)
-- Async handler signatures prepare for future I/O operations
-
-### Next Steps for WU-03
-- Implement tools/call handler (invokes actual plugins through MCPAdapter)
-- Implement resources/list and resources/read handlers (if in scope)
-- Add job system integration for tools/call result streaming
-- Handle tool execution errors and result formatting
-- Consider tool result buffering for large outputs
+- Integration tests validate handler sequences and error paths
 
 ### Blockers Found
 - None
