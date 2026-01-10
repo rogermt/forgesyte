@@ -1,13 +1,11 @@
-# TypeScript Migration Learnings
+# Project Learnings
 
 This document captures learnings from each work unit to help future work and avoid repeating mistakes.
 
-## Overview
+## Projects Tracked
 
-- **Project**: ForgeSyte TypeScript Web UI Migration
-- **Start Date**: 2026-01-09
-- **Status**: In Progress
-- **Total Units**: 22 (1-2 hours each)
+1. **TypeScript Web UI Migration** (WU-01 to WU-23) - COMPLETE
+2. **MCP Adapter Implementation** (WU-01 onwards) - IN PROGRESS
 
 ---
 
@@ -1193,22 +1191,86 @@ This section tracks learnings from the MCP adapter implementation (Issue #11).
 
 ---
 
+## MCP IMPLEMENTATION: WU-01
+
+**Project**: MCP Adapter Implementation  
+**Completed**: 2026-01-10 16:45  
+**Duration**: 2.5 hours  
+**Status**: ✅ Complete
+
+### What Went Well
+- TDD approach with comprehensive tests written before implementation
+- Pydantic models provided strong type safety and validation
+- MCPAdapter design is clean with good separation of concerns
+- Pre-commit hooks (black, ruff, mypy) all passed on first commit
+- Plugin metadata to MCP tool conversion logic is straightforward
+- Tests serve as excellent documentation for expected behavior
+
+### Challenges & Solutions
+- Issue: Initial imports path issue in tests due to module structure
+- Solution: Used sys.path.insert pattern consistent with existing test file
+- Issue: MockPlugin needed to support optional title field
+- Solution: Made title parameter optional with fallback to name in metadata()
+- Issue: Needed to understand existing PluginManager interface
+- Solution: Reviewed plugin_loader.py and models.py thoroughly before implementing
+
+### Key Insights
+- Pydantic's Field(...) provides required-field validation automatically
+- Fallback logic (title -> name -> plugin_name) ensures flexible plugin metadata
+- Clean method separation (_plugin_metadata_to_mcp_tool) makes code testable
+- Base URL handling (trailing slash removal) prevents URL construction bugs
+- Empty base_url string is valid and produces paths like `/v1/analyze?plugin=ocr`
+
+### Architecture Decisions
+- MCPServerInfo and MCPToolSchema as separate validation models
+- Constants (MCP_PROTOCOL_VERSION, MCP_SERVER_NAME, MCP_SERVER_VERSION) at module level
+- get_manifest() returns dict not MCPManifest to avoid double serialization
+- _plugin_metadata_to_mcp_tool() as extraction method improves readability
+
+### Tips for Similar Work
+- Write tests first, then implement (TDD forces you to think about contracts)
+- Use Pydantic for request/response models to catch validation errors early
+- Separate data models from logic (MCPServerInfo not part of MCPAdapter)
+- Mock external dependencies (PluginManager) to test in isolation
+- Test edge cases: empty lists, missing optional fields, empty strings
+- Ensure pre-commit hooks pass before committing (saves iteration)
+
+### Test Coverage
+- 23 tests covering:
+  - Pydantic model validation (required fields, empty inputs)
+  - Adapter initialization and configuration
+  - Manifest generation with 0, 1, and multiple plugins
+  - Plugin metadata preservation and defaults
+  - Tool ID/title/invoke endpoint formatting
+  - Base URL handling (empty, trailing slash, normal)
+  - Manifest structure compliance (MCPManifest validation)
+  
+Coverage: 100% for mcp_adapter.py core functionality
+
+### Blockers Found
+- None
+
+### Next Steps for WU-02
+- Add /v1/mcp-manifest endpoint to FastAPI app
+- Add /v1/mcp-version endpoint
+- Integration tests for API endpoints
+- Consider caching strategy if manifest generation becomes expensive
+
+---
+
 ## MCP Implementation Summary
 
 (To be completed after all WUs are done)
 
-### Overall Status
-- [ ] All 5 work units completed
-- [ ] All tests passing
-- [ ] MCP manifest valid and discoverable
-- [ ] Gemini-CLI integration verified
-- [ ] Documentation complete
+### Overall Status (Updated)
+- [x] WU-01: Core MCP Adapter Implementation - COMPLETE
+- [ ] WU-02: API Endpoints for MCP
+- [ ] WU-03: Plugin Metadata Schema & Validation
+- [ ] WU-04: MCP Testing Framework
+- [ ] WU-05: Gemini Extension Manifest & Documentation
 
-### Total Metrics
-- **Estimated Total**: 11-12 days
-- **Actual Total**: TBD hours
-- **Context Efficiency**: TBD
-- **Test Coverage**: TBD%
-
-### Key Takeaways
-(To be filled in after completion)
+### Metrics So Far
+- **WU-01 Estimated**: 3 days, **Actual**: 2.5 hours
+- **Tests Written**: 23 (100% passing)
+- **Pre-commit Status**: All checks passing
+- **Code Quality**: black, ruff, mypy - no issues
