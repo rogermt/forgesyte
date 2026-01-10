@@ -109,9 +109,9 @@ Can work on these in parallel (independent):
 
 # MCP Adapter Implementation Progress
 
-**Last Updated**: 2026-01-10 18:15  
-**Current Context Usage**: 48%  
-**Overall Progress**: 3/5 units completed  
+**Last Updated**: 2026-01-10 20:00  
+**Current Context Usage**: 52%  
+**Overall Progress**: 4/5 units completed  
 **Branch**: `feature/mcp-adapter`
 
 ## Work Unit Status
@@ -120,34 +120,48 @@ Can work on these in parallel (independent):
 - [x] WU-01: Core MCP Adapter Implementation (2.5 hours, completed 2026-01-10 16:45)
 - [x] WU-02: API Endpoints for MCP (1.5 hours, completed 2026-01-10 17:30)
 - [x] WU-03: Plugin Metadata Schema & Validation (1 hour, completed 2026-01-10 18:15)
+- [x] WU-04: MCP Testing Framework (1.5 hours, completed 2026-01-10 20:00)
 
 ### In Progress
 (none)
 
 ### Planned
-- [ ] WU-04: MCP Testing Framework (2-3 days, estimated)
 - [ ] WU-05: Gemini Extension Manifest & Documentation (2 days, estimated)
 
 ### Blocked
 (none)
 
-## MCP Implementation Status: ✅ WU-03 COMPLETE
+## MCP Implementation Status: ✅ WU-04 COMPLETE
 
-**WU-03 Results**:
-- ✅ Enhanced PluginMetadata Pydantic model with strict validation rules
-- ✅ Implemented field validators for name and description (non-empty)
-- ✅ Added comprehensive test suite: 53 tests for metadata validation
-- ✅ Integrated metadata validation in MCPAdapter._build_tools()
-- ✅ Added error handling: invalid plugins logged and skipped gracefully
-- ✅ Created PLUGIN_METADATA_SCHEMA.md documentation (comprehensive guide)
-- ✅ All 113 tests passing (including new tests)
+**WU-04 Results**:
+- ✅ Created comprehensive MCP protocol validation test suite (`server/tests/test_mcp.py`)
+- ✅ Added 39 new protocol compliance and edge case tests
+- ✅ Implemented tool invocation tests
+- ✅ Added Gemini extension manifest tests (13 tests)
+- ✅ Created manual testing script (`server/scripts/test_mcp.py`)
+- ✅ All 86 MCP tests passing
+- ✅ 100% code coverage for `mcp_adapter.py`
 - ✅ Code passes pre-commit hooks (black, ruff, mypy)
 
 **Key Deliverables**:
-- `server/app/models.py`: Enhanced PluginMetadata class with validators
-- `server/tests/test_plugin_metadata.py`: 53 comprehensive validation tests
-- `server/app/mcp_adapter.py`: Updated to validate and log invalid plugins
-- `docs/design/PLUGIN_METADATA_SCHEMA.md`: Full schema documentation
+- `server/tests/test_mcp.py`: 39 comprehensive protocol validation tests
+  - TestMCPProtocolValidation: 12 tests
+  - TestMCPAdapterToolInvocation: 6 tests
+  - TestGeminiExtensionManifest: 14 tests
+  - TestMCPAdapterEdgeCases: 7 tests
+- `server/scripts/test_mcp.py`: Interactive manual testing script with 6 test suites
+- `mcp_adapter.py`: 100% code coverage (53/53 statements)
+
+**Test Results**:
+- 86 total MCP tests passing
+- 100% coverage of mcp_adapter.py (all lines, including invoke_tool and build_gemini_extension_manifest)
+- Manual testing script validates:
+  - Manifest generation with multiple plugins
+  - Empty plugin list handling
+  - Tool invocation flow
+  - Base URL handling (HTTP/HTTPS, trailing slashes)
+  - Gemini extension manifest generation
+  - Protocol compliance
 
 **Reference**: 
 - Implementation plan: `docs/implementation/MCP_IMPLEMENTATION_PLAN.md`
@@ -155,12 +169,11 @@ Can work on these in parallel (independent):
 - Issue: #11 (Implement MCP adapter and Gemini integration)
 
 ## Current Work Unit
-Ready for WU-04: MCP Testing Framework
+Ready for WU-05: Gemini Extension Manifest & Documentation
 
 ## Notes for Next Session
-- WU-03 commit: 38d4ac2
-- PluginMetadata schema is production-ready with 53 passing tests
-- Validation includes required fields, type checking, and field validators
-- MCP adapter gracefully handles invalid plugins with logging
-- Documentation covers all fields, examples, and troubleshooting
-- Next: Comprehensive MCP testing framework and manual testing script
+- WU-04 tests: test_mcp.py (39 tests) + existing test_mcp_adapter.py (34 tests) + test_mcp_endpoints.py (13 tests)
+- Manual script passes all 6 test suites (36 individual checks)
+- 100% coverage achieved on mcp_adapter.py
+- All protocol compliance tests passing
+- Ready to proceed with WU-05: Documentation and Gemini manifest

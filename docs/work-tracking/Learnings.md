@@ -1227,25 +1227,101 @@ Coverage: 100% for PluginMetadata model and validators
 
 ## WU-04: MCP Testing Framework
 
-**Status**: 📋 Planned  
+**Status**: ✅ Complete  
 **Estimated Duration**: 2-3 days  
-**Actual Duration**: TBD  
-**Completed**: TBD  
+**Actual Duration**: 1.5 hours  
+**Completed**: 2026-01-10 20:00  
 
 ### What Went Well
-(To be filled in after completion)
+- Existing test files (test_mcp_adapter.py, test_mcp_endpoints.py) were comprehensive
+- TDD approach: wrote new tests before ensuring they pass
+- Protocol validation tests caught edge cases (special characters, long names, many plugins)
+- Gemini extension manifest tests comprehensive (13 tests covering all aspects)
+- Manual testing script provides interactive validation of real behavior
+- Pre-commit hooks (black, ruff, mypy) passed immediately on first commit
+- Achieved 100% code coverage on mcp_adapter.py without additional instrumentation code
 
 ### Challenges & Solutions
-(To be filled in after completion)
+- Issue: Lines 156 and 167 (invoke_tool and build_gemini_extension_manifest) not covered by existing tests
+- Solution: Added TestMCPAdapterToolInvocation (6 tests) and TestGeminiExtensionManifest (14 tests)
+- Issue: Needed to verify protocol compliance at multiple levels
+- Solution: Created TestMCPProtocolValidation class with 12 comprehensive protocol tests
+- Issue: Manual testing script needed to be independent and validate real behavior
+- Solution: Created interactive script with 6 test suites and 36 individual validation checks
 
 ### Key Insights
-(To be filled in after completion)
+- 100% code coverage requires testing all code paths, not just happy paths
+- Manual testing scripts are valuable for integration testing and developer validation
+- Protocol compliance testing separate from unit testing ensures specification adherence
+- Edge cases (empty plugins, many plugins, special characters) reveal robustness
+- Test organization by purpose (Protocol, Invocation, Gemini, EdgeCases) improves maintainability
+- Mock fixtures should be minimal (only required methods)
+- JSON serialization tests ensure data can actually be transmitted
+
+### Architecture Decisions
+- Separate test classes by purpose (Protocol, Invocation, Gemini, EdgeCases)
+- Manual script uses same MockPlugin class as unit tests (consistency)
+- Test fixtures at class level for code reuse and clarity
+- Edge cases tested: special characters, long names, many plugins, HTTPS URLs, empty base URL
 
 ### Tips for Similar Work
-(To be filled in after completion)
+- Write comprehensive protocol tests to validate specification compliance
+- Test edge cases: empty lists, special characters, long inputs, many items
+- Create manual testing scripts for integration testing and developer validation
+- Organize tests by purpose (protocol, integration, edge cases) not by class
+- Ensure 100% code coverage by examining coverage reports and adding tests
+- JSON serialization tests ensure data can be transmitted
+- Test both success paths and empty/edge cases
+- Use fixtures for common setup to reduce test boilerplate
+- Keep manual scripts independent (don't require running server)
+
+### Test Coverage
+**Unit Tests (server/tests/test_mcp.py)**: 39 tests
+- TestMCPProtocolValidation: 12 tests
+  - Manifest JSON structure, required fields
+  - Server info, tool structure validation
+  - Tool ID format, MCP version, server version
+  - Manifest version, tools list, inputs/outputs lists
+  - Invoke endpoint plugin parameter
+- TestMCPAdapterToolInvocation: 6 tests
+  - invoke_tool returns dict with required fields
+  - Tool ID, status, message fields present
+  - Accepts and handles parameters
+- TestGeminiExtensionManifest: 14 tests
+  - Manifest structure (name, version, description, mcp, commands)
+  - MCP section (manifest_url, transport)
+  - Commands list (vision-analyze, vision-stream)
+  - Requirements, install info
+  - Custom parameters, JSON serialization
+- TestMCPAdapterEdgeCases: 7 tests
+  - Special characters in plugin names
+  - Long plugin names
+  - Many plugins (20+)
+  - Complex inputs/outputs
+  - No base URL, HTTPS URLs
+  - Pydantic model validation
+
+**Manual Tests (server/scripts/test_mcp.py)**: 36 checks across 6 test suites
+- Manifest Generation: 9 checks
+- Empty Plugin List: 3 checks
+- Tool Invocation: 4 checks
+- Base URL Handling: 3 checks
+- Gemini Extension Manifest: 10 checks
+- Protocol Compliance: 7 checks
+
+**Total Coverage**: 
+- 86 total MCP tests passing (39 new + 47 existing)
+- 100% code coverage of mcp_adapter.py (53/53 statements)
+- All existing tests still passing (backward compatible)
 
 ### Blockers Found
-(To be filled in after completion)
+- None
+
+### Integration Notes
+- New test_mcp.py runs alongside existing test_mcp_adapter.py and test_mcp_endpoints.py
+- Manual script validates behavior independently without requiring running server
+- All 86 tests pass in <2 seconds, suitable for CI/CD pipeline
+- 100% coverage means every line is tested; good signal for quality
 
 ---
 
