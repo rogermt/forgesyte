@@ -109,16 +109,19 @@ Can work on these in parallel (independent):
 
 # MCP JSON-RPC 2.0 Transport Implementation Progress
 
-**Last Updated**: 2026-01-10 23:45  
-**Current Context Usage**: 68%  
-**Overall Progress**: 2/6 units completed  
+**Last Updated**: 2026-01-10 12:35  
+**Current Context Usage**: 45%  
+**Overall Progress**: 4/6 units completed  
 **Branch**: `feature/json-rpc-transport`
+**Test Coverage**: 263 tests passing (WU-04 added 17 new tests)
 
 ## Work Unit Status
 
 ### Completed
 - [x] WU-01: JSON-RPC 2.0 Transport Core (2 hours, completed 2026-01-10 22:30)
 - [x] WU-02: MCP Protocol Methods - Part 1 (2.5 hours, completed 2026-01-10 23:45)
+- [x] WU-03: MCP Protocol Methods - Part 2 (1 hour, completed 2026-01-10 11:45)
+- [x] WU-04: HTTP Endpoint and Session Management (1.5 hours, completed 2026-01-10 12:35)
 
 ### In Progress
 (none)
@@ -127,8 +130,6 @@ Can work on these in parallel (independent):
 (none)
 
 ### Todo
-- [ ] WU-03: MCP Protocol Methods - Part 2 (tools/call, resources/*, job integration)
-- [ ] WU-04: HTTP Endpoint and Session Management (POST /mcp endpoint)
 - [ ] WU-05: Gemini-CLI Integration Testing
 - [ ] WU-06: Optimization and Backwards Compatibility
 
