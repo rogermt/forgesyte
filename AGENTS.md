@@ -392,62 +392,71 @@ Large tasks are broken into small work units (1-2 hours each) to respect AI cont
 
 ### Learnings.md Format
 
+Each work unit should have a dedicated section following this structure:
+
 ```markdown
-# TypeScript Migration Learnings
+## WU-XX: Brief Description
 
-## WU-01: Extract package.json
-
-**Completed**: [timestamp]
-**Duration**: 30 minutes
+**Completed**: YYYY-MM-DD HH:MM  
+**Duration**: X hours  
 **Status**: ✅ Complete
 
 ### What Went Well
-- Extraction was straightforward
-- JSON syntax validation caught no errors
-- npm install succeeded on first try
+- Item 1 (keep concise, 1 line)
+- Item 2
+- Item 3
+- Item 4
+- Item 5
+- Item 6
 
 ### Challenges & Solutions
-- Issue: package-lock.json created, need to ensure node_modules ignored
-- Solution: Created comprehensive .gitignore in WU-06
+- **Issue**: Problem encountered
+  - **Solution**: How it was resolved
+- **Issue**: Another problem
+  - **Solution**: How it was resolved
+- **Issue**: Third problem
+  - **Solution**: How it was resolved
 
 ### Key Insights
-- ForgeSyte branding should be consistent across all package.json files
-- Keep version numbers consistent with backend
+- Insight 1 (technical understanding gained)
+- Insight 2
+- Insight 3
+- Insight 4
+- Insight 5
+- Insight 6
+
+### Architecture Decisions
+- **Decision 1**: Explanation of choice made
+- **Decision 2**: Why this approach was chosen
+- **Decision 3**: Trade-off analysis
+- **Decision 4**: Design pattern selected
+- **Decision 5**: Integration approach
 
 ### Tips for Similar Work
-- Always validate JSON syntax immediately after creation
-- Test npm install before proceeding to next dependency-requiring unit
+- Actionable tip 1
+- Actionable tip 2
+- Actionable tip 3
+- Actionable tip 4
+- Actionable tip 5
+- Actionable tip 6
 
 ### Blockers Found
-- None
-
----
-
-## WU-02: Extract TypeScript config
-
-**Completed**: [timestamp]
-**Duration**: 45 minutes
-**Status**: ✅ Complete
-
-### What Went Well
-- tsconfig template was well-structured
-- Strict mode validation worked immediately
-
-### Challenges & Solutions
-- Issue: Had to verify both tsconfig.json and tsconfig.node.json
-- Solution: Created clear dependency in WU-03 for Vite config
-
-### Key Insights
-- Path aliases need matching in both tsconfig.json and vite.config.ts
-- Strict mode catches many issues early
-
-### Tips for Similar Work
-- Always test type checking after tsconfig updates
-- Verify both tsconfig files are in sync
-
-### Blockers Found
-- None
+- None (or list items that blocked progress)
 ```
+
+**Format Rules**:
+- **What Went Well**: 6 items, concise, one-liners
+- **Challenges & Solutions**: 3 items, detailed explanations with issue/solution pairs
+- **Key Insights**: 6 items, technical learnings for future reference
+- **Architecture Decisions**: 5 items, explain design choices and trade-offs
+- **Tips for Similar Work**: 6 items, actionable guidance for future units
+- **Blockers Found**: List any items that blocked progress or note "None"
+
+**Do NOT include**:
+- Test coverage breakdown
+- Files created/modified listing (use git commits for this)
+- Test results summary (they're captured in CI)
+- Next steps (use Progress.md instead)
 
 ### At Work Unit Completion
 
