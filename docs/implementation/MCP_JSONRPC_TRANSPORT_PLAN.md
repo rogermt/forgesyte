@@ -1,8 +1,8 @@
 # MCP JSON-RPC 2.0 Transport Implementation Plan (Issue #13)
 
-**Status**: Planning  
-**Start Date**: TBD  
-**Target Completion**: TBD  
+**Status**: In Progress (WU-02 Complete)  
+**Start Date**: 2025-01-10  
+**Last Updated**: 2025-01-10  
 **Total Effort**: ~2-3 weeks (6 work units × 2-3 days each)  
 **Dependency**: Issue #11 (MCP Adapter - COMPLETE)  
 **GitHub Issue**: https://github.com/rogermt/forgesyte/issues/13
@@ -418,13 +418,43 @@ Both can coexist; clients choose which to use.
 
 | WU | Effort | Week | Status |
 |----|--------|------|--------|
-| WU-01 | 2-3 days | 1 | Planned |
-| WU-02 | 2-3 days | 1-2 | Planned |
+| WU-01 | 2-3 days | 1 | ✅ Complete (2h) |
+| WU-02 | 2-3 days | 1-2 | ✅ Complete (2.5h) |
 | WU-03 | 2-3 days | 2 | Planned |
 | WU-04 | 2 days | 2 | Planned |
 | WU-05 | 2 days | 3 | Planned |
 | WU-06 | 1-2 days | 3 | Planned |
-| **Total** | **11-15 days** | **3 weeks** | **Planned** |
+| **Total** | **11-15 days** | **3 weeks** | **In Progress** |
+
+---
+
+## Completion Status
+
+### WU-01: JSON-RPC 2.0 Transport Core ✅ COMPLETE
+- **Completed**: 2025-01-10
+- **Duration**: 2 hours
+- **Deliverables**:
+  - `server/app/mcp_jsonrpc.py` - JSON-RPC 2.0 protocol models
+  - `server/app/mcp_transport.py` - HTTP transport layer
+  - Comprehensive test suite (41 tests)
+
+### WU-02: MCP Protocol Methods - Part 1 ✅ COMPLETE
+- **Completed**: 2025-01-10
+- **Duration**: 2.5 hours
+- **Deliverables**:
+  - `server/app/mcp_handlers.py` - Core protocol method handlers
+  - Updated `server/app/mcp_transport.py` - Handler registration
+  - Comprehensive test suite (13 tests)
+  - All 230 tests passing, 100% code coverage
+- **Implementations**:
+  - `initialize()` - Capability negotiation (server info + capabilities)
+  - `tools/list()` - List available tools from plugins
+  - `ping()` - Keep-alive verification
+- **Key Features**:
+  - Async handler support
+  - Protocol capability negotiation
+  - Full JSON-RPC error handling
+  - Ready for tools/call implementation
 
 ---
 
