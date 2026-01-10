@@ -1,32 +1,60 @@
 # MCP Configuration Guide
 
-This guide explains how to configure and use ForgeSyte as an MCP server with Gemini-CLI and other MCP clients.
+This guide explains how to configure and use ForgeSyte as an MCP server with Gemini-CLI and other MCP-aware clients.
 
 ## Overview
 
-ForgeSyte is a fully MCP (Model Context Protocol) compliant vision server that exposes all installed plugins as discoverable, invocable tools. This guide covers:
+ForgeSyte is an MCP (Model Context Protocol) compatible vision server that exposes all installed plugins as discoverable, invocable tools. This guide covers:
 
-- Setting up Gemini-CLI to use ForgeSyte
-- Understanding MCP endpoints
-- Configuring plugin metadata
+- Installing ForgeSyte as a Gemini CLI extension
+- Configuring Gemini-CLI to talk to ForgeSyte
+- Understanding ForgeSyte’s MCP endpoints
+- Plugin metadata and tool discovery
 - Troubleshooting common issues
 
 ---
 
-## 1. Gemini-CLI Configuration
+## 1. Gemini-CLI configuration
 
-### Quick Start
+There are two pieces to the story:
 
-1. **Get the ForgeSyte manifest**:
+1. **Installing ForgeSyte as a Gemini CLI extension** (so Gemini knows it exists)  
+2. **Configuring MCP servers in Gemini’s user settings** (so Gemini knows how to talk to it)
+
+### 1.1 Install ForgeSyte as a Gemini CLI extension
+
+This server is designed to be installed as an extension in [Gemini CLI](https://github.com/google-gemini/gemini-cli).
 
 ```bash
-cd forgesyte
-python -m server.app.main &  # Start the server
+# From GitHub
+gemini extensions install https://github.com/rogermt/forgesyte
+
+# From local path
+gemini extensions install /path/to/forgesyte
 ```
 
-2. **Add ForgeSyte to Gemini-CLI config**:
+This lets Gemini-CLI treat ForgeSyte as a first-class extension (for updates, discovery, etc.).
 
-Edit your Gemini-CLI configuration file (typically `~/.gemini-cli/config.json` or similar):
+### 1.2 Add ForgeSyte to Gemini-CLI MCP config
+
+Next, configure Gemini-CLI so it knows **where** to reach ForgeSyte over HTTP.
+
+1. **Start ForgeSyte locally**:
+
+```bash
+cd forgesyte/server
+uv sync
+uv run fastapi dev app/main.py
+```
+
+By default, ForgeSyte listens on:
+
+- `http://localhost:8000`
+
+2. **Add ForgeSyte to Gemini-CLI MCP servers**:
+
+Edit your Gemini-CLI **user configuration** file  
+(typical example: `~/.gemini-cli/settings.json` or similar, depending on your install):
 
 ```json
 {
@@ -38,6 +66,12 @@ Edit your Gemini-CLI configuration file (typically `~/.gemini-cli/config.json` o
 }
 ```
 
+Key points:
+
+- This JSON is **Gemini user config**, not ForgeSyte’s own manifest file.
+- `forgesyte` is the logical server name.
+- `manifestUrl` points to ForgeSyte’s MCP manifest endpoint at `/v1/mcp-manifest`.
+
 3. **Verify ForgeSyte is discovered**:
 
 ```bash
@@ -46,17 +80,20 @@ gemini-cli tools list
 
 You should see all ForgeSyte plugins listed as available tools.
 
+> If the command name differs in your version of Gemini-CLI, use the equivalent “list tools” command.
+
 ---
 
-## 2. MCP Endpoints
+## 2. MCP endpoints exposed by ForgeSyte
 
-ForgeSyte exposes two key endpoints for MCP clients:
+ForgeSyte exposes endpoints that MCP clients (and you, for debugging) can call.
 
-### GET `/v1/mcp-manifest`
+### 2.1 GET `/v1/mcp-manifest`
 
 Returns the MCP manifest describing all available tools.
 
-**Response**:
+**Example response**:
+
 ```json
 {
   "tools": [
@@ -79,11 +116,12 @@ Returns the MCP manifest describing all available tools.
 }
 ```
 
-### GET `/v1/mcp-version`
+### 2.2 GET `/v1/mcp-version`
 
-Returns the MCP protocol version.
+Returns the MCP protocol version that ForgeSyte declares.
 
 **Response**:
+
 ```json
 {
   "mcp_version": "1.0.0"
@@ -92,19 +130,27 @@ Returns the MCP protocol version.
 
 ---
 
-## 3. Plugin Invocation Flow
+## 3. Plugin invocation flow
 
-### Step 1: Tool Discovery
+### 3.1 Tool discovery
 
-When Gemini-CLI loads ForgeSyte's manifest, it learns about available tools:
+When Gemini-CLI starts and reads your MCP config, it:
+
+1. Calls `manifestUrl` (`/v1/mcp-manifest`)  
+2. Learns which tools are available  
+3. Registers them under the `forgesyte` server
+
+You can see the raw manifest yourself:
 
 ```bash
 curl http://localhost:8000/v1/mcp-manifest | jq '.tools'
 ```
 
-### Step 2: Tool Invocation
+### 3.2 Tool invocation
 
-To invoke a tool, send a POST request to its `invoke_endpoint`:
+Each tool has an `invoke_endpoint` (conventionally `/v1/analyze?plugin=<name>`).
+
+Example: invoking the OCR plugin manually:
 
 ```bash
 curl -X POST \
@@ -112,7 +158,8 @@ curl -X POST \
   -F "file=@image.png"
 ```
 
-**Response** (job created):
+**Job created response**:
+
 ```json
 {
   "id": "job_abc123",
@@ -122,15 +169,16 @@ curl -X POST \
 }
 ```
 
-### Step 3: Polling Results
+### 3.3 Poll results
 
-Poll the job endpoint to get results:
+Poll the job endpoint until completion:
 
 ```bash
 curl http://localhost:8000/v1/jobs/job_abc123
 ```
 
-**Response** (when complete):
+**Completed example**:
+
 ```json
 {
   "id": "job_abc123",
@@ -145,14 +193,16 @@ curl http://localhost:8000/v1/jobs/job_abc123
 }
 ```
 
+Gemini-CLI follows a similar flow internally when it invokes ForgeSyte tools.
+
 ---
 
-## 4. Plugin Metadata Requirements
+## 4. Plugin metadata requirements
 
-Every ForgeSyte plugin must implement a `metadata()` method that returns a dictionary with required fields:
+Each ForgeSyte plugin must implement a `metadata()` method that returns a dictionary with required fields. This metadata is used to build the MCP manifest and drive tool discovery.
 
 ```python
-class MyPlugin(Plugin):
+class MyPlugin:
     name = "my-plugin"
 
     def metadata(self) -> dict:
@@ -167,37 +217,31 @@ class MyPlugin(Plugin):
             "permissions": []  # Optional
         }
 
-    async def execute(self, image_path: str) -> dict:
+    def analyze(self, image_bytes: bytes) -> dict:
         """Plugin execution logic."""
         # Implementation here
         return {"result": "..."}
 ```
 
-### Required Fields
+### Required metadata fields
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `name` | `str` | Plugin identifier (lowercase, hyphenated) |
-| `title` | `str` | Human-readable plugin name |
-| `description` | `str` | Brief description of functionality |
-| `inputs` | `List[str]` | Input types (e.g., "image", "text") |
-| `outputs` | `List[str]` | Output types (e.g., "json", "text") |
-| `version` | `str` (optional) | Semantic version of the plugin |
-| `permissions` | `List[str]` (optional) | Required permissions |
+| Field         | Type         | Description                                   |
+|--------------|--------------|-----------------------------------------------|
+| `name`       | `str`        | Plugin identifier (lowercase, hyphenated)     |
+| `title`      | `str`        | Human-readable plugin name                    |
+| `description`| `str`        | Brief description of functionality            |
+| `inputs`     | `List[str]`  | Input types (e.g. `"image"`, `"text"`)        |
+| `outputs`    | `List[str]`  | Output types (e.g. `"json"`, `"text"`)        |
+| `version`    | `str` (opt.) | Plugin version (semantic)                     |
+| `permissions`| `List[str]` (opt.) | Required permissions (if any)         |
 
-### Field Validation
-
-ForgeSyte validates plugin metadata when generating the manifest:
-
-- **Invalid fields** trigger a validation error (logged)
-- **Missing required fields** cause the plugin to be skipped
-- **Type mismatches** are caught and reported
+ForgeSyte validates metadata when generating the manifest. Invalid or incomplete metadata may cause a plugin to be skipped.
 
 ---
 
-## 5. MCP Tool Schema
+## 5. Tool schema in the manifest
 
-Tools in the manifest are described using this schema:
+Tools in the manifest follow this schema:
 
 ```json
 {
@@ -211,13 +255,12 @@ Tools in the manifest are described using this schema:
 }
 ```
 
-The `id` field is automatically generated as `vision.{plugin_name}`.
+- `id` is usually `vision.{plugin_name}`.
+- `invoke_endpoint` is where the MCP client sends requests.
 
 ---
 
-## 6. Version Negotiation
-
-### Server Version
+## 6. Version and compatibility
 
 ForgeSyte declares an MCP protocol version:
 
@@ -226,193 +269,63 @@ ForgeSyte declares an MCP protocol version:
 MCP_PROTOCOL_VERSION = "1.0.0"
 ```
 
-This version is included in the manifest response.
-
-### Checking Version
+You can inspect it via:
 
 ```bash
 curl http://localhost:8000/v1/mcp-version
 # => {"mcp_version": "1.0.0"}
 ```
 
-### Future Version Negotiation
-
-When Gemini-CLI supports version negotiation, it may send:
-
-```
-GET /v1/mcp-manifest?mcp_version=2.0.0
-```
-
-The server can then:
-1. Check the requested version
-2. Return either:
-   - A compatible manifest
-   - An error indicating version incompatibility
-3. Document upgrade paths
-
-This strategy is prepared but not yet implemented.
+Future clients may request specific MCP versions; ForgeSyte is structured so negotiated behavior can be added later.
 
 ---
 
-## 7. Remote Server Configuration
+## 7. Troubleshooting
 
-To connect to ForgeSyte running on a remote server:
+### ForgeSyte tools not visible in Gemini-CLI
 
-```json
-{
-  "mcpServers": {
-    "forgesyte-remote": {
-      "manifestUrl": "https://vision-server.example.com/v1/mcp-manifest"
-    }
-  }
-}
-```
+- Confirm ForgeSyte is running:
 
-Replace `https://vision-server.example.com` with your server's URL.
+  ```bash
+  curl http://localhost:8000/
+  ```
 
----
+- Confirm `manifestUrl` is correct in `mcpServers` config.
+- Inspect the manifest directly:
 
-## 8. Troubleshooting
+  ```bash
+  curl http://localhost:8000/v1/mcp-manifest | jq '.tools'
+  ```
 
-### Manifest Returns 500 Error
+- Check ForgeSyte logs for plugin loading or metadata errors.
 
-**Symptom**: Calling `/v1/mcp-manifest` returns an HTTP 500 error.
+### Invocation 404
 
-**Solution**:
-1. Check that ForgeSyte server is running:
-   ```bash
-   curl http://localhost:8000/health
-   ```
-2. Check server logs for plugin loading errors
-3. Verify plugins implement the `metadata()` method
+- The `plugin` query parameter may not match a loaded plugin.
+- The `/v1/analyze` route might be misconfigured or missing.
 
-### Tool Not Appearing in List
+### Manifest 500
 
-**Symptom**: A plugin is installed but doesn't appear in the manifest.
-
-**Solution**:
-1. Verify the plugin's `metadata()` method returns a valid dict
-2. Check for validation errors in server logs
-3. Ensure the plugin is registered with the PluginManager
-
-### Invocation Fails with 404
-
-**Symptom**: Invoking a tool returns HTTP 404.
-
-**Solution**:
-1. Verify the plugin name matches the `invoke_endpoint`
-2. Check that `/v1/analyze` endpoint is implemented
-3. Ensure the plugin is still loaded (not unloaded)
-
-### Version Mismatch
-
-**Symptom**: Gemini-CLI reports version incompatibility.
-
-**Solution**:
-1. Check `GET /v1/mcp-version` returns expected version
-2. Verify Gemini-CLI client version supports MCP 1.0.0
-3. Update either client or server as needed
+- Likely a plugin with invalid metadata.
+- Check logs for `ValidationError` or plugin import errors.
 
 ---
 
-## 9. Development Workflow
+## 8. Development workflow recap
 
-### Adding a New Plugin
-
-1. Create plugin class with `metadata()` method
-2. Register with PluginManager
-3. Restart ForgeSyte server
-4. Verify manifest includes new tool:
-   ```bash
-   curl http://localhost:8000/v1/mcp-manifest | jq '.tools[] | select(.id == "vision.new-plugin")'
-   ```
-
-### Testing Plugin Metadata
-
-Validate plugin metadata before deployment:
-
-```python
-from server.app.mcp_adapter import PluginMetadata
-
-plugin_meta = my_plugin.metadata()
-try:
-    validated = PluginMetadata(**plugin_meta)
-    print("✓ Metadata is valid")
-except ValidationError as e:
-    print(f"✗ Metadata invalid: {e}")
-```
-
-### Manual Testing
-
-Use the validation script to test the full MCP flow:
-
-```bash
-cd server
-uv run scripts/validate_mcp.py
-```
-
-This validates:
-- Manifest generation
-- Tool discovery
-- Plugin metadata
-- Version endpoints
+1. Start ForgeSyte with uv (`uv run fastapi dev app/main.py`).
+2. Install ForgeSyte as a Gemini extension (`gemini extensions install ...`).
+3. Add ForgeSyte under `mcpServers` with `manifestUrl`.
+4. Implement plugins with proper `metadata()` and `analyze()`.
+5. Use `/v1/mcp-manifest` + `/v1/analyze` + `/v1/jobs` to debug end-to-end.
 
 ---
 
-## 10. Performance Considerations
+## 9. Related docs
 
-### Manifest Caching
-
-For servers with many plugins, consider implementing manifest caching:
-
-```python
-# Optional: Cache manifest for 5 minutes
-@app.get("/v1/mcp-manifest")
-@cache(ttl=300)
-def get_mcp_manifest():
-    return adapter.get_manifest()
+- `docs/guides/PLUGIN_IMPLEMENTATION.md` – How to write plugins  
+- `docs/guides/MCP_API_REFERENCE.md` – Detailed endpoint descriptions  
+- `docs/design/MCP.md` – Internal design and rationale
 ```
 
-### Plugin Discovery
-
-ForgeSyte discovers plugins on startup. If you need dynamic plugin loading:
-
-1. Consider invalidating manifest cache
-2. Re-initialize the adapter
-3. Notify connected MCP clients of changes
-
 ---
-
-## 11. Security Considerations
-
-### Exposing Plugins Securely
-
-When deploying ForgeSyte in production:
-
-1. **Authentication**: Protect `/v1/mcp-manifest` with API key or OAuth
-2. **Authorization**: Restrict which plugins each client can invoke
-3. **Rate Limiting**: Limit tool invocation rates per client
-4. **HTTPS**: Always use HTTPS for remote servers
-
-### Plugin Permissions
-
-Plugins can declare required permissions:
-
-```python
-def metadata(self) -> dict:
-    return {
-        "name": "sensitive-plugin",
-        "permissions": ["file:read", "network:external"]
-    }
-```
-
-Clients can then evaluate whether to grant access.
-
----
-
-## 12. Related Documentation
-
-- **[Plugin Implementation Guide](./PLUGIN_IMPLEMENTATION.md)** - How to write ForgeSyte plugins
-- **[MCP API Reference](./MCP_API_REFERENCE.md)** - Complete API endpoint documentation
-- **[Design Specification](../design/MCP.md)** - MCP architecture and design decisions
-

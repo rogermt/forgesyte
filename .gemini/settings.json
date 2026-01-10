@@ -1,0 +1,10 @@
+{  
+  "$schema": "https://raw.githubusercontent.com/google-gemini/gemini-cli/main/schemas/settings.schema.json",  
+  "mcpServers": {  
+    "forgesyte": {  
+      "httpUrl": "http://localhost:8000",  
+      "timeout": 30000,  
+      "description": "ForgeSyte AI-vision MCP server"  
+    }  
+  }  
+}

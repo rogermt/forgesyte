@@ -46,12 +46,11 @@ forgesyte/
 ├─ example_plugins/
 │  ├─ ocr_plugin/
 │  └─ block_mapper/
-├─ web-ui/              # React + TypeScript
+├─ web-ui/
 │  ├─ src/
 │  ├─ public/
 │  └─ package.json
-├─ gemini_extension_manifest.json
-├─ requirements.doc
+├─ gemini_extension.json
 ├─ PLUGIN_DEVELOPMENT.md
 ├─ CONTRIBUTING.md
 └─ README.md
@@ -104,19 +103,85 @@ http://localhost:5173
 
 ## Using ForgeSyte with Gemini‑CLI
 
-Point Gemini‑CLI to:
+ForgeSyte integrates with Gemini‑CLI as an MCP server. There are two steps:
 
-```
-http://localhost:8000/v1/mcp-manifest
+---
+
+### 1. Install ForgeSyte as a Gemini‑CLI extension
+
+```bash
+# Install directly from GitHub
+gemini extensions install https://github.com/rogermt/forgesyte
+
+# Or install from a local checkout
+gemini extensions install /path/to/forgesyte
 ```
 
-ForgeSyte will expose tools based on installed plugins.
+---
+
+### 2. Add ForgeSyte to Gemini‑CLI MCP configuration
+
+Edit your Gemini‑CLI user config (e.g., `~/.gemini-cli/settings.json`):
+
+```json
+{  
+  "$schema": "https://raw.githubusercontent.com/google-gemini/gemini-cli/main/schemas/settings.schema.json",  
+  "mcpServers": {  
+    "forgesyte": {  
+      "httpUrl": "http://localhost:8000",  
+      "timeout": 30000,  
+      "description": "ForgeSyte AI-vision MCP server"  
+    }  
+  }  
+}
+```
+
+Restart Gemini‑CLI, then verify:
+
+```bash
+gemini-cli tools list
+```
+
+You should see tools such as:
+
+- `vision.ocr`
+- `vision.block_mapper`
 
 ---
 
 ## Architecture Overview
 
 See `ARCHITECTURE.md` for the full diagram.
+
+---
+
+## Troubleshooting MCP Discovery
+
+### ForgeSyte not appearing in `gemini-cli tools list`
+
+- Ensure the server is running:
+
+  ```bash
+  curl http://localhost:8000/v1/mcp-manifest
+  ```
+
+- Check your Gemini config for typos in:
+
+  - `mcpServers`
+  - `forgesyte`
+  - `httpUrl`
+
+- Restart Gemini‑CLI after editing settings.
+
+### Manifest returns 500
+
+- A plugin likely has invalid metadata.
+- Check ForgeSyte logs for `ValidationError`.
+
+### Tool invocation returns 404
+
+- Plugin name in `?plugin=` may not match the plugin folder name.
+- Ensure plugin is loaded by `plugin_loader.py`.
 
 ---
 
@@ -141,3 +206,165 @@ See `BRANDING.md`.
 ## License
 
 TBD.
+```
+
+---
+
+# ✅ 2. **Gemini‑CLI Quickstart Mini‑Guide**
+
+```md
+# ForgeSyte + Gemini‑CLI Quickstart
+
+This guide shows the fastest way to use ForgeSyte as an MCP server inside Gemini‑CLI.
+
+---
+
+## 1. Start ForgeSyte
+
+```bash
+cd forgesyte/server
+uv sync
+uv run fastapi dev app/main.py
+```
+
+---
+
+## 2. Install ForgeSyte as a Gemini extension
+
+```bash
+gemini extensions install https://github.com/rogermt/forgesyte
+```
+
+---
+
+## 3. Add ForgeSyte to Gemini MCP config
+
+Edit your Gemini settings file:
+
+```json
+{
+  "mcpServers": {
+    "forgesyte": {
+      "httpUrl": "http://localhost:8000",
+      "type": "http"
+    }
+  }
+}
+```
+
+---
+
+## 4. Verify tools are available
+
+```bash
+gemini-cli tools list
+```
+
+You should see:
+
+- `vision.ocr`
+- `vision.block_mapper`
+
+---
+
+## 5. Use ForgeSyte inside Gemini
+
+Examples:
+
+- “Use ForgeSyte OCR on this screenshot.”
+- “Analyze this image with the block mapper.”
+```
+
+---
+
+# ✅ 3. **Troubleshooting Block (MCP Discovery Issues)**
+
+```md
+# MCP Discovery Troubleshooting
+
+### ForgeSyte does not appear in `gemini-cli tools list`
+
+- Ensure ForgeSyte is running:
+
+  ```bash
+  curl http://localhost:8000/v1/mcp-manifest
+  ```
+
+- Check Gemini config for typos:
+
+  - `mcpServers`
+  - `forgesyte`
+  - `httpUrl`
+
+- Restart Gemini‑CLI after editing settings.
+
+---
+
+### Manifest returns 500
+
+- A plugin likely has invalid metadata.
+- Check ForgeSyte logs for:
+
+  - `ValidationError`
+  - Missing fields in `metadata()`
+  - Incorrect types
+
+---
+
+### Tools appear but invocation fails
+
+- Ensure plugin name matches:
+
+  ```
+  /v1/analyze?plugin=<name>
+  ```
+
+- Confirm plugin folder name matches plugin `name` field.
+
+---
+
+### Gemini‑CLI says “server unreachable”
+
+- Check port:
+
+  ```bash
+  curl http://localhost:8000/
+  ```
+
+- Ensure no firewall is blocking localhost.
+```
+
+---
+
+# ✅ 4. **Correct `gemini_extension.json`**
+
+This is the correct filename and structure for Gemini extensions.
+
+```json
+{
+  "name": "ForgeSyte",
+  "version": "0.1.0",
+  "description": "Modular AI-vision MCP server exposing pluggable vision tools.",
+  "homepage": "https://github.com/rogermt/forgesyte",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/rogermt/forgesyte.git"
+  },
+  "license": "MIT",
+  "categories": [
+    "vision",
+    "analysis",
+    "developer-tools"
+  ],
+  "author": {
+    "name": "ForgeSyte",
+    "url": "https://github.com/rogermt"
+  },
+  "mcpServers": {
+    "forgesyte": {
+      "httpUrl": "http://localhost:8000",
+      "type": "http"
+    }
+  }
+}
+```
