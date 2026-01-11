@@ -240,24 +240,152 @@ class ServiceAdapter:
 
 ---
 
+## Reference Solutions in /scratch/refactor_server/app/
+
+**Important**: Solutions exist for remaining modules in scratch directory. These provide:
+- auth.md: AuthService with Pydantic settings + KeyRepository Protocol
+- main.md: Lifespan manager + Protocols (VisionPlugin, PluginRegistry, WebSocketProvider)
+- models.md: Pydantic models with Field descriptions and validators
+- task.md: TaskProcessor with Job model + JobRepository Protocol
+- plugin_loader.md: PluginManager with pathlib + Protocol enforcement
+- api.md: Service layer endpoints with dependency injection
+- websocket_manager.md: ConnectionManager with Pydantic messages + retry logic
+
+**Pattern to Follow**: Each file demonstrates:
+1. Protocol interfaces for abstraction
+2. Service layer extracting business logic
+3. Pydantic models for data validation
+4. Type hints throughout
+5. Structured logging with context
+6. Error handling with specific exceptions
+7. Google-style docstrings with Raises
+
+---
+
+## Key Patterns Identified in Reference Solutions
+
+### 1. Pydantic Settings for Configuration (from auth.md)
+```python
+from pydantic_settings import BaseSettings
+
+class AuthSettings(BaseSettings):
+    """Settings loaded from environment."""
+    admin_key: str | None = Field(default=None, env="FORGESYTE_ADMIN_KEY")
+    user_key: str | None = Field(default=None, env="FORGESYTE_USER_KEY")
+    
+    class Config:
+        env_file = ".env"
+```
+**Use in**: auth.py, main.py
+
+### 2. Protocol-Based Service Dependencies (from main.md + auth.md)
+```python
+class KeyRepository(Protocol):
+    """Interface for retrieving hashed API keys."""
+    def get_user_by_hash(self, key_hash: str) -> Optional[dict]: ...
+
+class AuthService:
+    def __init__(self, repository: KeyRepository):
+        self.repository = repository
+```
+**Pattern**: Every service accepts Protocol dependency, not concrete class
+**Use in**: All service classes (auth, tasks, plugins, websocket)
+
+### 3. Lifespan Manager Pattern (from main.md)
+```python
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Manages system-wide resources during app lifecycle."""
+    logger.info("Initializing ForgeSyte Core...")
+    plugin_manager.load_plugins()
+    app.state.analysis_service = StreamingAnalysisService(...)
+    yield
+    # Graceful shutdown
+    for name in plugin_manager.list_loaded():
+        plugin_manager.get(name).on_unload()
+```
+**Use in**: main.py for app initialization + service setup
+
+### 4. Service Layer Extraction Pattern (from all files)
+- Move business logic from endpoints into service classes
+- Services depend on Protocols, not concrete implementations
+- Endpoints become thin wrappers (5-10 lines)
+- Each service handles one domain (auth, tasks, analysis, etc.)
+
+### 5. Pydantic Model with Field Validation (from models.md + auth.md)
+```python
+class PluginMetadata(BaseModel):
+    """Strict schema for plugin self-reporting."""
+    name: str = Field(..., min_length=1, description="Plugin identifier")
+    description: str = Field(..., min_length=1, description="Human-readable description")
+    version: str = Field(default="1.0.0", description="Semantic version")
+```
+**Use in**: models.py - ensure all Pydantic models have Field descriptions
+
+### 6. Retry Pattern for External Calls (from api.md + websocket_manager.md)
+```python
+from tenacity import retry, stop_after_attempt, wait_exponential
+
+@retry(
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(multiplier=1, min=2, max=10),
+    reraise=True
+)
+async def fetch_remote_image(self, url: str) -> bytes:
+    """Fetch image with automatic retries on failure."""
+```
+**Use in**: api.py for image acquisition, websocket_manager.py for message delivery
+
+### 7. Structured Logging with Extra Context (all files)
+```python
+logger.info(
+    "Job submitted",
+    extra={
+        "job_id": job_id,
+        "plugin": plugin,
+        "image_size": len(image_bytes)
+    }
+)
+```
+**Use in**: Every module - debug, info, warning, error with context
+
+### 8. Specific Exception Handling (all files)
+```python
+try:
+    validated_meta = PluginMetadata(**meta)
+except ValidationError as e:
+    logger.error("Invalid plugin metadata", extra={"plugin_name": name})
+    continue  # Skip bad plugin, process others
+```
+**Pattern**: Never `except Exception:` - catch specific types, log with context, handle gracefully
+
+---
+
 ## Questions for Next Chat
 
 When continuing refactoring in new chat:
-- Should Protocol pattern be applied to all files or is current approach acceptable?
-- Are there file-specific patterns needed beyond this adapter template?
-- Should custom exceptions be created for server modules?
-- What logging level is appropriate for each operation (debug vs info)?
+1. ✅ **Protocol pattern**: Use in all service dependencies (confirmed in scratch solutions)
+2. ✅ **Service layer**: Extract business logic per scratch examples
+3. ✅ **Pydantic settings**: Use for configuration management (auth.md example)
+4. ✅ **Retry pattern**: Apply to external API calls (api.md example)
+5. Questions remaining:
+   - Should custom exceptions inherit from ForgeError base class or use specific types?
+   - What's the timeout strategy for retry logic (fixed backoff vs exponential)?
+   - Should all async methods use Protocol for context manager pattern?
 
 ---
 
 ## Blockers Found
 
-None - code is production-ready.
+None - code is production-ready. Solutions available in scratch/ for reference.
 
 ---
 
 ## Ready for
 
-- ✅ Full server refactoring using this as template
-- ✅ Application of Protocol pattern in future work units
-- ✅ Other modules to follow same documentation and logging patterns
+- ✅ Full server refactoring using adapter.py as template
+- ✅ Application of Protocol pattern per scratch solutions
+- ✅ Service layer extraction per main.md, api.md, auth.md examples
+- ✅ Pydantic settings implementation per auth.md
+- ✅ Retry pattern per api.md and websocket_manager.md
+- ✅ All modules to follow documented patterns
