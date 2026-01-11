@@ -2,6 +2,14 @@
 
 This document captures learnings from each work unit to help future work and avoid repeating mistakes.
 
+---
+
+## Important: Always Include All Codebases in Planning
+
+**Lesson**: When creating coverage/quality plans, always audit the entire project structure first. Initially missed web-ui/ in coverage tracking because focus was on backend (server/). web-ui exists as separate Node/TypeScript app with own test suite. Always check: `ls -la` at workspace root, review package.json/pyproject.toml for all projects.
+
+---
+
 ## Projects Tracked
 
 1. **TypeScript Web UI Migration** (WU-01 to WU-23) - COMPLETE
