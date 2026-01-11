@@ -242,12 +242,35 @@ def call_gemini_api(prompt: str):
 
 ### Development Workflow & Mandatory Tools
 
-Before committing any code in `server/`, the following tools must be run to ensure compliance:
+**CRITICAL:** Local environment must exactly match CI before pushing. Run these commands in order from the `server/` directory:
 
-1. **Formatting:** `uv run black .`
-2. **Linting:** `uv run ruff check --fix .`
-3. **Type Checking:** `uv run mypy . --no-site-packages`
-4. **Testing:** `uv run pytest`
+```bash
+cd server
+
+# 1. Sync dependencies
+uv sync
+
+# 2. Run pre-commit hooks (black, ruff)
+cd ..
+uv run pre-commit run --all-files
+cd server
+
+# 3. Type checking
+PYTHONPATH=. uv run mypy app/ --no-site-packages
+
+# 4. Run tests with coverage reporting
+uv run pytest --cov=app --cov-report=term-missing
+
+# 5. Verify coverage meets 80% threshold (MUST PASS)
+uv run coverage report --fail-under=80
+```
+
+**All steps must pass before committing.** If any step fails, do not continue—report the error and wait for direction.
+
+**Git status check after these commands:**
+```bash
+git status  # Should show clean working directory
+```
 
 ## TypeScript/React Conventions
 
