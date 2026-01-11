@@ -1,4 +1,18 @@
-"""JSON-RPC 2.0 protocol implementation for MCP transport."""
+"""JSON-RPC 2.0 protocol implementation for MCP transport.
+
+Implements the JSON-RPC 2.0 specification (https://www.jsonrpc.org/specification)
+for message transport in the Model Context Protocol. Provides type-safe request
+and response handling with Pydantic validation.
+
+Classes:
+- JSONRPCErrorCode: Standard JSON-RPC error code constants
+- JSONRPCError: Error response object with code, message, and optional data
+- JSONRPCRequest: Request/notification object with method and parameters
+- JSONRPCResponse: Response object with result or error
+
+The JSON-RPC protocol is transport-independent; this module can be used with
+HTTP, WebSocket, or other transports.
+"""
 
 from enum import IntEnum
 from typing import Any, Dict, Optional, Union
@@ -66,7 +80,17 @@ class JSONRPCRequest(BaseModel):
     @field_validator("jsonrpc")
     @classmethod
     def validate_jsonrpc_version(cls, v: str) -> str:
-        """Validate that jsonrpc is exactly '2.0'."""
+        """Validate that jsonrpc field is exactly '2.0'.
+
+        Args:
+            v: The jsonrpc field value to validate.
+
+        Returns:
+            The validated jsonrpc value.
+
+        Raises:
+            ValueError: If jsonrpc is not exactly '2.0'.
+        """
         if v != "2.0":
             raise ValueError("jsonrpc must be '2.0'")
         return v
@@ -74,7 +98,17 @@ class JSONRPCRequest(BaseModel):
     @field_validator("method")
     @classmethod
     def validate_method(cls, v: str) -> str:
-        """Validate that method is a non-empty string."""
+        """Validate that method field is a non-empty string.
+
+        Args:
+            v: The method field value to validate.
+
+        Returns:
+            The validated method value.
+
+        Raises:
+            ValueError: If method is empty or not a string.
+        """
         if not v or not isinstance(v, str):
             raise ValueError("method must be a non-empty string")
         return v

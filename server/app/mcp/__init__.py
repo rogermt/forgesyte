@@ -1,4 +1,24 @@
-"""MCP (Model Context Protocol) implementation module."""
+"""MCP (Model Context Protocol) implementation module.
+
+This module provides the complete MCP server implementation for ForgeSyte,
+enabling client discovery and tool invocation via the Model Context Protocol.
+
+Core Components:
+- adapter: MCPAdapter for converting plugins to MCP tools and managing manifests
+- jsonrpc: JSON-RPC 2.0 protocol implementation for message transport
+- handlers: Protocol message handlers for client requests
+- routes: HTTP routes for MCP endpoints
+- transport: HTTP transport layer for MCP communication
+
+Usage:
+    from server.app.mcp import MCPAdapter, MCPProtocolHandlers, router
+
+    # Initialize adapter with plugin manager
+    adapter = MCPAdapter(plugin_manager, base_url="http://localhost:8000")
+
+    # Get MCP manifest for client discovery
+    manifest = adapter.get_manifest()
+"""
 
 from .adapter import (
     MCP_PROTOCOL_VERSION,
