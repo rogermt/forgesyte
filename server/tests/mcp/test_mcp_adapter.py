@@ -426,7 +426,12 @@ class TestMCPAdapterValidation:
         assert len(manifest["tools"]) == 0
         # Should log error
         assert "Invalid plugin metadata" in caplog.text
-        assert "invalid" in caplog.text
+
+        # Verify context data in log record
+        error_record = next(
+            r for r in caplog.records if r.message == "Invalid plugin metadata"
+        )
+        assert error_record.plugin_name == "invalid"
 
     def test_multiple_plugins_partial_invalid(self, adapter, mock_plugin_manager):
         """Test handling mix of valid and invalid plugins."""

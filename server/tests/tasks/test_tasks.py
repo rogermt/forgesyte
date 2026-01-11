@@ -215,10 +215,12 @@ class TestJobStoreUpdate:
         completed = datetime.utcnow()
         await job_store.update(
             "job1",
-            status=JobStatus.DONE,
-            result=result,
-            completed_at=completed,
-            progress=1.0,
+            {
+                "status": JobStatus.DONE,
+                "result": result,
+                "completed_at": completed,
+                "progress": 1.0,
+            },
         )
 
         job = await job_store.get("job1")
@@ -564,7 +566,15 @@ class TestJobStoreList:
     async def test_list_jobs_respects_limit(self, job_store: JobStore) -> None:
         """Test that list_jobs respects the limit parameter."""
         for i in range(100):
-            await job_store.create(f"job{i}", "plugin1")
+            await job_store.create(
+                f"job{i}",
+                {
+                    "job_id": f"job{i}",
+                    "plugin": "plugin1",
+                    "status": JobStatus.DONE,
+                    "created_at": datetime.utcnow(),
+                },
+            )
 
         jobs = await job_store.list_jobs(limit=10)
         assert len(jobs) == 10
@@ -580,15 +590,31 @@ class TestJobStoreCleanup:
 
         # Add jobs until cleanup is needed
         for i in range(5):
-            await store.create(f"job{i}", "plugin1")
+            await store.create(
+                f"job{i}",
+                {
+                    "job_id": f"job{i}",
+                    "plugin": "plugin1",
+                    "status": JobStatus.QUEUED,
+                    "created_at": datetime.utcnow(),
+                },
+            )
         assert len(store._jobs) == 5
 
         # Mark some as done
         for i in range(3):
-            await store.update(f"job{i}", status=JobStatus.DONE)
+            await store.update(f"job{i}", {"status": JobStatus.DONE})
 
         # Adding one more should trigger cleanup
-        await store.create("job5", "plugin1")
+        await store.create(
+            "job5",
+            {
+                "job_id": "job5",
+                "plugin": "plugin1",
+                "status": JobStatus.QUEUED,
+                "created_at": datetime.utcnow(),
+            },
+        )
         # Cleanup should have removed oldest completed jobs
         assert len(store._jobs) <= 5
 
@@ -597,17 +623,49 @@ class TestJobStoreCleanup:
         """Test that cleanup removes completed jobs first."""
         store = JobStore(max_jobs=3)
 
-        await store.create("job1", "plugin1")
-        await store.update("job1", status=JobStatus.DONE)
+        await store.create(
+            "job1",
+            {
+                "job_id": "job1",
+                "plugin": "plugin1",
+                "status": JobStatus.QUEUED,
+                "created_at": datetime.utcnow(),
+            },
+        )
+        await store.update("job1", {"status": JobStatus.DONE})
         await asyncio.sleep(0.01)
 
-        await store.create("job2", "plugin1")
-        await store.create("job3", "plugin1")
+        await store.create(
+            "job2",
+            {
+                "job_id": "job2",
+                "plugin": "plugin1",
+                "status": JobStatus.QUEUED,
+                "created_at": datetime.utcnow(),
+            },
+        )
+        await store.create(
+            "job3",
+            {
+                "job_id": "job3",
+                "plugin": "plugin1",
+                "status": JobStatus.QUEUED,
+                "created_at": datetime.utcnow(),
+            },
+        )
 
         assert len(store._jobs) == 3
 
         # Add another job to trigger cleanup
-        await store.create("job4", "plugin1")
+        await store.create(
+            "job4",
+            {
+                "job_id": "job4",
+                "plugin": "plugin1",
+                "status": JobStatus.QUEUED,
+                "created_at": datetime.utcnow(),
+            },
+        )
         # job1 should be removed since it was done and oldest
         assert "job1" not in store._jobs
 
@@ -724,7 +782,7 @@ class TestTaskProcessorCancelJob:
     async def test_cancel_running_job(self, task_processor: TaskProcessor) -> None:
         """Test cancelling a running job (can't cancel)."""
         job_id = await task_processor.submit_job(b"image_data", "plugin1")
-        await task_processor.job_store.update(job_id, status=JobStatus.RUNNING)
+        await task_processor.job_store.update(job_id, {"status": JobStatus.RUNNING})
         result = await task_processor.cancel_job(job_id)
         assert result is False
 
@@ -738,7 +796,7 @@ class TestTaskProcessorCancelJob:
     async def test_cancel_completed_job(self, task_processor: TaskProcessor) -> None:
         """Test cancelling a completed job."""
         job_id = await task_processor.submit_job(b"image_data", "plugin1")
-        await task_processor.job_store.update(job_id, status=JobStatus.DONE)
+        await task_processor.job_store.update(job_id, {"status": JobStatus.DONE})
         result = await task_processor.cancel_job(job_id)
         assert result is False
 
@@ -910,8 +968,8 @@ class TestEdgeCases:
     @pytest.mark.asyncio
     async def test_empty_image_bytes(self, task_processor: TaskProcessor) -> None:
         """Test submitting empty image bytes."""
-        job_id = await task_processor.submit_job(b"", "plugin1")
-        assert job_id is not None
+        with pytest.raises(ValueError, match="image_bytes cannot be empty"):
+            await task_processor.submit_job(b"", "plugin1")
 
     @pytest.mark.asyncio
     async def test_large_image_bytes(self, task_processor: TaskProcessor) -> None:
