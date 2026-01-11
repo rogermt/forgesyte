@@ -255,9 +255,9 @@ class TestGeminiCLIToolDiscoveryWorkflow:
             tools = data["result"]["tools"]
             assert isinstance(tools, list)
             assert len(tools) == 2
-            tool_ids = [tool["id"] for tool in tools]
-            assert "vision.ocr" in tool_ids
-            assert "vision.motion_detector" in tool_ids
+            tool_names = [tool["name"] for tool in tools]
+            assert "ocr" in tool_names
+            assert "motion_detector" in tool_names
 
     def test_gemini_cli_tools_have_required_metadata(
         self, client: TestClient, mock_plugin_manager: MockPluginManager
@@ -279,15 +279,14 @@ class TestGeminiCLIToolDiscoveryWorkflow:
 
             tools = data["result"]["tools"]
             for tool in tools:
-                assert "id" in tool
-                assert "title" in tool
+                assert "name" in tool
                 assert "description" in tool
-                assert "invoke_endpoint" in tool
+                assert "inputSchema" in tool
 
     def test_gemini_cli_tools_have_input_output_types(
         self, client: TestClient, mock_plugin_manager: MockPluginManager
     ):
-        """Test that tools have input and output types defined."""
+        """Test that tools have input schema defined."""
         with client:
             client.get("/")
             app.state.plugins = mock_plugin_manager
@@ -304,10 +303,10 @@ class TestGeminiCLIToolDiscoveryWorkflow:
 
             tools = data["result"]["tools"]
             for tool in tools:
-                assert "inputs" in tool
-                assert "outputs" in tool
-                assert isinstance(tool["inputs"], list)
-                assert isinstance(tool["outputs"], list)
+                assert "inputSchema" in tool
+                assert isinstance(tool["inputSchema"], dict)
+                assert "type" in tool["inputSchema"]
+                assert "properties" in tool["inputSchema"]
 
 
 class TestGeminiCLIToolInvocationWorkflow:
@@ -478,10 +477,8 @@ class TestGeminiCLIMultipleSequentialRequests:
             tools = tools_response["result"]["tools"]
             assert len(tools) > 0
 
-            # Step 3: Call a tool (use the plugin name from id prefix)
-            tool_id = tools[0]["id"]
-            # Extract plugin name from tool id (e.g., "vision.ocr" -> "ocr")
-            plugin_name = tool_id.split(".")[-1]
+            # Step 3: Call a tool (use the plugin name directly)
+            plugin_name = tools[0]["name"]
             call_request = {
                 "jsonrpc": "2.0",
                 "method": "tools/call",
