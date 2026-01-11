@@ -7,11 +7,34 @@ on:
     branches: [main, develop]
 
 jobs:
-  lint-and-test:
+  lint:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+      
+      - name: Install uv
+        uses: astral-sh/setup-uv@v2
+      
+      - name: Run pre-commit hooks
+        uses: pre-commit/action@v3.0.0
+      
+      - name: Run mypy type checking
+        run: |
+          cd server
+          PYTHONPATH=. uv run mypy app/ --no-site-packages
+        continue-on-error: true
+  
+  test:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.11"]
+        python-version: ["3.8", "3.9", "3.10", "3.11"]
     
     steps:
       - uses: actions/checkout@v4
@@ -24,15 +47,6 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v2
       
-      - name: Run pre-commit hooks (lint)
-        uses: pre-commit/action@v3.0.0
-      
-      - name: Run mypy type checking
-        run: |
-          cd server
-          PYTHONPATH=. uv run mypy app/ --no-site-packages
-        continue-on-error: true
-      
       - name: Install dependencies
         run: |
           cd server
@@ -43,18 +57,9 @@ jobs:
           cd server
           uv run pytest \
             --cov=app \
-            --cov-report=xml \
-            --cov-report=term-missing \
-            --cov-report=html
+            --cov-report=term-missing
       
       - name: Display coverage summary
         run: |
           cd server
           uv run coverage report --fail-under=80
-      
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v3
-        with:
-          files: ./server/coverage.xml
-          fail_ci_if_error: false
-          verbose: false
