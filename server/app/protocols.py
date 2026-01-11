@@ -82,11 +82,11 @@ class PluginRegistry(Protocol):
         """
         ...
 
-    def list_loaded(self) -> list[str]:
-        """Get names of all currently loaded plugins.
+    def list(self) -> Dict[str, Dict[str, Any]]:
+        """Get all loaded plugins with their metadata.
 
         Returns:
-            List of plugin names
+            Dictionary mapping plugin names to their metadata dictionaries
         """
         ...
 

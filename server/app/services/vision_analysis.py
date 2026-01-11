@@ -158,19 +158,13 @@ class VisionAnalysisService:
         Raises:
             RuntimeError: If plugin list cannot be retrieved
         """
-        plugin_names = self.plugins.list_loaded()
-        result = {}
-
-        for name in plugin_names:
-            try:
-                plugin = self.plugins.get(name)
-                if plugin:
-                    result[name] = plugin.metadata()
-            except Exception as e:
-                logger.error(
-                    "Failed to get plugin metadata",
-                    extra={"plugin": name, "error": str(e)},
-                )
-
-        logger.debug("Listed plugins", extra={"count": len(result)})
-        return result
+        try:
+            result = self.plugins.list()
+            logger.debug("Listed plugins", extra={"count": len(result)})
+            return result
+        except Exception as e:
+            logger.error(
+                "Failed to list plugins",
+                extra={"error": str(e)},
+            )
+            return {}

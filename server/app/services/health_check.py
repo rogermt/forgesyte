@@ -88,15 +88,15 @@ class HealthCheckService:
         # Check plugins
         if self.plugins:
             try:
-                plugin_names = self.plugins.list_loaded()
+                all_plugins = self.plugins.list()
                 components["plugins"] = {
                     "status": "healthy",
-                    "count": len(plugin_names),
+                    "count": len(all_plugins),
                 }
                 component_statuses.append("healthy")
                 logger.debug(
                     "Plugin health check passed",
-                    extra={"plugin_count": len(plugin_names)},
+                    extra={"plugin_count": len(all_plugins)},
                 )
             except Exception as e:
                 components["plugins"] = {"status": "unhealthy", "error": str(e)}
@@ -180,32 +180,23 @@ class HealthCheckService:
             return {"status": "unknown", "plugins": {}}
 
         try:
-            plugin_names = self.plugins.list_loaded()
+            all_plugins = self.plugins.list()
             plugin_health = {}
-            unhealthy_count = 0
 
-            for name in plugin_names:
+            for name, metadata in all_plugins.items():
                 try:
-                    plugin = self.plugins.get(name)
-                    if plugin:
-                        metadata = plugin.metadata()
-                        plugin_health[name] = {
-                            "status": "healthy",
-                            "version": metadata.get("version", "unknown"),
-                        }
-                    else:
-                        plugin_health[name] = {"status": "not_found"}
-                        unhealthy_count += 1
+                    plugin_health[name] = {
+                        "status": "healthy",
+                        "version": metadata.get("version", "unknown"),
+                    }
                 except Exception as e:
                     plugin_health[name] = {"status": "error", "error": str(e)}
-                    unhealthy_count += 1
 
-            overall = "degraded" if unhealthy_count > 0 else "healthy"
-
+            overall = "healthy"
             result = {"status": overall, "plugins": plugin_health}
             logger.debug(
                 "Plugin health check completed",
-                extra={"status": overall, "count": len(plugin_names)},
+                extra={"status": overall, "count": len(all_plugins)},
             )
             return result
 

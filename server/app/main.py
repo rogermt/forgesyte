@@ -1,21 +1,29 @@
-"""Main FastAPI application entry point."""
+"""Main FastAPI application entry point and lifespan management.
 
-import base64
+This module configures the FastAPI application with proper dependency injection,
+structured logging, and graceful lifespan management. Business logic is delegated
+to service layer classes, keeping endpoints thin and focused on HTTP concerns.
+
+The lifespan manager handles:
+1. Startup: Load plugins, initialize services, set up dependencies
+2. Shutdown: Gracefully cleanup resources and unload plugins
+"""
+
 import logging
 import os
-import time
 import uuid
 from contextlib import asynccontextmanager
 from typing import Optional
 
 import uvicorn
-from fastapi import FastAPI, Query, WebSocket, WebSocketDisconnect
+from fastapi import Depends, FastAPI, Query, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 
 from .api import router as api_router
 from .auth import init_api_keys
 from .mcp import router as mcp_router
 from .plugin_loader import PluginManager
+from .services import VisionAnalysisService
 from .tasks import init_task_processor
 from .websocket_manager import ws_manager
 
@@ -28,36 +36,75 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Application lifespan manager."""
+    """Application lifespan manager.
+
+    Manages system-wide resources during app startup and shutdown:
+    - Startup: Load plugins, initialize task processor, set up services
+    - Shutdown: Gracefully unload plugins and cleanup resources
+    """
     # Startup
-    logger.info("Starting ForgeSyte...")
+    logger.info("Initializing ForgeSyte Core...")
 
     # Initialize API keys
-    init_api_keys()
+    try:
+        init_api_keys()
+        logger.debug("API keys initialized")
+    except Exception as e:
+        logger.error("Failed to initialize API keys", extra={"error": str(e)})
 
     # Load plugins
     plugins_dir = os.getenv("FORGESYTE_PLUGINS_DIR", "../example_plugins")
     plugin_manager = PluginManager(plugins_dir)
-    result = plugin_manager.load_plugins()
-    logger.info(f"Loaded plugins: {list(result.get('loaded', {}).keys())}")
-    if result.get("errors"):
-        logger.warning(f"Plugin errors: {result['errors']}")
+
+    try:
+        result = plugin_manager.load_plugins()
+        loaded_plugins = list(result.get("loaded", {}).keys())
+        logger.info(
+            "Plugins loaded successfully",
+            extra={"count": len(loaded_plugins), "plugins": loaded_plugins},
+        )
+        if result.get("errors"):
+            logger.warning(
+                "Plugin loading errors",
+                extra={
+                    "error_count": len(result["errors"]),
+                    "errors": result["errors"],
+                },
+            )
+    except Exception as e:
+        logger.error("Failed to load plugins", extra={"error": str(e)})
+        raise
 
     app.state.plugins = plugin_manager
 
     # Initialize task processor
-    init_task_processor(plugin_manager)
-    logger.info("Task processor initialized")
+    try:
+        init_task_processor(plugin_manager)
+        logger.debug("Task processor initialized")
+    except Exception as e:
+        logger.error("Failed to initialize task processor", extra={"error": str(e)})
+
+    # Initialize analysis service (depends on PluginRegistry and WebSocketProvider)
+    try:
+        app.state.analysis_service = VisionAnalysisService(plugin_manager, ws_manager)
+        logger.debug("VisionAnalysisService initialized")
+    except Exception as e:
+        logger.error("Failed to initialize analysis service", extra={"error": str(e)})
 
     yield
 
     # Shutdown
     logger.info("Shutting down ForgeSyte...")
-    for plugin in plugin_manager.plugins.values():
+    for name, plugin in plugin_manager.plugins.items():
         try:
-            plugin.on_unload()
+            if plugin:
+                plugin.on_unload()
+                logger.debug("Plugin unloaded", extra={"plugin": name})
         except Exception as e:
-            logger.error(f"Error unloading plugin: {e}")
+            logger.error(
+                "Error unloading plugin",
+                extra={"plugin": name, "error": str(e)},
+            )
 
 
 # Create FastAPI app
@@ -77,46 +124,82 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
+# Dependency injection for service layer
+def get_analysis_service(request) -> VisionAnalysisService:
+    """Get the analysis service from app state.
+
+    Args:
+        request: FastAPI request object
+
+    Returns:
+        VisionAnalysisService instance
+
+    Raises:
+        RuntimeError: If service not initialized
+    """
+    service = getattr(request.app.state, "analysis_service", None)
+    if not service:
+        logger.error("VisionAnalysisService not initialized")
+        raise RuntimeError("Analysis service not available")
+    return service
+
+
 # Include API and MCP routers
 app.include_router(api_router, prefix="/v1")
 app.include_router(mcp_router, prefix="/v1")
 
 
-# Also mount at root for MCP discovery
+# MCP Discovery Endpoints
+
+
 @app.get("/.well-known/mcp-manifest")
 async def root_mcp_manifest():
-    """Root-level MCP manifest redirect."""
+    """Root-level MCP manifest redirect to well-known location."""
     from fastapi.responses import RedirectResponse
 
     return RedirectResponse(url="/v1/.well-known/mcp-manifest")
 
 
+# WebSocket Streaming
+
+
 @app.websocket("/v1/stream")
 async def websocket_stream(
     websocket: WebSocket,
-    plugin: str = Query(default="motion_detector"),
-    api_key: Optional[str] = Query(None),
+    plugin: str = Query(default="motion_detector", description="Plugin to use"),
+    api_key: Optional[str] = Query(None, description="API key for authentication"),
+    service: VisionAnalysisService = Depends(get_analysis_service),
 ):
-    """
-    WebSocket endpoint for real-time frame streaming and analysis.
+    """WebSocket endpoint for real-time frame streaming and analysis.
 
-    Send frames as base64-encoded JSON: {"type": "frame", "data": "<base64>"}
-    Receive results as JSON: {"type": "result", "payload": {...}}
+    Handles real-time image frame analysis with plugin switching and error handling.
+    Delegates business logic to VisionAnalysisService.
+
+    WebSocket Message Protocol:
+        Incoming:
+            - {"type": "frame", "data": "<base64>", "options": {...}}
+            - {"type": "ping"}
+            - {"type": "switch_plugin", "plugin": "plugin_name"}
+
+        Outgoing:
+            - {"type": "result", "frame_id": str, "result": {...}, "time_ms": float}
+            - {"type": "error", "message": str}
+            - {"type": "pong"}
+            - {"type": "connected", "client_id": str, "plugin": str}
     """
     client_id = str(uuid.uuid4())
+    logger.debug(
+        "WebSocket connection attempt",
+        extra={"client_id": client_id, "plugin": plugin},
+    )
 
     if not await ws_manager.connect(websocket, client_id):
-        return
-
-    pm: PluginManager = app.state.plugins
-    active_plugin = pm.get(plugin)
-
-    if not active_plugin:
-        await ws_manager.send_error(client_id, f"Plugin '{plugin}' not found")
-        await ws_manager.disconnect(client_id)
+        logger.warning("Failed to connect WebSocket", extra={"client_id": client_id})
         return
 
     try:
+        # Send initial connection confirmation
         await ws_manager.send_personal(
             client_id,
             {
@@ -124,7 +207,6 @@ async def websocket_stream(
                 "payload": {
                     "client_id": client_id,
                     "plugin": plugin,
-                    "plugin_metadata": active_plugin.metadata(),
                 },
             },
         )
@@ -133,34 +215,23 @@ async def websocket_stream(
             data = await websocket.receive_json()
 
             if data.get("type") == "frame":
-                frame_id = data.get("frame_id", str(uuid.uuid4()))
-
-                try:
-                    image_bytes = base64.b64decode(data["data"])
-                    start_time = time.time()
-
-                    result = active_plugin.analyze(image_bytes, data.get("options", {}))
-
-                    processing_time = (time.time() - start_time) * 1000
-
-                    await ws_manager.send_frame_result(
-                        client_id, frame_id, plugin, result, processing_time
-                    )
-
-                except Exception as e:
-                    logger.error(f"Frame processing error: {e}")
-                    await ws_manager.send_error(client_id, str(e), frame_id)
+                # Delegate frame processing to service layer
+                await service.handle_frame(client_id, plugin, data)
 
             elif data.get("type") == "subscribe":
                 topic = data.get("topic")
                 if topic:
                     await ws_manager.subscribe(client_id, topic)
+                    logger.debug(
+                        "Client subscribed to topic",
+                        extra={"client_id": client_id, "topic": topic},
+                    )
 
             elif data.get("type") == "switch_plugin":
                 new_plugin_name = data.get("plugin")
-                new_plugin = pm.get(new_plugin_name)
+                new_plugin = service.plugins.get(new_plugin_name)
                 if new_plugin:
-                    active_plugin = new_plugin
+                    plugin = new_plugin_name
                     await ws_manager.send_personal(
                         client_id,
                         {
@@ -168,20 +239,32 @@ async def websocket_stream(
                             "payload": {"plugin": new_plugin_name},
                         },
                     )
+                    logger.debug(
+                        "Plugin switched",
+                        extra={"client_id": client_id, "plugin": new_plugin_name},
+                    )
                 else:
-                    await ws_manager.send_error(
-                        client_id, f"Plugin '{new_plugin_name}' not found"
+                    await ws_manager.send_personal(
+                        client_id,
+                        {
+                            "type": "error",
+                            "message": f"Plugin '{new_plugin_name}' not found",
+                        },
                     )
 
             elif data.get("type") == "ping":
                 await ws_manager.send_personal(client_id, {"type": "pong"})
 
     except WebSocketDisconnect:
-        logger.info(f"Client {client_id} disconnected")
+        logger.debug("Client disconnected", extra={"client_id": client_id})
     except Exception as e:
-        logger.error(f"WebSocket error: {e}")
+        logger.exception(
+            "WebSocket error",
+            extra={"client_id": client_id, "error": str(e)},
+        )
     finally:
         await ws_manager.disconnect(client_id)
+        logger.debug("Client connection closed", extra={"client_id": client_id})
 
 
 @app.get("/")

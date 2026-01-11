@@ -1,4 +1,11 @@
-"""Pydantic models for request/response validation."""
+"""Pydantic models for request/response validation.
+
+This module defines data validation models using Pydantic v2. All models include
+comprehensive Field descriptions for API documentation and validation constraints.
+
+Models enforce data integrity at API boundaries, preventing invalid data from
+entering the business logic layer.
+"""
 
 from datetime import datetime
 from enum import Enum
@@ -16,24 +23,56 @@ class JobStatus(str, Enum):
 
 
 class AnalyzeRequest(BaseModel):
-    plugin: str = Field(default="default", description="Plugin to use for analysis")
+    """Request to analyze an image using a vision plugin.
+
+    Attributes:
+        plugin: Plugin identifier for analysis (e.g., "ocr_plugin", "motion_detector")
+        options: Plugin-specific configuration options as key-value pairs
+        image_url: HTTP(S) URL to fetch and analyze
+    """
+
+    plugin: str = Field(
+        default="default",
+        description="Plugin identifier (e.g., ocr_plugin, motion_detector)",
+    )
     options: Optional[Dict[str, Any]] = Field(
-        default=None, description="Plugin-specific options"
+        default=None, description="Plugin-specific analysis options"
     )
     image_url: Optional[str] = Field(
-        default=None, description="URL of image to analyze"
+        default=None, description="HTTP(S) URL of image to fetch and analyze"
     )
 
 
 class JobResponse(BaseModel):
-    job_id: str
-    status: JobStatus
-    result: Optional[Dict[str, Any]] = None
-    error: Optional[str] = None
-    created_at: datetime
-    completed_at: Optional[datetime] = None
-    plugin: str
-    progress: Optional[float] = None
+    """Response containing analysis job status and results.
+
+    Attributes:
+        job_id: Unique job identifier for tracking
+        status: Current job status (queued, running, done, error, not_found)
+        result: Analysis results (only populated when status=done)
+        error: Error message (only populated when status=error)
+        created_at: ISO 8601 timestamp when job was created
+        completed_at: ISO 8601 timestamp when job completed (null if in progress)
+        plugin: Plugin used for analysis
+        progress: Progress percentage (0-100) if available
+    """
+
+    job_id: str = Field(..., description="Unique job identifier")
+    status: JobStatus = Field(..., description="Current job status")
+    result: Optional[Dict[str, Any]] = Field(
+        default=None, description="Analysis results (present when done)"
+    )
+    error: Optional[str] = Field(
+        default=None, description="Error message (present when status=error)"
+    )
+    created_at: datetime = Field(..., description="Job creation timestamp")
+    completed_at: Optional[datetime] = Field(
+        default=None, description="Job completion timestamp"
+    )
+    plugin: str = Field(..., description="Plugin used for analysis")
+    progress: Optional[float] = Field(
+        default=None, description="Progress percentage (0-100)"
+    )
 
 
 class PluginMetadata(BaseModel):
@@ -107,22 +146,57 @@ class PluginMetadata(BaseModel):
 
 
 class MCPTool(BaseModel):
-    id: str
-    title: str
-    description: str
-    inputs: List[str]
-    outputs: List[str]
-    invoke_endpoint: str
-    permissions: List[str] = []
+    """MCP tool definition for plugin capabilities.
+
+    Attributes:
+        id: Unique tool identifier (matches plugin name)
+        title: Human-readable tool title
+        description: Tool description and capabilities
+        inputs: List of input types accepted (e.g., "image", "config")
+        outputs: List of output types produced (e.g., "json", "regions")
+        invoke_endpoint: API endpoint to invoke this tool
+        permissions: Required permissions to use this tool
+    """
+
+    id: str = Field(..., description="Unique tool identifier")
+    title: str = Field(..., description="Human-readable tool title")
+    description: str = Field(..., description="Tool description and capabilities")
+    inputs: List[str] = Field(..., description="Accepted input types")
+    outputs: List[str] = Field(..., description="Produced output types")
+    invoke_endpoint: str = Field(..., description="API endpoint to invoke tool")
+    permissions: List[str] = Field(
+        default_factory=list, description="Required permissions to use"
+    )
 
 
 class MCPManifest(BaseModel):
-    tools: List[MCPTool]
-    server: Dict[str, str]
-    version: str = "1.0"
+    """MCP manifest describing available tools and server info.
+
+    Attributes:
+        tools: List of available MCP tools from plugins
+        server: Server information (name, version, etc)
+        version: MCP protocol version
+    """
+
+    tools: List[MCPTool] = Field(..., description="Available MCP tools")
+    server: Dict[str, str] = Field(..., description="Server information")
+    version: str = Field(default="1.0", description="MCP protocol version")
 
 
 class WebSocketMessage(BaseModel):
-    type: str  # "frame", "result", "error", "status"
-    payload: Dict[str, Any]
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    """WebSocket message protocol.
+
+    Attributes:
+        type: Message type (frame, result, error, status, ping, pong, etc)
+        payload: Message-specific data structure
+        timestamp: ISO 8601 timestamp when message was created
+    """
+
+    type: str = Field(
+        ..., description="Message type (frame, result, error, status, ping, pong)"
+    )
+    payload: Dict[str, Any] = Field(..., description="Message-specific payload data")
+    timestamp: datetime = Field(
+        default_factory=datetime.utcnow,
+        description="Message creation timestamp (ISO 8601)",
+    )
