@@ -80,23 +80,45 @@ class MCPProtocolHandlers:
     async def tools_list(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """Handle tools/list method.
 
-        Returns list of available tools from registered plugins.
+        Returns list of available tools from registered plugins in MCP format.
 
         Args:
             params: Request parameters (typically empty for tools/list)
 
         Returns:
-            Response dictionary containing:
-                - tools: List of available tool definitions
+            Response dictionary containing tools list with name,
+            description, and inputSchema for each tool.
         """
         logger.debug("Listing available tools")
 
-        # Get manifest from adapter, which includes all tools
-        manifest = self.mcp_adapter.get_manifest()
+        tools = []
 
-        # Return tools array
+        # Get all plugins and convert to MCP tool format
+        for plugin_name, plugin_meta in self.plugin_manager.list().items():
+            # Build MCP tool with required fields
+            tool = {
+                "name": plugin_name,
+                "description": plugin_meta.get("description", f"Plugin: {plugin_name}"),
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "image": {
+                            "type": "string",
+                            "description": "Base64-encoded image data or image URL",
+                        },
+                        "options": {
+                            "type": "object",
+                            "description": "Plugin-specific options",
+                            "properties": {},
+                        },
+                    },
+                    "required": ["image"],
+                },
+            }
+            tools.append(tool)
+
         return {
-            "tools": manifest.get("tools", []),
+            "tools": tools,
         }
 
     async def tools_call(self, params: Dict[str, Any]) -> Dict[str, Any]:

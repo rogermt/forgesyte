@@ -80,7 +80,7 @@ class TestInitializeHandler:
             # Verify capability structure
             caps = response.result.get("capabilities", {})
             assert "tools" in caps
-            assert caps["tools"] is True
+            assert caps["tools"] == {}
 
         asyncio.run(run_test())
 
@@ -267,7 +267,7 @@ class TestCapabilityNegotiation:
 
             # Should support tools capability
             assert "tools" in capabilities
-            assert capabilities["tools"] is True
+            assert capabilities["tools"] == {}
 
         asyncio.run(run_test())
 
@@ -284,10 +284,13 @@ class TestCapabilityNegotiation:
 
             server_info = response.result.get("serverInfo", {})
 
-            # Should have name, version, protocolVersion
+            # Should have name and version
             assert "name" in server_info
             assert "version" in server_info
-            assert "protocolVersion" in server_info
             assert server_info["name"] == "forgesyte"
+
+            # protocolVersion should be at root level (MCP 2024-11-05)
+            assert "protocolVersion" in response.result
+            assert response.result["protocolVersion"] == "2024-11-05"
 
         asyncio.run(run_test())

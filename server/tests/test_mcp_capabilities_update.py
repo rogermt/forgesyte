@@ -35,7 +35,7 @@ class TestUpdatedCapabilities:
 
             # Should still have tools capability
             assert "tools" in capabilities
-            assert capabilities["tools"] is True
+            assert capabilities["tools"] == {}
 
             # Note: resources capability can be added in future version
             # for now, servers just have tools capability
