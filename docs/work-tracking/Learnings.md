@@ -2090,6 +2090,135 @@ Coverage: 100% for mcp_adapter.py core functionality
 
 ---
 
+## WU-04b: Plugin System Documentation
+
+**Completed**: 2026-01-11 17:45  
+**Duration**: 0.5 hours  
+**Status**: ✅ Complete
+
+### What Went Well
+- Clear understanding of plugin architecture (Protocol-based, not inheritance)
+- Comprehensive checklist format made documentation clear
+- BasePlugin class provides good examples
+- Existing plugin_loader.py code was well-structured for documentation
+- Documentation format matches project style (code examples, sections)
+
+### Challenges & Solutions
+- **Issue**: Plugin interface uses Protocol (structural typing) not ABC
+  - **Solution**: Clearly document Protocol vs BasePlugin distinction
+- **Issue**: Discovery-based registry pattern needed explanation
+  - **Solution**: Added visual diagram and step-by-step explanation
+
+### Key Insights
+- Plugin system is elegant: zero registration required (filesystem-based discovery)
+- Protocol-based design is flexible: plugins don't need to inherit BasePlugin
+- Threading model important for resource management (executor shutdown on unload)
+- Permission system works well with plugin registry pattern
+
+### Architecture Decisions
+- **PluginInterface as Protocol**: Structural typing allows loose coupling
+- **BasePlugin as optional base class**: Convenience but not required
+- **ThreadPoolExecutor in BasePlugin**: Handles async wrapping of sync code
+- **Discovery from filesystem**: No explicit registration needed
+
+### Tips for Similar Work
+- Use Protocol for flexible interfaces that don't require inheritance
+- Document both the minimal interface and the recommended base class
+- Include checklist format for multi-step processes
+- Provide both minimal and feature-rich examples
+- Document threading/async models clearly
+
+### Blockers Found
+- None
+
+---
+
+## WU-04c: WebSocket & Streaming Documentation
+
+**Completed**: 2026-01-11 18:00  
+**Duration**: 0.75 hours  
+**Status**: ✅ Complete
+
+### What Went Well
+- Message types were clear and easy to document (frame_result, error, job_update)
+- Flow diagrams helped explain async processing model
+- Client examples in JavaScript and Python were straightforward
+- Performance characteristics table was useful context
+- Real-world use cases (video processing, batch) added value
+
+### Challenges & Solutions
+- **Issue**: Streaming nature means results arrive out-of-order
+  - **Solution**: Documented frame_id correlation pattern in best practices
+- **Issue**: Async frame processing not obvious to synchronous thinkers
+  - **Solution**: Added diagram showing time progression and multiple pending frames
+
+### Key Insights
+- WebSocket subscription model is flexible (topic-based, not connection-based)
+- Error codes matter for client error handling (INVALID_IMAGE vs PLUGIN_ERROR)
+- Base64 encoding for image data over JSON is simple, not optimal for performance
+- Connection recovery requires exponential backoff, not simple retry
+
+### Architecture Decisions
+- **Topic-based subscriptions**: Flexible, allows filtering without reconnect
+- **Frame IDs required**: Necessary for correlating async results
+- **Error codes standardized**: Based on common scenarios, not JSON-RPC codes
+- **JSON message format**: Human-readable, simple parsing, no binary protocol
+
+### Tips for Similar Work
+- Document the async/ordering implications clearly with time diagrams
+- Include error handling patterns upfront (not as afterthought)
+- Provide real client implementations (not pseudocode)
+- Include performance expectations (latency, throughput)
+- Document connection recovery patterns
+
+### Blockers Found
+- None
+
+---
+
+## WU-04d: Authentication & Authorization Documentation
+
+**Completed**: 2026-01-11 18:15  
+**Duration**: 0.75 hours  
+**Status**: ✅ Complete
+
+### What Went Well
+- Auth flow was easy to document as a clear diagram
+- Permission model had exactly 4 permissions (clean design)
+- API key format was documented in existing code
+- SHA256 hashing approach was straightforward to explain
+- Security checklist format was helpful
+
+### Challenges & Solutions
+- **Issue**: Auth system allows fallback to anonymous mode (confusing in docs)
+  - **Solution**: Clearly marked this as development mode, documented production requirements
+- **Issue**: Both header and query param methods work (could be confusing)
+  - **Solution**: Documented both with pros/cons for each
+
+### Key Insights
+- Simple key-based auth is sufficient for this project (not OAuth2 complexity)
+- SHA256 hashing means keys are never stored in plaintext (good security)
+- Permission model is minimal but covers all use cases (analyze, stream, plugins, admin)
+- Development mode (anonymous access) is useful but must not reach production
+
+### Architecture Decisions
+- **API key-based auth**: Simpler than OAuth2, sufficient for current needs
+- **SHA256 hashing**: One-way function, no key recovery possible
+- **Header-preferred method**: Standard HTTP practice (query param as fallback)
+- **Development mode fallback**: Allows local testing without env vars
+
+### Tips for Similar Work
+- Document auth flow as a decision diagram (not prose)
+- Include security checklist organized by role (admin, dev, ops)
+- Provide real curl/code examples for each method
+- Document both happy path and error paths
+- Mark development-only features clearly
+
+### Blockers Found
+- None
+
+---
+
 ## WU-06: Optimization and Backwards Compatibility
 
 **Completed**: 2026-01-11 14:30
