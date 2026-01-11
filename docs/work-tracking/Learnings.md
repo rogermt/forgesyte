@@ -1839,3 +1839,69 @@ Coverage: 100% for mcp_adapter.py core functionality
 
 ### Blockers Found
 - None
+
+---
+
+## WU-06: Optimization and Backwards Compatibility
+
+**Completed**: 2026-01-11 14:30
+**Duration**: 1.5 hours
+**Status**: ✅ Complete
+
+### What Went Well
+- TDD approach with 21 tests written first ensured comprehensive coverage
+- All optimization tests passed on first implementation
+- Three independent features (batching, caching, v1.0) cleanly implemented
+- No breaking changes to existing JSON-RPC 2.0 API
+- Pre-commit hooks passed after minor formatting fixes
+- Performance characteristics verified with batch processing tests
+- Backwards compatibility provides safe migration path for v1.0 clients
+
+### Challenges & Solutions
+- **Issue**: pytest-asyncio not installed in venv
+  - **Solution**: Added `uv pip install pytest-asyncio` and configured conftest.py
+- **Issue**: Import paths failing in test file
+  - **Solution**: Added sys.path manipulation and noqa comments for E402 violations
+- **Issue**: Type hints for optional adapter parameter causing mypy errors
+  - **Solution**: Changed `adapter: MCPAdapter = None` to `adapter: Optional[MCPAdapter] = None`
+
+### Key Insights
+- Request batching preserves order and allows mixed success/error handling
+- Manifest caching with TTL dramatically reduces redundant builds for repeated requests
+- JSON-RPC v1.0 backwards compatibility should include deprecation warnings
+- Notifications (requests without id) should not generate responses per spec
+- Cache invalidation strategy: simple time-based TTL works well for manifests
+- Batch processing performance: 50 requests handled in <1 second
+
+### Architecture Decisions
+- **Batching**: Array-based processing preserves order and enables parallel handling
+- **Caching**: Time-based TTL (300s default) balances freshness vs performance
+- **v1.0 Support**: Transparent conversion with deprecation warnings preserves compatibility
+- **Cache Storage**: In-memory with timestamp avoids external dependencies
+- **Error Handling**: Individual request errors don't affect batch processing
+
+### Tips for Similar Work
+- Always write optimization tests first to establish baseline
+- Batch processing benefits from async/await for parallel request handling
+- TTL-based caching needs timestamp tracking to detect expiration
+- Backwards compatibility should log deprecation warnings
+- Performance tests should verify optimization actually works (not just code it)
+- Notifications in batch requests reduce response payload significantly
+- Cache key strategy important: manifest alone is good candidate (stable until plugins change)
+
+### Blockers Found
+- None
+
+### Test Results
+- 21 new optimization tests: all passing
+- 204 total MCP tests: all passing (183 existing + 21 new)
+- Batch processing: 7 tests (single, multiple, order, mixed error, notifications, empty, large)
+- Manifest caching: 8 tests (initial state, storage, TTL, validity, regeneration)
+- v1.0 compatibility: 4 tests (conversion, ID generation, fallback, deprecation)
+- Performance: 2 tests (batch speed, cache effectiveness)
+
+### Files Created/Modified
+- `server/tests/test_mcp_optimization.py` (new, 349 lines)
+- `server/app/mcp_transport.py` (modified, +95 lines for batching and v1.0)
+- `server/app/mcp_adapter.py` (modified, +95 lines for caching)
+- `server/tests/conftest.py` (modified, added asyncio_mode configuration)
