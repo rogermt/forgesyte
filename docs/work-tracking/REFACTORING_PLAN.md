@@ -26,71 +26,101 @@
 
 ---
 
-## Phase 2: Type Safety & Imports (1-2 hours)
+## Phase 2: Type Safety & Imports (2-3 hours)
 
 **Current Issues**:
 - Missing type stubs for pydantic, fastapi, numpy, PIL, httpx, pytesseract
 - websocket_manager has untyped functions
 - Plugin implementations lack type hints
 
-**Work**:
-- [ ] Add missing type stub packages to requirements
-- [ ] Add type hints to websocket_manager
-- [ ] Add comprehensive type hints to plugin base classes
-- [ ] Run `mypy server/app/ --no-site-packages` - target 100% compliance
+### WU-02a: Add Type Stub Packages (0.5 hours)
+- [ ] Add missing type stub packages to `requirements-lint.txt`
+- [ ] Test mypy with new stubs
+
+### WU-02b: Type Hints for websocket_manager (1 hour)
+- [ ] Add type hints to all functions in websocket_manager.py
+- [ ] Run mypy to validate
+
+### WU-02c: Type Hints for Plugin Base Classes (1 hour)
+- [ ] Add comprehensive type hints to plugin interfaces
 - [ ] Document type annotation patterns for future plugins
 
+### WU-02d: Final Type Check (0.5 hours)
+- [ ] Run `mypy server/app/ --no-site-packages` - target 100%
+- [ ] Fix any remaining type errors
+
 ---
 
-## Phase 3: Test Coverage Analysis (1-2 hours)
+## Phase 3: Test Coverage Analysis (4-5 hours)
 
-**Current**: ~80% estimated coverage
+**Current Backend (server/)**: 65.40% (311 passing tests)
+**Current Frontend (web-ui/)**: Not measured yet
 
-**Priority Areas** (likely gaps):
-- [ ] Error handling paths (exception cases)
-- [ ] Edge cases in MCP handlers
-- [ ] Plugin loader failure scenarios
-- [ ] WebSocket disconnect/reconnect
-- [ ] API endpoints (job retrieval, status checks)
-- [ ] Task processor edge cases
+**Priority Areas** (coverage gaps by module):
+1. websocket_manager.py: 31.43% (48.57% gap) - CRITICAL
+2. tasks.py: 42.27% (37.73% gap) - HIGH
+3. api.py: 47.22% (32.78% gap) - HIGH
+4. main.py: 49.47% (30.53% gap) - HIGH
+5. auth.py: 52.50% (27.50% gap) - MEDIUM
+6. plugin_loader.py: 57.48% (22.52% gap) - MEDIUM
 
-**Work**:
-- [ ] Run pytest with coverage: `pytest --cov=server/app server/tests/`
+### WU-03a: WebSocket & Streaming Tests (1.5 hours)
+- [ ] Add tests for WebSocket connect/disconnect scenarios
+- [ ] Test stream message handling and edge cases
+- [ ] Target: websocket_manager.py → 80%+
+
+### WU-03b: Task Processor Tests (1 hour)
+- [ ] Add tests for task lifecycle (creation, processing, completion)
+- [ ] Test error handling in task execution
+- [ ] Target: tasks.py → 80%+
+
+### WU-03c: API Endpoint Tests (1 hour)
+- [ ] Add tests for API endpoints (job retrieval, status checks, errors)
+- [ ] Test parameter validation and error responses
+- [ ] Target: api.py → 80%+
+
+### WU-03d: Frontend (web-ui) Coverage Setup (0.5 hours)
+- [ ] Install @vitest/coverage-v8 in web-ui/
+- [ ] Update vitest.config.ts with coverage threshold
+- [ ] Run `npm run test:coverage` 
 - [ ] Identify files <80% coverage
-- [ ] Add missing tests to reach 80%+ overall
-- [ ] Document coverage gaps
+- [ ] Document current coverage baseline
+- **Note**: Currently no coverage provider installed, needs setup
+
+### WU-03e: Final Backend Coverage Check (1 hour)
+- [ ] Run full coverage suite: `pytest --cov=app --cov-report=term-missing`
+- [ ] Fix remaining gaps
+- [ ] Ensure all modules ≥80%
 
 ---
 
-## Phase 4: Code Organization & Clarity (2-3 hours)
+## Phase 4: Code Organization & Clarity (3 hours)
 
 **Current Strengths**:
 - ✅ Clear separation of concerns (models, adapters, handlers, routes)
 - ✅ Good docstrings on major functions
 - ✅ Consistent naming conventions
 
-**Improvement Areas**:
-
-### A. MCP Module Organization
+### WU-04a: MCP Module Reorganization (1 hour)
 - [ ] Consolidate related MCP code (mcp_*, mcp_handlers, mcp_routes, mcp_adapter)
-- [ ] Consider: `server/app/mcp/` subdirectory with `__init__.py`, `protocol.py`, `handlers.py`, `routes.py`, `adapter.py`
-- [ ] Benefits: Better encapsulation, easier to navigate, clear MCP boundaries
+- [ ] Create `server/app/mcp/` subdirectory structure
+- [ ] Move files: protocol.py, handlers.py, routes.py, adapter.py
+- [ ] Update imports across codebase
 
-### B. Plugin System Clarity  
+### WU-04b: Plugin System Documentation (0.5 hours)
 - [ ] Document plugin interface (base class contract)
-- [ ] Add plugin development checklist
-- [ ] Consider: `server/app/plugins/__init__.py` with plugin registry pattern
-- [ ] Add plugin validation helpers
+- [ ] Create plugin development checklist
+- [ ] Document plugin registry pattern usage
 
-### C. WebSocket & Streaming
-- [ ] Clarify WebSocket message types and flow
-- [ ] Document stream format for real-time analysis
-- [ ] Add streaming protocol helpers
+### WU-04c: WebSocket & Streaming Docs (0.5 hours)
+- [ ] Document WebSocket message types and flow
+- [ ] Clarify stream format for real-time analysis
+- [ ] Add streaming protocol helpers/examples
 
-### D. Authentication & Authorization
+### WU-04d: Authentication & Authorization Review (1 hour)
 - [ ] Review auth.py for consistency
-- [ ] Document API key validation
-- [ ] Clarify who validates what (auth.py vs routes)
+- [ ] Document API key validation flow
+- [ ] Clarify validation separation (auth.py vs routes)
 
 ---
 
@@ -98,31 +128,47 @@
 
 **Current**: Good README, ARCHITECTURE.md exists
 
-**Work**:
+### WU-05a: Core Documentation Updates (1 hour)
 - [ ] Update ARCHITECTURE.md with post-migration structure
 - [ ] Add API endpoint documentation (auto-generated from FastAPI)
 - [ ] Document MCP protocol implementation
 - [ ] Create TESTING.md (how to run tests, coverage targets)
-- [ ] Add PLUGIN_DEVELOPMENT.md enhancements with type hints
+- [ ] Update PLUGIN_DEVELOPMENT.md with type hints and examples
 
 ---
 
-## Phase 6: Performance & Observability (1-2 hours)
+## Phase 6: Performance & Observability (1.5 hours)
 
-**Areas**:
+### WU-06a: Logging & Performance Review (1.5 hours)
 - [ ] Review logging (is everything necessary logged?)
 - [ ] Check for n+1 queries or inefficient loops
 - [ ] Verify caching is effective (manifest caching)
 - [ ] Add performance metrics to slow operations
-- [ ] Consider structured logging format
+- [ ] Document structured logging patterns
+
+---
+
+## Coverage Philosophy
+
+**Important**: Coverage % is a guideline, not a quality metric. We aim for **meaningful** coverage:
+- ✅ **Good coverage**: Tests validate logic, error handling, edge cases
+- ❌ **Artificial coverage**: Tests created only to hit % targets with no real assertions
+
+**Our 80% target** means:
+- Mission-critical paths (MCP, WebSocket, task processing) require tests
+- Error scenarios must be tested (auth failures, malformed requests, etc.)
+- Edge cases validated (empty inputs, large data, concurrent operations)
+- NOT: Every single line covered just for metrics
+
+We'll avoid inflating numbers with hollow tests. Phase 3 focuses on **valuable** coverage.
 
 ---
 
 ## Success Criteria
 
-- ✅ All 311 tests passing
+- ✅ All 311+ tests passing
 - ✅ 100% mypy compliance (or documented exceptions)
-- ✅ 80%+ code coverage
+- ✅ 80%+ code coverage (backend + frontend)
 - ✅ No ruff violations
 - ✅ Clear, documented code organization
 - ✅ Updated architecture documentation
@@ -131,15 +177,21 @@
 
 ## Estimated Timeline
 
-| Phase | Hours | Status |
-|-------|-------|--------|
-| Phase 1: Fix Tests | 0.25 | ✅ DONE |
-| Phase 2: Type Safety | 2 | TODO |
-| Phase 3: Coverage | 2 | TODO |
-| Phase 4: Organization | 3 | TODO |
-| Phase 5: Docs | 1 | TODO |
-| Phase 6: Performance | 2 | TODO |
-| **Total** | **10.25** | **IN PROGRESS** |
+| Phase | Work Units | Hours | Status |
+|-------|-----------|-------|--------|
+| Phase 1: Fix Tests | - | 0.25 | ✅ DONE |
+| Phase 2: Type Safety | WU-02a,b,c,d | 3 | TODO |
+| Phase 3: Coverage | WU-03a,b,c,d,e | 5 | TODO |
+| Phase 4: Organization | WU-04a,b,c,d | 3 | TODO |
+| Phase 5: Documentation | WU-05a | 1 | TODO |
+| Phase 6: Performance | WU-06a | 1.5 | TODO |
+| **Total** | **14 units** | **13.75** | **IN PROGRESS** |
+
+**Breakdown by Work Unit Duration**:
+- Small units: 0.5 hours (WU-02a, 03d, 04b, 04c)
+- Medium units: 1 hour (WU-02b, 02c, 03b, 03c, 05a, 06a)
+- Large units: 1.5 hours (WU-03a)
+- XL units: 1 hour (WU-02d, 03e, 04a)
 
 ---
 
