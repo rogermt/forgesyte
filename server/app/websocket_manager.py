@@ -3,7 +3,7 @@
 import asyncio
 import logging
 from datetime import datetime
-from typing import Dict, Optional, Set
+from typing import Any, Dict, Optional, Set
 
 from fastapi import WebSocket
 
@@ -13,7 +13,8 @@ logger = logging.getLogger(__name__)
 class ConnectionManager:
     """Manages WebSocket connections and message broadcasting."""
 
-    def __init__(self):
+    def __init__(self) -> None:
+        """Initialize the connection manager."""
         self.active_connections: Dict[str, WebSocket] = {}
         self.subscriptions: Dict[str, Set[str]] = {}  # topic -> connection_ids
         self._lock = asyncio.Lock()
@@ -55,7 +56,7 @@ class ConnectionManager:
             if topic in self.subscriptions:
                 self.subscriptions[topic].discard(client_id)
 
-    async def send_personal(self, client_id: str, message: dict):
+    async def send_personal(self, client_id: str, message: Dict[str, Any]) -> None:
         """Send a message to a specific client."""
         if client_id in self.active_connections:
             try:
@@ -64,16 +65,18 @@ class ConnectionManager:
                 logger.error(f"Failed to send to {client_id}: {e}")
                 await self.disconnect(client_id)
 
-    async def broadcast(self, message: dict, topic: Optional[str] = None):
+    async def broadcast(
+        self, message: Dict[str, Any], topic: Optional[str] = None
+    ) -> None:
         """Broadcast a message to all clients or topic subscribers."""
-        targets = set()
+        targets: Set[str] = set()
 
         if topic and topic in self.subscriptions:
             targets = self.subscriptions[topic].copy()
         else:
             targets = set(self.active_connections.keys())
 
-        disconnected = []
+        disconnected: list[str] = []
         for client_id in targets:
             if client_id in self.active_connections:
                 try:
@@ -91,11 +94,11 @@ class ConnectionManager:
         client_id: str,
         frame_id: str,
         plugin: str,
-        result: dict,
+        result: Dict[str, Any],
         processing_time_ms: float,
-    ):
+    ) -> None:
         """Send a frame analysis result to a client."""
-        message = {
+        message: Dict[str, Any] = {
             "type": "result",
             "payload": {
                 "frame_id": frame_id,
@@ -109,9 +112,9 @@ class ConnectionManager:
 
     async def send_error(
         self, client_id: str, error: str, frame_id: Optional[str] = None
-    ):
+    ) -> None:
         """Send an error message to a client."""
-        message = {
+        message: Dict[str, Any] = {
             "type": "error",
             "payload": {"error": error, "frame_id": frame_id},
             "timestamp": datetime.utcnow().isoformat(),
@@ -122,7 +125,7 @@ class ConnectionManager:
         """Get the number of active connections."""
         return len(self.active_connections)
 
-    def get_stats(self) -> dict:
+    def get_stats(self) -> Dict[str, Any]:
         """Get connection statistics."""
         return {
             "active_connections": len(self.active_connections),
