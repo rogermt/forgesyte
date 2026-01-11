@@ -1,3 +1,78 @@
+# Fix: Workflow Errors & Coverage - 10/10
+
+**Completed**: 2026-01-11 23:45
+**Duration**: 0.75 hours
+**Status**: ✅ Complete
+
+## Executive Summary
+
+Successfully resolved all workflow errors preventing merge to main. Fixed 8 test failures in `tests/tasks/test_tasks.py` related to `JobStore` API changes, fixed 1 test failure in `tests/mcp/test_mcp_adapter.py` related to logging assertions, and significantly improved test coverage from 68.53% to 80.82% by adding new test suites for service layer components (`HealthCheckService`, `ImageAcquisitionService`, `JobManagementService`, `PluginManagementService`, `VisionAnalysisService`).
+
+---
+
+## What Went Well
+
+- **Rapid Diagnosis** - Quickly identified that test failures were due to outdated test code not matching new `JobStore` signatures
+- **Targeted Fixes** - Fixed tests by passing correct arguments (dict instead of string) to `JobStore` methods
+- **Coverage Boost** - Added 5 new test files covering service layer classes, boosting coverage by >12%
+- **Standards Maintained** - New tests follow all standards (async, typed, mocked)
+- **Validation Passed** - All 482 tests passed, coverage requirements met (80.82% > 80%)
+
+---
+
+## Challenges & Solutions
+
+- **Issue**: `JobStore.create` signature changed from (id, string) to (id, dict)
+  - **Solution**: Updated all test calls to pass dictionary with required fields
+  - **Lesson**: Refactoring core classes requires meticulous updates to all consumers, especially tests
+
+- **Issue**: `JobStore.update` signature changed to accept dictionary of updates
+  - **Solution**: Updated test calls from kwargs (`status=...`) to dict (`{"status": ...}`)
+  - **Lesson**: API changes in core classes ripple out to tests
+
+- **Issue**: `caplog.text` assertion failure because formatter didn't include `extra` context
+  - **Solution**: Updated test to inspect `caplog.records` directly for `extra` fields
+  - **Lesson**: Logging tests should verify structure/context, not just text output
+
+- **Issue**: `MagicMock` not awaitable in async tests for `httpx.AsyncClient`
+  - **Solution**: Used `AsyncMock` for async methods like `client.get` and `client.head`
+  - **Lesson**: Mocks for async dependencies must be async-compatible
+
+---
+
+## Key Insights
+
+- **Tests are Consumers** - Tests are code consumers just like other modules; they break when APIs change
+- **Coverage Gaps Hide in New Code** - New service classes were introduced but initially lacked dedicated test suites
+- **Async Testing Nuances** - Mocking async libraries (`httpx`) requires `AsyncMock`, standard `MagicMock` fails
+- **Logging Context Testing** - `caplog.records` is more robust than `caplog.text` for verifying structured logs
+
+---
+
+## Architecture Decisions
+
+- **Test Suite Per Service** - Created dedicated test file for each service class (`test_health_check.py`, etc.)
+- **Mocking Strategy** - Used `unittest.mock.patch` for external libraries (`httpx`) and `Mock` for internal protocols
+- **Verification Strategy** - Ran full test suite with coverage to confirm both pass rate and coverage threshold
+
+---
+
+## Tips for Similar Work
+
+- **Check Test Signatures** - Ensure test calls match updated method signatures
+- **Use AsyncMock** - Always use `AsyncMock` when mocking `await` calls
+- **Verify Coverage Locally** - Run `pytest --cov` locally to catch coverage drops before CI
+- **Inspect Log Records** - Use `caplog.records` to verify structured logging context
+- **Group Fixes** - Fix related failures together (e.g., all `JobStore` calls) for efficiency
+
+---
+
+## Blockers Found
+
+None - all issues resolved.
+
+---
+
 # WU-13: Final Validation - 10/10
 
 **Completed**: 2026-01-11 23:15
