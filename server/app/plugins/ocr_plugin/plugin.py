@@ -8,7 +8,7 @@ logger = logging.getLogger(__name__)
 
 # Try to import OCR dependencies
 try:
-    import pytesseract
+    import pytesseract  # type: ignore[import-untyped]
     from PIL import Image
 
     HAS_TESSERACT = True

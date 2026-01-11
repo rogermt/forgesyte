@@ -157,7 +157,7 @@ class Plugin:
         elif category == "violence":
             # Check for high red content
             red_ratio = np.mean(arr[:, :, 0] > 150)
-            return red_ratio * 0.2
+            return float(red_ratio) * 0.2
 
         elif category == "hate":
             # Would need symbol/text detection

@@ -121,7 +121,16 @@ no_implicit_reexport = false
 warn_redundant_casts = false
 warn_unused_ignores = false
 
-# Handle third-party libraries properly
+# Handle third-party libraries properly - all have inline types
 [[tool.mypy.overrides]]
-module = ["PIL.*", "numpy.*", "pytesseract.*", "uvicorn.*", "pydantic.*"]
+module = [
+    "PIL.*",
+    "numpy.*",
+    "pytesseract.*",
+    "uvicorn.*",
+    "pydantic.*",
+    "fastapi.*",
+    "httpx.*",
+    "websockets.*",
+]
 ignore_missing_imports = true
