@@ -39,10 +39,9 @@
   - All services properly integrated with dependency injection
 
 ### In Progress
-- [ ] WU-06: WebSocket Management (est. 2 hours)
+- [ ] WU-07: Plugin Loader (est. 1.5 hours)
 
 ### Todo
-- [ ] WU-07: Plugin Loader (1.5 hours)
 - [ ] WU-08: Plugin Implementations (1.5 hours)
 - [ ] WU-09: MCP Core (2 hours)
 - [ ] WU-10: MCP Routes & Transport (2 hours)
@@ -50,10 +49,20 @@
 - [ ] WU-12: Test Layer (2 hours)
 - [ ] WU-13: Final Validation (1.5 hours)
 
-## Current Work Unit: WU-06
+### Completed
+- [x] WU-06: WebSocket Management (1.5 hours, completed 2026-01-11)
+  - Assessment: 10/10
+  - Created Pydantic message models (WebSocketMessage, MessagePayload)
+  - Added Protocol abstraction for testability
+  - Implemented retry logic with exponential backoff (Tenacity)
+  - 100% type hints and comprehensive docstrings
+  - Backward-compatible with dict-based messages
+  - All 45 WebSocket tests passing
 
-**Status**: Starting next unit  
-**Next Unit**: WebSocket Management (est. 2 hours)  
+## Current Work Unit: WU-07
+
+**Status**: Ready to start  
+**Next Unit**: Plugin Loader (est. 1.5 hours)  
 **Blockers**: None  
 
 ## Key Reference Materials
