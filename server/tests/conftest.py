@@ -29,7 +29,7 @@ def pytest_configure(config):
 @pytest.fixture
 def app_with_plugins():
     """Create app with plugins and services initialized."""
-    from app.auth import init_api_keys
+    from app.auth import init_auth_service
     from app.main import app
     from app.plugin_loader import PluginManager
     from app.services import (
@@ -42,8 +42,8 @@ def app_with_plugins():
     from app.tasks import init_task_processor
     from app.websocket_manager import ws_manager
 
-    # Initialize API keys
-    init_api_keys()
+    # Initialize authentication service
+    init_auth_service()
 
     # Load plugins
     plugins_dir = os.getenv("FORGESYTE_PLUGINS_DIR", "../example_plugins")

@@ -107,7 +107,7 @@ def test_configuration_files_updated():
     import app.auth as auth_module
 
     # Check that auth module uses new environment variable names
-    source = inspect.getsource(auth_module.init_api_keys)
+    source = inspect.getsource(auth_module.AuthSettings)
     assert "FORGESYTE_" in source or "VISION_" not in source
 
 

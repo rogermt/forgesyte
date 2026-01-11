@@ -20,7 +20,7 @@ from fastapi import Depends, FastAPI, Query, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 
 from .api import router as api_router
-from .auth import init_api_keys
+from .auth import init_auth_service
 from .mcp import router as mcp_router
 from .plugin_loader import PluginManager
 from .services import (
@@ -51,12 +51,14 @@ async def lifespan(app: FastAPI):
     # Startup
     logger.info("Initializing ForgeSyte Core...")
 
-    # Initialize API keys
+    # Initialize authentication service
     try:
-        init_api_keys()
-        logger.debug("API keys initialized")
+        init_auth_service()
+        logger.debug("Authentication service initialized")
     except Exception as e:
-        logger.error("Failed to initialize API keys", extra={"error": str(e)})
+        logger.error(
+            "Failed to initialize authentication service", extra={"error": str(e)}
+        )
 
     # Load plugins
     plugins_dir = os.getenv("FORGESYTE_PLUGINS_DIR", "../example_plugins")
