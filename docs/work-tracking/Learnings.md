@@ -2041,6 +2041,55 @@ Coverage: 100% for mcp_adapter.py core functionality
 
 ---
 
+## WU-04a: MCP Module Reorganization
+
+**Completed**: 2026-01-11 17:30  
+**Duration**: 0.5 hours  
+**Status**: ✅ Complete
+
+### What Went Well
+- Directory structure planning clear and straightforward (server/app/mcp/)
+- File renaming with git mv preserves history (though we used bash mv + git)
+- Relative imports within mcp module work correctly after consolidation
+- Test import updates batched efficiently using sed across multiple files
+- Coverage maintained at 80.97% (exceeds 80% requirement)
+- Pre-commit hooks (black, ruff, mypy) passed on second attempt after linting fixes
+- All 441 core tests passing (organization change had zero impact on test results)
+
+### Challenges & Solutions
+- **Issue**: Internal mcp module imports still referenced parent directory incorrectly
+  - **Solution**: Updated imports to use `..` for parent package references (e.g., `from ..plugin_loader import PluginManager`)
+- **Issue**: Test fixtures were using TestClient without app initialization
+  - **Solution**: Created `app_with_plugins` fixture in conftest.py to properly initialize plugin state
+- **Issue**: 4 pre-existing test failures in auth validation tests (unrelated to refactoring)
+  - **Solution**: Confirmed failures are pre-existing and not caused by reorganization
+
+### Key Insights
+- Module reorganization doesn't require functional changes—pure refactoring
+- Test fixtures become critical when moving code that depends on app state initialization
+- Coverage metrics stay stable when refactoring (structure change only, no code change)
+- Batch sed operations work well for cross-module import updates
+- Clean __init__.py exports make modules self-documenting
+
+### Architecture Decisions
+- **Subdirectory consolidation**: All MCP code now in server/app/mcp/ with clean interface
+- **File naming simplification**: Removed mcp_ prefix within package (adapter.py, routes.py, etc.)
+- **Public API via __init__.py**: Exports MCPAdapter, MCPProtocolHandlers, router, etc.
+- **Lazy imports in handlers**: Keep circular import prevention patterns (imports in methods)
+- **Fixture-based initialization**: app_with_plugins handles all plugin setup for test client
+
+### Tips for Similar Work
+- Use __init__.py strategically to hide internal structure and provide clean API
+- Test fixtures can initialize app state that lifespan context manager would handle in production
+- Batch sed operations work across test files—double-check with grep after updates
+- Relative imports: use `.` for same-level modules, `..` for parent package
+- Always run full test suite after reorganization, not just component-level tests
+
+### Blockers Found
+- None
+
+---
+
 ## WU-06: Optimization and Backwards Compatibility
 
 **Completed**: 2026-01-11 14:30
