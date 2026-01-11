@@ -149,8 +149,24 @@ To ensure code is production-ready, maintainable, and resilient, all AI agents m
 - **Style Guidelines:** Strictly follow **PEP 8** style guidelines.
 - **Type Safety:** Use **type hints** for all functions and modules. For monetary values, rates, or high-precision math, always use the **`Decimal` type** instead of floats to avoid precision errors.
 - **Path Management:** Prefer **`pathlib`** over `os.path` for all file and directory operations.
-- **Documentation:** Write comprehensive **docstrings** for all classes and functions.
+- **Documentation:** Write comprehensive **docstrings** for all classes and functions using standard format:
+  ```python
+  def analyze_image(image_data: bytes, options: dict) -> dict:
+      """Analyze image and return results.
+      
+      Args:
+          image_data: Raw image bytes (PNG, JPEG, etc.)
+          options: Plugin-specific analysis options
+      
+      Returns:
+          Dictionary containing analysis results and metadata
+      
+      Raises:
+          ValueError: If image format is unsupported
+      """
+  ```
 - **Configuration:** Manage configuration via **environment variables** or configuration files (using Pydantic Settings) rather than hard-coding sensitive values.
+- **Async/Await:** Use async functions for I/O operations (FastAPI, WebSocket, external APIs). Prefix async handlers with `async def`, don't mix sync/async.
 
 ```python
 # Standard: Type hints, Decimal for currency, and input validation
@@ -232,6 +248,111 @@ Before committing any code, the following tools must be run to ensure compliance
 2. **Linting:** `ruff check --fix .`
 3. **Type Checking:** `mypy .`
 4. **Testing:** `pytest`
+
+## TypeScript/React Conventions
+
+### Environment & Tools
+
+- Node 18+ required
+- Use `npm` for package management
+- TypeScript 5+ for strict type safety
+- Vite for build/dev server
+- Vitest for unit tests
+
+### Code Style
+
+- Follow **ESLint** rules (configured in `.eslintrc`)
+- Format with **Prettier** (if configured)
+- Use TypeScript strict mode: `"strict": true` in `tsconfig.json`
+- Use functional components and React hooks (no class components)
+
+### TypeScript Standards
+
+- **Type Safety:** Define types/interfaces for all props, state, API responses
+  ```typescript
+  interface AnalysisResult {
+    tool_id: string;
+    status: "success" | "error";
+    content: Array<{ type: string; text: string }>;
+    processing_time_ms: number;
+  }
+
+  function ResultsPanel(props: { result: AnalysisResult }): JSX.Element {
+    // ...
+  }
+  ```
+- **Avoid `any`:** Use proper types instead of `any`. Use `unknown` if uncertain.
+- **Import Organization:** Group imports (React, external libs, local modules)
+  ```typescript
+  import React, { useState } from "react";
+  import { Button } from "@mui/material";
+  import { useAPI } from "./hooks/useAPI";
+  ```
+
+### React/Components
+
+- **File Naming:** PascalCase for components: `ImagePreview.tsx`
+- **File Naming:** camelCase for utilities: `imageProcessor.ts`
+- **Props:** Define interfaces for all component props
+- **Hooks:** Use React hooks for state (useState) and effects (useEffect)
+- **Custom Hooks:** Prefix with `use`: `useWebSocket.ts`, `usePluginList.ts`
+- **State Management:** Keep component state local unless globally needed
+- **Memoization:** Use `React.memo()` for expensive components, `useMemo()` for values, `useCallback()` for functions
+- **Cleanup:** Always cleanup in useEffect return (subscriptions, timers, WebSocket connections)
+
+### Testing Standards
+
+- **File Naming:** `ComponentName.test.tsx` next to component
+- **Test Runner:** Vitest configured, runs with `npm run test`
+- **Coverage:** Aim for 80%+ coverage on components
+- **Mocking:** Mock API calls and external dependencies
+- **Async Testing:** Use `waitFor()` for async operations
+
+### API Integration
+
+- **Type Safety:** Define interfaces for all API responses
+- **Error Handling:** Handle network errors and display user-friendly messages
+- **Loading States:** Show loading indicators during API calls
+- **Retry Logic:** Implement exponential backoff for failed requests
+- **Headers:** Include required headers (Content-Type, Authorization if applicable)
+
+### Common Patterns
+
+**WebSocket Connection:**
+```typescript
+const { connect, send, disconnect, isConnected } = useWebSocket({
+  url: "ws://localhost:8000/v1/stream",
+  onMessage: (data) => { /* handle */ }
+});
+
+useEffect(() => {
+  connect();
+  return () => disconnect();
+}, []);
+```
+
+**API Fetch with Error Handling:**
+```typescript
+const [data, setData] = useState<Data | null>(null);
+const [error, setError] = useState<string | null>(null);
+const [loading, setLoading] = useState(false);
+
+useEffect(() => {
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      const response = await fetch("/v1/endpoint");
+      if (!response.ok) throw new Error("API error");
+      setData(await response.json());
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unknown error");
+    } finally {
+      setLoading(false);
+    }
+  };
+  fetchData();
+}, []);
+```
 
 ## File Operations
 
