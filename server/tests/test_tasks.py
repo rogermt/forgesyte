@@ -112,6 +112,7 @@ class TestJobStoreUpdate:
         """Test updating an existing job."""
         await job_store.create("job1", "plugin1")
         updated = await job_store.update("job1", status=JobStatus.RUNNING, progress=0.5)
+        assert updated is not None
         assert updated["status"] == JobStatus.RUNNING
         assert updated["progress"] == 0.5
 
@@ -138,6 +139,7 @@ class TestJobStoreUpdate:
         )
 
         job = await job_store.get("job1")
+        assert job is not None
         assert job["status"] == JobStatus.DONE
         assert job["result"] == result
         assert job["progress"] == 1.0
@@ -151,6 +153,7 @@ class TestJobStoreUpdate:
         await job_store.update("job1", status=JobStatus.RUNNING)
 
         updated_job = await job_store.get("job1")
+        assert updated_job is not None
         assert updated_job["created_at"] == created_at
         assert updated_job["plugin"] == "plugin1"
 
@@ -179,6 +182,7 @@ class TestJobStoreGet:
         await job_store.update("job1", status=JobStatus.RUNNING, progress=0.7)
 
         job = await job_store.get("job1")
+        assert job is not None
         assert job["status"] == JobStatus.RUNNING
         assert job["progress"] == 0.7
 
@@ -414,6 +418,7 @@ class TestTaskProcessorCancelJob:
         assert result is True
 
         job = await task_processor.get_job(job_id)
+        assert job is not None
         assert job["status"] == JobStatus.ERROR
         assert job["error"] == "Cancelled by user"
 
@@ -453,6 +458,7 @@ class TestTaskProcessorProcessing:
         await asyncio.sleep(0.1)
 
         job = await task_processor.get_job(job_id)
+        assert job is not None
         assert job["status"] == JobStatus.ERROR
         assert "not found" in job["error"]
 
@@ -470,6 +476,7 @@ class TestTaskProcessorProcessing:
         await asyncio.sleep(0.2)
 
         job = await task_processor.get_job(job_id)
+        assert job is not None
         assert job["status"] == JobStatus.DONE
         assert job["result"] is not None
         assert "processing_time_ms" in job["result"]
@@ -487,6 +494,7 @@ class TestTaskProcessorProcessing:
         await asyncio.sleep(0.1)
 
         job = await task_processor.get_job(job_id)
+        assert job is not None
         assert job["status"] == JobStatus.ERROR
         assert "Analysis failed" in job["error"]
 
@@ -503,6 +511,7 @@ class TestTaskProcessorProcessing:
         await asyncio.sleep(0.2)
 
         job = await task_processor.get_job(job_id)
+        assert job is not None
         assert job["progress"] == 1.0
 
 
@@ -573,6 +582,7 @@ class TestTaskProcessorCallbacks:
         await asyncio.sleep(0.2)
 
         job = await task_processor.get_job(job_id)
+        assert job is not None
         assert job["status"] == JobStatus.DONE
 
     @pytest.mark.asyncio
@@ -643,6 +653,7 @@ class TestTaskProcessorErrorHandling:
         await asyncio.sleep(0.2)
 
         job = await task_processor.get_job(job_id)
+        assert job is not None
         assert "processing_time_ms" in job["result"]
         assert job["result"]["processing_time_ms"] >= 0
 
@@ -659,6 +670,7 @@ class TestTaskProcessorErrorHandling:
         await asyncio.sleep(0.2)
 
         job = await task_processor.get_job(job_id)
+        assert job is not None
         assert job["completed_at"] is not None
 
     @pytest.mark.asyncio
@@ -674,4 +686,5 @@ class TestTaskProcessorErrorHandling:
         await asyncio.sleep(0.1)
 
         job = await task_processor.get_job(job_id)
+        assert job is not None
         assert job["completed_at"] is not None
