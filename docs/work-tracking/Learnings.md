@@ -1905,3 +1905,56 @@ Coverage: 100% for mcp_adapter.py core functionality
 - `server/app/mcp_transport.py` (modified, +95 lines for batching and v1.0)
 - `server/app/mcp_adapter.py` (modified, +95 lines for caching)
 - `server/tests/conftest.py` (modified, added asyncio_mode configuration)
+
+---
+
+## Gemini-CLI Integration Learnings
+
+**Status**: ✅ Connected (MCP 2024-11-05 compliant)
+**Date**: 2026-01-11
+
+### Integration Steps
+
+1. **Endpoint Configuration**: Gemini-CLI requires full path in settings.json
+   - Wrong: `"httpUrl": "http://localhost:8000"`
+   - Correct: `"httpUrl": "http://localhost:8000/v1/mcp"`
+
+2. **Initialize Response Structure**: Must match MCP 2024-11-05 protocol
+   - `protocolVersion`: "2024-11-05" (root level, required)
+   - `capabilities.tools`: {} (object, not boolean)
+   - `serverInfo.name` and `serverInfo.version`
+
+3. **Settings File Location**: `~/.gemini/settings.json`
+   ```json
+   {
+     "mcpServers": {
+       "forgesyte": {
+         "httpUrl": "http://localhost:8000/v1/mcp",
+         "timeout": 30000,
+         "description": "ForgeSyte AI-vision MCP server"
+       }
+     }
+   }
+   ```
+
+### Common Issues
+
+- **"Method Not Allowed" error**: Check HTTP method (must be POST, not GET)
+- **"Not Found" error**: Verify full path includes `/v1/mcp`
+- **Initialize response error**: Check protocolVersion is "2024-11-05" and capabilities.tools is `{}` not `true`
+- **WSL localhost issues**: Use `127.0.0.1` or WSL IP address instead of `localhost`
+
+### Protocol Compliance
+
+- MCP Server spec requires specific field locations in initialize response
+- `protocolVersion` must be at response root, not inside serverInfo
+- `capabilities.tools` must be an empty object `{}` to indicate tool support
+- Test with: `curl -X POST http://localhost:8000/v1/mcp -H "Content-Type: application/json" -d '{"jsonrpc":"2.0","method":"initialize","params":{},"id":1}'`
+
+### Next Steps for Full Integration
+
+1. Implement `initialized` notification response
+2. Enhance `tools/list` to return actual plugin tools with proper schema
+3. Implement actual tool invocation in `tools/call`
+4. Add resource streaming support for real-time plugin output
+5. Test end-to-end with Gemini-CLI tool invocation
