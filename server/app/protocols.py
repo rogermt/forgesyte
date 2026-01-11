@@ -221,12 +221,17 @@ class JobStore(Protocol):
         """
         ...
 
-    async def update(self, job_id: str, updates: Dict[str, Any]) -> None:
+    async def update(
+        self, job_id: str, updates: Dict[str, Any]
+    ) -> Optional[Dict[str, Any]]:
         """Update an existing job.
 
         Args:
             job_id: Unique job identifier
             updates: Dictionary of fields to update
+
+        Returns:
+            Updated job data dictionary, or None if not found
 
         Raises:
             RuntimeError: If update fails
