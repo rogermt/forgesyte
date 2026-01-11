@@ -1999,3 +1999,56 @@ Coverage: 100% for mcp_adapter.py core functionality
 ⏳ Settings.json points to http://localhost:8000/v1/mcp
 ⏳ Gemini-CLI successfully discovers ForgeSyte tools
 ⏳ Tools/call implementation for actual plugin invocation
+
+---
+
+## 🎉 Integration Success: Gemini-CLI ↔ ForgeSyte
+
+**Status**: ✅ FULLY CONNECTED
+**Date**: 2026-01-11
+**Result**: Gemini-CLI successfully discovered all 4 ForgeSyte tools
+
+### Confirmed Working
+
+```
+gemini /mcp
+
+Configured MCP servers:
+🟢 forgesyte - Ready (4 tools)
+  Tools:
+  - block_mapper
+  - moderation
+  - motion_detector
+  - ocr
+```
+
+### What Made It Work
+
+1. **Settings.json**: Full endpoint path `/v1/mcp`
+2. **Initialize response**: Correct MCP 2024-11-05 format with protocolVersion and capabilities
+3. **Tools/list response**: Proper tool schema with name, description, inputSchema
+4. **Plugin loading**: All 4 example plugins loaded and discoverable
+
+### Key Fixes Applied
+
+- **Initialize**: protocolVersion at root level (not in serverInfo)
+- **Capabilities**: tools: {} (empty object, not boolean)
+- **Tools format**: Changed from internal MCPTool format to MCP-compliant schema
+- **Input schema**: Standardized image + options parameters
+
+### Ready for Production
+
+- ✅ HTTP MCP endpoint at /v1/mcp
+- ✅ JSON-RPC 2.0 transport layer
+- ✅ Tool discovery working
+- ✅ Gemini-CLI integration verified
+- ⏳ Tool invocation (tools/call) ready for enhancement
+- ⏳ Plugin-specific input schemas for advanced usage
+
+### Next Phase: Tool Invocation
+
+Implement actual plugin execution through:
+1. Enhance tools/call with real plugin.analyze() calls
+2. Return content array with plugin output
+3. Add error handling for plugin failures
+4. Support plugin-specific options passed from Gemini-CLI
