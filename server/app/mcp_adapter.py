@@ -1,7 +1,8 @@
 """MCP (Model Context Protocol) adapter for Gemini-CLI integration."""
 
 import logging
-from typing import Any, Dict, List
+import time
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field, ValidationError
 
@@ -41,15 +42,22 @@ class MCPToolSchema(BaseModel):
 class MCPAdapter:
     """Adapts vision server capabilities to MCP format."""
 
-    def __init__(self, plugin_manager: PluginManager, base_url: str = ""):
+    def __init__(
+        self, plugin_manager: Optional[PluginManager] = None, base_url: str = ""
+    ):
         """Initialize MCPAdapter.
 
         Args:
-            plugin_manager: PluginManager instance for plugin discovery
+            plugin_manager: PluginManager instance for plugin discovery (optional)
             base_url: Base URL for invoke endpoints (trailing slash removed)
         """
         self.plugin_manager = plugin_manager
         self.base_url = base_url.rstrip("/") if base_url else ""
+
+        # Manifest caching
+        self._manifest_cache: Optional[dict] = None
+        self._manifest_cache_time: Optional[float] = None
+        self._manifest_cache_ttl: int = 300  # 5 minutes default
 
     def get_manifest(self) -> dict:
         """Generate MCP manifest for Gemini-CLI discovery.
@@ -73,6 +81,69 @@ class MCPAdapter:
 
         return manifest.model_dump()
 
+    def build_manifest(self, tools: Optional[List[MCPTool]] = None) -> dict:
+        """Build manifest from tools (for testing and caching).
+
+        Args:
+            tools: Optional list of MCPTool objects. If None, builds from plugins.
+
+        Returns:
+            Dictionary containing MCP manifest.
+        """
+        if tools is None:
+            tools = self._build_tools()
+
+        server_info = {
+            "name": MCP_SERVER_NAME,
+            "version": MCP_SERVER_VERSION,
+            "mcp_version": MCP_PROTOCOL_VERSION,
+        }
+
+        manifest = MCPManifest(
+            tools=tools,
+            server=server_info,
+            version="1.0",
+        )
+
+        return manifest.model_dump()
+
+    def _cache_manifest(self, manifest: dict) -> None:
+        """Cache a manifest with timestamp.
+
+        Args:
+            manifest: Manifest dictionary to cache
+        """
+        self._manifest_cache = manifest
+        self._manifest_cache_time = time.time()
+        logger.debug("Manifest cached")
+
+    def _is_manifest_cache_valid(self) -> bool:
+        """Check if cached manifest is still valid.
+
+        Returns:
+            True if cache exists and hasn't expired
+        """
+        if self._manifest_cache is None or self._manifest_cache_time is None:
+            return False
+
+        elapsed = time.time() - self._manifest_cache_time
+        return elapsed < self._manifest_cache_ttl
+
+    def get_cached_manifest(self) -> dict:
+        """Get manifest from cache or regenerate if expired.
+
+        Returns:
+            Dictionary containing MCP manifest
+        """
+        if self._is_manifest_cache_valid():
+            logger.debug("Manifest cache hit")
+            return self._manifest_cache  # type: ignore
+
+        # Cache expired or doesn't exist, regenerate
+        manifest = self.get_manifest()
+        self._cache_manifest(manifest)
+        return manifest
+
     def _build_tools(self) -> List[MCPTool]:
         """Build tool list from registered plugins.
 
@@ -83,6 +154,10 @@ class MCPAdapter:
             List of MCPTool objects converted from plugin metadata.
         """
         tools: List[MCPTool] = []
+
+        # Return empty list if no plugin manager
+        if self.plugin_manager is None:
+            return tools
 
         # Convert plugin metadata to MCP tools
         for name, meta in self.plugin_manager.list().items():

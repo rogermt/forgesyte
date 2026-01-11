@@ -197,3 +197,98 @@ class MCPTransport:
         """
         self._method_handlers[method] = handler
         logger.debug(f"Registered handler for method: {method}")
+
+    async def handle_batch_request(
+        self,
+        requests: list,
+    ) -> list:
+        """Handle a batch of JSON-RPC requests.
+
+        Per JSON-RPC 2.0 spec, a batch is an array of request objects.
+        Responses are returned in the same order as requests.
+        Notifications (requests without id) don't generate responses.
+
+        Args:
+            requests: List of request dicts
+
+        Returns:
+            List of response dicts (excluding responses to notifications)
+        """
+        if not requests:
+            return []
+
+        responses = []
+        for request_dict in requests:
+            try:
+                # Parse request
+                request = JSONRPCRequest(**request_dict)
+
+                # Handle request
+                response = await self.handle_request(request)
+
+                # Only include response if request had an id (not a notification)
+                if request.id is not None:
+                    responses.append(response.model_dump(exclude_none=True))
+            except Exception:
+                # If we can't even parse the request, create error response
+                logger.exception("Error processing batch request")
+                error = JSONRPCError(
+                    code=JSONRPCErrorCode.PARSE_ERROR,
+                    message="Error parsing batch request",
+                )
+                response = JSONRPCResponse(
+                    jsonrpc="2.0",
+                    error=error.model_dump(exclude_none=True),
+                    id=None,
+                )
+                responses.append(response.model_dump(exclude_none=True))
+
+        return responses
+
+    def convert_v1_request(self, request_dict: dict) -> dict:
+        """Convert JSON-RPC v1.0 request to v2.0 format.
+
+        Args:
+            request_dict: Request in v1.0 format
+
+        Returns:
+            Request converted to v2.0 format
+        """
+        # Make a copy to avoid mutating original
+        converted = dict(request_dict)
+
+        # Convert version field
+        if converted.get("jsonrpc") == "1.0":
+            converted["jsonrpc"] = "2.0"
+            logger.warning(
+                "Received deprecated JSON-RPC v1.0 request, converting to v2.0"
+            )
+
+        # Generate id if missing (v1.0 allowed omitting id)
+        if "id" not in converted:
+            import uuid
+
+            converted["id"] = str(uuid.uuid4())
+
+        return converted
+
+    async def handle_request_with_v1_fallback(self, request_dict: dict) -> dict:
+        """Handle request with v1.0 backwards compatibility fallback.
+
+        Args:
+            request_dict: Request dict that might be v1.0
+
+        Returns:
+            Response dict
+        """
+        # Try v2.0 format first
+        if request_dict.get("jsonrpc") == "2.0":
+            request = JSONRPCRequest(**request_dict)
+            response = await self.handle_request(request)
+        else:
+            # Try v1.0 conversion
+            converted = self.convert_v1_request(request_dict)
+            request = JSONRPCRequest(**converted)
+            response = await self.handle_request(request)
+
+        return response.model_dump(exclude_none=True)
