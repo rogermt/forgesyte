@@ -7,7 +7,7 @@ import sys
 from abc import ABC, abstractmethod
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from typing import Dict, Optional, Protocol, runtime_checkable
+from typing import Any, Dict, Optional, Protocol, runtime_checkable
 
 logger = logging.getLogger(__name__)
 
@@ -18,11 +18,13 @@ class PluginInterface(Protocol):
 
     name: str
 
-    def metadata(self) -> dict:
+    def metadata(self) -> Dict[str, Any]:
         """Return plugin metadata."""
         ...
 
-    def analyze(self, image_bytes: bytes, options: Optional[dict] = None) -> dict:
+    def analyze(
+        self, image_bytes: bytes, options: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
         """Analyze an image and return results."""
         ...
 
@@ -42,33 +44,36 @@ class BasePlugin(ABC):
     version: str = "1.0.0"
     description: str = "Base plugin"
 
-    def __init__(self):
+    def __init__(self) -> None:
+        """Initialize the plugin with executor for async operations."""
         self._executor = ThreadPoolExecutor(max_workers=2)
 
     @abstractmethod
-    def metadata(self) -> dict:
+    def metadata(self) -> Dict[str, Any]:
         """Return plugin metadata."""
         pass
 
     @abstractmethod
-    def analyze(self, image_bytes: bytes, options: Optional[dict] = None) -> dict:
+    def analyze(
+        self, image_bytes: bytes, options: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
         """Synchronous analysis - override this."""
         pass
 
     async def analyze_async(
-        self, image_bytes: bytes, options: Optional[dict] = None
-    ) -> dict:
+        self, image_bytes: bytes, options: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
         """Async wrapper for analysis."""
         loop = asyncio.get_event_loop()
         return await loop.run_in_executor(
             self._executor, self.analyze, image_bytes, options or {}
         )
 
-    def on_load(self):
+    def on_load(self) -> None:
         """Called when plugin is loaded."""
         logger.info(f"Plugin {self.name} loaded")
 
-    def on_unload(self):
+    def on_unload(self) -> None:
         """Called when plugin is unloaded."""
         logger.info(f"Plugin {self.name} unloaded")
         self._executor.shutdown(wait=False)
@@ -78,7 +83,7 @@ class BasePlugin(ABC):
         if not image_bytes or len(image_bytes) < 100:
             return False
         # Check for common image headers
-        headers = {
+        headers: Dict[bytes, str] = {
             b"\xff\xd8\xff": "jpeg",
             b"\x89PNG": "png",
             b"GIF8": "gif",
@@ -93,20 +98,24 @@ class BasePlugin(ABC):
 class PluginManager:
     """Manages plugin discovery, loading, and lifecycle."""
 
-    def __init__(self, plugins_dir: Optional[str] = None):
+    def __init__(self, plugins_dir: Optional[str] = None) -> None:
+        """Initialize the plugin manager.
+
+        Args:
+            plugins_dir: Optional path to plugins directory.
+                        Defaults to example_plugins.
+        """
         if plugins_dir is None:
             # Default to example_plugins directory outside of server
             self.plugins_dir = Path(__file__).parent.parent.parent / "example_plugins"
         else:
             self.plugins_dir = Path(plugins_dir)
         self.plugins: Dict[str, PluginInterface] = {}
-        self._watchers: list = []
+        self._watchers: list[Any] = []
 
     def load_plugins(
         self,
-    ) -> Dict[
-        str, Dict[str, str]
-    ]:  # Fixed: Original annotation Dict[str, str] was incorrect
+    ) -> Dict[str, Dict[str, str]]:
         """Load all plugins from the plugins directory."""
         loaded: Dict[str, str] = {}
         errors: Dict[str, str] = {}
@@ -130,12 +139,25 @@ class PluginManager:
                         errors[item.name] = str(e)
                         logger.error(f"Failed to load plugin {item.name}: {e}")
 
-        return {"loaded": loaded, "errors": errors}  # type: ignore[return-value] # Intentionally correcting original incorrect return type annotation
+        return {"loaded": loaded, "errors": errors}
 
     def _load_plugin_from_file(
         self, plugin_file: Path, module_name: str
     ) -> Optional[PluginInterface]:
-        """Load a single plugin from a file."""
+        """Load a single plugin from a file.
+
+        Args:
+            plugin_file: Path to plugin.py file
+            module_name: Name for the dynamically loaded module
+
+        Returns:
+            Plugin instance if successful, None otherwise
+
+        Raises:
+            ImportError: If module spec cannot be loaded
+            TypeError: If plugin class doesn't implement PluginInterface
+            AttributeError: If no Plugin class found in module
+        """
         spec = importlib.util.spec_from_file_location(
             f"vision_plugins.{module_name}", plugin_file
         )
@@ -162,7 +184,7 @@ class PluginManager:
         """Get a plugin by name."""
         return self.plugins.get(name)
 
-    def list(self) -> Dict[str, dict]:
+    def list(self) -> Dict[str, Dict[str, Any]]:
         """List all plugins with their metadata."""
         return {name: plugin.metadata() for name, plugin in self.plugins.items()}
 
