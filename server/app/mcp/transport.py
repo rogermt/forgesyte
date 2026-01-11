@@ -119,16 +119,27 @@ class MCPTransport:
             return response
         except MCPTransportError as e:
             # Transport-level error (invalid method, params, etc.)
-            logger.warning(f"Transport error: {e.message}", extra={"code": e.code})
+            logger.warning(
+                "Transport error",
+                extra={
+                    "method": request.method,
+                    "code": e.code,
+                    "error": e.message,
+                    "request_id": request.id,
+                },
+            )
             error = e.to_jsonrpc_error()
             return JSONRPCResponse(
                 jsonrpc="2.0",
                 error=error.model_dump(exclude_none=True),
                 id=request.id,
             )
-        except Exception:
+        except Exception as e:
             # Unexpected error
-            logger.exception("Unexpected error in transport handler")
+            logger.exception(
+                "Unexpected error in transport handler",
+                extra={"method": request.method, "error": str(e)},
+            )
             error = JSONRPCError(
                 code=JSONRPCErrorCode.INTERNAL_ERROR,
                 message="Internal server error",
@@ -155,6 +166,10 @@ class MCPTransport:
 
         # Check if handler exists
         if method not in self._method_handlers:
+            logger.debug(
+                "Method not found",
+                extra={"method": method, "request_id": request.id},
+            )
             raise MCPTransportError(
                 code=JSONRPCErrorCode.METHOD_NOT_FOUND,
                 message=f'The method "{method}" does not exist / is not available',
@@ -167,6 +182,12 @@ class MCPTransport:
             # Call handler with params
             result = await handler(request.params)
 
+            # Log successful handler execution
+            logger.debug(
+                "Handler executed successfully",
+                extra={"method": method, "request_id": request.id},
+            )
+
             # Return success response
             return JSONRPCResponse(
                 jsonrpc="2.0",
@@ -178,6 +199,10 @@ class MCPTransport:
             raise
         except TypeError as e:
             # Invalid params (e.g., missing required fields)
+            logger.warning(
+                "Invalid method parameters",
+                extra={"method": method, "error": str(e)},
+            )
             raise MCPTransportError(
                 code=JSONRPCErrorCode.INVALID_PARAMS,
                 message="Invalid method parameter(s)",
@@ -196,7 +221,10 @@ class MCPTransport:
             handler: Async callable that takes params dict and returns result dict
         """
         self._method_handlers[method] = handler
-        logger.debug(f"Registered handler for method: {method}")
+        logger.debug(
+            "Registered handler for method",
+            extra={"method": method},
+        )
 
     async def handle_batch_request(
         self,
@@ -217,6 +245,11 @@ class MCPTransport:
         if not requests:
             return []
 
+        logger.debug(
+            "Processing batch request",
+            extra={"request_count": len(requests)},
+        )
+
         responses = []
         for request_dict in requests:
             try:
@@ -229,9 +262,12 @@ class MCPTransport:
                 # Only include response if request had an id (not a notification)
                 if request.id is not None:
                     responses.append(response.model_dump(exclude_none=True))
-            except Exception:
+            except Exception as e:
                 # If we can't even parse the request, create error response
-                logger.exception("Error processing batch request")
+                logger.exception(
+                    "Error processing batch request",
+                    extra={"error": str(e)},
+                )
                 error = JSONRPCError(
                     code=JSONRPCErrorCode.PARSE_ERROR,
                     message="Error parsing batch request",
@@ -254,6 +290,8 @@ class MCPTransport:
         Returns:
             Request converted to v2.0 format
         """
+        import uuid
+
         # Make a copy to avoid mutating original
         converted = dict(request_dict)
 
@@ -261,13 +299,12 @@ class MCPTransport:
         if converted.get("jsonrpc") == "1.0":
             converted["jsonrpc"] = "2.0"
             logger.warning(
-                "Received deprecated JSON-RPC v1.0 request, converting to v2.0"
+                "Received deprecated JSON-RPC v1.0 request",
+                extra={"method": converted.get("method", "unknown")},
             )
 
         # Generate id if missing (v1.0 allowed omitting id)
         if "id" not in converted:
-            import uuid
-
             converted["id"] = str(uuid.uuid4())
 
         return converted

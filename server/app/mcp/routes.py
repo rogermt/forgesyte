@@ -43,7 +43,7 @@ def get_transport(request: Request) -> MCPTransport:
 
 
 @router.post("/mcp")
-async def mcp_rpc(request: Request):
+async def mcp_rpc(request: Request) -> JSONResponse:
     """Handle MCP JSON-RPC 2.0 requests via HTTP POST.
 
     Accepts JSON-RPC 2.0 formatted requests and routes them to MCP protocol handlers.
@@ -53,7 +53,10 @@ async def mcp_rpc(request: Request):
         request: FastAPI request with JSON body
 
     Returns:
-        JSON-RPC 2.0 response (success or error format)
+        JSONResponse with JSON-RPC 2.0 response (success or error format)
+
+    Raises:
+        HTTPException: Internal errors are returned as JSON-RPC error responses
 
     Example:
         Request:
@@ -71,10 +74,22 @@ async def mcp_rpc(request: Request):
                 "id": 1
             }
     """
+    request_id: Optional[int | str] = None
+
     try:
         # Parse request body as JSON-RPC request
         body = await request.json()
         jsonrpc_request = JSONRPCRequest(**body)
+        request_id = jsonrpc_request.id
+
+        # Log request
+        logger.debug(
+            "MCP request received",
+            extra={
+                "method": jsonrpc_request.method,
+                "request_id": request_id,
+            },
+        )
 
         # Get transport instance
         transport = get_transport(request)
@@ -84,6 +99,10 @@ async def mcp_rpc(request: Request):
 
         # For notifications (no id), return 204 No Content
         if jsonrpc_request.id is None:
+            logger.debug(
+                "MCP notification processed",
+                extra={"method": jsonrpc_request.method},
+            )
             # Return empty response body for notifications
             return JSONResponse({"jsonrpc": "2.0"}, status_code=204)
 
@@ -92,7 +111,13 @@ async def mcp_rpc(request: Request):
 
     except ValidationError as e:
         # Validation error in JSON-RPC request
-        logger.warning(f"Invalid JSON-RPC request: {e}")
+        logger.warning(
+            "Invalid JSON-RPC request",
+            extra={
+                "request_id": request_id,
+                "error_count": len(e.errors()),
+            },
+        )
         error = JSONRPCError(
             code=JSONRPCErrorCode.INVALID_REQUEST,
             message="Invalid Request",
@@ -106,13 +131,16 @@ async def mcp_rpc(request: Request):
             {
                 "jsonrpc": "2.0",
                 "error": error.model_dump(exclude_none=True),
-                "id": None,
+                "id": request_id,
             },
             status_code=400,
         )
     except ValueError as e:
         # JSON parsing error
-        logger.warning(f"JSON parse error: {e}")
+        logger.warning(
+            "JSON parse error",
+            extra={"error": str(e)},
+        )
         error = JSONRPCError(
             code=JSONRPCErrorCode.PARSE_ERROR,
             message="Parse error",
@@ -125,9 +153,12 @@ async def mcp_rpc(request: Request):
             },
             status_code=400,
         )
-    except Exception:
+    except Exception as e:
         # Unexpected error
-        logger.exception("Unexpected error in MCP endpoint")
+        logger.exception(
+            "Unexpected error in MCP endpoint",
+            extra={"request_id": request_id, "error": str(e)},
+        )
         error = JSONRPCError(
             code=JSONRPCErrorCode.INTERNAL_ERROR,
             message="Internal server error",
@@ -136,7 +167,7 @@ async def mcp_rpc(request: Request):
             {
                 "jsonrpc": "2.0",
                 "error": error.model_dump(exclude_none=True),
-                "id": None,
+                "id": request_id,
             },
             status_code=500,
         )

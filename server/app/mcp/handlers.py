@@ -62,8 +62,13 @@ class MCPProtocolHandlers:
         client_version = params.get("protocolVersion")
 
         logger.info(
-            f"Initialize request from client: {client_info.get('name', 'unknown')} "
-            f"(protocol: {client_version or 'unspecified'})"
+            "Initialize request from client",
+            extra={
+                "client_name": client_info.get("name", "unknown"),
+                "client_version": client_version or "unspecified",
+                "server_name": MCP_SERVER_NAME,
+                "server_version": MCP_SERVER_VERSION,
+            },
         )
 
         return {
@@ -89,12 +94,16 @@ class MCPProtocolHandlers:
             Response dictionary containing tools list with name,
             description, and inputSchema for each tool.
         """
-        logger.debug("Listing available tools")
+        plugins = self.plugin_manager.list()
+        logger.debug(
+            "Listing available tools",
+            extra={"tool_count": len(plugins)},
+        )
 
         tools = []
 
         # Get all plugins and convert to MCP tool format
-        for plugin_name, plugin_meta in self.plugin_manager.list().items():
+        for plugin_name, plugin_meta in plugins.items():
             # Build MCP tool with required fields
             tool = {
                 "name": plugin_name,
@@ -149,7 +158,13 @@ class MCPProtocolHandlers:
 
         tool_arguments = params.get("arguments", {})
 
-        logger.debug(f"Invoking tool: {tool_name} with args: {tool_arguments}")
+        logger.debug(
+            "Invoking tool",
+            extra={
+                "tool_name": tool_name,
+                "argument_keys": list(tool_arguments.keys()) if tool_arguments else [],
+            },
+        )
 
         # Get the plugin/tool
         plugin = self.plugin_manager.get(tool_name)
@@ -172,7 +187,10 @@ class MCPProtocolHandlers:
             }
             return result
         except Exception as e:
-            logger.error(f"Error invoking tool {tool_name}: {e}")
+            logger.error(
+                "Error invoking tool",
+                extra={"tool_name": tool_name, "error": str(e)},
+            )
             raise MCPTransportError(
                 code=JSONRPCErrorCode.INTERNAL_ERROR,
                 message=f"Tool execution failed: {str(e)}",
@@ -212,8 +230,15 @@ class MCPProtocolHandlers:
                             "description": f"Job for plugin: {plugin_name}",
                         }
                     )
+                logger.debug(
+                    "Listed job resources",
+                    extra={"resource_count": len(resources)},
+                )
             except Exception as e:
-                logger.warning(f"Error listing job resources: {e}")
+                logger.warning(
+                    "Error listing job resources",
+                    extra={"error": str(e)},
+                )
 
         return {
             "resources": resources,
@@ -236,6 +261,8 @@ class MCPProtocolHandlers:
         Raises:
             MCPTransportError: If URI is missing or resource not found
         """
+        import json
+
         uri = params.get("uri")
         if not uri:
             raise MCPTransportError(
@@ -243,7 +270,10 @@ class MCPProtocolHandlers:
                 message="Missing required parameter: uri",
             )
 
-        logger.debug(f"Reading resource: {uri}")
+        logger.debug(
+            "Reading resource",
+            extra={"uri": uri},
+        )
 
         # Parse URI to get resource type and ID
         if uri.startswith("forgesyte://job/"):
@@ -256,8 +286,6 @@ class MCPProtocolHandlers:
                 )
 
             # Return job data as JSON
-            import json
-
             return {
                 "contents": [
                     {
