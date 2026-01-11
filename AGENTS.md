@@ -242,12 +242,12 @@ def call_gemini_api(prompt: str):
 
 ### Development Workflow & Mandatory Tools
 
-Before committing any code, the following tools must be run to ensure compliance:
+Before committing any code in `server/`, the following tools must be run to ensure compliance:
 
-1. **Formatting:** `black . && isort .`
-2. **Linting:** `ruff check --fix .`
-3. **Type Checking:** `mypy .`
-4. **Testing:** `pytest`
+1. **Formatting:** `uv run black .`
+2. **Linting:** `uv run ruff check --fix .`
+3. **Type Checking:** `uv run mypy . --no-site-packages`
+4. **Testing:** `uv run pytest`
 
 ## TypeScript/React Conventions
 
@@ -258,6 +258,15 @@ Before committing any code, the following tools must be run to ensure compliance
 - TypeScript 5+ for strict type safety
 - Vite for build/dev server
 - Vitest for unit tests
+
+### Development Workflow & Mandatory Tools
+
+Before committing any code in `web-ui/`, the following tools must be run to ensure compliance:
+
+1. **Linting:** `npm run lint`
+2. **Type Checking:** `npm run type-check`
+3. **Testing:** `npm run test`
+4. **Build Verification:** `npm run build`
 
 ### Code Style
 
