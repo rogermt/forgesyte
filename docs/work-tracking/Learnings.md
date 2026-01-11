@@ -1,3 +1,205 @@
+# Work Unit 02: Core Application Files - 9/10
+
+**Date**: 2026-01-11  
+**Work Unit**: WU-02 - Core Application Files (Models & Main)  
+**Estimated Effort**: 2 hours  
+**Actual Effort**: 1.5 hours  
+**Assessment Score**: 9/10
+
+---
+
+## Executive Summary
+
+Successfully integrated service layer into core FastAPI application. Refactored models.py with comprehensive Pydantic documentation, and main.py with proper lifespan management and dependency injection. Foundation now ready for endpoint refactoring.
+
+---
+
+## What Went Well
+
+### Pydantic Model Enhancement - Excellent ✅
+- All models enhanced with class docstrings and Field descriptions
+- AnalyzeRequest, JobResponse, PluginMetadata, MCPTool, MCPManifest, WebSocketMessage
+- Field descriptions provide clear API documentation
+- Validation constraints properly configured (min_length, etc)
+- Models enforce data integrity at API boundaries
+
+### Lifespan Manager - Excellent ✅
+- Proper startup sequence with error handling
+- API keys initialization with fallback
+- Plugin loading with detailed logging
+- Service layer initialization (VisionAnalysisService)
+- Graceful shutdown with plugin cleanup
+- All steps wrapped in try/except for resilience
+- Structured logging with context on each phase
+
+### Dependency Injection Pattern - Excellent ✅
+- Created get_analysis_service() dependency function
+- FastAPI Depends() properly injects services into handlers
+- Service retrieved from app.state during request lifecycle
+- Enables testing via mock services
+- Separates service setup (lifespan) from endpoint concerns
+
+### WebSocket Endpoint Refactoring - Excellent ✅
+- Thin endpoint handler focused only on WebSocket transport
+- Business logic delegated to VisionAnalysisService.handle_frame()
+- Proper message routing based on type field
+- Structured logging with context on all operations
+- Error handling with specific exception logging
+- Clear separation: transport layer vs business logic
+
+### Type Safety & Documentation - Perfect ✅
+- 100% type hints on all functions
+- Google-style docstrings with full Args/Returns/Raises
+- WebSocket message protocol documented
+- Dependency injection signatures properly typed
+- No type errors from mypy
+
+### Protocol Compliance - Excellent ✅
+- Updated PluginRegistry protocol to use list() method (matching PluginManager)
+- All services updated to use correct protocol methods
+- HealthCheckService aligned with actual interface
+- VisionAnalysisService properly depends on Protocols
+
+---
+
+## Challenges Encountered
+
+### 1. Protocol Method Mismatch
+**Issue**: PluginRegistry protocol defined list_loaded() but PluginManager has list()
+**Solution**: Updated protocol to match actual implementation, changed all references
+**Lesson**: Always align protocols with actual implementations to avoid type errors
+
+### 2. Service Initialization Order
+**Issue**: VisionAnalysisService needs PluginManager available before initialization
+**Solution**: Initialize in lifespan after plugin manager setup
+**Lesson**: Lifespan manager ensures proper dependency initialization order
+
+---
+
+## Key Insights for Future Work
+
+### 1. Lifespan Manager as Dependency Setup Hub
+The lifespan manager is the right place for:
+- Loading external resources (plugins, configs)
+- Initializing services with their dependencies
+- Setting up app.state for runtime access
+- Ensuring proper initialization order
+- Handling startup/shutdown gracefully
+
+### 2. Service Layer Reduces Endpoint Complexity
+Before: WebSocket endpoint had 100+ lines of business logic
+After: 30 lines focused only on transport, logic delegated to service
+Result: Easier to test, maintain, and reason about endpoint behavior
+
+### 3. Dependency Injection Enables Testing
+By using Depends(), we can:
+- Inject mock services in tests
+- Change behavior without modifying endpoints
+- Keep endpoints stateless and simple
+- Enable parallel development of services and endpoints
+
+### 4. Pydantic Documentation as API Contract
+Enhanced Field descriptions serve multiple purposes:
+- Auto-generates OpenAPI documentation
+- Serves as inline code documentation
+- Validates data at boundaries
+- Enables IDE autocomplete suggestions
+
+---
+
+## Standards Alignment Checklist
+
+| Standard | Status | Evidence |
+|----------|--------|----------|
+| Separation of Concerns | ✅ | Endpoints delegate to services |
+| Type Safety (100% hints) | ✅ | All functions fully typed |
+| Google-style Docstrings | ✅ | All classes/functions documented |
+| Pydantic Validation | ✅ | All models with Field descriptions |
+| Structured Logging | ✅ | All logs use `extra` with context |
+| Service Layer Pattern | ✅ | VisionAnalysisService integrated |
+| Dependency Injection | ✅ | FastAPI Depends() used correctly |
+| Lifespan Management | ✅ | Async context manager for startup/shutdown |
+| Protocol Compliance | ✅ | All services match Protocol signatures |
+
+---
+
+## Lessons Learned
+
+### Patterns Successfully Applied
+
+1. **Lifespan Manager**: Async context manager handles initialization/cleanup
+2. **Dependency Injection**: FastAPI Depends() injects services into handlers
+3. **Service Layer**: Business logic extracted from endpoints
+4. **Thin Handlers**: Endpoints reduced to 20-30 lines
+5. **Pydantic Models**: Enhanced documentation and validation
+6. **Protocol Alignment**: Ensure protocols match actual implementations
+
+### What This Enables
+
+- **WU-03**: Can refactor api.py endpoints using same patterns
+- **WU-04+**: All remaining services follow established patterns
+- **Testing**: Mock services via Protocols for unit tests
+- **Maintainability**: Clear separation between transport and business logic
+
+### Questions Resolved
+
+- ✅ Where to initialize services? In lifespan manager
+- ✅ How to inject services into endpoints? FastAPI Depends()
+- ✅ How to handle startup/shutdown? Async context manager
+- ✅ How to align Protocols with implementations? Check method signatures
+
+---
+
+## Architecture Pattern: Service Integration Template
+
+```python
+"""Application with service layer integration."""
+
+from contextlib import asynccontextmanager
+from fastapi import FastAPI, Depends
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Initialize services during startup."""
+    # Startup: Initialize dependencies in order
+    service = MyService(dependency)
+    app.state.service = service
+    
+    yield  # App runs here
+    
+    # Shutdown: Cleanup resources
+    await service.cleanup()
+
+app = FastAPI(lifespan=lifespan)
+
+def get_service(request) -> MyService:
+    """Dependency for injecting service."""
+    return request.app.state.service
+
+@app.get("/endpoint")
+async def endpoint(service: MyService = Depends(get_service)):
+    """Thin handler delegating to service."""
+    return await service.do_work()
+```
+
+---
+
+## Blockers Found
+
+None. Service integration complete and ready for endpoint refactoring.
+
+---
+
+## Ready for Next Phase
+
+- ✅ WU-03 can refactor api.py using established patterns
+- ✅ Lifespan manager sets up all services properly
+- ✅ Dependency injection ready for all endpoints
+- ✅ Models serve as documentation examples
+- ✅ WebSocket endpoint demonstrates delegation pattern
+
+---
+
 # Work Unit 01: Foundation & Abstractions - 9/10
 
 **Date**: 2026-01-11  
