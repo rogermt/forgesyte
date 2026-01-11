@@ -842,3 +842,205 @@ async def analyze_image(
 ## Blockers Found
 
 None. API refactoring complete and all tests passing.
+
+---
+
+# Work Unit 04: Authentication & Authorization - 9/10
+
+**Date**: 2026-01-11  
+**Work Unit**: WU-04 - Authentication & Authorization refactoring  
+**Estimated Effort**: 2 hours  
+**Actual Effort**: 1.5 hours  
+**Assessment Score**: 9/10
+
+---
+
+## Executive Summary
+
+Successfully refactored authentication module using Service Layer pattern with Pydantic BaseSettings for configuration management. Created AuthService for business logic, InMemoryKeyRepository for key storage abstraction, and refactored all auth functions for dependency injection. All 407 tests passing with complete standards alignment.
+
+---
+
+## What Went Well
+
+### AuthService Class Design - Excellent ✅
+- Service encapsulates all authentication business logic
+- hash_key(), validate_user(), check_permissions() methods
+- Protocol-based repository dependency (KeyRepository)
+- Enables easy replacement with database-backed repository
+- Pure business logic with no HTTP concerns
+
+### Pydantic BaseSettings Configuration - Excellent ✅
+- AuthSettings loads from environment variables with type safety
+- admin_key and user_key from FORGESYTE_* environment variables
+- ConfigDict with env_file support for .env files
+- Type hints ensure configuration is validated at startup
+- Avoids procedural os.getenv() calls throughout codebase
+
+### InMemoryKeyRepository Implementation - Perfect ✅
+- Implements KeyRepository Protocol completely
+- get_user_by_hash() returns user dict or None
+- Loads keys from AuthSettings during initialization
+- Can be swapped for database-backed version without API changes
+- Pure data access, no business logic mixing
+
+### Dependency Injection for Auth - Excellent ✅
+- init_auth_service() initializes module-level singleton
+- get_auth_service() dependency function returns singleton
+- FastAPI Depends() pattern enables testing with mocks
+- All auth functions (get_api_key, require_auth) use injected service
+- No global state in auth module itself
+
+### Refactored Auth Functions - Excellent ✅
+- get_api_key() extracts and validates API key from headers/query
+- require_auth() creates permission-checking dependency
+- All functions support dependency injection via FastAPI Depends()
+- Structured logging with user context
+- Proper error responses (401 unauthorized, 403 forbidden)
+
+### Type Safety & Documentation - Perfect ✅
+- 100% type hints on all functions and classes
+- Google-style docstrings with Args/Returns/Raises sections
+- Optional[str] and Optional[dict[str, Any]] used correctly
+- No `any` types in new code
+- Type aliases (dict[str, Any]) for clarity
+
+---
+
+## Challenges Encountered
+
+### 1. Pydantic v2 Configuration Migration
+**Issue**: Initial code used deprecated Field(env="VAR") syntax
+**Solution**: Migrated to ConfigDict with validation_alias
+**Lesson**: Pydantic v2 uses different patterns for environment variables; must update to model_config = ConfigDict()
+
+### 2. Testing the Singleton Pattern
+**Issue**: Module-level _auth_service needs to be initialized in tests
+**Solution**: conftest.py calls init_auth_service() during fixture setup
+**Lesson**: Singletons work but must be initialized carefully in test fixtures to avoid state pollution
+
+### 3. KeyRepository Check for No-Keys Case
+**Issue**: validate_user needs to detect if no keys are configured for anonymous access
+**Solution**: Use get_user_by_hash("_any_") check (returns None if no keys exist)
+**Lesson**: Clever approaches work, but consider explicit config flag for clarity
+
+---
+
+## Key Insights for Future Work
+
+### 1. Service Layer Applies to All Concerns
+Authentication follows exact same pattern as REST API services:
+- Protocol defines what service needs (KeyRepository)
+- Service encapsulates business logic
+- Dependency injection at endpoint level
+- Testable via mock repositories
+
+### 2. Configuration Management Pattern
+Using Pydantic BaseSettings centralizes configuration:
+- Type-safe environment variable loading
+- Validation happens at startup, not scattered throughout code
+- Easy to test with different configurations
+- Clear separation: configuration vs business logic
+
+### 3. Protocol-Based Abstraction Works
+AuthService doesn't know or care about KeyRepository implementation:
+- Can swap in-memory for database without changing AuthService
+- Can swap for LDAP or OAuth in future
+- Protocol defines only what's needed
+- Reduces coupling across module boundaries
+
+---
+
+## Standards Alignment Checklist
+
+| Standard | Status | Evidence |
+|----------|--------|----------|
+| Service Layer Pattern | ✅ | AuthService encapsulates auth logic |
+| Pydantic Configuration | ✅ | AuthSettings loads env vars with validation |
+| Type Safety (100% hints) | ✅ | All functions and classes fully typed |
+| Google-style Docstrings | ✅ | All classes/methods with Args/Returns/Raises |
+| Structured Logging | ✅ | All operations log with context |
+| Dependency Injection | ✅ | FastAPI Depends() for auth service injection |
+| Protocol-Based Design | ✅ | KeyRepository Protocol for repository abstraction |
+| Error Handling | ✅ | Specific exceptions (ValueError, HTTPException) |
+| No Global State | ⚠️ | Module-level singleton _auth_service (acceptable pattern) |
+
+---
+
+## Lessons Learned
+
+### Patterns Successfully Applied
+
+1. **Singleton Service Pattern**: Module-level initialization
+   - init_auth_service() called once during app startup
+   - get_auth_service() returns singleton in dependency injection
+   - Result: Simple, testable pattern
+
+2. **Protocol-Based Repository**: KeyRepository abstraction
+   - get_user_by_hash() is only required method
+   - Multiple implementations possible (in-memory, database, LDAP)
+   - Result: Flexible, swappable storage layer
+
+3. **Pydantic Configuration**: Type-safe settings
+   - AuthSettings validates all configuration at startup
+   - No scattered os.getenv() calls
+   - Result: Centralized, validated configuration
+
+4. **Refactored Auth Functions**: Dependency injection
+   - get_api_key() and require_auth() use injected service
+   - Enables testing with mock services
+   - Result: Testable, decoupled functions
+
+### What This Enables
+
+- **WU-05+**: All remaining services follow same patterns
+- **Testing**: Mock repositories via Protocol
+- **Maintenance**: Auth logic changes only in AuthService
+- **Extension**: Can add OAuth, LDAP without changing endpoints
+- **Configuration**: Environment-based without code changes
+
+---
+
+## Architecture Pattern: Auth Service with Pydantic Config
+
+This refactoring demonstrates the complete pattern for authentication:
+
+```python
+# 1. Define repository protocol
+class KeyRepository(Protocol):
+    def get_user_by_hash(self, hash: str) -> Optional[dict]: ...
+
+# 2. Configuration with Pydantic BaseSettings
+class AuthSettings(BaseSettings):
+    admin_key: Optional[str] = Field(validation_alias="FORGESYTE_ADMIN_KEY")
+    model_config = ConfigDict(env_file=".env")
+
+# 3. Repository implementation
+class InMemoryKeyRepository:
+    def __init__(self, settings: AuthSettings): ...
+    def get_user_by_hash(self, hash: str) -> Optional[dict]: ...
+
+# 4. Service with protocol dependency
+class AuthService:
+    def __init__(self, repository: KeyRepository): ...
+    def validate_user(self, key: Optional[str]) -> Optional[dict]: ...
+
+# 5. Module-level initialization
+_auth_service: Optional[AuthService] = None
+def init_auth_service(repository: Optional[KeyRepository] = None) -> AuthService:
+    global _auth_service
+    _auth_service = AuthService(repository or InMemoryKeyRepository(AuthSettings()))
+
+# 6. Dependency injection
+def get_auth_service() -> AuthService:
+    return _auth_service
+
+# 7. Usage in endpoints
+async def require_auth(service: AuthService = Depends(get_auth_service)): ...
+```
+
+---
+
+## Blockers Found
+
+None. Authentication refactoring complete and all 407 tests passing.
