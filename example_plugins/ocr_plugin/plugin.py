@@ -1,4 +1,9 @@
-"""OCR Plugin - Extract text from images using Tesseract."""
+"""OCR Plugin - Extract text from images using Tesseract.
+
+This plugin extracts text from images using pytesseract with configurable
+language support and page segmentation modes. Returns text, text blocks with
+bounding boxes, and confidence scores for each block.
+"""
 
 from typing import Dict, Any, Optional
 import io
@@ -8,8 +13,8 @@ logger = logging.getLogger(__name__)
 
 # Try to import OCR dependencies
 try:
-    import pytesseract
-    from PIL import Image
+    import pytesseract  # type: ignore[import-not-found]
+    from PIL import Image  # type: ignore[import-not-found]
 
     HAS_TESSERACT = True
 except ImportError:
@@ -18,16 +23,30 @@ except ImportError:
 
 
 class Plugin:
-    """OCR plugin for text extraction from images."""
+    """OCR plugin for text extraction from images.
 
-    name = "ocr"
-    version = "1.0.0"
-    description = "Extract text from images using OCR"
+    Extracts text with position information and confidence scores using
+    Tesseract OCR with support for multiple languages.
+    """
 
-    def __init__(self):
-        self.supported_languages = ["eng", "fra", "deu", "spa", "ita"]
+    name: str = "ocr"
+    version: str = "1.0.0"
+    description: str = "Extract text from images using OCR"
+
+    def __init__(self) -> None:
+        """Initialize the OCR plugin.
+
+        Sets up supported language list and configuration.
+        """
+        self.supported_languages: list[str] = ["eng", "fra", "deu", "spa", "ita"]
 
     def metadata(self) -> Dict[str, Any]:
+        """Return plugin metadata.
+
+        Returns:
+            Dictionary with plugin info, inputs/outputs, and configuration
+            schema for language and page segmentation mode.
+        """
         return {
             "name": self.name,
             "version": self.version,
@@ -53,7 +72,23 @@ class Plugin:
     def analyze(
         self, image_bytes: bytes, options: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
-        """Extract text from an image."""
+        """Extract text from an image.
+
+        Performs OCR using Tesseract with configurable language and
+        page segmentation mode. Returns extracted text and individual
+        text blocks with position and confidence information.
+
+        Args:
+            image_bytes: Raw image data (PNG, JPEG, etc).
+            options: Configuration with language and PSM (page segmentation mode).
+
+        Returns:
+            Dictionary with extracted text, text blocks with bboxes, confidence,
+            and image metadata.
+
+        Raises:
+            None - catches and logs all exceptions, returning error dict.
+        """
         options = options or {}
 
         if not HAS_TESSERACT:
@@ -116,11 +151,26 @@ class Plugin:
             }
 
         except Exception as e:
-            logger.error(f"OCR failed: {e}")
+            logger.error(
+                "OCR failed",
+                extra={"error": str(e)},
+            )
             return {"error": str(e), "text": "", "blocks": [], "confidence": 0}
 
-    def _fallback_analyze(self, image_bytes: bytes, options: Dict) -> Dict[str, Any]:
-        """Fallback when tesseract is not available."""
+    def _fallback_analyze(
+        self, image_bytes: bytes, options: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """Fallback when tesseract is not available.
+
+        Returns placeholder results with warning message.
+
+        Args:
+            image_bytes: Raw image data (unused in fallback).
+            options: Configuration options (unused in fallback).
+
+        Returns:
+            Dictionary with warning and basic image metadata.
+        """
         return {
             "text": "",
             "blocks": [],
@@ -129,17 +179,26 @@ class Plugin:
             "image_size_bytes": len(image_bytes),
         }
 
-    def on_load(self):
-        """Called when plugin is loaded."""
+    def on_load(self) -> None:
+        """Called when plugin is loaded.
+
+        Checks for Tesseract availability and logs version information.
+        """
         if HAS_TESSERACT:
             try:
                 version = pytesseract.get_tesseract_version()
-                logger.info(f"OCR plugin loaded with Tesseract {version}")
+                logger.info(
+                    "OCR plugin loaded",
+                    extra={"tesseract_version": str(version)},
+                )
             except Exception:
                 logger.warning("Tesseract binary not found")
         else:
             logger.warning("OCR plugin loaded without Tesseract support")
 
-    def on_unload(self):
-        """Called when plugin is unloaded."""
+    def on_unload(self) -> None:
+        """Called when plugin is unloaded.
+
+        Logs plugin shutdown.
+        """
         logger.info("OCR plugin unloaded")

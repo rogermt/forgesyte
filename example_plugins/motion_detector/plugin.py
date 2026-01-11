@@ -1,4 +1,9 @@
-"""Motion Detector Plugin - Detect motion between frames."""
+"""Motion Detector Plugin - Detect motion between consecutive frames.
+
+This plugin detects motion in video frames using frame differencing with
+Gaussian blur preprocessing and adaptive baseline updating. Suitable for
+surveillance, live monitoring, and motion-triggered recording.
+"""
 
 from typing import Dict, Any, Optional, List
 import io
@@ -8,8 +13,8 @@ import time
 logger = logging.getLogger(__name__)
 
 try:
-    from PIL import Image
-    import numpy as np
+    from PIL import Image  # type: ignore[import-not-found]
+    import numpy as np  # type: ignore[import-not-found]
 
     HAS_DEPS = True
 except ImportError:
@@ -17,19 +22,33 @@ except ImportError:
 
 
 class Plugin:
-    """Motion detection plugin for live camera feeds."""
+    """Motion detection plugin for live camera feeds.
 
-    name = "motion_detector"
-    version = "1.0.0"
-    description = "Detect motion between consecutive frames"
+    Detects motion using frame-to-frame differencing with adaptive baseline
+    learning. Provides motion scoring, region detection, and motion history.
+    """
 
-    def __init__(self):
+    name: str = "motion_detector"
+    version: str = "1.0.0"
+    description: str = "Detect motion between consecutive frames"
+
+    def __init__(self) -> None:
+        """Initialize the motion detection plugin.
+
+        Sets up frame storage, motion tracking, and history management.
+        """
         self._previous_frame: Optional[np.ndarray] = None
-        self._frame_count = 0
-        self._last_motion_time = 0
-        self._motion_history: List[Dict] = []
+        self._frame_count: int = 0
+        self._last_motion_time: float = 0
+        self._motion_history: List[Dict[str, Any]] = []
 
     def metadata(self) -> Dict[str, Any]:
+        """Return plugin metadata.
+
+        Returns:
+            Dictionary with plugin info, inputs/outputs, and configuration schema
+            for threshold, minimum area, blur size, and baseline reset.
+        """
         return {
             "name": self.name,
             "version": self.version,
@@ -68,7 +87,22 @@ class Plugin:
     def analyze(
         self, image_bytes: bytes, options: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
-        """Detect motion in the current frame."""
+        """Detect motion in the current frame.
+
+        Compares current frame to previous baseline with adaptive learning.
+        Detects motion regions and maintains motion event history.
+
+        Args:
+            image_bytes: Raw grayscale image data.
+            options: Configuration with threshold, min_area, blur_size, reset_baseline.
+
+        Returns:
+            Dictionary with motion_detected flag, motion_score percentage, regions,
+            frame number, and motion history stats.
+
+        Raises:
+            None - catches and logs all exceptions, returning error dict.
+        """
         options = options or {}
 
         if not HAS_DEPS:
@@ -174,11 +208,25 @@ class Plugin:
             }
 
         except Exception as e:
-            logger.error(f"Motion detection failed: {e}")
+            logger.error(
+                "Motion detection failed",
+                extra={"error": str(e)},
+            )
             return {"motion_detected": False, "error": str(e), "motion_score": 0}
 
     def _gaussian_blur(self, img: np.ndarray, size: int) -> np.ndarray:
-        """Simple Gaussian blur implementation."""
+        """Simple Gaussian blur implementation.
+
+        Applies separable Gaussian convolution to reduce noise before
+        motion detection.
+
+        Args:
+            img: 2D numpy array (grayscale image).
+            size: Blur kernel size (should be odd).
+
+        Returns:
+            Blurred image as 2D numpy array.
+        """
         # Create Gaussian kernel
         x = np.arange(size) - size // 2
         kernel = np.exp(-(x**2) / (2 * (size / 4) ** 2))
@@ -197,7 +245,17 @@ class Plugin:
     def _find_motion_regions(
         self, motion_mask: np.ndarray, min_size: int = 100
     ) -> List[Dict[str, Any]]:
-        """Find bounding boxes of motion regions."""
+        """Find bounding boxes of motion regions.
+
+        Computes bounding box of largest contiguous motion area.
+
+        Args:
+            motion_mask: Boolean 2D array of motion pixels.
+            min_size: Minimum region area in pixels to report.
+
+        Returns:
+            List of region dictionaries with bbox, area, and center.
+        """
         regions: List[Dict[str, Any]] = []
 
         # Find rows and columns with motion
@@ -236,16 +294,27 @@ class Plugin:
 
         return regions
 
-    def reset(self):
-        """Reset detector state."""
+    def reset(self) -> None:
+        """Reset detector state.
+
+        Clears frame history and motion tracking for fresh start.
+        """
         self._previous_frame = None
         self._frame_count = 0
         self._last_motion_time = 0
         self._motion_history = []
 
-    def on_load(self):
+    def on_load(self) -> None:
+        """Called when plugin is loaded.
+
+        Logs plugin initialization.
+        """
         logger.info("Motion detector plugin loaded")
 
-    def on_unload(self):
+    def on_unload(self) -> None:
+        """Called when plugin is unloaded.
+
+        Resets state and logs plugin shutdown.
+        """
         self.reset()
         logger.info("Motion detector plugin unloaded")

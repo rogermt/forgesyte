@@ -1,4 +1,9 @@
-"""Moderation Plugin - Content safety detection."""
+"""Moderation Plugin - Content safety detection.
+
+This plugin detects potentially unsafe or inappropriate content in images
+using configurable sensitivity levels and category detection. Provides detailed
+analysis with confidence scores and recommendations for content review.
+"""
 
 from typing import Dict, Any, List, Optional, cast
 import io
@@ -8,8 +13,8 @@ import hashlib
 logger = logging.getLogger(__name__)
 
 try:
-    from PIL import Image
-    import numpy as np
+    from PIL import Image  # type: ignore[import-not-found]
+    import numpy as np  # type: ignore[import-not-found]
 
     HAS_DEPS = True
 except ImportError:
@@ -17,18 +22,32 @@ except ImportError:
 
 
 class Plugin:
-    """Content moderation plugin for safety detection."""
+    """Content moderation plugin for safety detection.
 
-    name = "moderation"
-    version = "1.0.0"
-    description = "Detect potentially unsafe or inappropriate content"
+    Analyzes images for unsafe or inappropriate content across multiple
+    categories (NSFW, violence, hate speech) with configurable sensitivity.
+    """
 
-    def __init__(self):
-        self.sensitivity = "medium"
+    name: str = "moderation"
+    version: str = "1.0.0"
+    description: str = "Detect potentially unsafe or inappropriate content"
+
+    def __init__(self) -> None:
+        """Initialize the moderation plugin.
+
+        Sets default sensitivity and initializes ML model reference.
+        """
+        self.sensitivity: str = "medium"
         # In production, load a real model here
-        self._model = None
+        self._model: Optional[Any] = None
 
     def metadata(self) -> Dict[str, Any]:
+        """Return plugin metadata.
+
+        Returns:
+            Dictionary with plugin info, inputs/outputs, permissions, and
+            configuration schema for sensitivity and category selection.
+        """
         return {
             "name": self.name,
             "version": self.version,
@@ -54,7 +73,22 @@ class Plugin:
     def analyze(
         self, image_bytes: bytes, options: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
-        """Analyze image for content safety."""
+        """Analyze image for content safety.
+
+        Detects unsafe or inappropriate content across multiple categories
+        with configurable sensitivity levels and category selection.
+
+        Args:
+            image_bytes: Raw image data (PNG, JPEG, etc).
+            options: Configuration with sensitivity level and categories to check.
+
+        Returns:
+            Dictionary with safety verdict, confidence, category scores, and
+            image metadata for review.
+
+        Raises:
+            None - catches and logs all exceptions, returning error dict.
+        """
         options = options or {}
 
         if not HAS_DEPS:
@@ -97,13 +131,27 @@ class Plugin:
             }
 
         except Exception as e:
-            logger.error(f"Moderation analysis failed: {e}")
+            logger.error(
+                "Moderation analysis failed",
+                extra={"error": str(e)},
+            )
             return {"safe": None, "error": str(e), "categories": [], "confidence": 0}
 
     def _analyze_content(
         self, img: Image.Image, categories: List[str], sensitivity: str
     ) -> Dict[str, Any]:
-        """Analyze content for specified categories."""
+        """Analyze content for specified categories.
+
+        Runs analysis on each category and computes overall confidence score.
+
+        Args:
+            img: PIL Image object to analyze.
+            categories: List of categories to check (nsfw, violence, hate).
+            sensitivity: Sensitivity level (low, medium, high).
+
+        Returns:
+            Dictionary with list of category results and overall confidence.
+        """
         # Placeholder analysis - replace with real model inference
         # This uses basic heuristics as a demonstration
 
@@ -131,7 +179,18 @@ class Plugin:
         return {"categories": results, "overall_confidence": overall_confidence}
 
     def _calculate_placeholder_score(self, arr: np.ndarray, category: str) -> float:
-        """Calculate a placeholder safety score."""
+        """Calculate a placeholder safety score.
+
+        Uses basic heuristics (color distribution, skin detection) as a
+        placeholder. Replace with real ML model inference in production.
+
+        Args:
+            arr: Numpy array of image pixels (H, W, 3).
+            category: Category to score (nsfw, violence, hate).
+
+        Returns:
+            Safety score between 0.0 and 1.0 (higher = less safe).
+        """
         # This is NOT a real moderation system
         # Replace with actual ML model inference
 
@@ -167,26 +226,54 @@ class Plugin:
         return 0.1
 
     def _get_threshold(self, sensitivity: str) -> float:
-        """Get score threshold for given sensitivity."""
+        """Get score threshold for given sensitivity.
+
+        Args:
+            sensitivity: Sensitivity level (low, medium, high).
+
+        Returns:
+            Score threshold where higher scores = unsafe.
+        """
         thresholds = {"low": 0.8, "medium": 0.5, "high": 0.3}
         return thresholds.get(sensitivity, 0.5)
 
-    def _get_recommendation(self, is_safe: bool, results: Dict) -> str:
-        """Generate recommendation based on results."""
+    def _get_recommendation(self, is_safe: bool, results: Dict[str, Any]) -> str:
+        """Generate recommendation based on results.
+
+        Creates actionable recommendation for content reviewers.
+
+        Args:
+            is_safe: Whether content passed safety checks.
+            results: Analysis results with category data.
+
+        Returns:
+            Recommendation string for reviewer.
+        """
         if is_safe:
             return "Content appears safe for general viewing"
 
         flagged = [cat["category"] for cat in results["categories"] if cat["flagged"]]
 
         if flagged:
-            return (
-                f"Content flagged for: {', '.join(flagged)}. Manual review recommended."
-            )
+            categories_str = ", ".join(flagged)
+            return f"Content flagged for: {categories_str}. Manual review recommended."
 
         return "Content may require review"
 
-    def _basic_analysis(self, image_bytes: bytes, options: Dict) -> Dict[str, Any]:
-        """Basic analysis when dependencies unavailable."""
+    def _basic_analysis(
+        self, image_bytes: bytes, options: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """Basic analysis when dependencies unavailable.
+
+        Returns placeholder results when PIL/numpy not installed.
+
+        Args:
+            image_bytes: Raw image data.
+            options: Configuration options (unused in fallback).
+
+        Returns:
+            Dictionary with warning and basic image info.
+        """
         return {
             "safe": None,
             "confidence": 0,
@@ -195,11 +282,20 @@ class Plugin:
             "image_size_bytes": len(image_bytes),
         }
 
-    def on_load(self):
-        logger.info("Moderation plugin loaded (placeholder mode)")
+    def on_load(self) -> None:
+        """Called when plugin is loaded.
+
+        Logs initialization and warns about placeholder implementation.
+        """
+        logger.info("Moderation plugin loaded")
         logger.warning(
-            "Using heuristic analysis - replace with real ML model for production"
+            "Using heuristic analysis - replace with real ML model for production",
+            extra={"plugin_name": "moderation"},
         )
 
-    def on_unload(self):
+    def on_unload(self) -> None:
+        """Called when plugin is unloaded.
+
+        Logs plugin shutdown.
+        """
         logger.info("Moderation plugin unloaded")
