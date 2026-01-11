@@ -70,7 +70,18 @@ class TestJobStoreCreate:
     @pytest.mark.asyncio
     async def test_create_job_creates_entry(self, job_store: JobStore) -> None:
         """Test that create adds a job to the store."""
-        job = await job_store.create("job1", "plugin1")
+        job_data = {
+            "job_id": "job1",
+            "plugin": "plugin1",
+            "status": JobStatus.QUEUED,
+            "result": None,
+            "error": None,
+            "created_at": datetime.utcnow(),
+            "completed_at": None,
+            "progress": 0.0,
+        }
+        await job_store.create("job1", job_data)
+        job = job_data
         assert job["job_id"] == "job1"
         assert job["plugin"] == "plugin1"
         assert "job1" in job_store._jobs
@@ -78,7 +89,18 @@ class TestJobStoreCreate:
     @pytest.mark.asyncio
     async def test_create_job_has_correct_fields(self, job_store: JobStore) -> None:
         """Test that created job has all required fields."""
-        job = await job_store.create("job1", "test_plugin")
+        job_data = {
+            "job_id": "job1",
+            "plugin": "test_plugin",
+            "status": JobStatus.QUEUED,
+            "result": None,
+            "error": None,
+            "created_at": datetime.utcnow(),
+            "completed_at": None,
+            "progress": 0.0,
+        }
+        await job_store.create("job1", job_data)
+        job = job_data
         assert job["status"] == JobStatus.QUEUED
         assert job["result"] is None
         assert job["error"] is None
@@ -89,8 +111,32 @@ class TestJobStoreCreate:
     @pytest.mark.asyncio
     async def test_create_multiple_jobs(self, job_store: JobStore) -> None:
         """Test creating multiple jobs."""
-        await job_store.create("job1", "plugin1")
-        await job_store.create("job2", "plugin2")
+        await job_store.create(
+            "job1",
+            {
+                "job_id": "job1",
+                "plugin": "plugin1",
+                "status": JobStatus.QUEUED,
+                "result": None,
+                "error": None,
+                "created_at": datetime.utcnow(),
+                "completed_at": None,
+                "progress": 0.0,
+            },
+        )
+        await job_store.create(
+            "job2",
+            {
+                "job_id": "job2",
+                "plugin": "plugin2",
+                "status": JobStatus.QUEUED,
+                "result": None,
+                "error": None,
+                "created_at": datetime.utcnow(),
+                "completed_at": None,
+                "progress": 0.0,
+            },
+        )
         assert len(job_store._jobs) == 2
         assert job_store._jobs["job1"]["plugin"] == "plugin1"
         assert job_store._jobs["job2"]["plugin"] == "plugin2"
@@ -99,7 +145,18 @@ class TestJobStoreCreate:
     async def test_create_job_timestamp(self, job_store: JobStore) -> None:
         """Test that created job has timestamp."""
         before = datetime.utcnow()
-        job = await job_store.create("job1", "plugin")
+        job_data = {
+            "job_id": "job1",
+            "plugin": "plugin",
+            "status": JobStatus.QUEUED,
+            "result": None,
+            "error": None,
+            "created_at": datetime.utcnow(),
+            "completed_at": None,
+            "progress": 0.0,
+        }
+        await job_store.create("job1", job_data)
+        job = job_data
         after = datetime.utcnow()
         assert before <= job["created_at"] <= after
 
@@ -110,8 +167,22 @@ class TestJobStoreUpdate:
     @pytest.mark.asyncio
     async def test_update_existing_job(self, job_store: JobStore) -> None:
         """Test updating an existing job."""
-        await job_store.create("job1", "plugin1")
-        updated = await job_store.update("job1", status=JobStatus.RUNNING, progress=0.5)
+        await job_store.create(
+            "job1",
+            {
+                "job_id": "job1",
+                "plugin": "plugin1",
+                "status": JobStatus.QUEUED,
+                "result": None,
+                "error": None,
+                "created_at": datetime.utcnow(),
+                "completed_at": None,
+                "progress": 0.0,
+            },
+        )
+        updated = await job_store.update(
+            "job1", {"status": JobStatus.RUNNING, "progress": 0.5}
+        )
         assert updated is not None
         assert updated["status"] == JobStatus.RUNNING
         assert updated["progress"] == 0.5
@@ -119,13 +190,25 @@ class TestJobStoreUpdate:
     @pytest.mark.asyncio
     async def test_update_nonexistent_job(self, job_store: JobStore) -> None:
         """Test updating a non-existent job returns None."""
-        result = await job_store.update("nonexistent", status=JobStatus.DONE)
+        result = await job_store.update("nonexistent", {"status": JobStatus.DONE})
         assert result is None
 
     @pytest.mark.asyncio
     async def test_update_multiple_fields(self, job_store: JobStore) -> None:
         """Test updating multiple fields at once."""
-        await job_store.create("job1", "plugin1")
+        await job_store.create(
+            "job1",
+            {
+                "job_id": "job1",
+                "plugin": "plugin1",
+                "status": JobStatus.QUEUED,
+                "result": None,
+                "error": None,
+                "created_at": datetime.utcnow(),
+                "completed_at": None,
+                "progress": 0.0,
+            },
+        )
         result = {
             "data": [1, 2, 3],
         }
@@ -147,10 +230,21 @@ class TestJobStoreUpdate:
     @pytest.mark.asyncio
     async def test_update_preserves_other_fields(self, job_store: JobStore) -> None:
         """Test that update doesn't overwrite other fields."""
-        job = await job_store.create("job1", "plugin1")
+        job_data = {
+            "job_id": "job1",
+            "plugin": "plugin1",
+            "status": JobStatus.QUEUED,
+            "result": None,
+            "error": None,
+            "created_at": datetime.utcnow(),
+            "completed_at": None,
+            "progress": 0.0,
+        }
+        await job_store.create("job1", job_data)
+        job = job_data
         created_at = job["created_at"]
 
-        await job_store.update("job1", status=JobStatus.RUNNING)
+        await job_store.update("job1", {"status": JobStatus.RUNNING})
 
         updated_job = await job_store.get("job1")
         assert updated_job is not None
@@ -164,7 +258,19 @@ class TestJobStoreGet:
     @pytest.mark.asyncio
     async def test_get_existing_job(self, job_store: JobStore) -> None:
         """Test getting an existing job."""
-        await job_store.create("job1", "plugin1")
+        await job_store.create(
+            "job1",
+            {
+                "job_id": "job1",
+                "plugin": "plugin1",
+                "status": JobStatus.QUEUED,
+                "result": None,
+                "error": None,
+                "created_at": datetime.utcnow(),
+                "completed_at": None,
+                "progress": 0.0,
+            },
+        )
         job = await job_store.get("job1")
         assert job is not None
         assert job["job_id"] == "job1"
@@ -178,8 +284,20 @@ class TestJobStoreGet:
     @pytest.mark.asyncio
     async def test_get_returns_current_state(self, job_store: JobStore) -> None:
         """Test that get returns the current state of the job."""
-        await job_store.create("job1", "plugin1")
-        await job_store.update("job1", status=JobStatus.RUNNING, progress=0.7)
+        await job_store.create(
+            "job1",
+            {
+                "job_id": "job1",
+                "plugin": "plugin1",
+                "status": JobStatus.QUEUED,
+                "result": None,
+                "error": None,
+                "created_at": datetime.utcnow(),
+                "completed_at": None,
+                "progress": 0.0,
+            },
+        )
+        await job_store.update("job1", {"status": JobStatus.RUNNING, "progress": 0.7})
 
         job = await job_store.get("job1")
         assert job is not None
@@ -199,9 +317,45 @@ class TestJobStoreList:
     @pytest.mark.asyncio
     async def test_list_all_jobs(self, job_store: JobStore) -> None:
         """Test listing all jobs."""
-        await job_store.create("job1", "plugin1")
-        await job_store.create("job2", "plugin2")
-        await job_store.create("job3", "plugin1")
+        await job_store.create(
+            "job1",
+            {
+                "job_id": "job1",
+                "plugin": "plugin1",
+                "status": JobStatus.QUEUED,
+                "result": None,
+                "error": None,
+                "created_at": datetime.utcnow(),
+                "completed_at": None,
+                "progress": 0.0,
+            },
+        )
+        await job_store.create(
+            "job2",
+            {
+                "job_id": "job2",
+                "plugin": "plugin2",
+                "status": JobStatus.QUEUED,
+                "result": None,
+                "error": None,
+                "created_at": datetime.utcnow(),
+                "completed_at": None,
+                "progress": 0.0,
+            },
+        )
+        await job_store.create(
+            "job3",
+            {
+                "job_id": "job3",
+                "plugin": "plugin1",
+                "status": JobStatus.QUEUED,
+                "result": None,
+                "error": None,
+                "created_at": datetime.utcnow(),
+                "completed_at": None,
+                "progress": 0.0,
+            },
+        )
 
         jobs = await job_store.list_jobs()
         assert len(jobs) == 3
@@ -209,11 +363,47 @@ class TestJobStoreList:
     @pytest.mark.asyncio
     async def test_list_jobs_sorted_by_created_at(self, job_store: JobStore) -> None:
         """Test that jobs are sorted by created_at descending."""
-        await job_store.create("job1", "plugin1")
+        await job_store.create(
+            "job1",
+            {
+                "job_id": "job1",
+                "plugin": "plugin1",
+                "status": JobStatus.QUEUED,
+                "result": None,
+                "error": None,
+                "created_at": datetime.utcnow(),
+                "completed_at": None,
+                "progress": 0.0,
+            },
+        )
         await asyncio.sleep(0.01)
-        await job_store.create("job2", "plugin1")
+        await job_store.create(
+            "job2",
+            {
+                "job_id": "job2",
+                "plugin": "plugin1",
+                "status": JobStatus.QUEUED,
+                "result": None,
+                "error": None,
+                "created_at": datetime.utcnow(),
+                "completed_at": None,
+                "progress": 0.0,
+            },
+        )
         await asyncio.sleep(0.01)
-        await job_store.create("job3", "plugin1")
+        await job_store.create(
+            "job3",
+            {
+                "job_id": "job3",
+                "plugin": "plugin1",
+                "status": JobStatus.QUEUED,
+                "result": None,
+                "error": None,
+                "created_at": datetime.utcnow(),
+                "completed_at": None,
+                "progress": 0.0,
+            },
+        )
 
         jobs = await job_store.list_jobs()
         # Should be newest first
@@ -224,12 +414,48 @@ class TestJobStoreList:
     @pytest.mark.asyncio
     async def test_list_jobs_filter_by_status(self, job_store: JobStore) -> None:
         """Test filtering jobs by status."""
-        await job_store.create("job1", "plugin1")
-        await job_store.create("job2", "plugin1")
-        await job_store.create("job3", "plugin1")
+        await job_store.create(
+            "job1",
+            {
+                "job_id": "job1",
+                "plugin": "plugin1",
+                "status": JobStatus.QUEUED,
+                "result": None,
+                "error": None,
+                "created_at": datetime.utcnow(),
+                "completed_at": None,
+                "progress": 0.0,
+            },
+        )
+        await job_store.create(
+            "job2",
+            {
+                "job_id": "job2",
+                "plugin": "plugin1",
+                "status": JobStatus.QUEUED,
+                "result": None,
+                "error": None,
+                "created_at": datetime.utcnow(),
+                "completed_at": None,
+                "progress": 0.0,
+            },
+        )
+        await job_store.create(
+            "job3",
+            {
+                "job_id": "job3",
+                "plugin": "plugin1",
+                "status": JobStatus.QUEUED,
+                "result": None,
+                "error": None,
+                "created_at": datetime.utcnow(),
+                "completed_at": None,
+                "progress": 0.0,
+            },
+        )
 
-        await job_store.update("job1", status=JobStatus.RUNNING)
-        await job_store.update("job2", status=JobStatus.RUNNING)
+        await job_store.update("job1", {"status": JobStatus.RUNNING})
+        await job_store.update("job2", {"status": JobStatus.RUNNING})
 
         running_jobs = await job_store.list_jobs(status=JobStatus.RUNNING)
         assert len(running_jobs) == 2
@@ -238,9 +464,45 @@ class TestJobStoreList:
     @pytest.mark.asyncio
     async def test_list_jobs_filter_by_plugin(self, job_store: JobStore) -> None:
         """Test filtering jobs by plugin."""
-        await job_store.create("job1", "plugin1")
-        await job_store.create("job2", "plugin2")
-        await job_store.create("job3", "plugin1")
+        await job_store.create(
+            "job1",
+            {
+                "job_id": "job1",
+                "plugin": "plugin1",
+                "status": JobStatus.QUEUED,
+                "result": None,
+                "error": None,
+                "created_at": datetime.utcnow(),
+                "completed_at": None,
+                "progress": 0.0,
+            },
+        )
+        await job_store.create(
+            "job2",
+            {
+                "job_id": "job2",
+                "plugin": "plugin2",
+                "status": JobStatus.QUEUED,
+                "result": None,
+                "error": None,
+                "created_at": datetime.utcnow(),
+                "completed_at": None,
+                "progress": 0.0,
+            },
+        )
+        await job_store.create(
+            "job3",
+            {
+                "job_id": "job3",
+                "plugin": "plugin1",
+                "status": JobStatus.QUEUED,
+                "result": None,
+                "error": None,
+                "created_at": datetime.utcnow(),
+                "completed_at": None,
+                "progress": 0.0,
+            },
+        )
 
         plugin1_jobs = await job_store.list_jobs(plugin="plugin1")
         assert len(plugin1_jobs) == 2
@@ -251,12 +513,48 @@ class TestJobStoreList:
         self, job_store: JobStore
     ) -> None:
         """Test filtering by both status and plugin."""
-        await job_store.create("job1", "plugin1")
-        await job_store.create("job2", "plugin1")
-        await job_store.create("job3", "plugin2")
+        await job_store.create(
+            "job1",
+            {
+                "job_id": "job1",
+                "plugin": "plugin1",
+                "status": JobStatus.QUEUED,
+                "result": None,
+                "error": None,
+                "created_at": datetime.utcnow(),
+                "completed_at": None,
+                "progress": 0.0,
+            },
+        )
+        await job_store.create(
+            "job2",
+            {
+                "job_id": "job2",
+                "plugin": "plugin1",
+                "status": JobStatus.QUEUED,
+                "result": None,
+                "error": None,
+                "created_at": datetime.utcnow(),
+                "completed_at": None,
+                "progress": 0.0,
+            },
+        )
+        await job_store.create(
+            "job3",
+            {
+                "job_id": "job3",
+                "plugin": "plugin2",
+                "status": JobStatus.QUEUED,
+                "result": None,
+                "error": None,
+                "created_at": datetime.utcnow(),
+                "completed_at": None,
+                "progress": 0.0,
+            },
+        )
 
-        await job_store.update("job1", status=JobStatus.RUNNING)
-        await job_store.update("job3", status=JobStatus.RUNNING)
+        await job_store.update("job1", {"status": JobStatus.RUNNING})
+        await job_store.update("job3", {"status": JobStatus.RUNNING})
 
         jobs = await job_store.list_jobs(status=JobStatus.RUNNING, plugin="plugin1")
         assert len(jobs) == 1
