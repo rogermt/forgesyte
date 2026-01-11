@@ -23,8 +23,14 @@ from .api import router as api_router
 from .auth import init_api_keys
 from .mcp import router as mcp_router
 from .plugin_loader import PluginManager
-from .services import VisionAnalysisService
-from .tasks import init_task_processor
+from .services import (
+    AnalysisService,
+    ImageAcquisitionService,
+    JobManagementService,
+    PluginManagementService,
+    VisionAnalysisService,
+)
+from .tasks import init_task_processor, job_store, task_processor
 from .websocket_manager import ws_manager
 
 # Configure logging
@@ -84,12 +90,39 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.error("Failed to initialize task processor", extra={"error": str(e)})
 
-    # Initialize analysis service (depends on PluginRegistry and WebSocketProvider)
+    # Initialize vision analysis service (for WebSocket streaming)
     try:
         app.state.analysis_service = VisionAnalysisService(plugin_manager, ws_manager)
         logger.debug("VisionAnalysisService initialized")
     except Exception as e:
-        logger.error("Failed to initialize analysis service", extra={"error": str(e)})
+        logger.error(
+            "Failed to initialize VisionAnalysisService", extra={"error": str(e)}
+        )
+
+    # Initialize REST API services
+    try:
+        if task_processor is None:
+            logger.error("Task processor not initialized, cannot create API services")
+            raise RuntimeError("Task processor initialization failed")
+
+        # Analysis service coordinates image requests
+        image_acquisition = ImageAcquisitionService()
+        app.state.analysis_service_rest = AnalysisService(
+            task_processor, image_acquisition  # type: ignore[arg-type]
+        )
+        logger.debug("AnalysisService initialized")
+
+        # Job management service handles job queries and control
+        app.state.job_service = JobManagementService(
+            job_store, task_processor  # type: ignore[arg-type]
+        )
+        logger.debug("JobManagementService initialized")
+
+        # Plugin management service handles plugin operations
+        app.state.plugin_service = PluginManagementService(plugin_manager)
+        logger.debug("PluginManagementService initialized")
+    except Exception as e:
+        logger.error("Failed to initialize REST API services", extra={"error": str(e)})
 
     yield
 

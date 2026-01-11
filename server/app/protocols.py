@@ -90,6 +90,36 @@ class PluginRegistry(Protocol):
         """
         ...
 
+    def reload_plugin(self, name: str) -> bool:
+        """Reload a specific plugin to refresh code and state.
+
+        Args:
+            name: Plugin identifier
+
+        Returns:
+            True if reload succeeded, False if reload failed or plugin not found
+
+        Raises:
+            RuntimeError: If reload encounters unexpected errors
+        """
+        ...
+
+    def reload_all(self) -> Dict[str, Any]:
+        """Reload all plugins to refresh code and state.
+
+        Returns:
+            Dictionary with reload operation results:
+                - success: Boolean indicating overall success
+                - reloaded: List of successfully reloaded plugin names
+                - failed: List of plugins that failed to reload
+                - total: Total number of plugins
+                - errors: Optional dict mapping failed plugin names to error messages
+
+        Raises:
+            RuntimeError: If reload operation encounters unexpected errors
+        """
+        ...
+
 
 class WebSocketProvider(Protocol):
     """Structural contract for real-time WebSocket communication.

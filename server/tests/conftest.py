@@ -28,11 +28,19 @@ def pytest_configure(config):
 
 @pytest.fixture
 def app_with_plugins():
-    """Create app with plugins initialized."""
+    """Create app with plugins and services initialized."""
     from app.auth import init_api_keys
     from app.main import app
     from app.plugin_loader import PluginManager
+    from app.services import (
+        AnalysisService,
+        ImageAcquisitionService,
+        JobManagementService,
+        PluginManagementService,
+        VisionAnalysisService,
+    )
     from app.tasks import init_task_processor
+    from app.websocket_manager import ws_manager
 
     # Initialize API keys
     init_api_keys()
@@ -45,5 +53,21 @@ def app_with_plugins():
 
     # Initialize task processor
     init_task_processor(plugin_manager)
+
+    # Initialize services
+    from app import tasks as tasks_module
+
+    # Vision analysis service for WebSocket
+    app.state.analysis_service = VisionAnalysisService(plugin_manager, ws_manager)
+
+    # REST API services - get fresh references from modules
+    image_acquisition = ImageAcquisitionService()
+    app.state.analysis_service_rest = AnalysisService(
+        tasks_module.task_processor, image_acquisition
+    )
+    app.state.job_service = JobManagementService(
+        tasks_module.job_store, tasks_module.task_processor
+    )
+    app.state.plugin_service = PluginManagementService(plugin_manager)
 
     return app
