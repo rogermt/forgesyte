@@ -1958,3 +1958,44 @@ Coverage: 100% for mcp_adapter.py core functionality
 3. Implement actual tool invocation in `tools/call`
 4. Add resource streaming support for real-time plugin output
 5. Test end-to-end with Gemini-CLI tool invocation
+
+### Tools/List Response Fix
+
+**Issue**: Gemini-CLI couldn't discover tools - returned undefined name and inputSchema
+
+**Solution**: Reformat tools/list response to use MCP-compliant structure:
+```json
+{
+  "tools": [
+    {
+      "name": "plugin_name",
+      "description": "Plugin description",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "image": {"type": "string", "description": "..."},
+          "options": {"type": "object", "properties": {}}
+        },
+        "required": ["image"]
+      }
+    }
+  ]
+}
+```
+
+**Key learnings**:
+- MCP tools must have `name` (not `id`), not `title`
+- `inputSchema` must be JSON Schema object (not array of types)
+- Image parameter should be base64 or URL per MCP spec
+- Options parameter for plugin-specific config
+
+**Result**: All 4 plugins (moderation, motion_detector, block_mapper, ocr) now discoverable by Gemini-CLI
+
+### Integration Checklist
+
+✅ HTTP endpoint configured at /v1/mcp (POST)
+✅ Initialize response: protocolVersion 2024-11-05, capabilities.tools: {}
+✅ Tools/list response: name, description, inputSchema per MCP spec
+⏳ Settings.json points to http://localhost:8000/v1/mcp
+⏳ Gemini-CLI successfully discovers ForgeSyte tools
+⏳ Tools/call implementation for actual plugin invocation
