@@ -2,3 +2,6 @@ black==24.1.1
 ruff==0.9.1
 mypy==1.14.0
 types-requests==2.31.0.10
+types-Pillow==10.0.0.2
+types-PyYAML==6.0.12.8
+types-urllib3==1.26.25.13
