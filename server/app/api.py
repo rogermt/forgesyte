@@ -8,7 +8,7 @@ import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, UploadFile
 
 from .auth import get_api_key, require_auth
-from .mcp_adapter import (
+from .mcp import (
     MCP_PROTOCOL_VERSION,
     MCP_SERVER_NAME,
     MCP_SERVER_VERSION,

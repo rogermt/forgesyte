@@ -12,7 +12,7 @@ from pydantic import ValidationError
 # Add the server directory to the path so we can import modules
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from app.mcp_adapter import MCPAdapter, MCPServerInfo, MCPToolSchema  # noqa: E402
+from app.mcp import MCPAdapter, MCPServerInfo, MCPToolSchema  # noqa: E402
 from app.models import MCPManifest, MCPTool  # noqa: E402
 from app.plugin_loader import PluginManager  # noqa: E402
 

@@ -12,13 +12,11 @@ from fastapi.testclient import TestClient
 # Add the server directory to the path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from app.main import app  # noqa: E402
-
 
 @pytest.fixture
-def client():
+def client(app_with_plugins):
     """Create a test client."""
-    return TestClient(app)
+    return TestClient(app_with_plugins)
 
 
 class TestHealthCheckEndpoint:

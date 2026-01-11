@@ -12,15 +12,15 @@ This module implements the core MCP protocol methods:
 import logging
 from typing import Any, Dict, Optional
 
-from .mcp_adapter import (
+from ..plugin_loader import PluginManager
+from ..tasks import job_store
+from .adapter import (
     MCP_SERVER_NAME,
     MCP_SERVER_VERSION,
     MCPAdapter,
 )
-from .mcp_jsonrpc import JSONRPCErrorCode
-from .mcp_transport import MCPTransportError
-from .plugin_loader import PluginManager
-from .tasks import job_store
+from .jsonrpc import JSONRPCErrorCode
+from .transport import MCPTransportError
 
 logger = logging.getLogger(__name__)
 

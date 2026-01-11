@@ -6,8 +6,8 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field, ValidationError
 
-from .models import MCPManifest, MCPTool, PluginMetadata
-from .plugin_loader import PluginManager
+from ..models import MCPManifest, MCPTool, PluginMetadata
+from ..plugin_loader import PluginManager
 
 logger = logging.getLogger(__name__)
 

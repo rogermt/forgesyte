@@ -3,7 +3,7 @@
 import logging
 from typing import Any, Dict, Optional
 
-from .mcp_jsonrpc import (
+from .jsonrpc import (
     JSONRPCError,
     JSONRPCErrorCode,
     JSONRPCRequest,
@@ -83,8 +83,8 @@ class MCPTransport:
         # Import here to avoid circular imports
         if self._protocol_handlers is None:
             # Create default handlers with lazy-loaded PluginManager
-            from .mcp_handlers import MCPProtocolHandlers
-            from .plugin_loader import PluginManager
+            from ..plugin_loader import PluginManager
+            from .handlers import MCPProtocolHandlers
 
             plugin_manager = PluginManager()
             self._protocol_handlers = MCPProtocolHandlers(plugin_manager)

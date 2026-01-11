@@ -22,7 +22,7 @@ from unittest.mock import Mock
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from app.mcp_adapter import (  # noqa: E402
+from app.mcp import (  # noqa: E402
     MCP_PROTOCOL_VERSION,
     MCP_SERVER_NAME,
     MCP_SERVER_VERSION,

@@ -7,11 +7,11 @@ import sys
 # Add the server directory to the path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from app.mcp_jsonrpc import (
+from app.mcp import (
     JSONRPCErrorCode,
     JSONRPCRequest,
+    MCPTransport,  # noqa: E402
 )  # noqa: E402
-from app.mcp_transport import MCPTransport  # noqa: E402
 
 
 class TestToolsCallHandler:

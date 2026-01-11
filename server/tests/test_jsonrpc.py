@@ -10,7 +10,7 @@ from pydantic import ValidationError
 # Add the server directory to the path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from app.mcp_jsonrpc import (  # noqa: E402
+from app.mcp import (  # noqa: E402
     JSONRPCError,
     JSONRPCErrorCode,
     JSONRPCRequest,

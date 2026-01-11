@@ -67,7 +67,7 @@ def test_plugin_loading_path_updated():
 
 def test_mcp_adapter_updated():
     """Test that MCP adapter returns ForgeSyte server name."""
-    from app.mcp_adapter import MCPAdapter
+    from app.mcp import MCPAdapter
 
     # Create a mock plugin manager for testing
     class MockPluginManager:

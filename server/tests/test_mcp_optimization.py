@@ -11,9 +11,11 @@ import pytest
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from app.mcp_adapter import MCPAdapter  # noqa: E402
-from app.mcp_jsonrpc import JSONRPCErrorCode  # noqa: E402
-from app.mcp_transport import MCPTransport  # noqa: E402
+from app.mcp import (
+    JSONRPCErrorCode,  # noqa: E402
+    MCPAdapter,  # noqa: E402
+    MCPTransport,  # noqa: E402
+)
 
 pytestmark = pytest.mark.asyncio
 

@@ -6,7 +6,7 @@ import sys
 # Add the server directory to the path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from app.mcp_adapter import MCP_PROTOCOL_VERSION, negotiate_mcp_version  # noqa: E402
+from app.mcp import MCP_PROTOCOL_VERSION, negotiate_mcp_version  # noqa: E402
 
 
 class TestVersionNegotiation:

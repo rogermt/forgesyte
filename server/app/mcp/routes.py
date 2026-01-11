@@ -7,8 +7,8 @@ from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 from pydantic import ValidationError
 
-from .mcp_jsonrpc import JSONRPCError, JSONRPCErrorCode, JSONRPCRequest
-from .mcp_transport import MCPTransport
+from .jsonrpc import JSONRPCError, JSONRPCErrorCode, JSONRPCRequest
+from .transport import MCPTransport
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -35,7 +35,7 @@ def get_transport(request: Request) -> MCPTransport:
         _transport = MCPTransport(protocol_handlers=None)
         # If plugin manager is set, recreate transport with it
         if plugin_manager:
-            from .mcp_handlers import MCPProtocolHandlers
+            from .handlers import MCPProtocolHandlers
 
             handlers = MCPProtocolHandlers(plugin_manager)
             _transport = MCPTransport(protocol_handlers=handlers)

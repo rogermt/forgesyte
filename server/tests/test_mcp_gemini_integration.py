@@ -96,12 +96,12 @@ def client():
 def reset_transport():
     """Reset the global transport instance for each test."""
     # Clear the global transport cache before each test
-    import app.mcp_routes
+    from app.mcp import routes
 
-    app.mcp_routes._transport = None
+    routes._transport = None
     yield
     # Clean up after test
-    app.mcp_routes._transport = None
+    routes._transport = None
 
 
 @pytest.fixture
