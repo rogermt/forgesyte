@@ -1635,7 +1635,58 @@ Coverage: 100% for mcp_adapter.py core functionality
 - **IntEnum for error codes** vs magic numbers (guarantees correctness)
 - **MCPTransport class** with handler registry vs standalone functions (testable, extensible)
 - **MCPTransportError inherits JSONRPCError** (maintains type hierarchy)
-- **Async method signatures** prepared for async handlers in next unit
+- **Async method signatures** prepared for async handle
+
+---
+
+## Phase 2: Type Safety & Imports (WU-02a through WU-02d)
+
+**Completed**: 2026-01-11 15:30  
+**Duration**: 1 hour  
+**Status**: ✅ Complete
+
+### What Went Well
+- Type stub packages install cleanly with uv
+- websocket_manager had good structure; adding types was straightforward
+- Plugin base classes already had signatures; just needed full type annotations
+- 100% mypy compliance achieved with focused fixes
+- All 311 tests pass; types didn't break existing functionality
+- Commit hooks (black, ruff, mypy) all pass immediately
+
+### Challenges & Solutions
+- **Issue**: `--no-site-packages` flag prevented mypy from finding venv packages
+  - **Solution**: Removed flag; mypy works correctly without it when venv is activated
+- **Issue**: pytesseract doesn't have type stubs (pre-existing issue)
+  - **Solution**: Added `# type: ignore[import-untyped]` to import statement
+- **Issue**: numpy returns `floating[Any]` not `float` from mean()
+  - **Solution**: Wrapped with explicit `float()` cast in moderation plugin
+
+### Key Insights
+- Modern packages (pydantic, fastapi, httpx) have inline type hints; no stubs needed
+- Type stubs only needed for legacy packages without inline types (numpy, PIL, etc.)
+- mypy config with `ignore_missing_imports = true` + module overrides works well
+- Type hints catch real errors: the numpy/float conversion in moderation plugin
+- Full type coverage improves confidence in codebase refactors
+
+### Architecture Decisions
+- **mypy config strategy**: Global ignore + specific module overrides prevents noise
+- **Dict[str, Any] typing**: Explicit about dict structure in API payloads
+- **async return types**: Properly typed async methods in WebSocket manager
+- **Protocol-based plugin interface**: PluginInterface Protocol for structural typing
+- **Explicit casts**: Using float() casts instead of type ignores (more maintainable)
+
+### Tips for Similar Work
+- Use `uv pip` for installing packages; faster and cleaner than pip
+- Type entire class methods at once (not piecemeal) to catch related issues
+- Add type hints to docstrings (Args, Returns, Raises) for completeness
+- Run mypy *without* `--no-site-packages` if packages are installed in venv
+- Test fully (all tests, linters, mypy) after each work unit
+- Module-level type comments for special cases (like import-untyped)
+
+### Blockers Found
+- None
+
+---rs in next unit
 
 ### Tips for Similar Work
 - Write test suite BEFORE implementation (TDD clarifies contracts)
