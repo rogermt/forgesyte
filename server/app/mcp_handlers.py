@@ -13,7 +13,6 @@ import logging
 from typing import Any, Dict, Optional
 
 from .mcp_adapter import (
-    MCP_PROTOCOL_VERSION,
     MCP_SERVER_NAME,
     MCP_SERVER_VERSION,
     MCPAdapter,
@@ -68,13 +67,13 @@ class MCPProtocolHandlers:
         )
 
         return {
+            "protocolVersion": "2024-11-05",
+            "capabilities": {
+                "tools": {},
+            },
             "serverInfo": {
                 "name": MCP_SERVER_NAME,
                 "version": MCP_SERVER_VERSION,
-                "protocolVersion": MCP_PROTOCOL_VERSION,
-            },
-            "capabilities": {
-                "tools": True,  # Server supports tools/list and tools/call
             },
         }
 
