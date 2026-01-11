@@ -11,8 +11,10 @@ dependencies = [
     "fastapi[standard]>=0.100.0",
     "uvicorn[standard]>=0.22.0",
     "pydantic>=2.0",
+    "pydantic-settings>=2.0",
     "python-multipart>=0.0.6",
     "httpx>=0.24.0",
+    "tenacity>=8.0.0",
     "websockets>=11.0",
     "pillow>=10.0.0",
     "numpy>=1.24.0",
@@ -111,6 +113,7 @@ warn_return_any = false
 warn_unused_configs = false
 disallow_untyped_defs = false
 ignore_missing_imports = true
+show_error_codes = true
 # Less strict for initial migration
 check_untyped_defs = false
 disallow_any_generics = false
@@ -132,5 +135,6 @@ module = [
     "fastapi.*",
     "httpx.*",
     "websockets.*",
+    "tenacity.*",
 ]
 ignore_missing_imports = true

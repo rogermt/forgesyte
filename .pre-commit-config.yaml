@@ -16,5 +16,5 @@ repos:
     rev: v1.14.0
     hooks:
       - id: mypy
-        additional_dependencies: [types-requests, types-Pillow]
+        additional_dependencies: [types-requests, types-Pillow, tenacity]
         exclude: ^original_vision_mcp/
