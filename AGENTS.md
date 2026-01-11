@@ -409,6 +409,49 @@ TDD is the required development methodology for this project:
 - Document new plugins in `PLUGIN_DEVELOPMENT.md`
 - Update `CONTRIBUTING.md` if development workflow changes
 
+### Documentation Best Practices
+
+**DO NOT use numbered steps in markdown sections** (e.g., `### 1. Step One`, `### 2. Step Two`)
+
+❌ **Bad Pattern** - Creates maintenance burden when adding/removing steps:
+```markdown
+### 1. Abstract Interfaces (Protocols)
+...
+
+### 2. Resilient Image Acquisition Service
+...
+
+### 3. Refactored Authentication Service
+...
+```
+
+If you need to add a new step, you must renumber all subsequent sections.
+
+✅ **Good Pattern** - Use an introductory docstring explaining the flow:
+```markdown
+## Implementation Strategy
+
+This module follows a three-step pattern:
+1. Define Protocol abstractions for key dependencies
+2. Create resilient service classes with retry logic
+3. Integrate services with dependency injection in FastAPI
+
+### Abstract Interfaces (Protocols)
+...
+
+### Resilient Image Acquisition Service
+...
+
+### Refactored Authentication Service
+...
+```
+
+**Benefits**:
+- No renumbering required when inserting/removing sections
+- Clear flow documented once at top
+- Sections can be read in any order
+- Easier to maintain and update
+
 ## Common Issues
 
 ### Ignored Directories
