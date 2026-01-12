@@ -26,7 +26,8 @@ import { useWebSocket } from "./hooks/useWebSocket";
 import { apiClient } from "./api/client";
 
 const mockUseWebSocket = useWebSocket as ReturnType<typeof vi.fn>;
-const mockApiClient = apiClient as any;
+// Mock apiClient for future use (currently unused but kept for test setup)
+vi.mocked(apiClient);
 
 // Set default mock for all tests
 mockUseWebSocket.mockReturnValue({
@@ -263,8 +264,6 @@ describe("App - Functional Behavior", () => {
 
     describe("View Mode Switching", () => {
         it("should switch to Stream view when Stream button clicked", async () => {
-            const user = userEvent.setup();
-
             await act(async () => {
                 render(<App />);
             });

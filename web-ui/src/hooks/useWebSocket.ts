@@ -269,7 +269,8 @@ export function useWebSocket(
         return () => {
             disconnect();
         };
-    }, []); // Empty dependency array - connect on mount only
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []); // Empty dependency array - connect on mount only, not on function changes
 
     return {
         isConnected,
