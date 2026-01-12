@@ -13,6 +13,7 @@ import logging
 import os
 import uuid
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import Optional
 
 import uvicorn
@@ -61,8 +62,20 @@ async def lifespan(app: FastAPI):
         )
 
     # Load plugins
-    plugins_dir = os.getenv("FORGESYTE_PLUGINS_DIR", "../example_plugins")
-    plugin_manager = PluginManager(plugins_dir)
+    # Use absolute path to ensure it works from any working directory
+    plugins_dir_env = os.getenv("FORGESYTE_PLUGINS_DIR", None)
+    if plugins_dir_env:
+        plugins_dir = Path(plugins_dir_env).resolve()
+    else:
+        # Default: ../example_plugins relative to this file's directory
+        plugins_dir = Path(__file__).parent.parent.parent / "example_plugins"
+
+    logger.info(
+        "Loading plugins from directory",
+        extra={"plugins_dir": str(plugins_dir), "exists": plugins_dir.exists()},
+    )
+
+    plugin_manager = PluginManager(str(plugins_dir))
 
     try:
         result = plugin_manager.load_plugins()
