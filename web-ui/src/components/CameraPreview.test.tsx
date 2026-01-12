@@ -2,13 +2,15 @@
  * Tests for CameraPreview styling updates
  */
 
-import { render, screen } from "@testing-library/react";
+import { render, screen, act } from "@testing-library/react";
 import { CameraPreview } from "./CameraPreview";
 
 describe("CameraPreview - Styling Updates", () => {
     describe("heading and layout", () => {
-        it("should display heading with brand colors", () => {
-            render(<CameraPreview enabled={false} />);
+        it("should display heading with brand colors", async () => {
+            await act(async () => {
+                render(<CameraPreview enabled={false} />);
+            });
             const heading = screen.getByText("Camera Preview");
 
             expect(heading).toBeInTheDocument();
@@ -17,9 +19,12 @@ describe("CameraPreview - Styling Updates", () => {
     });
 
     describe("video element styling", () => {
-        it("should apply brand background color to video", () => {
-            const { container } = render(<CameraPreview enabled={false} />);
-            const video = container.querySelector("video");
+        it("should apply brand background color to video", async () => {
+            let container: HTMLElement;
+            await act(async () => {
+                container = render(<CameraPreview enabled={false} />).container;
+            });
+            const video = container!.querySelector("video");
 
             expect(video).toHaveStyle({
                 width: "100%",
@@ -28,9 +33,12 @@ describe("CameraPreview - Styling Updates", () => {
             });
         });
 
-        it("should use proper aspect ratio styling", () => {
-            const { container } = render(<CameraPreview enabled={false} />);
-            const video = container.querySelector("video");
+        it("should use proper aspect ratio styling", async () => {
+            let container: HTMLElement;
+            await act(async () => {
+                container = render(<CameraPreview enabled={false} />).container;
+            });
+            const video = container!.querySelector("video");
 
             expect(video).toHaveStyle({
                 width: "100%",
@@ -41,21 +49,26 @@ describe("CameraPreview - Styling Updates", () => {
 
     describe("error message styling", () => {
         it("should display error in brand error color", async () => {
-            // Note: CameraPreview sets error via state, so we test the structure
-            const { container } = render(<CameraPreview enabled={false} />);
+            let container: HTMLElement;
+            await act(async () => {
+                container = render(<CameraPreview enabled={false} />).container;
+            });
 
             // Verify component structure for error handling
-            const paragraphs = container.querySelectorAll("p");
+            const paragraphs = container!.querySelectorAll("p");
             expect(paragraphs.length).toBeGreaterThan(0);
         });
     });
 
     describe("device selector styling", () => {
-        it("should apply consistent styling to select element", () => {
-            const { container } = render(
-                <CameraPreview enabled={false} width={640} height={480} />
-            );
-            const select = container.querySelector("select");
+        it("should apply consistent styling to select element", async () => {
+            let container: HTMLElement;
+            await act(async () => {
+                container = render(
+                    <CameraPreview enabled={false} width={640} height={480} />
+                ).container;
+            });
+            const select = container!.querySelector("select");
 
             if (select) {
                 // Select element should have consistent styling
@@ -67,10 +80,13 @@ describe("CameraPreview - Styling Updates", () => {
     });
 
     describe("status indicator", () => {
-        it("should display streaming status with proper styling", () => {
-            const { container } = render(<CameraPreview enabled={false} />);
+        it("should display streaming status with proper styling", async () => {
+            let container: HTMLElement;
+            await act(async () => {
+                container = render(<CameraPreview enabled={false} />).container;
+            });
             const statusParagraphs = Array.from(
-                container.querySelectorAll("p")
+                container!.querySelectorAll("p")
             ).filter((p) => p.textContent?.includes("streaming"));
 
             expect(statusParagraphs.length).toBeGreaterThan(0);
@@ -78,9 +94,12 @@ describe("CameraPreview - Styling Updates", () => {
     });
 
     describe("canvas element", () => {
-        it("should have hidden canvas for frame capture", () => {
-            const { container } = render(<CameraPreview enabled={false} />);
-            const canvas = container.querySelector("canvas");
+        it("should have hidden canvas for frame capture", async () => {
+            let container: HTMLElement;
+            await act(async () => {
+                container = render(<CameraPreview enabled={false} />).container;
+            });
+            const canvas = container!.querySelector("canvas");
 
             expect(canvas).toHaveStyle({
                 display: "none",

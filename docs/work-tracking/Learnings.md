@@ -179,10 +179,106 @@ None.
 - Added `web-ui` and `e2e` jobs to GitHub Actions.
 - Updated `AGENTS.md` with the full verification sequence.
 
+### Blockers Found
+
+
+
+None.
+
+
+
+---
+
+
+
+## Phase 2: WebUI Test Stability
+
+
+
+**Completed**: 2026-01-12 14:15  
+
+**Duration**: 5.5 hours total  
+
+**Status**: ✅ Complete
+
+
+
+### What Went Well
+
+
+
+- Resolved all 22 pre-existing WebUI test failures.
+
+- Eliminated all React "act" warnings through proper async handling.
+
+- Improved test reliability by switching from brittle style selectors to `data-testid`.
+
+- Successfully implemented 100% test pass rate for both frontend and backend.
+
+- Synchronized CI/CD workflow with local developer standards.
+
+- Created robust mocks for MediaDevices and HTMLMediaElement APIs.
+
+
+
+### Challenges & Solutions
+
+
+
+- **Issue**: `useWebSocket` hook tests failing due to constructor mock errors.
+
+  - **Solution**: Mocked `global.WebSocket` as a proper constructor function with static properties.
+
+- **Issue**: Multiple elements matching "Stream" caused query failures.
+
+  - **Solution**: Refined queries to use `getByRole` with exact names and added `data-testid` where necessary.
+
+- **Issue**: "act" warnings caused by background async updates in components.
+
+  - **Solution**: Wrapped initial renders and async state triggers in `await act(async () => ...)` and improved teardown.
+
+
+
+### Key Insights
+
+
+
+- RTL's `render` is already wrapped in `act`, but complex components with immediate `useEffect` hooks often need additional `act` wrapping or `waitFor` to stabilize state.
+
+- Matching inline style strings in tests is extremely brittle; `data-testid` is the preferred standard for locating elements for functional assertions.
+
+- Mocking browser APIs like `MediaDevices` and `HTMLMediaElement` is essential for testing UI components that interact with hardware or media.
+
+
+
+### Architecture Decisions
+
+
+
+- Standardized on `data-testid` for all key component regions (panels, containers).
+
+- Centralized common mocks (play/pause/load) in `src/test/setup.ts`.
+
+- Adopted `getByRole` as the primary query strategy for interactive elements.
+
+
+
 ### Tips for Similar Work
 
-- Ensure Node.js and Python versions in CI match development environments.
+
+
+- Always use `await act(async () => ...)` when a render triggers immediate side effects.
+
+- Check console logs during test runs to identify hidden state updates causing warnings.
+
+- Use `screen.debug()` or the error output from `getBy*` queries to resolve selector ambiguity.
+
+
 
 ### Blockers Found
 
+
+
 None.
+
+

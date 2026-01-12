@@ -95,6 +95,7 @@ export function JobList({ onJobSelect }: JobListProps) {
         <div>
             <h3>Recent Jobs</h3>
             <div
+                data-testid="job-list-container"
                 style={{
                     maxHeight: "400px",
                     overflowY: "auto",
@@ -104,6 +105,7 @@ export function JobList({ onJobSelect }: JobListProps) {
                 {jobs.map((job) => (
                     <div
                         key={job.id}
+                        data-testid={`job-item-${job.id}`}
                         onClick={() => onJobSelect(job)}
                         style={{
                             padding: "10px",

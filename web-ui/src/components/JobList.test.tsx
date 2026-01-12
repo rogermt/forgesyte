@@ -98,14 +98,12 @@ describe("JobList - API Integration", () => {
             ]);
 
             const mockSelectJob = vi.fn();
-            const { container } = render(
+            render(
                 <JobList onJobSelect={mockSelectJob} />
             );
 
             await waitFor(() => {
-                const jobElement = container.querySelector(
-                    "div[style*='cursor: pointer']"
-                );
+                const jobElement = screen.getByTestId(`job-item-${mockJobs[0].id}`);
                 expect(jobElement).toBeInTheDocument();
             });
         });
@@ -127,14 +125,12 @@ describe("JobList - API Integration", () => {
                 mockJobs
             );
 
-            const { container } = render(
+            render(
                 <JobList onJobSelect={vi.fn()} />
             );
 
             await waitFor(() => {
-                const jobItem = container.querySelector(
-                    "div[style*='cursor: pointer']"
-                );
+                const jobItem = screen.getByTestId(`job-item-${mockJobs[0].id}`);
                 expect(jobItem).toHaveStyle({
                     cursor: "pointer",
                     borderRadius: "4px",
@@ -148,14 +144,12 @@ describe("JobList - API Integration", () => {
                 mockJobs
             );
 
-            const { container } = render(
+            render(
                 <JobList onJobSelect={vi.fn()} />
             );
 
             await waitFor(() => {
-                const scrollContainer = container.querySelector(
-                    "div[style*='maxHeight: 400px']"
-                );
+                const scrollContainer = screen.getByTestId("job-list-container");
                 expect(scrollContainer).toHaveStyle({
                     maxHeight: "400px",
                     overflowY: "auto",

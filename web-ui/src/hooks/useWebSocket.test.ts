@@ -6,24 +6,45 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { renderHook, act, waitFor } from "@testing-library/react";
 import { useWebSocket, FrameResult } from "./useWebSocket";
 
+// Mock WebSocket constants if not available in environment
+const CONNECTING = 0;
+const OPEN = 1;
+const CLOSING = 2;
+const CLOSED = 3;
+
 // Mock WebSocket
 class MockWebSocket {
-    readyState = WebSocket.CONNECTING;
+    static CONNECTING = CONNECTING;
+    static OPEN = OPEN;
+    static CLOSING = CLOSING;
+    static CLOSED = CLOSED;
+
+    readyState = CONNECTING;
     onopen: ((event: Event) => void) | null = null;
     onmessage: ((event: MessageEvent) => void) | null = null;
     onerror: ((event: Event) => void) | null = null;
     onclose: ((event: CloseEvent) => void) | null = null;
 
+    url: string;
+
+    constructor(url: string) {
+        this.url = url;
+        // Automatically move to OPEN if we want simple tests, 
+        // but hook expects to wait for onopen.
+    }
+
     send = vi.fn();
     close = vi.fn((code?: number) => {
-        this.readyState = 3; // WebSocket.CLOSED
-        this.onclose?.(
-            new CloseEvent("close", { code: code || 1000, wasClean: true })
-        );
+        this.readyState = CLOSED;
+        setTimeout(() => {
+            this.onclose?.(
+                new CloseEvent("close", { code: code || 1000, wasClean: true })
+            );
+        }, 0);
     });
 
     simulateOpen() {
-        this.readyState = 1; // WebSocket.OPEN
+        this.readyState = OPEN;
         this.onopen?.(new Event("open"));
     }
 
@@ -36,22 +57,44 @@ class MockWebSocket {
     }
 
     simulateClose(code = 1000, wasClean = true) {
-        this.readyState = 3; // WebSocket.CLOSED
+        this.readyState = CLOSED;
         this.onclose?.(new CloseEvent("close", { code, wasClean }));
     }
 }
 
 describe("useWebSocket", () => {
-    let mockWs: MockWebSocket;
+    let mockInstances: MockWebSocket[] = [];
 
     beforeEach(() => {
-        mockWs = new MockWebSocket();
-        (global as unknown as { WebSocket: ReturnType<typeof vi.fn> }).WebSocket = vi.fn(() => mockWs) as unknown as typeof WebSocket;
+        mockInstances = [];
+        // Use a function that behaves like a constructor
+        const wsMock = function(this: unknown, url: string) {
+            const instance = new MockWebSocket(url);
+            mockInstances.push(instance);
+            return instance;
+        } as unknown as typeof WebSocket;
+        
+        // Match static properties
+        const wsMockAsUnknown = wsMock as unknown as Record<string, number>;
+        wsMockAsUnknown.CONNECTING = CONNECTING;
+        wsMockAsUnknown.OPEN = OPEN;
+        wsMockAsUnknown.CLOSING = CLOSING;
+        wsMockAsUnknown.CLOSED = CLOSED;
+
+        (global as unknown as { WebSocket: unknown }).WebSocket = vi.fn(wsMock as unknown as () => unknown);
+        // Also need to set the static properties on the vi.fn() result
+        const globalWs = (global as unknown as { WebSocket: Record<string, number> }).WebSocket;
+        globalWs.CONNECTING = CONNECTING;
+        globalWs.OPEN = OPEN;
+        globalWs.CLOSING = CLOSING;
+        globalWs.CLOSED = CLOSED;
     });
 
     afterEach(() => {
         vi.clearAllMocks();
     });
+
+    const getLatestMock = () => mockInstances[mockInstances.length - 1];
 
     describe("connection", () => {
         it("should initialize in disconnected state", () => {
@@ -68,12 +111,13 @@ describe("useWebSocket", () => {
                 useWebSocket({ url: "ws://localhost:8000/v1/stream" })
             );
 
+            const mockWs = getLatestMock();
             act(() => {
                 mockWs.simulateOpen();
             });
 
             await waitFor(() => {
-                expect((global as unknown as { WebSocket: ReturnType<typeof vi.fn> }).WebSocket).toHaveBeenCalledWith(
+                expect(global.WebSocket).toHaveBeenCalledWith(
                     expect.stringContaining("ws://")
                 );
             });
@@ -88,7 +132,7 @@ describe("useWebSocket", () => {
             );
 
             await waitFor(() => {
-                expect((global as unknown as { WebSocket: ReturnType<typeof vi.fn> }).WebSocket).toHaveBeenCalledWith(
+                expect(global.WebSocket).toHaveBeenCalledWith(
                     expect.stringContaining("motion_detector")
                 );
             });
@@ -103,7 +147,7 @@ describe("useWebSocket", () => {
             );
 
             await waitFor(() => {
-                expect((global as unknown as { WebSocket: ReturnType<typeof vi.fn> }).WebSocket).toHaveBeenCalledWith(
+                expect(global.WebSocket).toHaveBeenCalledWith(
                     expect.stringContaining("api_key=secret-key")
                 );
             });
@@ -114,6 +158,7 @@ describe("useWebSocket", () => {
                 useWebSocket({ url: "ws://localhost:8000/v1/stream" })
             );
 
+            const mockWs = getLatestMock();
             act(() => {
                 mockWs.simulateOpen();
             });
@@ -131,6 +176,7 @@ describe("useWebSocket", () => {
                 useWebSocket({ url: "ws://localhost:8000/v1/stream" })
             );
 
+            const mockWs = getLatestMock();
             act(() => {
                 mockWs.simulateOpen();
             });
@@ -153,6 +199,7 @@ describe("useWebSocket", () => {
                 useWebSocket({ url: "ws://localhost:8000/v1/stream" })
             );
 
+            const mockWs = getLatestMock();
             act(() => {
                 result.current.sendFrame("base64imagedata");
             });
@@ -167,6 +214,7 @@ describe("useWebSocket", () => {
                 useWebSocket({ url: "ws://localhost:8000/v1/stream" })
             );
 
+            const mockWs = getLatestMock();
             act(() => {
                 mockWs.simulateOpen();
             });
@@ -189,6 +237,7 @@ describe("useWebSocket", () => {
                 useWebSocket({ url: "ws://localhost:8000/v1/stream" })
             );
 
+            const mockWs = getLatestMock();
             act(() => {
                 result.current.switchPlugin("object_detection");
             });
@@ -207,6 +256,7 @@ describe("useWebSocket", () => {
                 })
             );
 
+            const mockWs = getLatestMock();
             act(() => {
                 mockWs.simulateOpen();
             });
@@ -240,6 +290,7 @@ describe("useWebSocket", () => {
                 })
             );
 
+            const mockWs = getLatestMock();
             act(() => {
                 mockWs.simulateOpen();
             });
@@ -266,6 +317,7 @@ describe("useWebSocket", () => {
                 })
             );
 
+            const mockWs = getLatestMock();
             act(() => {
                 mockWs.simulateOpen();
             });
@@ -295,6 +347,7 @@ describe("useWebSocket", () => {
                 useWebSocket({ url: "ws://localhost:8000/v1/stream" })
             );
 
+            const mockWs = getLatestMock();
             act(() => {
                 mockWs.simulateOpen();
             });
@@ -324,6 +377,7 @@ describe("useWebSocket", () => {
                 useWebSocket({ url: "ws://localhost:8000/v1/stream" })
             );
 
+            const mockWs = getLatestMock();
             act(() => {
                 mockWs.simulateOpen();
             });
@@ -340,6 +394,7 @@ describe("useWebSocket", () => {
                 useWebSocket({ url: "ws://localhost:8000/v1/stream" })
             );
 
+            const mockWs = getLatestMock();
             act(() => {
                 mockWs.simulateOpen();
             });
@@ -360,6 +415,7 @@ describe("useWebSocket", () => {
 
     describe("reconnection", () => {
         it("should attempt reconnection on unexpected close", async () => {
+            vi.useFakeTimers();
             const { result } = renderHook(() =>
                 useWebSocket({
                     url: "ws://localhost:8000/v1/stream",
@@ -368,6 +424,7 @@ describe("useWebSocket", () => {
                 })
             );
 
+            const mockWs = getLatestMock();
             act(() => {
                 mockWs.simulateOpen();
             });
@@ -376,9 +433,18 @@ describe("useWebSocket", () => {
                 mockWs.simulateClose(1006, false);
             });
 
-            await waitFor(() => {
-                expect(result.current.isConnecting).toBe(true);
-            }, { timeout: 500 });
+            // Status should update to disconnected
+            expect(result.current.isConnected).toBe(false);
+
+            // Advance timers to trigger reconnect
+            act(() => {
+                vi.advanceTimersByTime(150);
+            });
+
+            expect(global.WebSocket).toHaveBeenCalledTimes(2);
+            expect(result.current.isConnecting).toBe(true);
+            
+            vi.useRealTimers();
         });
 
         it("should reconnect on explicit reconnect call", async () => {
@@ -386,6 +452,7 @@ describe("useWebSocket", () => {
                 useWebSocket({ url: "ws://localhost:8000/v1/stream" })
             );
 
+            const mockWs = getLatestMock();
             act(() => {
                 mockWs.simulateOpen();
             });
@@ -395,6 +462,8 @@ describe("useWebSocket", () => {
             });
 
             expect(mockWs.close).toHaveBeenCalled();
+            // Should have created a new instance
+            expect(global.WebSocket).toHaveBeenCalledTimes(2);
         });
     });
 });

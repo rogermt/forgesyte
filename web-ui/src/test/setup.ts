@@ -36,3 +36,8 @@ Object.defineProperty(navigator, "mediaDevices", {
         }),
     },
 });
+
+// Mock HTMLMediaElement play
+HTMLMediaElement.prototype.play = vi.fn().mockResolvedValue(undefined);
+HTMLMediaElement.prototype.pause = vi.fn();
+HTMLMediaElement.prototype.load = vi.fn();

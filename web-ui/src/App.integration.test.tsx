@@ -2,7 +2,7 @@
  * Integration tests for App.tsx WebSocket streaming
  */
 
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, act } from "@testing-library/react";
 import App from "./App";
 import * as useWebSocketModule from "./hooks/useWebSocket";
 
@@ -50,14 +50,18 @@ describe("App - WebSocket Streaming Integration", () => {
 
     describe("streaming controls", () => {
         it("should display stream view when stream mode selected", async () => {
-            render(<App />);
+            await act(async () => {
+                render(<App />);
+            });
 
-            const streamButton = screen.getByText("Stream");
-            expect(streamButton).toBeInTheDocument();
+            const streamNavButton = screen.getByRole("button", { name: "Stream" });
+            expect(streamNavButton).toBeInTheDocument();
         });
 
         it("should show camera preview in stream view", async () => {
-            render(<App />);
+            await act(async () => {
+                render(<App />);
+            });
 
             await waitFor(() => {
                 expect(
@@ -66,8 +70,10 @@ describe("App - WebSocket Streaming Integration", () => {
             });
         });
 
-        it("should call useWebSocket on mount with correct params", () => {
-            render(<App />);
+        it("should call useWebSocket on mount with correct params", async () => {
+            await act(async () => {
+                render(<App />);
+            });
 
             expect(mockUseWebSocket).toHaveBeenCalledWith(
                 expect.objectContaining({
@@ -79,13 +85,15 @@ describe("App - WebSocket Streaming Integration", () => {
     });
 
     describe("streaming state", () => {
-        it("should show disconnected status initially", () => {
-            render(<App />);
+        it("should show disconnected status initially", async () => {
+            await act(async () => {
+                render(<App />);
+            });
 
             expect(screen.getByText("Disconnected")).toBeInTheDocument();
         });
 
-        it("should show connected status when WebSocket connected", () => {
+        it("should show connected status when WebSocket connected", async () => {
             mockUseWebSocket.mockReturnValue({
                 isConnected: true,
                 isConnecting: false,
@@ -96,12 +104,14 @@ describe("App - WebSocket Streaming Integration", () => {
                 stats: { frames_sent: 0, frames_received: 0 },
             });
 
-            render(<App />);
+            await act(async () => {
+                render(<App />);
+            });
 
             expect(screen.getByText("Connected")).toBeInTheDocument();
         });
 
-        it("should show connecting status", () => {
+        it("should show connecting status", async () => {
             mockUseWebSocket.mockReturnValue({
                 isConnected: false,
                 isConnecting: true,
@@ -112,12 +122,14 @@ describe("App - WebSocket Streaming Integration", () => {
                 stats: { frames_sent: 0, frames_received: 0 },
             });
 
-            render(<App />);
+            await act(async () => {
+                render(<App />);
+            });
 
             expect(screen.getByText("Connecting...")).toBeInTheDocument();
         });
 
-        it("should display WebSocket error when present", () => {
+        it("should display WebSocket error when present", async () => {
             const errorMsg = "Connection refused";
             mockUseWebSocket.mockReturnValue({
                 isConnected: false,
@@ -129,7 +141,9 @@ describe("App - WebSocket Streaming Integration", () => {
                 stats: { frames_sent: 0, frames_received: 0 },
             });
 
-            render(<App />);
+            await act(async () => {
+                render(<App />);
+            });
 
             expect(screen.getByText(new RegExp(errorMsg))).toBeInTheDocument();
         });
@@ -137,10 +151,13 @@ describe("App - WebSocket Streaming Integration", () => {
 
     describe("plugin selector interaction", () => {
         it("should disable plugin selector when streaming enabled", async () => {
-            const { container } = render(<App />);
+            let container: HTMLElement;
+            await act(async () => {
+                container = render(<App />).container;
+            });
 
             await waitFor(() => {
-                const select = container.querySelector("select");
+                const select = container!.querySelector("select");
                 // Initially not disabled
                 expect(select).not.toBeDisabled();
             });
@@ -149,7 +166,9 @@ describe("App - WebSocket Streaming Integration", () => {
 
     describe("frame handling", () => {
         it("should pass correct handlers to CameraPreview", async () => {
-            render(<App />);
+            await act(async () => {
+                render(<App />);
+            });
 
             await waitFor(() => {
                 expect(
@@ -161,14 +180,16 @@ describe("App - WebSocket Streaming Integration", () => {
 
     describe("results display", () => {
         it("should show ResultsPanel in stream mode", async () => {
-            render(<App />);
+            await act(async () => {
+                render(<App />);
+            });
 
             await waitFor(() => {
                 expect(screen.getByText("Results")).toBeInTheDocument();
             });
         });
 
-        it("should display latest stream results", () => {
+        it("should display latest stream results", async () => {
             const mockResult = {
                 frame_id: "frame-001",
                 processing_time_ms: 45,
@@ -186,7 +207,9 @@ describe("App - WebSocket Streaming Integration", () => {
                 stats: { frames_sent: 10, frames_received: 10 },
             });
 
-            render(<App />);
+            await act(async () => {
+                render(<App />);
+            });
 
             expect(screen.getByText(/frame-001/)).toBeInTheDocument();
         });

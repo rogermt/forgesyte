@@ -48,20 +48,38 @@ test: Add e2e test script and verify server-webui integration (WU-03)
 
 ---
 
-### WU-04: Update CI and Documentation
+### WU-04: Update CI and Documentation (Completed)
 **Goal**: Ensure CI catches integration issues early.
+**Status**: ✅ Complete (2026-01-12)
+**Outcome**: CI now includes WebUI and E2E jobs.
 
-**Tasks**:
-1. Update `.github/workflows/lint-and-test.yml`:
-   - Add E2E test step (or at least server start + curl check).
+---
 
-2. Update `AGENTS.md`:
-   - Enforce E2E testing for API changes.
+## Phase 2: WebUI Test Stability (Completed)
 
-**Acceptance**: CI updated, docs updated.
+### WU-05: Fix Hook Testing Infrastructure (Completed)
+**Goal**: Resolve 17 failures in `useWebSocket.test.ts`.
+**Status**: ✅ Complete (2026-01-12)
+**Outcome**: All hook tests passing after improving WebSocket mock and timer handling.
 
-**Commits**:
-```bash
-ci: Add e2e smoke test to workflow (WU-04)
-docs: Update AGENTS.md with integration testing requirement (WU-04)
-```
+---
+
+### WU-06: Resolve DOM Selection and Ambiguity (Completed)
+**Goal**: Fix query errors and styling assertions.
+**Status**: ✅ Complete (2026-01-12)
+**Outcome**: Switched to `getByRole` and `data-testid` for reliable DOM targeting.
+
+---
+
+### WU-07: Fix Act Warnings and Lifecycle Cleanup (Completed)
+**Goal**: Eliminate all "not wrapped in act(...)" warnings.
+**Status**: ✅ Complete (2026-01-12)
+**Outcome**: Corrected async `act` usage across all test files.
+
+---
+
+### WU-08: Final Verification & CI Hardening (Completed)
+**Goal**: Final local and CI pass.
+**Status**: ✅ Complete (2026-01-12)
+**Outcome**: 100% test pass rate achieved locally and verified via E2E script.
+

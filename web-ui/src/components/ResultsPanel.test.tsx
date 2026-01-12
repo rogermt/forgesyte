@@ -22,10 +22,10 @@ describe("ResultsPanel - Styling Updates", () => {
         });
 
         it("should have proper panel styling", () => {
-            const { container } = render(
+            render(
                 <ResultsPanel mode="stream" streamResult={null} />
             );
-            const panel = container.firstChild;
+            const panel = screen.getByTestId("results-panel");
 
             expect(panel).toHaveStyle({
                 borderRadius: "8px",
@@ -146,14 +146,15 @@ describe("ResultsPanel - Styling Updates", () => {
 
     describe("content scrolling", () => {
         it("should apply scrolling to content area", () => {
-            const { container } = render(
+            render(
                 <ResultsPanel mode="stream" streamResult={null} />
             );
 
-            const contentArea = container.querySelector(
-                "div[style*='overflowY: auto']"
-            );
+            const contentArea = screen.getByTestId("results-content");
             expect(contentArea).toBeInTheDocument();
+            expect(contentArea).toHaveStyle({
+                overflowY: "auto"
+            });
         });
     });
 });

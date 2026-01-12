@@ -155,7 +155,7 @@ function App() {
         <div style={styles.app}>
             {/* Header */}
             <header style={styles.header}>
-                <div style={styles.logo}>🔧 ForgeSyte</div>
+                <div style={styles.logo} data-testid="app-logo">🔧 ForgeSyte</div>
 
                 <nav style={styles.nav}>
                     {(["stream", "upload", "jobs"] as ViewMode[]).map((mode) => (
@@ -181,6 +181,7 @@ function App() {
 
                 <div style={styles.status}>
                     <div
+                        data-testid="connection-status-indicator"
                         style={{
                             ...styles.indicator,
                             backgroundColor: isConnected

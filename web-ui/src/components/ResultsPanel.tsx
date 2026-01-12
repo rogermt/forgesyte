@@ -75,10 +75,36 @@ export function ResultsPanel({
     };
 
     return (
-        <div style={styles.panel}>
-            <div style={styles.header}>Results</div>
+        <div
+            data-testid="results-panel"
+            style={{
+                ...styles.panel,
+                minHeight: "400px",
+                display: "flex",
+                flexDirection: "column",
+            }}
+        >
+            <div
+                style={{
+                    fontSize: "14px",
+                    fontWeight: 600,
+                    marginBottom: "12px",
+                    color: "var(--text-primary)",
+                }}
+            >
+                Results
+            </div>
 
-            <div style={styles.content}>
+            <div
+                data-testid="results-content"
+                style={{
+                    flex: 1,
+                    overflowY: "auto",
+                    fontSize: "13px",
+                    color: "var(--text-secondary)",
+                    paddingRight: "4px",
+                }}
+            >
                 {mode === "stream" && streamResult ? (
                     <div>
                         <div style={styles.metaInfo}>
