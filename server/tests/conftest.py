@@ -10,6 +10,29 @@ Fixtures:
     - mock_plugin_registry: Mock PluginRegistry for unit tests
     - mock_job_store: Mock JobStore for task tests
     - mock_task_processor: Mock TaskProcessor for service tests
+
+API Contract Guarantees:
+    Tests with API contract guarantees (verified by integration tests in
+    server/tests/integration/test_api_contracts.py):
+
+    ✅ GET /v1/jobs - Returns JobResponse list with fields: job_id, status, plugin,
+       created_at, completed_at (opt), result (opt), error (opt), progress (opt)
+       Reference: tests/integration/test_api_contracts.py:TestJobsEndpointContract
+
+    ✅ GET /v1/jobs/{id} - Returns single JobResponse with same schema
+       Reference: tests/integration/test_api_contracts.py:TestSingleJobEndpointContract
+
+    ✅ GET /v1/plugins - Returns PluginMetadata list with fields: name, description,
+       version, inputs, outputs, permissions (opt), config_schema (opt)
+       Reference: tests/integration/test_api_contracts.py:TestPluginsEndpointContract
+
+    ✅ GET /v1/health - Returns health with status, version, plugins_loaded
+       Reference: tests/integration/test_api_contracts.py:TestFixtureConsistency
+
+    Golden Fixtures Reference:
+    - fixtures/api-responses.json contains real API response examples
+    - All unit test mocks should match fixture field names and structure
+    - Integration tests verify real API responses match fixtures
 """
 
 import os
@@ -117,6 +140,21 @@ class MockPluginRegistry:
 
     Provides in-memory plugin storage for testing without file system
     dependencies. Satisfies the PluginRegistry Protocol interface.
+
+    Used by: services/plugin_management.py, services/vision_analysis.py
+    Tests: tests/services/test_plugin_management.py, tests/websocket/test_streaming.py
+
+    Protocol Compliance:
+    - get(name) -> Optional[VisionPlugin]: Returns plugin instance or None
+    - list() -> Dict[str, Dict]: Returns all loaded plugins with metadata
+    - reload_plugin(name) -> bool: Reloads single plugin (returns success status)
+    - reload_all() -> Dict[str, Any]: Reloads all plugins (returns results dict)
+
+    What This Mock Verifies:
+    - Plugin lookup by name works correctly
+    - Plugin list returns proper metadata format
+    - Reload operations complete without errors
+    - Plugin instances are properly stored and retrieved
     """
 
     def __init__(self) -> None:
@@ -192,6 +230,27 @@ class MockJobStore:
 
     Provides in-memory job storage for testing without database dependencies.
     Satisfies the JobStore Protocol interface.
+
+    Used by: tasks/task_processor.py, services/job_management.py
+    Tests: tests/tasks/test_task_processor.py, tests/services/test_job_management.py
+
+    Protocol Compliance:
+    - create(job_id, job_data) -> None: Stores new job record
+    - get(job_id) -> Optional[Dict]: Retrieves job by ID
+    - update(job_id, updates) -> Optional[Dict]: Updates existing job
+    - list_jobs(status, plugin, limit) -> list[Dict]: Lists jobs with optional filters
+
+    What This Mock Verifies:
+    - Job creation stores data correctly with proper job_id
+    - Job retrieval returns stored data
+    - Job updates modify data properly
+    - Job listing respects limit parameter
+    - Missing jobs return None/empty results
+    - Job status and plugin filtering works (when tested)
+
+    Note: The Protocol defines 'create(job_id, job_data)' but this mock has
+    'create(plugin_name, request_data)' for convenience. The fixture accepts
+    both signatures - see tests using this fixture for actual usage pattern.
     """
 
     def __init__(self) -> None:
@@ -286,6 +345,32 @@ class MockTaskProcessor:
 
     Provides in-memory task processing for testing without async overhead.
     Satisfies the TaskProcessor Protocol interface.
+
+    Used by: api/jobs.py (REST endpoint), services/analysis.py
+    Tests: tests/api/test_jobs.py, tests/services/test_analysis.py
+
+    Protocol Compliance:
+    - submit_job(image_bytes, plugin_name, options) -> str: Returns job ID
+    - cancel_job(job_id) -> bool: Cancels job, returns success status
+    - get_result(job_id) -> Optional[Dict]: Returns job result or None
+
+    What This Mock Verifies:
+    - Job submission returns a valid job ID
+    - Job results can be retrieved after submission
+    - Job cancellation succeeds
+    - Missing jobs return None for get_result
+    - Callback registration/removal doesn't raise errors
+
+    API Contract Guarantees:
+    - POST /v1/jobs returns job_id matching UUID format
+    - GET /v1/jobs/{id} returns JobResponse schema (tested in integration tests)
+    - Job status transitions: queued -> running -> done/error
+    - This mock simplifies to: all jobs complete successfully
+
+    Additional Methods (Protocol Extensions):
+    - add_on_complete_callback(callback): Registers completion listener
+    - remove_callback(callback): Unregisters completion listener
+    - Both are no-ops in mock but present for protocol compatibility
     """
 
     def __init__(self, job_store: Optional[MockJobStore] = None) -> None:
