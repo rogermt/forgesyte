@@ -77,7 +77,7 @@ describe("App - WebSocket Streaming Integration", () => {
 
             expect(mockUseWebSocket).toHaveBeenCalledWith(
                 expect.objectContaining({
-                    url: "/v1/stream",
+                    url: "ws://localhost:8000/v1/stream",
                     plugin: "motion_detector",
                 })
             );

@@ -10,6 +10,10 @@ import { ResultsPanel } from "./components/ResultsPanel";
 import { useWebSocket, FrameResult } from "./hooks/useWebSocket";
 import { apiClient, Job } from "./api/client";
 
+// WebSocket backend URL - use environment variable or default to localhost:8000
+const WS_BACKEND_URL =
+    import.meta.env.VITE_WS_BACKEND_URL || "ws://localhost:8000";
+
 type ViewMode = "stream" | "upload" | "jobs";
 
 function App() {
@@ -29,7 +33,7 @@ function App() {
         switchPlugin,
         latestResult,
     } = useWebSocket({
-        url: "/v1/stream",
+        url: `${WS_BACKEND_URL}/v1/stream`,
         plugin: selectedPlugin,
         onResult: (result: FrameResult) => {
             console.log("Frame result:", result);
