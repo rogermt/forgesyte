@@ -1,6 +1,6 @@
-# Test Changes During Refactoring
+# Test Changes During Refactoring & Integration
 
-This document tracks modifications to test files during the Python Standards Refactoring (Issue #12) and explains the rationale for each change.
+This document tracks modifications to test files during the Python Standards Refactoring (Issue #12), WebUI integration fixes, and explains the rationale for each change.
 
 ## WU-04: Authentication & Authorization
 
@@ -136,3 +136,52 @@ The following test patterns in `server/tests/tasks/test_tasks.py` need API-level
 - `test_empty_image_bytes`: Error handling validation may need update
 
 These are scheduled for resolution in WU-12 (Test Layer) along with comprehensive test refactoring.
+
+---
+
+## Server-WebUI Integration (WU-01)
+
+### File: `web-ui/src/integration/server-api.integration.test.ts` (NEW)
+
+**Change**: Created new integration test suite
+
+**Lines**: 398 lines total
+
+**Purpose**:
+Verify that actual server API responses match what the WebUI client expects. These tests mock realistic server responses and validate client parsing compatibility.
+
+**Test Coverage** (18 tests):
+- Response format verification for all 7 key endpoints
+- Client parsing compatibility checks
+- Error handling for HTTP status codes (500, 400, 401)
+
+**Endpoints Tested**:
+1. `GET /v1/plugins` → `{plugins: [], count: number}`
+2. `GET /v1/jobs` → `{jobs: [], count: number}`
+3. `GET /v1/jobs/:id` → `Job` (bare or wrapped format)
+4. `POST /v1/analyze` → `{job_id, status}`
+5. `DELETE /v1/jobs/:id` → `{status, job_id}`
+6. `GET /v1/health` → `{status, plugins_loaded, version}`
+
+**Key Findings**:
+- All 18 tests pass
+- Server response formats match client expectations perfectly
+- No response format mismatches detected
+- 500 errors NOT caused by API format incompatibility
+
+**Impact**: 
+- Baseline for server-webui integration testing
+- Documents expected response formats
+- Ready for WU-02 (root cause investigation)
+
+---
+
+## Test Results Summary
+
+| Work Unit | Component | Tests Modified/Created | Status |
+|-----------|-----------|----------------------|--------|
+| WU-04 | Server Auth | 2 lines, 1 fixture | ✅ Pass |
+| WU-05 | Server Tasks | ~26 calls, 51 tests | ✅ Pass |
+| WU-01 | WebUI Integration | 18 new tests | ✅ Pass |
+
+**Total Test Impact**: 482 server tests passing, 18 WebUI integration tests passing
