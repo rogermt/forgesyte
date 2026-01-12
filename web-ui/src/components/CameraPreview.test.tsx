@@ -90,9 +90,8 @@ describe("CameraPreview - Device Management", () => {
             },
         ]);
 
-        let container: HTMLElement;
         await act(async () => {
-            container = render(<CameraPreview enabled={false} />).container;
+            render(<CameraPreview enabled={false} />);
         });
 
         // Wait for device enumeration and selection
