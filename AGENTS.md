@@ -442,6 +442,84 @@ TDD is the required development methodology for this project:
 - Test both success and failure paths
 - Keep tests independent and idempotent
 
+### Mock Data and API Contracts
+
+**Critical**: Mock data must always match actual API contracts, or tests give false confidence.
+
+**Problem**: Hand-written mocks diverge from reality (e.g., `id` vs `job_id`, status `"processing"` vs `"running"`)
+
+**Solution**: Ensure mocks match by using one of these approaches:
+
+**Option 1: Golden Fixtures (Recommended)**
+```python
+# Store real API responses as test fixtures
+# fixtures/api-responses.json
+{
+  "jobs_list": {
+    "jobs": [
+      {"job_id": "uuid", "status": "done", "plugin": "motion_detector", ...}
+    ],
+    "count": 1
+  }
+}
+
+# test_job_service.py
+import json
+with open("fixtures/api-responses.json") as f:
+    FIXTURES = json.load(f)
+
+def test_list_jobs():
+    mock_response = FIXTURES["jobs_list"]
+    # Test uses real API shape
+```
+
+**Option 2: Schema-Driven Factories**
+```typescript
+// Use Pydantic models (server) or TypeScript interfaces (client) as source of truth
+// Never hand-write mock fields
+
+// ❌ Bad: Hand-written mock
+const mockJob = { id: "123", status: "processing" };
+
+// ✅ Good: Factory from schema
+function createMockJob(overrides?: Partial<Job>): Job {
+  return {
+    job_id: "550e8400-e29b-41d4-a716-446655440000",
+    status: "queued",
+    plugin: "motion_detector",
+    created_at: new Date().toISOString(),
+    ...overrides
+  };
+}
+```
+
+**Option 3: Integration Tests (Verify Contracts)**
+```python
+# server/tests/integration/test_api_contracts.py
+@pytest.mark.integration
+async def test_jobs_endpoint_response_shape(client):
+    """Verify /v1/jobs returns documented schema."""
+    response = await client.get("/v1/jobs?limit=10")
+    data = response.json()
+    
+    # Assert schema matches JobResponse model
+    assert "jobs" in data
+    assert "count" in data
+    for job in data["jobs"]:
+        assert "job_id" in job  # Not "id"
+        assert job["status"] in ["queued", "running", "done", "error", "not_found"]
+        assert "created_at" in job
+        assert "completed_at" in job
+```
+
+**Checklist for Mock Data**:
+- [ ] Mock field names match API response exactly
+- [ ] Mock enum values match server enums (not guesses)
+- [ ] Mocks use golden fixtures or factory functions
+- [ ] Integration tests verify API contract
+- [ ] Document which tests have API contracts (link to source)
+- [ ] Update fixtures when API contract changes
+
 ## Documentation
 
 - Update relevant `.md` files when making architectural changes
