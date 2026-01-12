@@ -16,9 +16,15 @@
   - Created detailed gap analysis
   - Commit: `chore: Setup coverage tools and capture baseline`
 
+- [x] **WU-2**: CameraPreview.tsx Tests (✅ COMPLETE, 1 hour, completed 2026-01-12 20:30)
+  - Target: 66.66% → 98.48% (+31.82%) ✅ EXCEEDED
+  - Added 16 new test cases (23 total)
+  - Tests cover device mgmt, lifecycle, frame capture, UI
+  - Commit: `test: Add comprehensive CameraPreview tests`
+
 ### In Progress
-- [ ] **WU-2**: CameraPreview.tsx Tests (Ready to start)
-  - Target: 66.66% → 80% (+13.34%)
+- [ ] **WU-3**: JobList.tsx Tests (Ready to start)
+  - Target: 65.90% → 80% (+14.1%)
   - Duration: 2-3 hours
   - Blockers: None
 
@@ -52,21 +58,19 @@ By Component:
 
 ---
 
-## Current Work Unit: WU-2
+## Current Work Unit: WU-3
 - **Status**: Ready to start
-- **Component**: CameraPreview.tsx
-- **Current Coverage**: 66.66%
+- **Component**: JobList.tsx
+- **Current Coverage**: 65.90%
 - **Target Coverage**: 80%+
-- **Gap**: +13.34%
+- **Gap**: +14.1%
 - **Duration Estimate**: 2-3 hours
 - **Blockers**: None
 - **Next Steps**: 
-  1. Review uncovered lines in CameraPreview.tsx (lines 51-75, 91-108, 184-196)
-  2. Set up mocks for navigator.mediaDevices and HTMLVideoElement
-  3. Write device enumeration tests
-  4. Write camera lifecycle tests (start/stop)
-  5. Write frame capture tests
-  6. Run coverage report and confirm 80%+
+  1. Review uncovered lines in JobList.tsx (lines 36-42, 60-62, 109-130)
+  2. Write job rendering tests (status badges, errors, empty state)
+  3. Write job interaction tests (click, select, expand)
+  4. Run coverage report and confirm 80%+
 
 ---
 
@@ -75,12 +79,12 @@ By Component:
 | WU | Task | Status | Duration | Est. Coverage | Actual |
 |----|------|--------|----------|---|---|
 | 1 | Coverage Setup | ✅ DONE | 45 min | 77.14% | 77.14% |
-| 2 | CameraPreview tests | TODO | 2-3 hrs | 66% → 80% | - |
-| 3 | JobList tests | TODO | 2-3 hrs | 65% → 80% | - |
+| 2 | CameraPreview tests | ✅ DONE | 1 hr | 66% → 80% | 66.66% → 98.48% ✅ |
+| 3 | JobList tests | 📋 READY | 2-3 hrs | 65% → 80% | - |
 | 4 | App.tsx part 1 | TODO | 3-4 hrs | 47% → 60% | - |
 | 5 | App.tsx part 2 | TODO | 4-6 hrs | 60% → 80% | - |
 | 6 | Verification | TODO | 1 hr | 80%+ | - |
-| **TOTAL** | - | **1/6** | **13-18 hrs** | - | - |
+| **TOTAL** | - | **2/6** | **13-18 hrs** | - | **12-17 hrs remaining** |
 
 ---
 

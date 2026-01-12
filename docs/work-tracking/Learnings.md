@@ -60,11 +60,51 @@
 
 ## WU-2: CameraPreview.tsx Tests
 
-**Status**: Not started  
-**Est. Duration**: 2-3 hours  
-**Target**: 66.66% → 80% (+13.34%)
+**Completed**: 2026-01-12 20:35 UTC  
+**Duration**: 1 hour (faster than estimated 2-3 hours)  
+**Status**: ✅ Complete
+**Actual Result**: 66.66% → 98.48% (+31.82%) ✅ EXCEEDED TARGET
 
-*To be filled after WU-2 completion*
+### What Went Well
+- Well-designed component with clear separation of concerns made testing straightforward
+- Mock setup was efficient once srcObject property issue was resolved
+- Test organization by functional groups (device mgmt, lifecycle, capture, UI) worked well
+- All 23 tests passed on first try after mock fix
+- Coverage exceeded target by 18.48 percentage points
+- Component has good error handling which made error tests easy to write
+
+### Challenges & Solutions
+- **Issue**: Initial mock setup failed trying to redefine srcObject property
+  - **Solution**: Removed srcObject mock (property already exists on HTMLVideoElement)
+- **Issue**: Tests needed timeouts for async operations and intervals
+  - **Solution**: Used waitFor() with appropriate timeout values and act() wrapper
+- **Issue**: Frame capture tests needed canvas mocking
+  - **Solution**: Mocked getContext() and toDataURL() to return predictable values
+
+### Key Insights
+- Camera component code is well-structured with clear lifecycle management
+- Device enumeration and selection is well-handled with fallbacks
+- Frame capture logic is straightforward once canvas APIs are mocked
+- Error handling on device access is critical and well-tested now
+- useCallback dependencies ensure proper cleanup and re-triggering
+
+### Architecture Decisions
+- **Decision 1**: Grouped tests by functionality (device mgmt, lifecycle, capture, UI)
+- **Decision 2**: Created mock MediaStream with getTracks() method upfront
+- **Decision 3**: Kept styling tests separate from functional tests for clarity
+- **Decision 4**: Used beforeEach/afterEach for consistent mock setup/cleanup
+- **Decision 5**: Added timeouts to frame capture tests to handle intervals
+
+### Tips for Similar Work
+- Always check if properties already exist before trying to redefine them on prototypes
+- Use vi.fn() with mockResolvedValue() for async operations in setup
+- Group related tests by feature/functionality for better organization
+- Create reusable mocks in beforeEach for complex objects (MediaStream, etc.)
+- Use waitFor() with appropriate timeouts for async and interval-based functionality
+- Mock at the right level (navigator.mediaDevices, not individual functions)
+
+### Blockers Found
+- None - ready to proceed with WU-3 (JobList tests)
 
 ---
 
