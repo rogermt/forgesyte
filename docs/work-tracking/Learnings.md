@@ -127,6 +127,9 @@ None.
 - **Issue**: Initial E2E script used wrong health check URL (`/health` instead of `/v1/health`)
   - **Solution**: Corrected URL in script after observing 404s in logs.
   - **Result**: Health check passes and tests proceed.
+- **Issue**: Typo in CI workflow `cache-dependency-path` (`package-json` instead of `package.json`)
+  - **Solution**: Corrected filename in `.github/workflows/lint-and-test.yml`.
+  - **Result**: Node.js dependency caching works correctly.
 
 ### Key Insights
 
