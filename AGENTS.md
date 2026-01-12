@@ -288,14 +288,16 @@ git status  # Should show clean working directory
 
 ### Development Workflow & Mandatory Tools
 
-Before committing any code in `web-ui/`, the following tools must be run to ensure compliance:
+Before committing any code in `web-ui/`, the following tools must be run in order from the `web-ui/` directory:
 
-1. **Linting:** `npm run lint`
-2. **Type Checking:** `npm run type-check`
-3. **Testing:** `npm run test`
-4. **Integration Testing:** `npm run test:integration`
-5. **E2E Testing:** `./e2e.test.sh` (from root)
-6. **Build Verification:** `npm run build`
+1. **Linting:** `npm run lint` (catches unused vars, type issues)
+2. **Type Checking:** `npm run type-check` (tsc strict mode)
+3. **Testing:** `npm run test` (vitest with mocks)
+4. **Build Verification:** `npm run build` (vite production build)
+5. **Integration Testing:** `npm run test:integration` (real server tests)
+6. **E2E Testing:** `./e2e.test.sh` (from root, tests server+webui together)
+
+**CRITICAL**: All 6 must pass before committing. If you skip any step, you will commit code that breaks in CI.
 
 ### Code Style
 

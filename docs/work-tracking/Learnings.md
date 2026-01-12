@@ -397,4 +397,80 @@ None.
   - Estimated 6-8 more tests needed
   - Dependent on other components being fully mocked (JobList, ResultsPanel)
 
+---
+
+## WU-07: Fix Issue #17 - WebSocket Infinite Reconnection Loop
+
+**Completed**: 2026-01-12 18:42
+**Duration**: 2.5 hours
+**Status**: ✅ Complete
+
+### What Went Well
+
+- Identified root cause: `useWebSocket` effect dependency array included `connect` and `disconnect`
+- Comprehensive reverse-engineered WebSocket protocol specification created
+- Integration tests added to e2e script to catch WebSocket failures in CI
+- Error messages improved with diagnostic info (URL, port, troubleshooting)
+- Fixed dependency injection bug in FastAPI endpoint
+- All tests pass (server: 490, web-ui: 120, coverage: 81.85%)
+- All linting passes (black, ruff, mypy, eslint)
+- Browser now successfully connects to WebSocket endpoint
+- Status shows "Connected" (green) instead of "Max reconnection attempts"
+
+### Challenges & Solutions
+
+- **Issue**: Browser tried to connect to `localhost:3000/v1/stream` instead of `localhost:8000/v1/stream`
+  - **Root Cause**: Web UI component passed relative URL `/v1/stream` which gets prepended with current host (3000)
+  - **Solution**: Added `WS_BACKEND_URL` environment variable and passed full URL `ws://localhost:8000/v1/stream`
+  - **Prevention**: Update AGENTS.md to document environment variable requirements
+
+- **Issue**: Server generating many WebSocket connections then immediately dropping them
+  - **Root Cause**: `useWebSocket` effect dependency included `connect` and `disconnect` functions, which change on every render, triggering infinite disconnect/reconnect cycle
+  - **Solution**: Changed effect dependency from `[connect, disconnect]` to `[]` with eslint-disable comment
+  - **Rationale**: Connection should be established on mount only, not on function reference changes
+
+- **Issue**: FastAPI websocket_stream endpoint required a `request` parameter
+  - **Root Cause**: Dependency function `get_analysis_service(request)` had no type hint, so FastAPI treated it as a query parameter
+  - **Solution**: Changed signature to accept `websocket: WebSocket` instead (which IS automatically injected)
+  - **Lesson**: FastAPI dependency injection requires proper type hints
+
+- **Issue**: ESLint flagged unused variables and missing dependencies after fixes
+  - **Root Cause**: Code cleanup left unused mock variable; intentional empty dependency array triggered react-hooks/exhaustive-deps warning
+  - **Solution**: Removed unused `mockApiClient`, removed unused `user` variable, added eslint-disable comment with explanation
+  - **Learning**: Must run full `npm run lint` not just `npm run test` before committing
+
+### Key Insights
+
+- **Unit tests (mocked) won't catch real-world failures**: The 45 WebSocket manager tests all passed with 97% coverage, but never caught Issue #17 because they mocked the connection lifecycle
+- **Integration tests are essential**: Creating tests that actually connect to the endpoint revealed the infinite reconnection loop immediately
+- **e2e.test.sh was a false positive**: Original script only checked REST health endpoint, never verified WebSocket functionality
+- **Environment variable documentation is critical**: Without `VITE_WS_BACKEND_URL`, the Web UI defaults to wrong port on localhost
+- **Full CI/CD validation required**: Local `npm run test` + `npm run build` + `npm run lint` + `npm run type-check` must all pass; missing any step reveals different issues
+
+### Architecture Decisions
+
+- Added `WS_BACKEND_URL` environment variable (default: `ws://localhost:8000`)
+- Created comprehensive `WEBSOCKET_PROTOCOL_SPEC.md` documenting message types, payload schemas, and connection lifecycle
+- Updated e2e.test.sh to verify WebSocket endpoint exists via integration tests
+- Added logging to websocket_stream handler for debugging
+- Dependency injection fixed to use WebSocket instance instead of generic Request
+
+### Tips for Similar Work
+
+- When browser shows "Max reconnection attempts", first check:
+  1. Is server running on correct port?
+  2. Does browser Network tab show correct WebSocket URL?
+  3. Does server log show connection attempts?
+- Effects with function dependencies cause infinite loops - use empty `[]` if setup should happen once
+- Mock tests pass but real connections fail = your mocks are hiding the real problem
+- Always test e2e with REAL server+client, not mocked versions
+- ESLint must run along with tests before committing - different tools catch different issues
+- Document environment variables in README or AGENTS.md so developers know what to set
+
+### Blockers Found
+
+None - fully resolved.
+
+---
+
 
