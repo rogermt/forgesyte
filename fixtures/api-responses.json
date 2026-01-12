@@ -1,0 +1,133 @@
+{
+  "jobs_list": {
+    "jobs": [
+      {
+        "job_id": "550e8400-e29b-41d4-a716-446655440000",
+        "status": "done",
+        "plugin": "motion_detector",
+        "created_at": "2026-01-12T21:00:00Z",
+        "completed_at": "2026-01-12T21:00:30Z",
+        "result": {
+          "motion_detected": true,
+          "confidence": 0.95,
+          "regions": [
+            {
+              "x": 100,
+              "y": 150,
+              "width": 200,
+              "height": 150
+            }
+          ]
+        },
+        "error": null,
+        "progress": 100
+      },
+      {
+        "job_id": "550e8400-e29b-41d4-a716-446655440001",
+        "status": "running",
+        "plugin": "object_detection",
+        "created_at": "2026-01-12T21:30:00Z",
+        "completed_at": null,
+        "result": null,
+        "error": null,
+        "progress": 45
+      },
+      {
+        "job_id": "550e8400-e29b-41d4-a716-446655440002",
+        "status": "queued",
+        "plugin": "ocr_plugin",
+        "created_at": "2026-01-12T21:45:00Z",
+        "completed_at": null,
+        "result": null,
+        "error": null,
+        "progress": 0
+      },
+      {
+        "job_id": "550e8400-e29b-41d4-a716-446655440003",
+        "status": "error",
+        "plugin": "motion_detector",
+        "created_at": "2026-01-12T20:00:00Z",
+        "completed_at": "2026-01-12T20:05:00Z",
+        "result": null,
+        "error": "Failed to process image: invalid format",
+        "progress": null
+      }
+    ],
+    "count": 4
+  },
+  "job_single": {
+    "job_id": "550e8400-e29b-41d4-a716-446655440000",
+    "status": "done",
+    "plugin": "motion_detector",
+    "created_at": "2026-01-12T21:00:00Z",
+    "completed_at": "2026-01-12T21:00:30Z",
+    "result": {
+      "motion_detected": true,
+      "confidence": 0.95,
+      "regions": [
+        {
+          "x": 100,
+          "y": 150,
+          "width": 200,
+          "height": 150
+        }
+      ]
+    },
+    "error": null,
+    "progress": 100
+  },
+  "plugins_list": [
+    {
+      "name": "motion_detector",
+      "description": "Detects motion in video frames and returns coordinates",
+      "version": "1.0.0",
+      "inputs": ["image"],
+      "outputs": ["json"],
+      "permissions": ["read:images"],
+      "config_schema": {
+        "sensitivity": {
+          "type": "number",
+          "default": 0.5,
+          "description": "Motion detection sensitivity (0-1)"
+        }
+      }
+    },
+    {
+      "name": "object_detection",
+      "description": "Detects objects in images using YOLO",
+      "version": "2.1.0",
+      "inputs": ["image"],
+      "outputs": ["json"],
+      "permissions": ["read:images"],
+      "config_schema": {
+        "model": {
+          "type": "string",
+          "default": "yolov8",
+          "description": "YOLO model version"
+        }
+      }
+    }
+  ],
+  "frame_result": {
+    "frame_id": "frame-001",
+    "plugin": "motion_detector",
+    "result": {
+      "motion_detected": true,
+      "confidence": 0.87,
+      "regions": [
+        {
+          "x": 250,
+          "y": 100,
+          "width": 150,
+          "height": 200
+        }
+      ]
+    },
+    "processing_time_ms": 45
+  },
+  "health": {
+    "status": "ok",
+    "plugins_loaded": 2,
+    "version": "0.1.0"
+  }
+}
