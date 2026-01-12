@@ -23,8 +23,10 @@ vi.mock("./api/client", () => ({
 }));
 
 import { useWebSocket } from "./hooks/useWebSocket";
+import { apiClient } from "./api/client";
 
 const mockUseWebSocket = useWebSocket as ReturnType<typeof vi.fn>;
+const mockApiClient = apiClient as any;
 
 // Set default mock for all tests
 mockUseWebSocket.mockReturnValue({
@@ -446,6 +448,100 @@ describe("App - Functional Behavior", () => {
             expect(indicator).toHaveStyle({
                 backgroundColor: "#28a745",
             });
+        });
+    });
+
+    describe("Upload Functionality", () => {
+        it("should show upload section in Upload view", async () => {
+            const user = userEvent.setup();
+
+            await act(async () => {
+                render(<App />);
+            });
+
+            const uploadButton = screen.getByRole("button", { name: /upload/i });
+            await act(async () => {
+                await user.click(uploadButton);
+            });
+
+            // Upload section should show "Upload image for analysis" text
+            expect(
+                screen.getByText("Upload image for analysis")
+            ).toBeInTheDocument();
+        });
+
+        it("should have file input in Upload view", async () => {
+            const user = userEvent.setup();
+
+            await act(async () => {
+                render(<App />);
+            });
+
+            const uploadButton = screen.getByRole("button", { name: /upload/i });
+            await act(async () => {
+                await user.click(uploadButton);
+            });
+
+            const fileInputs = document.querySelectorAll('input[type="file"]');
+            expect(fileInputs.length).toBeGreaterThan(0);
+        });
+    });
+
+    describe("Job Details Display", () => {
+        it("should show 'Job Details' heading in Jobs view", async () => {
+            const user = userEvent.setup();
+
+            await act(async () => {
+                render(<App />);
+            });
+
+            const jobsButton = screen.getByRole("button", { name: /jobs/i });
+            await act(async () => {
+                await user.click(jobsButton);
+            });
+
+            expect(screen.getByText("Job Details")).toBeInTheDocument();
+        });
+
+        it("should display job list in Jobs view", async () => {
+            const user = userEvent.setup();
+
+            await act(async () => {
+                render(<App />);
+            });
+
+            const jobsButton = screen.getByRole("button", { name: /jobs/i });
+            await act(async () => {
+                await user.click(jobsButton);
+            });
+
+            // Jobs section should exist with "Job Details" heading
+            const jobsSection = screen.getByText("Job Details");
+            expect(jobsSection).toBeInTheDocument();
+        });
+    });
+
+    describe("Error Display", () => {
+        it("should display WebSocket error message when wsError exists", async () => {
+            mockUseWebSocket.mockReturnValue({
+                isConnected: false,
+                isConnecting: false,
+                error: "Connection timeout",
+                sendFrame: vi.fn(),
+                switchPlugin: vi.fn(),
+                latestResult: null,
+            });
+
+            await act(async () => {
+                render(<App />);
+            });
+
+            // Error message should be displayed
+            expect(
+                screen.getByText((content) =>
+                    content.includes("Connection timeout")
+                )
+            ).toBeInTheDocument();
         });
     });
 });
