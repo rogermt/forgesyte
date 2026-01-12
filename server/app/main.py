@@ -175,11 +175,11 @@ app.add_middleware(
 
 
 # Dependency injection for service layer
-def get_analysis_service(request) -> VisionAnalysisService:
+def get_analysis_service(websocket: WebSocket) -> VisionAnalysisService:
     """Get the analysis service from app state.
 
     Args:
-        request: FastAPI request object
+        websocket: FastAPI WebSocket instance
 
     Returns:
         VisionAnalysisService instance
@@ -187,7 +187,7 @@ def get_analysis_service(request) -> VisionAnalysisService:
     Raises:
         RuntimeError: If service not initialized
     """
-    service = getattr(request.app.state, "analysis_service", None)
+    service = getattr(websocket.app.state, "analysis_service", None)
     if not service:
         logger.error("VisionAnalysisService not initialized")
         raise RuntimeError("Analysis service not available")
@@ -249,19 +249,29 @@ async def websocket_stream(
 
     try:
         # Send initial connection confirmation
-        await ws_manager.send_personal(
-            client_id,
-            {
-                "type": "connected",
-                "payload": {
-                    "client_id": client_id,
-                    "plugin": plugin,
-                },
+        connection_msg = {
+            "type": "connected",
+            "payload": {
+                "client_id": client_id,
+                "plugin": plugin,
             },
+        }
+        await ws_manager.send_personal(client_id, connection_msg)
+        logger.info(
+            "websocket_connection_confirmed",
+            extra={"client_id": client_id, "plugin": plugin},
         )
 
         while True:
+            logger.debug(
+                "websocket_waiting_for_message",
+                extra={"client_id": client_id},
+            )
             data = await websocket.receive_json()
+            logger.debug(
+                "websocket_message_received",
+                extra={"client_id": client_id, "message_type": data.get("type")},
+            )
 
             if data.get("type") == "frame":
                 # Delegate frame processing to service layer

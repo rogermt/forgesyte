@@ -178,8 +178,8 @@ export function useWebSocket(
         };
 
         ws.onerror = (event) => {
-            const errorMsg = "WebSocket connection error";
-            console.error(`[WebSocket] Error:`, event);
+            const errorMsg = `WebSocket connection error. Unable to connect to ${wsUrl}. Check if backend server is running on port 8000.`;
+            console.error(`[WebSocket] Error connecting to ${wsUrl}:`, event);
             setError(errorMsg);
         };
 
@@ -206,7 +206,7 @@ export function useWebSocket(
             } else if (
                 reconnectAttemptsRef.current >= maxReconnectAttempts
             ) {
-                const maxAttemptMsg = "Max reconnection attempts reached";
+                const maxAttemptMsg = `Max reconnection attempts reached (${maxReconnectAttempts}). Unable to connect to ${url}. Ensure backend server is running on port 8000.`;
                 console.error(`[WebSocket] ${maxAttemptMsg}`);
                 setError(maxAttemptMsg);
             } else if (wasClean) {
@@ -269,7 +269,7 @@ export function useWebSocket(
         return () => {
             disconnect();
         };
-    }, [connect, disconnect]);
+    }, []); // Empty dependency array - connect on mount only
 
     return {
         isConnected,
