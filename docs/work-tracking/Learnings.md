@@ -110,11 +110,48 @@
 
 ## WU-3: JobList.tsx Tests
 
-**Status**: Not started  
-**Est. Duration**: 2-3 hours  
-**Target**: 65.90% → 80% (+14.1%)
+**Completed**: 2026-01-12 20:53 UTC  
+**Duration**: 1 hour (faster than estimated 2-3 hours)  
+**Status**: ✅ Complete
+**Actual Result**: 65.90% → 100% (+34.1%) ✅ EXCEEDED TARGET
 
-*To be filled after WU-3 completion*
+### What Went Well
+- Added 11 new tests covering all uncovered code paths
+- Tests organized into clear sections (loading, error, empty, display, status, interactions, styling)
+- All tests passed on first try after fixing linting error
+- Status color rendering tested for all variants (done, error, processing, pending, unknown)
+- Hover/mouse interaction tests capture dynamic style changes
+- Error handling tested for both Error objects and non-Error rejections
+
+### Challenges & Solutions
+- **Issue**: Linting error from WU-2 (unused variable in CameraPreview.test.tsx) not caught locally
+  - **Solution**: Ran full `npm run lint` and fixed the unused `container` variable from abandoned `act()` wrapper
+- **Issue**: Didn't catch linting error until after merging WU-2
+  - **Solution**: Now running complete 6-step validation before any merge (lint, type-check, test, build, integration, e2e)
+
+### Key Insights
+- JobList has good separation of concerns with helper functions (getStatusColor, getStatusBackground)
+- Test coverage benefited from testing all status variants and edge cases
+- Mouse event handlers required fireEvent() to trigger style changes
+- Complete coverage achieved by testing error paths, empty state, and all interactive behaviors
+
+### Architecture Decisions
+- **Decision 1**: Separated status color tests into dedicated describe block for clarity
+- **Decision 2**: Grouped job interactions tests together (click, hover/out)
+- **Decision 3**: Tested both generic and specific error messages
+- **Decision 4**: Added spacing/styling tests to catch CSS regressions
+- **Decision 5**: Used mockResolvedValue/mockRejectedValue for API mocking
+
+### Tips for Similar Work
+- Always run ALL 6 mandatory validation steps before committing (AGENTS.md requirement)
+- Test all switch/case branches in color/styling functions
+- Use fireEvent for mouse interactions (mouseOver, mouseOut)
+- Test non-Error rejections since error handling may accept any value
+- Hover effects on interactive elements should be explicitly tested
+- Group related tests by functionality rather than alphabetically
+
+### Blockers Found
+- None - ready to proceed with WU-4 (App.tsx tests Part 1)
 
 ---
 

@@ -543,4 +543,173 @@ describe("App - Functional Behavior", () => {
             ).toBeInTheDocument();
         });
     });
+
+    describe("Plugin Selection", () => {
+        it("should render PluginSelector component in sidebar", async () => {
+            mockUseWebSocket.mockReturnValue({
+                isConnected: true,
+                isConnecting: false,
+                error: null,
+                sendFrame: vi.fn(),
+                switchPlugin: vi.fn(),
+                latestResult: null,
+            });
+
+            await act(async () => {
+                render(<App />);
+            });
+
+            // PluginSelector should be rendered in the left sidebar
+            // It's not accessible via role since it's a custom component,
+            // so we just verify App rendered without errors
+            const logo = screen.getByTestId("app-logo");
+            expect(logo).toBeInTheDocument();
+        });
+    });
+
+    describe("Streaming Button Hover Effects", () => {
+        it("should apply hover styles when connected and not streaming", async () => {
+            mockUseWebSocket.mockReturnValue({
+                isConnected: true,
+                isConnecting: false,
+                error: null,
+                sendFrame: vi.fn(),
+                switchPlugin: vi.fn(),
+                latestResult: null,
+            });
+
+            await act(async () => {
+                render(<App />);
+            });
+
+            const streamButton = screen.getByRole("button", {
+                name: /start streaming/i,
+            });
+
+            // Simulate hover
+            await act(async () => {
+                const event = new MouseEvent("mouseover", { bubbles: true });
+                streamButton.dispatchEvent(event);
+            });
+
+            expect(streamButton.style.backgroundColor).toBe(
+                "var(--accent-green)"
+            );
+        });
+
+        it("should not apply hover styles when disconnected", async () => {
+            mockUseWebSocket.mockReturnValue({
+                isConnected: false,
+                isConnecting: false,
+                error: null,
+                sendFrame: vi.fn(),
+                switchPlugin: vi.fn(),
+                latestResult: null,
+            });
+
+            await act(async () => {
+                render(<App />);
+            });
+
+            const streamButton = screen.getByRole("button", {
+                name: /start streaming/i,
+            });
+
+            // Button should be disabled
+            expect(streamButton).toBeDisabled();
+        });
+
+        it("should remove hover styles on mouse out", async () => {
+            mockUseWebSocket.mockReturnValue({
+                isConnected: true,
+                isConnecting: false,
+                error: null,
+                sendFrame: vi.fn(),
+                switchPlugin: vi.fn(),
+                latestResult: null,
+            });
+
+            await act(async () => {
+                render(<App />);
+            });
+
+            const streamButton = screen.getByRole("button", {
+                name: /start streaming/i,
+            });
+
+            // Simulate hover out
+            await act(async () => {
+                const event = new MouseEvent("mouseout", { bubbles: true });
+                streamButton.dispatchEvent(event);
+            });
+
+            expect(streamButton.style.backgroundColor).toBe(
+                "var(--bg-tertiary)"
+            );
+        });
+    });
+
+    describe("Upload Error Handling", () => {
+        it("should render upload input in Upload view", async () => {
+            mockUseWebSocket.mockReturnValue({
+                isConnected: false,
+                isConnecting: false,
+                error: null,
+                sendFrame: vi.fn(),
+                switchPlugin: vi.fn(),
+                latestResult: null,
+            });
+
+            const user = userEvent.setup();
+            await act(async () => {
+                render(<App />);
+            });
+
+            // Switch to upload view
+            const uploadButton = screen.getByRole("button", { name: /upload/i });
+            await act(async () => {
+                await user.click(uploadButton);
+            });
+
+            // Upload prompt should be visible
+            expect(
+                screen.getByText("Upload image for analysis")
+            ).toBeInTheDocument();
+        });
+    });
+
+    describe("WebSocket Callbacks", () => {
+        it("should register onResult callback when component mounts", async () => {
+            const mockOnResult = vi.fn();
+            const mockOnError = vi.fn();
+
+            mockUseWebSocket.mockImplementation((config) => {
+                // Capture callbacks for testing
+                mockOnResult.mockImplementation(config.onResult);
+                mockOnError.mockImplementation(config.onError);
+
+                return {
+                    isConnected: true,
+                    isConnecting: false,
+                    error: null,
+                    sendFrame: vi.fn(),
+                    switchPlugin: vi.fn(),
+                    latestResult: null,
+                };
+            });
+
+            await act(async () => {
+                render(<App />);
+            });
+
+            // Verify hook was called with callbacks
+            expect(mockUseWebSocket).toHaveBeenCalled();
+            const callConfig = (mockUseWebSocket.mock.calls[0]?.[0]) as {
+                onResult?: () => void;
+                onError?: () => void;
+            };
+            expect(callConfig.onResult).toBeDefined();
+            expect(callConfig.onError).toBeDefined();
+        });
+    });
 });

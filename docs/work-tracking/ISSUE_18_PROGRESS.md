@@ -28,14 +28,16 @@
 
 ---
 
-## Current Work Unit: WU-2
+## Current Work Unit: WU-4 (App.tsx Tests Part 1)
 - **Status**: Ready to start
-- **Previous (WU-1)**: ✅ COMPLETE - Coverage baseline captured
-- **Baseline Overall**: 77.14% (below 80% target)
+- **Completed**:
+  - ✅ WU-1: Coverage baseline captured
+  - ✅ WU-2: CameraPreview tests (66.66% → 98.48%)
+  - ✅ WU-3: JobList tests (65.90% → 100%)
+- **Current Overall**: 88.57% (approaching 80% target)
 - **Next Steps**: 
-  1. Start with CameraPreview.tsx tests (66.66% → 80%)
-  2. Then JobList.tsx tests (65.90% → 80%)
-  3. Finally App.tsx tests (47.50% → 80%)
+  1. App.tsx tests Part 1 - Header & Navigation (47.50% → 60%)
+  2. App.tsx tests Part 2 - Integration (60% → 80%)
 
 ---
 
