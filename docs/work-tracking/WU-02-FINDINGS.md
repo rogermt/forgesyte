@@ -65,23 +65,51 @@
 
 ---
 
-## Next Steps
+## Vite Configuration Verified
+✅ **vite.config.ts** (lines 17-23):
+```javascript
+server: {
+    port: 3000,
+    proxy: {
+        "/v1": {
+            target: "http://localhost:8000",
+            changeOrigin: true,
+            ws: true,
+        },
+    },
+},
+```
 
-1. Check vite.config.ts for API proxy configuration
-2. Review WebUI startup logs for errors
-3. Start server and WebUI, test real request
-4. Check browser console for network errors
-5. Check server logs for actual 500 error details
+**Verdict**: Proxy correctly configured
+- /v1 requests forwarded to localhost:8000
+- changeOrigin=true handles cross-origin correctly  
+- ws=true enables WebSocket proxying
 
 ---
 
-## Investigation Checklist
+## Conclusion So Far
 
-- [ ] Examine vite.config.ts proxy settings
-- [ ] Start server on port 8000
-- [ ] Start WebUI dev server on port 5173 (typical Vite default)
-- [ ] Test `/v1/plugins` call from WebUI
-- [ ] Check browser network tab for actual response
-- [ ] Check server logs for error details
-- [ ] Verify plugins load correctly
-- [ ] Document actual error message
+### What We Know
+1. ✅ Response formats are correct (WU-01 verified)
+2. ✅ CORS is configured
+3. ✅ Error handling is in place
+4. ✅ Vite dev server proxy is configured
+5. ✅ Services are initialized on startup
+
+### What's Unclear
+- Is there an actual 500 error, or was it hypothetical?
+- If yes, what's the exact error message?
+- Are there specific conditions that trigger it?
+
+---
+
+## Next: Verify With Real Test
+
+To determine if there's an actual issue:
+1. Start real server: `cd server && uv run uvicorn app.main:app --reload`
+2. Start WebUI dev: `cd web-ui && npm run dev`
+3. Open browser, try to load plugins
+4. Check browser console and server logs
+5. Document actual error (if any)
+
+OR: If no actual 500 errors occur, close the issue as "NOT REPRODUCIBLE"
