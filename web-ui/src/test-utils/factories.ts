@@ -29,9 +29,9 @@ export function createMockJob(overrides?: Partial<Job>): Job {
         status: "queued",
         plugin: "motion_detector",
         created_at: "2026-01-12T21:00:00Z",
-        completed_at: null,
-        result: null,
-        error: null,
+        completed_at: undefined,
+        result: undefined,
+        error: undefined,
         progress: 0,
     };
 
