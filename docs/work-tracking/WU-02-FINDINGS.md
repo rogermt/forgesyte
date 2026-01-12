@@ -87,29 +87,42 @@ server: {
 
 ---
 
-## Conclusion So Far
+## CRITICAL: Error IS Reproducible
 
-### What We Know
-1. ✅ Response formats are correct (WU-01 verified)
-2. ✅ CORS is configured
-3. ✅ Error handling is in place
-4. ✅ Vite dev server proxy is configured
-5. ✅ Services are initialized on startup
-
-### What's Unclear
-- Is there an actual 500 error, or was it hypothetical?
-- If yes, what's the exact error message?
-- Are there specific conditions that trigger it?
+**Error Confirmed**: Yes, 500 error occurs on WebUI startup
+**When**: On page load when fetching plugins list
+**Error Message**: "API error: 500 Internal Server Error"
+**Impact**: Plugin list doesn't load, breaks entire WebUI functionality
 
 ---
 
-## Next: Verify With Real Test
+## Root Cause: Plugin Loading on Startup
 
-To determine if there's an actual issue:
-1. Start real server: `cd server && uv run uvicorn app.main:app --reload`
-2. Start WebUI dev: `cd web-ui && npm run dev`
-3. Open browser, try to load plugins
-4. Check browser console and server logs
-5. Document actual error (if any)
+The 500 error happens when:
+1. WebUI starts
+2. Makes GET /v1/plugins request
+3. Server returns 500 Internal Server Error
 
-OR: If no actual 500 errors occur, close the issue as "NOT REPRODUCIBLE"
+**Investigation Points**:
+- Check plugin loading code in main.py (lines 63-84)
+- Verify plugins_dir path is correct: `../example_plugins`
+- Check if relative path resolves correctly when running server
+- Check plugin manager error handling
+- Look for any exceptions during plugin discovery
+
+**Likely Issues**:
+1. Relative path `../example_plugins` might be wrong depending on where server is started
+2. Plugin loading might fail silently and cause 500 in handler
+3. PluginManager exception not caught properly
+4. Plugins directory doesn't exist or isn't readable
+
+---
+
+## Updated Investigation Plan
+
+**IMMEDIATE ACTIONS**:
+1. Check server logs for actual plugin loading error
+2. Verify plugins_dir path from working directory
+3. Check PluginManager.load_plugins() exception handling
+4. Fix plugin loading to properly initialize
+5. Test WebUI plugin load after fix
