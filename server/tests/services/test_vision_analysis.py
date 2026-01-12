@@ -73,10 +73,32 @@ class TestVisionAnalysisService:
         assert "not found" in args[1]["message"]
 
     @pytest.mark.asyncio
+    async def test_handle_frame_with_image_data_field(
+        self, service, mock_registry, mock_ws_manager
+    ):
+        """Test frame handling with 'image_data' field (Issue #21)."""
+        mock_plugin = Mock()
+        mock_plugin.analyze.return_value = {"objects": []}
+        mock_registry.get.return_value = mock_plugin
+
+        # Client sends 'image_data' field, not 'data'
+        frame_data = {
+            "image_data": base64.b64encode(b"image").decode("utf-8"),
+            "frame_id": "frame1",
+            "options": {},
+        }
+
+        await service.handle_frame("client1", "plugin1", frame_data)
+
+        # Should succeed with image_data field
+        mock_plugin.analyze.assert_called_once()
+        mock_ws_manager.send_frame_result.assert_called_once()
+
+    @pytest.mark.asyncio
     async def test_handle_frame_invalid_data(
         self, service, mock_registry, mock_ws_manager
     ):
-        """Test handling invalid frame data (missing 'data')."""
+        """Test handling invalid frame data (missing both 'data' and 'image_data')."""
         mock_plugin = Mock()
         mock_registry.get.return_value = mock_plugin
 

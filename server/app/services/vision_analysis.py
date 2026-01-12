@@ -91,10 +91,14 @@ class VisionAnalysisService:
 
         try:
             # Decode base64 image data
-            if "data" not in data:
-                raise ValueError("Frame data missing 'data' field")
+            # Accept both 'image_data' (client) and 'data' (legacy) field names
+            image_data = data.get("image_data") or data.get("data")
+            if not image_data:
+                raise ValueError(
+                    "Frame data missing required field: 'image_data' or 'data'"
+                )
 
-            image_bytes = base64.b64decode(data["data"])
+            image_bytes = base64.b64decode(image_data)
             logger.debug(
                 "Frame decoded",
                 extra={"client_id": client_id, "size_bytes": len(image_bytes)},
