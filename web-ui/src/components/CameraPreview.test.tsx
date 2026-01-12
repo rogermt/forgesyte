@@ -90,9 +90,7 @@ describe("CameraPreview - Device Management", () => {
             },
         ]);
 
-        await act(async () => {
-            render(<CameraPreview enabled={false} />);
-        });
+        render(<CameraPreview enabled={false} />);
 
         // Wait for device enumeration and selection
         await waitFor(() => {
