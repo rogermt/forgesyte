@@ -130,6 +130,9 @@ None.
 - **Issue**: Typo in CI workflow `cache-dependency-path` (`package-json` instead of `package.json`)
   - **Solution**: Corrected filename in `.github/workflows/lint-and-test.yml`.
   - **Result**: Node.js dependency caching works correctly.
+- **Issue**: ESLint missing from `web-ui` dependencies and configuration missing
+  - **Solution**: Added `eslint` and plugins to `package.json`, removed accidental deps (`audit`, `fix`, `npm`), and created `.eslintrc.cjs`.
+  - **Result**: Linting command works.
 
 ### Key Insights
 
