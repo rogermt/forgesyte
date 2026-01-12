@@ -713,6 +713,20 @@ git status  # Should show clean working directory
   3. No re-explanation needed
   4. Build on previously documented learnings
 
+## Coverage and CI Notes
+
+### Codecov Rate Limiting
+
+**Status**: Codecov upload is **disabled** in CI workflow to avoid rate limit issues.
+
+- **Why Disabled**: `codecov/codecov-action@v3` was consuming rate limits (commit e89a0d2)
+- **Current Solution**: Coverage runs locally with 80% threshold enforcement, but uploads to codecov are skipped
+- **What Still Works**: 
+  - Server: `uv run coverage report --fail-under=80` enforces threshold locally
+  - WebUI: `npm run test:coverage` generates local coverage reports (71.97% baseline)
+- **When to Re-enable**: If switching to different coverage service or rate limits are resolved
+- **How to Re-enable**: Add back `--cov-report=xml` and `codecov/codecov-action@v3` step to `.github/workflows/lint-and-test.yml`
+
 ## Quick Reference
 
 | Command | Purpose |
