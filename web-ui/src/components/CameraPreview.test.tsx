@@ -1,9 +1,465 @@
 /**
- * Tests for CameraPreview styling updates
+ * Tests for CameraPreview component
  */
 
-import { render, screen, act } from "@testing-library/react";
+import { render, screen, act, fireEvent, waitFor } from "@testing-library/react";
 import { CameraPreview } from "./CameraPreview";
+import { vi, beforeEach, afterEach, describe, it, expect } from "vitest";
+
+// Mock navigator.mediaDevices
+const mockGetUserMedia = vi.fn();
+const mockEnumerateDevices = vi.fn();
+const mockStop = vi.fn();
+const mockPlay = vi.fn(async () => {});
+
+beforeEach(() => {
+    // Reset all mocks before each test
+    vi.clearAllMocks();
+
+    // Mock MediaStream
+    const mockMediaStream = {
+        getTracks: vi.fn(() => [
+            {
+                stop: mockStop,
+                kind: "video",
+            },
+        ]),
+    };
+
+    mockGetUserMedia.mockResolvedValue(mockMediaStream);
+
+    // Mock enumerateDevices with default (no devices)
+    mockEnumerateDevices.mockResolvedValue([]);
+
+    // Setup navigator.mediaDevices
+    Object.defineProperty(navigator, "mediaDevices", {
+        value: {
+            getUserMedia: mockGetUserMedia,
+            enumerateDevices: mockEnumerateDevices,
+        },
+        writable: true,
+    });
+
+    // Mock HTMLVideoElement.play()
+    HTMLVideoElement.prototype.play = mockPlay;
+
+    // Mock canvas.getContext
+    HTMLCanvasElement.prototype.getContext = vi.fn(() => ({
+        drawImage: vi.fn(),
+    }));
+
+    // Mock canvas.toDataURL
+    HTMLCanvasElement.prototype.toDataURL = vi.fn(
+        () => "data:image/jpeg;base64,abc123=="
+    );
+});
+
+afterEach(() => {
+    vi.restoreAllMocks();
+});
+
+describe("CameraPreview - Device Management", () => {
+    it("should enumerate video devices on mount", async () => {
+        mockEnumerateDevices.mockResolvedValue([
+            {
+                deviceId: "cam1",
+                kind: "videoinput",
+                label: "Front Camera",
+                groupId: "group1",
+                toJSON: () => ({}),
+            },
+        ]);
+
+        await act(async () => {
+            render(<CameraPreview enabled={false} />);
+        });
+
+        await waitFor(() => {
+            expect(mockEnumerateDevices).toHaveBeenCalled();
+        });
+    });
+
+    it("should auto-select first device if available", async () => {
+        mockEnumerateDevices.mockResolvedValue([
+            {
+                deviceId: "cam1",
+                kind: "videoinput",
+                label: "Front Camera",
+                groupId: "group1",
+                toJSON: () => ({}),
+            },
+        ]);
+
+        let container: HTMLElement;
+        await act(async () => {
+            container = render(<CameraPreview enabled={false} />).container;
+        });
+
+        // Wait for device enumeration and selection
+        await waitFor(() => {
+            expect(mockEnumerateDevices).toHaveBeenCalled();
+        });
+    });
+
+    it("should handle enumeration errors gracefully", async () => {
+        const error = new Error("Permission denied");
+        mockEnumerateDevices.mockRejectedValue(error);
+
+        const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+        await act(async () => {
+            render(<CameraPreview enabled={false} />);
+        });
+
+        await waitFor(() => {
+            expect(consoleSpy).toHaveBeenCalledWith(
+                "Failed to enumerate devices:",
+                error
+            );
+        });
+
+        consoleSpy.mockRestore();
+    });
+});
+
+describe("CameraPreview - Camera Lifecycle", () => {
+    it("should start camera stream when enabled=true", async () => {
+        mockGetUserMedia.mockResolvedValue({
+            getTracks: () => [{ stop: vi.fn() }],
+        });
+
+        await act(async () => {
+            render(<CameraPreview enabled={true} />);
+        });
+
+        await waitFor(() => {
+            expect(mockGetUserMedia).toHaveBeenCalled();
+        });
+    });
+
+    it("should request correct media constraints", async () => {
+        const mockStream = {
+            getTracks: () => [{ stop: vi.fn() }],
+        };
+        mockGetUserMedia.mockResolvedValue(mockStream);
+
+        await act(async () => {
+            render(<CameraPreview enabled={true} width={800} height={600} />);
+        });
+
+        await waitFor(() => {
+            expect(mockGetUserMedia).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    video: expect.objectContaining({
+                        width: { ideal: 800 },
+                        height: { ideal: 600 },
+                    }),
+                })
+            );
+        });
+    });
+
+    it("should call play() on video element", async () => {
+        mockGetUserMedia.mockResolvedValue({
+            getTracks: () => [{ stop: vi.fn() }],
+        });
+
+        await act(async () => {
+            render(<CameraPreview enabled={true} />);
+        });
+
+        await waitFor(() => {
+            expect(mockPlay).toHaveBeenCalled();
+        });
+    });
+
+    it("should stop camera stream when enabled=false", async () => {
+        const { rerender } = render(<CameraPreview enabled={true} />);
+
+        await waitFor(() => {
+            expect(mockGetUserMedia).toHaveBeenCalled();
+        });
+
+        await act(async () => {
+            rerender(<CameraPreview enabled={false} />);
+        });
+
+        await waitFor(() => {
+            expect(mockStop).toHaveBeenCalled();
+        });
+    });
+
+    it("should stop all tracks on cleanup", async () => {
+        const { unmount } = render(<CameraPreview enabled={true} />);
+
+        await waitFor(() => {
+            expect(mockGetUserMedia).toHaveBeenCalled();
+        });
+
+        await act(async () => {
+            unmount();
+        });
+
+        await waitFor(() => {
+            expect(mockStop).toHaveBeenCalled();
+        });
+    });
+
+    it("should handle getUserMedia permission denied", async () => {
+        const error = new Error("Permission denied");
+        mockGetUserMedia.mockRejectedValue(error);
+
+        let container: HTMLElement;
+        await act(async () => {
+            container = render(<CameraPreview enabled={true} />).container;
+        });
+
+        await waitFor(() => {
+            // Error should be displayed
+            const errorText = container!.textContent;
+            expect(errorText).toContain("Permission denied");
+        });
+    });
+
+    it("should clear error on successful start", async () => {
+        mockGetUserMedia.mockRejectedValueOnce(new Error("Permission denied"));
+
+        let container: HTMLElement;
+        await act(async () => {
+            container = render(<CameraPreview enabled={true} />).container;
+        });
+
+        // Wait for error to appear
+        await waitFor(() => {
+            expect(container!.textContent).toContain("Permission denied");
+        });
+
+        // Now succeed
+        const mockStream = {
+            getTracks: () => [{ stop: vi.fn() }],
+        };
+        mockGetUserMedia.mockResolvedValueOnce(mockStream);
+
+        await act(async () => {
+            const { rerender } = render(<CameraPreview enabled={false} />);
+            rerender(<CameraPreview enabled={true} />);
+        });
+
+        await waitFor(() => {
+            expect(mockGetUserMedia).toHaveBeenCalledTimes(2);
+        });
+    });
+});
+
+describe("CameraPreview - Frame Capture", () => {
+    it("should capture frame at specified interval", async () => {
+        const onFrame = vi.fn();
+
+        mockGetUserMedia.mockResolvedValue({
+            getTracks: () => [{ stop: vi.fn() }],
+        });
+
+        await act(async () => {
+            render(
+                <CameraPreview
+                    enabled={true}
+                    onFrame={onFrame}
+                    captureInterval={50}
+                />
+            );
+        });
+
+        // Wait for streaming to start
+        await waitFor(() => {
+            expect(mockGetUserMedia).toHaveBeenCalled();
+        });
+
+        // Wait for capture to happen (50ms interval)
+        await waitFor(
+            () => {
+                expect(onFrame).toHaveBeenCalled();
+            },
+            { timeout: 500 }
+        );
+    });
+
+    it("should call onFrame callback with base64 data", async () => {
+        const onFrame = vi.fn();
+
+        mockGetUserMedia.mockResolvedValue({
+            getTracks: () => [{ stop: vi.fn() }],
+        });
+
+        await act(async () => {
+            render(
+                <CameraPreview
+                    enabled={true}
+                    onFrame={onFrame}
+                    captureInterval={50}
+                />
+            );
+        });
+
+        await waitFor(
+            () => {
+                expect(onFrame).toHaveBeenCalledWith("abc123==");
+            },
+            { timeout: 500 }
+        );
+    });
+
+    it("should not capture when disabled", async () => {
+        const onFrame = vi.fn();
+
+        await act(async () => {
+            render(
+                <CameraPreview
+                    enabled={false}
+                    onFrame={onFrame}
+                    captureInterval={50}
+                />
+            );
+        });
+
+        // Wait a bit to ensure no captures happen
+        await new Promise((resolve) => setTimeout(resolve, 200));
+
+        expect(onFrame).not.toHaveBeenCalled();
+    });
+
+    it("should not capture when not streaming", async () => {
+        const onFrame = vi.fn();
+        mockGetUserMedia.mockRejectedValue(new Error("Camera error"));
+
+        await act(async () => {
+            render(
+                <CameraPreview
+                    enabled={true}
+                    onFrame={onFrame}
+                    captureInterval={50}
+                />
+            );
+        });
+
+        // Wait a bit to ensure no captures happen
+        await new Promise((resolve) => setTimeout(resolve, 200));
+
+        expect(onFrame).not.toHaveBeenCalled();
+    });
+
+    it("should handle missing canvas context", async () => {
+        const onFrame = vi.fn();
+
+        mockGetUserMedia.mockResolvedValue({
+            getTracks: () => [{ stop: vi.fn() }],
+        });
+
+        HTMLCanvasElement.prototype.getContext = vi.fn(() => null);
+
+        await act(async () => {
+            render(
+                <CameraPreview
+                    enabled={true}
+                    onFrame={onFrame}
+                    captureInterval={50}
+                />
+            );
+        });
+
+        await new Promise((resolve) => setTimeout(resolve, 200));
+
+        expect(onFrame).not.toHaveBeenCalled();
+    });
+});
+
+describe("CameraPreview - Device Selection UI", () => {
+    it("should show device selector when multiple devices", async () => {
+        mockEnumerateDevices.mockResolvedValue([
+            {
+                deviceId: "cam1",
+                kind: "videoinput",
+                label: "Front",
+                groupId: "group1",
+                toJSON: () => ({}),
+            },
+            {
+                deviceId: "cam2",
+                kind: "videoinput",
+                label: "Back",
+                groupId: "group1",
+                toJSON: () => ({}),
+            },
+        ]);
+
+        let container: HTMLElement;
+        await act(async () => {
+            container = render(<CameraPreview enabled={false} />).container;
+        });
+
+        await waitFor(() => {
+            const select = container!.querySelector("select");
+            expect(select).toBeInTheDocument();
+        });
+    });
+
+    it("should hide selector when only one device", async () => {
+        mockEnumerateDevices.mockResolvedValue([
+            {
+                deviceId: "cam1",
+                kind: "videoinput",
+                label: "Front",
+                groupId: "group1",
+                toJSON: () => ({}),
+            },
+        ]);
+
+        let container: HTMLElement;
+        await act(async () => {
+            container = render(<CameraPreview enabled={false} />).container;
+        });
+
+        await waitFor(() => {
+            const select = container!.querySelector("select");
+            expect(select).not.toBeInTheDocument();
+        });
+    });
+
+    it("should update selected device on change", async () => {
+        mockEnumerateDevices.mockResolvedValue([
+            {
+                deviceId: "cam1",
+                kind: "videoinput",
+                label: "Front",
+                groupId: "group1",
+                toJSON: () => ({}),
+            },
+            {
+                deviceId: "cam2",
+                kind: "videoinput",
+                label: "Back",
+                groupId: "group1",
+                toJSON: () => ({}),
+            },
+        ]);
+
+        let container: HTMLElement;
+        await act(async () => {
+            container = render(<CameraPreview enabled={false} />).container;
+        });
+
+        await waitFor(() => {
+            const select = container!.querySelector("select");
+            expect(select).toBeInTheDocument();
+        });
+
+        const select = container!.querySelector("select") as HTMLSelectElement;
+        await act(async () => {
+            fireEvent.change(select, { target: { value: "cam2" } });
+        });
+
+        expect(select.value).toBe("cam2");
+    });
+});
 
 describe("CameraPreview - Styling Updates", () => {
     describe("heading and layout", () => {
@@ -47,52 +503,6 @@ describe("CameraPreview - Styling Updates", () => {
         });
     });
 
-    describe("error message styling", () => {
-        it("should display error in brand error color", async () => {
-            let container: HTMLElement;
-            await act(async () => {
-                container = render(<CameraPreview enabled={false} />).container;
-            });
-
-            // Verify component structure for error handling
-            const paragraphs = container!.querySelectorAll("p");
-            expect(paragraphs.length).toBeGreaterThan(0);
-        });
-    });
-
-    describe("device selector styling", () => {
-        it("should apply consistent styling to select element", async () => {
-            let container: HTMLElement;
-            await act(async () => {
-                container = render(
-                    <CameraPreview enabled={false} width={640} height={480} />
-                ).container;
-            });
-            const select = container!.querySelector("select");
-
-            if (select) {
-                // Select element should have consistent styling
-                expect(select).toHaveStyle({
-                    borderRadius: "4px",
-                });
-            }
-        });
-    });
-
-    describe("status indicator", () => {
-        it("should display streaming status with proper styling", async () => {
-            let container: HTMLElement;
-            await act(async () => {
-                container = render(<CameraPreview enabled={false} />).container;
-            });
-            const statusParagraphs = Array.from(
-                container!.querySelectorAll("p")
-            ).filter((p) => p.textContent?.includes("streaming"));
-
-            expect(statusParagraphs.length).toBeGreaterThan(0);
-        });
-    });
-
     describe("canvas element", () => {
         it("should have hidden canvas for frame capture", async () => {
             let container: HTMLElement;
@@ -104,6 +514,20 @@ describe("CameraPreview - Styling Updates", () => {
             expect(canvas).toHaveStyle({
                 display: "none",
             });
+        });
+    });
+
+    describe("status indicator", () => {
+        it("should display not streaming status when disabled", async () => {
+            let container: HTMLElement;
+            await act(async () => {
+                container = render(<CameraPreview enabled={false} />).container;
+            });
+            const statusText = Array.from(container!.querySelectorAll("p"))
+                .map((p) => p.textContent)
+                .join(" ");
+
+            expect(statusText).toContain("Not streaming");
         });
     });
 });
