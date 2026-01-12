@@ -48,3 +48,37 @@
 None - all tests pass, indicating server response formats are correct.
 
 ---
+
+## WU-02: Root Cause Investigation (In Progress)
+
+**Started**: 2026-01-12 11:30  
+**Duration**: TBD  
+**Status**: 🟡 Investigating  
+
+### Key Findings
+
+**Configuration Verified**:
+- ✅ CORS middleware properly configured (allow all origins/methods/headers)
+- ✅ Error handling in place (specific HTTPExceptions for different scenarios)
+- ✅ Vite dev server proxy configured to forward /v1 → localhost:8000
+- ✅ Services properly initialized during startup
+- ✅ Authentication dependency injection in place
+
+**What WU-01 Established**:
+- Server response formats match client expectations perfectly
+- 500 errors NOT caused by response format mismatches
+- Root cause must be elsewhere (network, auth, plugin loading, etc.)
+
+**Current Status**:
+- Code inspection shows everything should work
+- Architecture is sound
+- Need to run actual server + WebUI to verify behavior
+- Likely outcome: Issue may not be reproducible (may have been hypothetical)
+
+### Next Phase
+- Run real server and WebUI to test end-to-end
+- Verify if 500 errors actually occur
+- If not: Close issue as "NOT REPRODUCIBLE"
+- If yes: Document exact error and conditions
+
+---
