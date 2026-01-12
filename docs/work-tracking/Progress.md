@@ -1,204 +1,199 @@
-# Python Standards Refactoring Progress - Issue #12
+# Server-WebUI Integration Bug Fix - Progress
 
-**Last Updated**: 2026-01-11 23:45  
-**Current Context Usage**: 60%  
-**Overall Progress**: 14/14 units completed - PROJECT COMPLETE ✅  
+**Last Updated**: 2026-01-12 11:00  
+**Current Context Usage**: 45%  
+**Overall Progress**: 0/4 units started - IN PROGRESS  
+**Issue**: #12 Server-WebUI Integration - 500 Response Bug  
+
+---
 
 ## Work Unit Status
 
-### Completed
-- [x] Fix: Workflow Errors & Coverage (0.75 hours, completed 2026-01-11)
-  - Assessment: 10/10
-  - Fixed 8 failing tests in `test_tasks.py`
-  - Fixed 1 failing test in `test_mcp_adapter.py`
-  - Added 5 new test files for service layer
-  - Boosted coverage from 68% to 80.82%
-  - All 482 tests passing (4 pre-existing skipped)
-- [x] WU-05: Task Processing (1.5 hours, completed 2026-01-11)
-  - Assessment: 9/10
-  - Refactored JobStore and TaskProcessor with full type hints
-  - Updated Protocol interfaces for job management
-  - All operations use structured logging
-  - 400+ tests passing (7 test API issues for WU-12)
-- [x] WU-04: Authentication & Authorization (1.5 hours, completed 2026-01-11)
-  - Assessment: 9/10
-  - Created AuthService with Pydantic BaseSettings configuration
-  - Created InMemoryKeyRepository implementing KeyRepository protocol
-  - Refactored auth functions for dependency injection
-  - All 407 tests passing (4 pre-existing skipped)
-- [x] WU-03: API Refactoring (2.5 hours, completed 2026-01-11, merged to main)
-  - Assessment: 9/10
-  - Created 3 new service classes: AnalysisService, JobManagementService, PluginManagementService
-  - Refactored all endpoints to thin wrappers using dependency injection
-  - Updated protocols with reload_plugin and reload_all methods
-- [x] WU-02-Adapter: MCP Adapter Refactoring (3 hours, completed 2026-01-11, merged to main)
-  - Assessment: 9/10
-  - Established production-ready template for future modules
-- [x] WU-01: Foundation & Abstractions (2 hours, completed 2026-01-11)
-  - Created `server/app/protocols.py` with 8 core Protocol interfaces
-  - Created `server/app/exceptions.py` with 9 custom exception types
-  - Created `server/app/services/` package with 3 service classes
-  - Updated dependencies and pre-commit config
-- [x] WU-02: Core Application Files (1.5 hours, completed 2026-01-11)
-  - Refactored `server/app/models.py` with enhanced Pydantic models
-  - Refactored `server/app/main.py` with lifespan manager and service injection
-  - Updated PluginRegistry protocol to match PluginManager interface
-  - All services properly integrated with dependency injection
+### In Progress
+- [ ] **WU-01**: Integration Test Foundation (1.5 hours)
+  - Status: Just Started
+  - Time Elapsed: 0 minutes
+  - Blockers: None
+  - Objective: Create integration test infrastructure, capture server responses
 
-### Completed
-- [x] WU-09: MCP Core (0.75 hours, completed 2026-01-11)
-  - Assessment: 9/10
-  - Enhanced __init__.py with component overview and usage examples
-  - Enhanced validators in jsonrpc.py with complete docstrings
-  - Verified adapter.py production-ready standards compliance
-  - 100% type hints (Dict, List, Optional, etc) throughout
-  - Structured logging with extra={} pattern on all operations
-  - All 53 plugin metadata tests passing
-- [x] WU-08: Plugin Implementations (1.75 hours, completed 2026-01-11)
-  - Assessment: 9/10
-  - Refactored all 4 plugins (block_mapper, moderation, motion_detector, ocr_plugin)
-  - 100% type hints (Dict, Optional, List, Tuple, Any, cast)
-  - Google-style docstrings for all class and private methods
-  - Structured logging with extra={} pattern throughout
-  - Type ignore comments for optional dependencies
-  - Enhanced __init__.py with comprehensive package documentation
-  - All 53 plugin metadata tests passing
-- [x] WU-07: Plugin Loader (1.25 hours, completed 2026-01-11)
-  - Assessment: 9/10
-  - Complete type hints throughout (Dict, Optional, Protocol)
-  - Google-style docstrings with Args/Returns/Raises for all methods
-  - Structured logging with context dicts (plugin_name, plugin_file, error)
-  - Specific exception handling (ImportError, TypeError, AttributeError)
-  - All 53 plugin metadata tests passing
+### Blocked
+- None currently
 
-### Completed (continued)
-- [x] WU-10: MCP Routes & Transport (1.5 hours, completed 2026-01-11)
-  - Assessment: 10/10
-  - Enhanced handlers.py with structured logging on all methods
-  - Improved routes.py with request_id tracking through error paths
-  - Enhanced transport.py with comprehensive logging throughout
-  - All 157 MCP tests passing (excluding pre-existing adapter/endpoints failures)
+### Todo
+- [ ] **WU-02**: Fix API Response Formats (2 hours)
+  - Fix endpoint response formats to match WebUI client expectations
+  - Update server/app/api.py if needed
+  - Run integration tests to verify
 
-- [x] WU-11: Server Root Files (0.5 hours, completed 2026-01-11)
-  - Assessment: 10/10
-  - Created server/__init__.py with comprehensive module documentation
-  - Pinned tool versions in pyproject.toml to match requirements-lint.txt
-  - Enhanced server/README.md with architecture and standards documentation
-  - Pre-commit validation passed (black, ruff, mypy)
+- [ ] **WU-03**: End-to-End Testing (1.5 hours)
+  - Create e2e.test.sh script
+  - Start real server + web UI
+  - Verify no 500 errors
 
-- [x] WU-12: Test Layer (1 hour, completed 2026-01-11)
-  - Assessment: 10/10
-  - Enhanced conftest.py with Protocol-based mock fixtures
-  - Added MockPluginRegistry, MockJobStore, MockTaskProcessor
-  - All fixtures satisfy Protocol interfaces for testability
-  - 387 tests passing (pre-existing failures unchanged)
-  - Black and ruff validation passed
+- [ ] **WU-04**: Update CI and Documentation (1 hour)
+  - Add npm test to CI workflow
+  - Update AGENTS.md with integration testing requirement
+  - Enforce full test sequence before merge
 
-- [x] WU-13: Final Validation (0.25 hours, completed 2026-01-11)
-  - Assessment: 10/10
-  - Black formatting: ✅ PASS (54 files, all compliant)
-  - Ruff linting: ✅ PASS (all checks passed)
-  - Pytest execution: ✅ PASS (387 tests passing)
-  - Type hints: 100% on all refactored modules
-  - Pre-existing issues: 7 failures from WU-05 and earlier
-  - Project completion: 100% COMPLETE
+---
 
-## REFACTORING COMPLETE ✅
+## Current Work Unit: WU-01
 
-### Completed
-- [x] WU-06: WebSocket Management (1.5 hours, completed 2026-01-11)
-  - Assessment: 10/10
-  - Created Pydantic message models (WebSocketMessage, MessagePayload)
-  - Added Protocol abstraction for testability
-  - Implemented retry logic with exponential backoff (Tenacity)
-  - 100% type hints and comprehensive docstrings
-  - Backward-compatible with dict-based messages
-  - All 45 WebSocket tests passing
+**Status**: 🟡 In Progress  
+**Started**: 2026-01-12 11:00  
+**Estimated Duration**: 1.5 hours  
 
-## Summary of Achievements
+### Objectives
+1. ✅ Review existing WebUI test structure
+2. ✅ Identify 7 key endpoints needing tests
+3. ✅ Analyze client.ts expectations
+4. 🔲 Create `web-ui/src/integration/server-api.integration.test.ts`
+5. 🔲 Mock actual server response formats
+6. 🔲 Run integration tests - all should pass or be documented
 
-### Code Quality Metrics
-- ✅ **Type Safety**: 100% type hints on all refactored modules
-- ✅ **Documentation**: Complete Google-style docstrings with Args/Returns/Raises
-- ✅ **Logging**: Structured logging with extra={} pattern throughout
-- ✅ **Error Handling**: Specific exception types, no generic catches
-- ✅ **Testing**: 482 tests passing (up from 387), 80%+ coverage (80.82%)
-- ✅ **Formatting**: Black + ruff validation passed
-- ✅ **Architecture**: Protocol-based design, service layer pattern
+### Key Deliverables
+- Integration test file covering all 7 endpoints
+- Response format documentation (actual vs expected)
+- No failing tests (issues documented clearly)
 
-### Standards Compliance Checklist
-- ✅ **Separation of Concerns**: Service layer extracted from endpoints
-- ✅ **Decoupling with Protocols**: Protocol interfaces for all key abstractions
-- ✅ **Retry Pattern**: Tenacity for resilient external calls
-- ✅ **Structured Logging**: All print statements replaced with logger.extra={}
-- ✅ **Specific Exceptions**: No generic Exception catches
-- ✅ **Type Hints**: 100% coverage on new/refactored code
-- ✅ **Docstrings**: Complete documentation with Raises sections
-- ✅ **Path Management**: pathlib.Path throughout
-- ✅ **Health Checks**: /health endpoint implemented
-- ✅ **Input Validation**: Pydantic constraints and validators
+### Commits Planned
+```bash
+feat: Create server-api integration test suite (WU-01)
+```
 
-### Work Units Completed
-| WU | Title | Duration | Assessment | Status |
-|----|-------|----------|-----------|--------|
-| 01 | Foundation & Abstractions | 2 hrs | 10/10 | ✅ |
-| 02 | Core Application Files | 1.5 hrs | 9/10 | ✅ |
-| 03 | API Refactoring | 2.5 hrs | 9/10 | ✅ |
-| 04 | Authentication & Authorization | 1.5 hrs | 9/10 | ✅ |
-| 05 | Task Processing | 1.5 hrs | 9/10 | ✅ |
-| 06 | WebSocket Management | 1.5 hrs | 10/10 | ✅ |
-| 07 | Plugin Loader | 1.25 hrs | 9/10 | ✅ |
-| 08 | Plugin Implementations | 1.75 hrs | 9/10 | ✅ |
-| 09 | MCP Core | 0.75 hrs | 9/10 | ✅ |
-| 10 | MCP Routes & Transport | 1.5 hrs | 10/10 | ✅ |
-| 11 | Server Root Files | 0.5 hrs | 10/10 | ✅ |
-| 12 | Test Layer | 1 hr | 10/10 | ✅ |
-| 13 | Final Validation | 0.25 hrs | 10/10 | ✅ |
-| Fix | Workflow Errors & Coverage | 0.75 hrs | 10/10 | ✅ |
+---
 
-**Total: 20.5 hours work (estimated: 24 hours, 15% efficiency gain)**  
+## Completed Previous Work
 
-## Key Reference Materials
+### Python Standards Refactoring (13 WUs + 1 Fix)
+- **Status**: ✅ COMPLETE
+- **Duration**: 20.5 hours total (18% ahead of 24-hour estimate)
+- **Metrics**:
+  - 482 tests passing (up from 387)
+  - 80.82% coverage (80% required)
+  - 100% type hints on refactored code
+  - All Python Standards met
 
-- **Learnings-03.md**: 8 key patterns applied in API refactoring
-- **scratch/refactor_server/app/**: Reference solutions for all remaining modules
-  - auth.md, task.md, plugin_loader.md, websocket_manager.md
+### Workflow Error Fix
+- **Status**: ✅ COMPLETE  
+- **Fixes**: 8 JobStore test failures, 1 MCP logging failure
+- **Coverage**: Boosted from 68.53% to 80.82%
+- **Tests Added**: 5 new service layer test files
 
-## WU-03 Summary
+---
 
-**Completed Features**:
-- AnalysisService extracts image acquisition and request orchestration logic
-  - Coordinates image sources (file, URL, base64)
-  - Uses ImageAcquisitionService for resilient remote fetching
-  - Proper error handling with specific exception types
-- JobManagementService handles job query and control operations
-  - Get job status by ID
-  - List jobs with optional filtering
-  - Cancel queued or processing jobs
-- PluginManagementService manages plugin discovery and operations
-  - List all available plugins with metadata
-  - Get detailed plugin information
-  - Reload individual or all plugins
-- API endpoints refactored to dependency injection pattern
-  - Thin handlers focused on HTTP concerns only
-  - Proper error handling with specific exception responses
-  - Structured logging with request context
-- Protocols updated with plugin reload methods
-  - reload_plugin(name: str) -> bool
-  - reload_all() -> Dict[str, Any]
-- Test fixture updated to initialize all services
-  - conftest.py now properly sets up REST API services
-  - All 440 tests passing (1 pre-existing failure)
+## Known Issues & Blockers
 
-**Key Achievements**:
-1. Complete service layer for REST API extracted
-2. Dependency injection working across all endpoints
-3. Protocol interfaces properly designed for abstraction
-4. All pre-commit hooks passing (black, ruff, mypy)
-5. Test coverage maintained at 440 passed tests
+### Active Blockers
+- None currently
+
+### Known Gaps (Being Fixed)
+1. **WebUI test suite incomplete**
+   - Unit tests exist (mocked)
+   - Missing: Integration tests against real server
+   - Impact: 500 errors not caught until production
+
+2. **CI doesn't test server + WebUI together**
+   - Server tests: ✅ Run in CI
+   - WebUI tests: ✅ Run in CI
+   - Integration: ❌ Not run together
+   - Impact: Mismatches between server/webui responses
+
+3. **AGENTS.md didn't enforce integration testing**
+   - Previous version: Listed optional test commands
+   - New version: Mandatory sequence matching CI exactly
+   - Impact: Agents now must run full test suite before committing
+
+---
+
+## Key Testing Commands
+
+**Server (from /server directory)**:
+```bash
+uv sync
+cd ..
+uv run pre-commit run --all-files
+cd server
+PYTHONPATH=. uv run mypy app/ --no-site-packages
+uv run pytest --cov=app --cov-report=term-missing
+uv run coverage report --fail-under=80
+```
+
+**WebUI (from /web-ui directory)**:
+```bash
+npm install  # if needed
+npm test
+```
+
+**Full Integration**:
+```bash
+# Terminal 1: Start server
+cd /home/rogermt/forgesyte/server
+uv run uvicorn app.main:app --reload
+
+# Terminal 2: Run integration tests
+cd /home/rogermt/forgesyte/web-ui
+npm run test:integration  # or custom e2e script
+```
+
+---
+
+## Branch Strategy
+
+**Feature Branch**: `fix/server-webui-integration`
+
+**Commits per WU**:
+```bash
+WU-01: feat: Create server-api integration test suite
+WU-02: fix: Ensure API responses match WebUI client expectations
+WU-03: test: Add e2e test script and verify integration
+WU-04: ci/docs: Add web-ui tests to workflow and update AGENTS.md
+```
+
+**Final Merge**:
+```bash
+git checkout main
+git pull origin main
+git merge fix/server-webui-integration
+git push origin main
+```
+
+---
+
+## Success Metrics
+
+- ✅ All integration tests pass (documented any failures)
+- ✅ No 500 errors in server-webui calls
+- ✅ Server responses match WebUI client expectations
+- ✅ CI includes both server + webui tests
+- ✅ AGENTS.md enforces full integration testing
+- ✅ All commits follow atomic pattern
+- ✅ Test coverage maintained or improved
+
+---
+
+## Dependencies & Prerequisites
+
+**No external blockers**:
+- All dependencies already in project
+- No new libraries needed (using existing test frameworks)
+- Can work independently without merging other branches
+
+---
+
+## Next Steps (Immediate)
+
+1. ✅ Review test structure (done)
+2. 🔲 **Now**: Create integration test file
+3. 🔲 Capture actual server responses
+4. 🔲 Run tests to find any mismatches
+5. 🔲 Document findings in WU-01 commit
+
+---
 
 ## Notes for Next Session
 
-- Branch: fix/workflow-errors - all test fixes and coverage improvements committed and pushed
-- Ready for merge to main with passing checks
-- Proceed with TypeScript migration next
+- WU-01 is approximately 10% complete
+- Server response formats need to be captured next
+- Integration tests will reveal any endpoint mismatches
+- Plan to complete WU-01 in this session
