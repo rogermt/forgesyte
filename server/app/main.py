@@ -31,7 +31,7 @@ from .services import (
     PluginManagementService,
     VisionAnalysisService,
 )
-from .tasks import init_task_processor, job_store, task_processor
+from .tasks import init_task_processor, job_store
 from .websocket_manager import ws_manager
 
 # Configure logging
@@ -99,8 +99,9 @@ async def lifespan(app: FastAPI):
     app.state.plugins = plugin_manager
 
     # Initialize task processor
+    local_task_processor = None
     try:
-        init_task_processor(plugin_manager)
+        local_task_processor = init_task_processor(plugin_manager)
         logger.debug("Task processor initialized")
     except Exception as e:
         logger.error("Failed to initialize task processor", extra={"error": str(e)})
@@ -116,20 +117,20 @@ async def lifespan(app: FastAPI):
 
     # Initialize REST API services
     try:
-        if task_processor is None:
+        if local_task_processor is None:
             logger.error("Task processor not initialized, cannot create API services")
             raise RuntimeError("Task processor initialization failed")
 
         # Analysis service coordinates image requests
         image_acquisition = ImageAcquisitionService()
         app.state.analysis_service_rest = AnalysisService(
-            task_processor, image_acquisition  # type: ignore[arg-type]
+            local_task_processor, image_acquisition  # type: ignore[arg-type]
         )
         logger.debug("AnalysisService initialized")
 
         # Job management service handles job queries and control
         app.state.job_service = JobManagementService(
-            job_store, task_processor  # type: ignore[arg-type]
+            job_store, local_task_processor  # type: ignore[arg-type]
         )
         logger.debug("JobManagementService initialized")
 

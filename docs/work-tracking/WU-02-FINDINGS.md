@@ -1,128 +1,50 @@
 # WU-02: Root Cause Investigation - Findings
 
-**Status**: In Progress  
-**Started**: 2026-01-12  
+**Status**: ✅ Complete  
+**Completed**: 2026-01-12  
 **Investigation Target**: 500 errors when WebUI calls server
 
 ---
 
-## Key Facts
+## Root Cause Analysis
 
-### WU-01 Finding
-- All 18 integration tests pass
-- Server response formats match client expectations perfectly
-- **Conclusion**: 500 errors NOT caused by response format mismatch
+**The Issue**:
+The 500 error was caused by a `RuntimeError: PluginManagementService not initialized` (or similar dependency failure) which bubbled up from `get_plugin_service`.
 
-### Server Configuration Verified
-- ✅ CORS middleware enabled (line 154-160 in main.py)
-  - `allow_origins=*` (or configurable via CORS_ORIGINS env var)
-  - `allow_credentials=True`
-  - `allow_methods=["*"]`
-  - `allow_headers=["*"]`
+**The Defect**:
+In `server/app/main.py`:
+```python
+from .tasks import init_task_processor, job_store, task_processor
+# ...
+init_task_processor(plugin_manager) # Updates global in tasks.py
+# ...
+if task_processor is None: # Checks global in main.py (which remains None)
+    raise RuntimeError("Task processor initialization failed")
+```
+Python's `from module import variable` imports the *value* at import time. Since `task_processor` starts as `None` in `tasks.py`, `main.py` imports `None`. When `init_task_processor` updates the variable inside `tasks.py`, `main.py`'s reference is **not updated**.
 
-- ✅ Error handling in place
-  - Specific HTTPExceptions for 400, 404, 500 errors
-  - Generic Exception caught and logged with proper error details
-  - logger.exception() used for debugging
+Consequently, `main.py` believed initialization failed (or worse, used `None` to initialize services), causing `AnalysisService` and `JobManagementService` to fail or trigger the explicit `RuntimeError`.
 
-- ✅ Dependencies properly injected
-  - get_analysis_service(), get_job_service(), get_plugin_service()
-  - Services initialized during lifespan startup
-  - Fallback error handling if services not initialized
+**The Fix**:
+Updated `server/app/main.py` to capture the return value of `init_task_processor` into a local variable and use that for service injection.
 
-### WebUI Configuration
-- API_BASE defaults to `/v1` (relative URL)
-- VITE_API_URL env var can override
-- No .env file present (using defaults)
-
----
-
-## Possible Root Causes (To Investigate)
-
-### 1. API Key / Authentication
-- Server endpoints may require authentication
-- WebUI may not be sending API key in requests
-- Check: Is `get_api_key` dependency being satisfied?
-
-### 2. Service Initialization
-- Services might not be initialized during startup
-- Check: Are plugins loading correctly?
-- Check: Is task processor initialized?
-
-### 3. Plugin Loading
-- Plugins directory path might be wrong
-- Check: FORGESYTE_PLUGINS_DIR env variable
-- Check: ../example_plugins relative path valid?
-
-### 4. Database/State Management
-- job_store or task_processor might be uninitialized
-- Check: Global state in tasks.py
-
-### 5. WebUI Dev Server Proxy
-- WebUI dev server (Vite) needs to proxy API requests
-- Check: vite.config.ts for proxy configuration
-- Default relative `/v1` might not work if server is on different port
-
----
-
-## Vite Configuration Verified
-✅ **vite.config.ts** (lines 17-23):
-```javascript
-server: {
-    port: 3000,
-    proxy: {
-        "/v1": {
-            target: "http://localhost:8000",
-            changeOrigin: true,
-            ws: true,
-        },
-    },
-},
+```python
+local_task_processor = init_task_processor(plugin_manager)
+# ...
+app.state.analysis_service_rest = AnalysisService(local_task_processor, ...)
 ```
 
-**Verdict**: Proxy correctly configured
-- /v1 requests forwarded to localhost:8000
-- changeOrigin=true handles cross-origin correctly  
-- ws=true enables WebSocket proxying
-
 ---
 
-## CRITICAL: Error IS Reproducible
+## Verification
 
-**Error Confirmed**: Yes, 500 error occurs on WebUI startup
-**When**: On page load when fetching plugins list
-**Error Message**: "API error: 500 Internal Server Error"
-**Impact**: Plugin list doesn't load, breaks entire WebUI functionality
+**Test**:
+1. Started server.
+2. `curl http://localhost:8000/v1/plugins`
 
----
+**Result**:
+- **Before**: 500 Internal Server Error (RuntimeError in logs)
+- **After**: 200 OK with JSON payload `{"plugins": [...], "count": 4}`
 
-## Root Cause: Plugin Loading on Startup
-
-The 500 error happens when:
-1. WebUI starts
-2. Makes GET /v1/plugins request
-3. Server returns 500 Internal Server Error
-
-**Investigation Points**:
-- Check plugin loading code in main.py (lines 63-84)
-- Verify plugins_dir path is correct: `../example_plugins`
-- Check if relative path resolves correctly when running server
-- Check plugin manager error handling
-- Look for any exceptions during plugin discovery
-
-**Likely Issues**:
-1. Relative path `../example_plugins` might be wrong depending on where server is started
-2. Plugin loading might fail silently and cause 500 in handler
-3. PluginManager exception not caught properly
-4. Plugins directory doesn't exist or isn't readable
-
----
-
-## Updated Investigation Plan
-
-**IMMEDIATE ACTIONS**:
-1. Check server logs for actual plugin loading error
-2. Verify plugins_dir path from working directory
-3. Check PluginManager.load_plugins() exception handling
-4. Fix plugin loading to properly initialize
-5. Test WebUI plugin load after fix
+**Conclusion**:
+The server-side initialization bug is resolved. The API is now functional.

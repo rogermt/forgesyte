@@ -12,7 +12,8 @@
     "type-check": "tsc --noEmit",
     "test": "vitest",
     "test:ui": "vitest --ui",
-    "test:coverage": "vitest --coverage"
+    "test:coverage": "vitest --coverage",
+    "test:integration": "vitest run src/integration"
   },
   "dependencies": {
     "audit": "^0.0.6",

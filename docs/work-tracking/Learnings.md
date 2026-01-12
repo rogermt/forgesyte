@@ -6,9 +6,9 @@
 
 **What Went Wrong in WU-01 & WU-02**:
 
-My integration tests only mocked server responses - they never actually tested whether plugins load. I created tests that verify response FORMAT but completely missed testing the actual FUNCTIONALITY you needed.
+My integration tests initially only mocked server responses - they never actually tested whether plugins load. I created tests that verify response FORMAT but completely missed testing the actual FUNCTIONALITY.
 
-I made assumptions about the root cause (plugin path) and committed fixes without understanding what you were actually experiencing.
+I made assumptions about the root cause (plugin path) and committed fixes without understanding what was actually occurring.
 
 **What I Should Have Done**:
 1. Asked you to describe exactly what's not working
@@ -70,53 +70,113 @@ None - all tests pass, indicating server response formats are correct.
 
 ---
 
-## WU-02: Root Cause Investigation & Fix
+## WU-02: Diagnose and Fix 500 Error
 
-**Completed**: 2026-01-12 11:45  
+**Completed**: 2026-01-12 12:00  
 **Duration**: 1 hour  
 **Status**: ✅ Complete
 
 ### What Went Well
 
-- Quickly identified the actual root cause
-- Used methodical investigation (config, code review, real testing)
-- Root cause was path resolution, not response format
-- Fix was straightforward and tested immediately
-- All tests still pass after fix
+- Captured real server logs to find the exact exception
+- Identified a subtle Python import bug related to global variables
+- Verified fix immediately with curl
+- Verified linting and type checking on the fix
 
 ### Challenges & Solutions
 
-- **Issue**: Error was reproducible, not hypothetical
-  - **Solution**: Listened to user feedback and investigated real error
-  - **Result**: Found actual plugin loading issue
-
-- **Issue**: Relative path `../example_plugins` failed from some directories
-  - **Solution**: Changed to absolute path using Path(__file__).parent.parent.parent
-  - **Result**: Works from any working directory
+- **Issue**: `from .tasks import task_processor` imported `None` and never updated
+  - **Solution**: Captured the return value of `init_task_processor` in a local variable in `main.py`
+  - **Result**: Services initialized with correctly populated processor
 
 ### Key Insights
 
-- **Relative paths are fragile** - Always use absolute paths in application startup code
-- **Real testing matters** - Mocked tests don't catch real environment issues
-- **Path resolution** - Need to understand working directory vs. file location
-- **Logging helps** - Added logging to show actual plugin directory being used
+- **Python Import Behavior**: `from module import variable` creates a local name that refers to the object *at that time*. Reassigning the variable in the original module does NOT update the importer's name.
+- **Service Dependency Injection**: Local variables are safer for capturing results of initialization functions within the same scope.
 
 ### Architecture Decisions
 
-- Used pathlib.Path for cross-platform path handling
-- Log plugin directory and existence on startup for debugging
-- Support FORGESYTE_PLUGINS_DIR env var for custom paths
-- Resolve to absolute path regardless of working directory
+- Captured `local_task_processor` to ensure service initialization uses the live instance.
+- Removed unused imports to keep code clean.
 
 ### Tips for Similar Work
 
-- Always use absolute paths in server startup code
-- Use pathlib.Path instead of os.path
-- Log file system operations for debugging
-- Test with different working directories
+- When using `init_*` functions that update global state, consider returning the instance and capturing it locally.
+- Always check server logs for 500 errors; don't assume the cause.
 
 ### Blockers Found
 
-None - all tests pass, coverage maintained above 80%.
+None.
 
 ---
+
+## WU-03: End-to-End Testing & Hardening
+
+**Completed**: 2026-01-12 12:10  
+**Duration**: 0.5 hours  
+**Status**: ✅ Complete
+
+### What Went Well
+
+- Created a robust E2E script with cleanup and health check waiting
+- Successfully ran WebUI integration tests against a REAL server
+- Integrated E2E tests into CI workflow
+
+### Challenges & Solutions
+
+- **Issue**: Initial E2E script used wrong health check URL (`/health` instead of `/v1/health`)
+  - **Solution**: Corrected URL in script after observing 404s in logs.
+  - **Result**: Health check passes and tests proceed.
+
+### Key Insights
+
+- E2E tests are the only way to catch cross-component initialization issues.
+- Health checks must use the correct versioned path if the API is versioned.
+
+### Architecture Decisions
+
+- Added `test:integration` to `web-ui/package.json` for targeted integration testing.
+- Created `e2e.test.sh` at root to span across both components.
+
+### Tips for Similar Work
+
+- Always include a wait-for-health-check loop in E2E scripts.
+- Log server output to a file during E2E runs for debugging.
+
+### Blockers Found
+
+None.
+
+---
+
+## WU-04: Update CI and Documentation
+
+**Completed**: 2026-01-12 12:15  
+**Duration**: 0.25 hours  
+**Status**: ✅ Complete
+
+### What Went Well
+
+- Workflow updated without breaking existing jobs
+- AGENTS.md now reflects the required integration testing sequence
+
+### Challenges & Solutions
+
+- None.
+
+### Key Insights
+
+- CI should match local mandatory developer workflows as closely as possible.
+
+### Architecture Decisions
+
+- Added `web-ui` and `e2e` jobs to GitHub Actions.
+- Updated `AGENTS.md` with the full verification sequence.
+
+### Tips for Similar Work
+
+- Ensure Node.js and Python versions in CI match development environments.
+
+### Blockers Found
+
+None.

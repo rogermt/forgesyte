@@ -263,6 +263,10 @@ uv run pytest --cov=app --cov-report=term-missing
 
 # 5. Verify coverage meets 80% threshold (MUST PASS)
 uv run coverage report --fail-under=80
+
+# 6. Run E2E tests (Verify server-webui integration)
+cd ..
+./e2e.test.sh
 ```
 
 **All steps must pass before committing.** If any step fails, do not continue—report the error and wait for direction.
@@ -289,7 +293,9 @@ Before committing any code in `web-ui/`, the following tools must be run to ensu
 1. **Linting:** `npm run lint`
 2. **Type Checking:** `npm run type-check`
 3. **Testing:** `npm run test`
-4. **Build Verification:** `npm run build`
+4. **Integration Testing:** `npm run test:integration`
+5. **E2E Testing:** `./e2e.test.sh` (from root)
+6. **Build Verification:** `npm run build`
 
 ### Code Style
 
