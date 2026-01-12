@@ -300,11 +300,58 @@
 
 ---
 
+---
+
+## WU-7: Update Server Tests - conftest.py Mocks
+
+**Completed**: 2026-01-12 23:15 UTC  
+**Duration**: 1 hour (faster than estimated 1.5 hours)  
+**Status**: ✅ Complete
+
+### What Went Well
+- conftest.py already had well-structured mocks matching Protocol definitions
+- Documentation additions were straightforward and clear
+- All existing tests passed without modification
+- Mock docstrings matched actual behavior perfectly
+- API contract guarantees were easy to identify from integration tests
+
+### Challenges & Solutions
+- **Issue**: Ensuring line length compliance with ruff (88 char limit)
+  - **Solution**: Shortened health check description from 90 to 88 chars
+- **Issue**: Understanding which tests have API contracts
+  - **Solution**: Referenced integration/test_api_contracts.py to identify guarantees
+
+### Key Insights
+- Well-written conftest.py is self-documenting but benefits from explicit notes
+- Protocol definitions in app/protocols.py are excellent source of truth
+- Integration tests (test_api_contracts.py) already verify real API responses
+- MockTaskProcessor extends Protocol with callback methods for flexibility
+- Mock job store has convenient API vs protocol signature (no issue, just different)
+
+### Architecture Decisions
+- **Decision 1**: Add documentation comments explaining Protocol compliance
+- **Decision 2**: Reference integration tests that verify API contracts
+- **Decision 3**: Document what each mock verifies in behavior
+- **Decision 4**: Include golden fixtures reference in module docstring
+- **Decision 5**: Mark extension methods beyond Protocol in TaskProcessor docs
+
+### Tips for Similar Work
+- Always reference Protocol definitions when documenting mocks
+- Cross-reference integration tests that verify contracts
+- Document what a mock prevents (field name errors, etc.)
+- Include usage examples in test references
+- Keep docstrings concise but comprehensive
+
+### Blockers Found
+- None - straightforward documentation work
+
+---
+
 ## Overall Summary
 
-**Total Completed**: 6/10 work units  
-**Total Time**: ~9 hours  
-**Remaining Estimate**: 5.5 hours (WU-7, 8, 9, 10)
+**Total Completed**: 7/10 work units  
+**Total Time**: ~10 hours  
+**Remaining Estimate**: 3.5 hours (WU-8, 9, 10)
 
 ### Key Achievements
 1. ✅ Golden fixtures established as single source of truth
@@ -322,8 +369,7 @@
 - Documentation prioritizes clarity and actionability
 
 ### Remaining Work
-- WU-7: Review and document server-side mocks (conftest.py)
-- WU-8: Expand CONTRIBUTING.md (partially done in WU-6)
+- WU-8: Expand CONTRIBUTING.md (partially done in WU-6) - just needs final polish
 - WU-9: Create comprehensive Testing Guide (docs/TESTING.md)
 - WU-10: Final audit of all 100+ tests
 
