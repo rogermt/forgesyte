@@ -36,6 +36,7 @@ def event_loop_policy():
 def pytest_configure(config):
     """Register custom markers and configure asyncio."""
     config.addinivalue_line("markers", "asyncio: mark test as async")
+    config.addinivalue_line("markers", "integration: mark test as integration test")
     config.option.asyncio_mode = "auto"
 
 
@@ -91,6 +92,23 @@ def app_with_plugins():
     app.state.plugin_service = PluginManagementService(plugin_manager)
 
     return app
+
+
+@pytest.fixture
+async def client(app_with_plugins):
+    """Create AsyncClient for testing API endpoints.
+
+    This fixture is used for integration tests that need to make actual
+    HTTP requests to the FastAPI application.
+
+    Returns:
+        AsyncClient configured with the app_with_plugins app
+    """
+    from httpx import ASGITransport, AsyncClient
+
+    transport = ASGITransport(app=app_with_plugins)
+    async with AsyncClient(transport=transport, base_url="http://test") as async_client:
+        yield async_client
 
 
 # Protocol-based mock fixtures for unit tests
