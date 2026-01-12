@@ -21,14 +21,14 @@ export interface Plugin {
 }
 
 export interface Job {
-    id: string;
-    status: "pending" | "processing" | "done" | "error";
+    job_id: string;
+    status: "queued" | "running" | "done" | "error" | "not_found";
     plugin: string;
-    input_file?: string;
     result?: Record<string, unknown>;
-    error?: string;
+    error?: string | null;
     created_at: string;
-    updated_at: string;
+    completed_at?: string | null;
+    progress?: number | null;
 }
 
 export interface AnalysisResult {

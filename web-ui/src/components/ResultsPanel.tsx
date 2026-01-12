@@ -129,7 +129,7 @@ export function ResultsPanel({
                     <div>
                         <div style={styles.metaInfo}>
                             <div>
-                                <div style={styles.label}>Job ID: {job.id}</div>
+                                <div style={styles.label}>Job ID: {job.job_id}</div>
                                 <div style={styles.subLabel}>
                                     Status: {job.status}
                                 </div>

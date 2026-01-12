@@ -39,9 +39,9 @@ export function JobList({ onJobSelect }: JobListProps) {
                 return "var(--accent-green)";
             case "error":
                 return "var(--accent-red)";
-            case "processing":
+            case "running":
                 return "var(--accent-yellow)";
-            case "pending":
+            case "queued":
                 return "var(--accent-cyan)";
             default:
                 return "var(--text-muted)";
@@ -54,9 +54,9 @@ export function JobList({ onJobSelect }: JobListProps) {
                 return "rgba(76, 175, 80, 0.1)";
             case "error":
                 return "rgba(220, 53, 69, 0.1)";
-            case "processing":
+            case "running":
                 return "rgba(255, 193, 7, 0.1)";
-            case "pending":
+            case "queued":
                 return "rgba(0, 229, 255, 0.1)";
             default:
                 return "transparent";
@@ -104,8 +104,8 @@ export function JobList({ onJobSelect }: JobListProps) {
             >
                 {jobs.map((job) => (
                     <div
-                        key={job.id}
-                        data-testid={`job-item-${job.id}`}
+                        key={job.job_id}
+                        data-testid={`job-item-${job.job_id}`}
                         onClick={() => onJobSelect(job)}
                         style={{
                             padding: "10px",
@@ -145,7 +145,7 @@ export function JobList({ onJobSelect }: JobListProps) {
                                     fontFamily: "monospace",
                                 }}
                             >
-                                {job.id.slice(0, 12)}...
+                                {job.job_id.slice(0, 12)}...
                             </div>
                             <div
                                 style={{
