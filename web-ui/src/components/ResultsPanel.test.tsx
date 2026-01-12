@@ -1,10 +1,15 @@
 /**
- * Tests for ResultsPanel styling updates
+ * Tests for ResultsPanel styling and job display
+ *
+ * Uses mock factories to generate test data matching actual API responses.
+ * API References:
+ * - Job: GET /v1/jobs/{id} (fixtures/api-responses.json)
+ * - FrameResult: WebSocket /v1/stream (fixtures/api-responses.json)
  */
 
 import { render, screen } from "@testing-library/react";
 import { ResultsPanel } from "./ResultsPanel";
-import { Job } from "../api/client";
+import { createMockFrameResult, createMockJobDone } from "../test-utils/factories";
 
 describe("ResultsPanel - Styling Updates", () => {
     describe("heading and layout", () => {
@@ -38,12 +43,8 @@ describe("ResultsPanel - Styling Updates", () => {
     });
 
     describe("stream results display", () => {
-        const mockStreamResult = {
-            frame_id: "frame-001",
-            plugin: "motion_detector",
-            processing_time_ms: 45,
-            result: { motion_detected: true, confidence: 0.95 },
-        };
+        // Uses factory-generated test data matching WebSocket API
+        const mockStreamResult = createMockFrameResult();
 
         it("should display frame ID and processing time", () => {
             render(
@@ -80,21 +81,15 @@ describe("ResultsPanel - Styling Updates", () => {
     });
 
     describe("job results display", () => {
-        const mockJob: Job = {
-            id: "job-123456",
-            status: "done",
-            plugin: "motion_detector",
-            result: { motion_detected: false },
-            created_at: "2026-01-09T21:00:00Z",
-            updated_at: "2026-01-09T21:00:30Z",
-        };
+        // Uses factory-generated test data matching JobResponse API
+        const mockJob = createMockJobDone();
 
         it("should display job ID and status", () => {
             render(
                 <ResultsPanel mode="job" job={mockJob} />
             );
 
-            expect(screen.getByText(/job-123456/)).toBeInTheDocument();
+            expect(screen.getByText(new RegExp(mockJob.job_id))).toBeInTheDocument();
             expect(screen.getByText(/Status: done/)).toBeInTheDocument();
         });
 
@@ -119,12 +114,8 @@ describe("ResultsPanel - Styling Updates", () => {
     });
 
     describe("code block styling", () => {
-        const mockStreamResult = {
-            frame_id: "frame-001",
-            plugin: "motion_detector",
-            processing_time_ms: 45,
-            result: { test: true },
-        };
+        // Uses factory-generated test data
+        const mockStreamResult = createMockFrameResult();
 
         it("should style code blocks with brand colors", () => {
             const { container } = render(

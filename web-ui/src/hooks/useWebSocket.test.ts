@@ -1,10 +1,14 @@
 /**
  * Tests for useWebSocket hook
+ *
+ * Uses mock factories to generate test data matching actual API responses.
+ * API Reference: WebSocket /v1/stream (fixtures/api-responses.json)
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { renderHook, act, waitFor } from "@testing-library/react";
-import { useWebSocket, FrameResult } from "./useWebSocket";
+import { useWebSocket } from "./useWebSocket";
+import { createMockFrameResult } from "../test-utils/factories";
 
 // Mock WebSocket constants if not available in environment
 const CONNECTING = 0;
@@ -261,12 +265,8 @@ describe("useWebSocket", () => {
                 mockWs.simulateOpen();
             });
 
-            const frameResult: FrameResult = {
-                frame_id: "frame-001",
-                plugin: "motion_detector",
-                result: { motion: true },
-                processing_time_ms: 45,
-            };
+            // Uses factory-generated test data matching WebSocket API
+            const frameResult = createMockFrameResult();
 
             act(() => {
                 mockWs.simulateMessage({
