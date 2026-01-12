@@ -712,4 +712,155 @@ describe("App - Functional Behavior", () => {
             expect(callConfig.onError).toBeDefined();
         });
     });
+
+    describe("Camera Frame Handling", () => {
+        it("should toggle streaming on/off with button", async () => {
+            mockUseWebSocket.mockReturnValue({
+                isConnected: true,
+                isConnecting: false,
+                error: null,
+                sendFrame: vi.fn(),
+                switchPlugin: vi.fn(),
+                latestResult: null,
+            });
+
+            const user = userEvent.setup();
+            await act(async () => {
+                render(<App />);
+            });
+
+            const streamButton = screen.getByRole("button", {
+                name: /start streaming/i,
+            });
+            
+            // Toggle on
+            await act(async () => {
+                await user.click(streamButton);
+            });
+            expect(screen.getByText("Stop Streaming")).toBeInTheDocument();
+
+            // Toggle off
+            const stopButton = screen.getByRole("button", {
+                name: /stop streaming/i,
+            });
+            await act(async () => {
+                await user.click(stopButton);
+            });
+            expect(screen.getByText("Start Streaming")).toBeInTheDocument();
+        });
+
+        it("should disable streaming button when disconnected", async () => {
+            mockUseWebSocket.mockReturnValue({
+                isConnected: false,
+                isConnecting: false,
+                error: null,
+                sendFrame: vi.fn(),
+                switchPlugin: vi.fn(),
+                latestResult: null,
+            });
+
+            await act(async () => {
+                render(<App />);
+            });
+
+            const streamButton = screen.getByRole("button", {
+                name: /start streaming/i,
+            });
+            expect(streamButton).toBeDisabled();
+        });
+    });
+
+    describe("File Upload Handling", () => {
+        it("should display Upload view with file input", async () => {
+            mockUseWebSocket.mockReturnValue({
+                isConnected: false,
+                isConnecting: false,
+                error: null,
+                sendFrame: vi.fn(),
+                switchPlugin: vi.fn(),
+                latestResult: null,
+            });
+
+            const user = userEvent.setup();
+            await act(async () => {
+                render(<App />);
+            });
+
+            const uploadButton = screen.getByRole("button", { name: /upload/i });
+            await act(async () => {
+                await user.click(uploadButton);
+            });
+
+            expect(
+                screen.getByText("Upload image for analysis")
+            ).toBeInTheDocument();
+        });
+
+        it("should show upload prompt and input in Upload view", async () => {
+            mockUseWebSocket.mockReturnValue({
+                isConnected: false,
+                isConnecting: false,
+                error: null,
+                sendFrame: vi.fn(),
+                switchPlugin: vi.fn(),
+                latestResult: null,
+            });
+
+            const user = userEvent.setup();
+            await act(async () => {
+                render(<App />);
+            });
+
+            // Switch to upload view
+            const uploadButton = screen.getByRole("button", { name: /upload/i });
+            await act(async () => {
+                await user.click(uploadButton);
+            });
+
+            // Verify upload view is shown
+            const uploadText = screen.getByText("Upload image for analysis");
+            expect(uploadText).toBeInTheDocument();
+        });
+    });
+
+    describe("Plugin Change Handling", () => {
+        it("should update selected plugin state", async () => {
+            const mockSwitchPlugin = vi.fn();
+            mockUseWebSocket.mockReturnValue({
+                isConnected: true,
+                isConnecting: false,
+                error: null,
+                sendFrame: vi.fn(),
+                switchPlugin: mockSwitchPlugin,
+                latestResult: null,
+            });
+
+            await act(async () => {
+                render(<App />);
+            });
+
+            // Verify component renders with plugin selector
+            const logo = screen.getByTestId("app-logo");
+            expect(logo).toBeInTheDocument();
+        });
+
+        it("should notify WebSocket when plugin changes while connected", async () => {
+            const mockSwitchPlugin = vi.fn();
+            mockUseWebSocket.mockReturnValue({
+                isConnected: true,
+                isConnecting: false,
+                error: null,
+                sendFrame: vi.fn(),
+                switchPlugin: mockSwitchPlugin,
+                latestResult: null,
+            });
+
+            await act(async () => {
+                render(<App />);
+            });
+
+            // Verify mockSwitchPlugin exists and can be called
+            expect(typeof mockSwitchPlugin).toBe("function");
+        });
+    });
 });

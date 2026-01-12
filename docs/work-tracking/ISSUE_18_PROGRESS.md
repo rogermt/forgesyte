@@ -10,34 +10,35 @@
 ## Work Unit Status
 
 ### Completed
-(None yet)
+- [x] WU-1: Coverage Setup & Baseline Analysis (45 min) ✅
+- [x] WU-2: CameraPreview Tests (1 hour, 66.66% → 98.48%) ✅
+- [x] WU-3: JobList Tests (1 hour, 65.90% → 100%) ✅
+- [x] WU-4: App.tsx Tests Part 1 (45 min, 47.50% → 55%) ✅
 
 ### In Progress
-(Ready to start)
+(Deciding on WU-5)
 
 ### Blocked
 (None)
 
 ### Todo
-- [ ] WU-1: Coverage Setup & Baseline Analysis (45 min)
-- [ ] WU-2: JobList Tests Part 1 - Status Rendering (60 min)
-- [ ] WU-3: JobList Tests Part 2 - Interactions (60 min)
-- [ ] WU-4: App.tsx Tests Part 1 - Header & Navigation (75 min)
-- [ ] WU-5: App.tsx Tests Part 2 - Integration (75 min)
-- [ ] WU-6: Coverage Verification & Threshold Check (40 min)
+- [ ] WU-5: App.tsx Tests Part 2 - Integration (optional, already at 89.52% overall)
+- [ ] WU-6: Coverage Verification & Final Merge (30 min)
 
 ---
 
-## Current Work Unit: WU-4 (App.tsx Tests Part 1)
-- **Status**: Ready to start
+## Current Work Unit: WU-5 (App.tsx Tests Part 2) - OPTIONAL
+- **Status**: Ready to start (optional)
 - **Completed**:
   - ✅ WU-1: Coverage baseline captured
   - ✅ WU-2: CameraPreview tests (66.66% → 98.48%)
   - ✅ WU-3: JobList tests (65.90% → 100%)
-- **Current Overall**: 88.57% (approaching 80% target)
-- **Next Steps**: 
-  1. App.tsx tests Part 1 - Header & Navigation (47.50% → 60%)
-  2. App.tsx tests Part 2 - Integration (60% → 80%)
+  - ✅ WU-4: App.tsx tests Part 1 (47.50% → 55%)
+- **Current Overall**: 89.52% ✅ **ABOVE 80% TARGET**
+- **Decision Point**: 
+  - Goal was 80% coverage - already achieved at 89.52%
+  - WU-5 (App.tsx to 80%) is optional for code polish
+  - WU-6 is final verification and merge to main
 
 ---
 
