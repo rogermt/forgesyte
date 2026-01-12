@@ -87,7 +87,7 @@ describe("Server API Integration Tests", () => {
 
   beforeEach(() => {
     fetchMock = vi.fn();
-    (global as any).fetch = fetchMock;
+    (global as unknown as { fetch: ReturnType<typeof vi.fn> }).fetch = fetchMock;
   });
 
   describe("Response Format Verification", () => {

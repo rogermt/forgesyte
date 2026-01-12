@@ -19,5 +19,5 @@ function customRender(
     return render(ui, { wrapper: Wrapper, ...options });
 }
 
-export * from "@testing-library/react";
+export { screen, waitFor, fireEvent, act, within } from "@testing-library/react";
 export { customRender as render };

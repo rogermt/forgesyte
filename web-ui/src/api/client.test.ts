@@ -11,7 +11,7 @@ describe("ForgeSyteAPIClient", () => {
 
     beforeEach(() => {
         fetchMock = vi.fn();
-        (global as any).fetch = fetchMock;
+        (global as unknown as { fetch: ReturnType<typeof vi.fn> }).fetch = fetchMock;
         client = new ForgeSyteAPIClient("http://localhost:3000/v1");
     });
 

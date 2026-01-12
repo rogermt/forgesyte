@@ -46,7 +46,7 @@ describe("useWebSocket", () => {
 
     beforeEach(() => {
         mockWs = new MockWebSocket();
-        (global as any).WebSocket = vi.fn(() => mockWs) as any;
+        (global as unknown as { WebSocket: ReturnType<typeof vi.fn> }).WebSocket = vi.fn(() => mockWs) as unknown as typeof WebSocket;
     });
 
     afterEach(() => {
@@ -73,7 +73,7 @@ describe("useWebSocket", () => {
             });
 
             await waitFor(() => {
-                expect((global as any).WebSocket).toHaveBeenCalledWith(
+                expect((global as unknown as { WebSocket: ReturnType<typeof vi.fn> }).WebSocket).toHaveBeenCalledWith(
                     expect.stringContaining("ws://")
                 );
             });
@@ -88,7 +88,7 @@ describe("useWebSocket", () => {
             );
 
             await waitFor(() => {
-                expect((global as any).WebSocket).toHaveBeenCalledWith(
+                expect((global as unknown as { WebSocket: ReturnType<typeof vi.fn> }).WebSocket).toHaveBeenCalledWith(
                     expect.stringContaining("motion_detector")
                 );
             });
@@ -103,7 +103,7 @@ describe("useWebSocket", () => {
             );
 
             await waitFor(() => {
-                expect((global as any).WebSocket).toHaveBeenCalledWith(
+                expect((global as unknown as { WebSocket: ReturnType<typeof vi.fn> }).WebSocket).toHaveBeenCalledWith(
                     expect.stringContaining("api_key=secret-key")
                 );
             });
