@@ -727,6 +727,35 @@ git status  # Should show clean working directory
 - **When to Re-enable**: If switching to different coverage service or rate limits are resolved
 - **How to Re-enable**: Add back `--cov-report=xml` and `codecov/codecov-action@v3` step to `.github/workflows/lint-and-test.yml`
 
+### Mock Verification in Tests
+
+When mocks aren't mocking (common test failure cause):
+
+**Signs the mock failed:**
+- `TypeError: Cannot destructure property 'X' of undefined` → Mock didn't return object
+- `TypeError: Expected function, got undefined` → Mock not called
+- Component behavior different than expected → Real code running, not mock
+
+**How to verify mocks are working:**
+```typescript
+// ✅ Good: Verify mock is active
+expect(vi.isMockFunction(useWebSocket)).toBe(true);
+
+// ✅ Good: Verify mock was called
+expect(mockFn).toHaveBeenCalled();
+expect(mockFn).toHaveBeenCalledWith(expectedArg);
+
+// ✅ Good: Verify mock return was used
+expect(screen.getByText("expected-text")).toBeInTheDocument();
+```
+
+**Mock setup checklist:**
+1. Mock module **before** component imports: `vi.mock("./hooks/useWebSocket")`
+2. Get mock reference **after** import: `const mockFn = useWebSocket as ReturnType<typeof vi.fn>`
+3. Set return value **before** describe blocks: `mockFn.mockReturnValue({...})`
+4. Render component **after** mock setup complete
+5. Verify in first test: `expect(vi.isMockFunction(mockFn)).toBe(true)`
+
 ## Quick Reference
 
 | Command | Purpose |

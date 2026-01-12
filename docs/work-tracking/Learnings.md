@@ -273,12 +273,128 @@ None.
 
 - Use `screen.debug()` or the error output from `getBy*` queries to resolve selector ambiguity.
 
+### Blockers Found
 
+None.
+
+---
+
+## WU-05: WebUI Test Coverage Analysis
+
+**Completed**: 2026-01-12 16:50  
+**Duration**: 0.5 hours  
+**Status**: ✅ Complete
+
+### What Went Well
+
+- Coverage report generated successfully: 71.97% overall (4 files at 90%+)
+- Identified exactly which components need test expansion
+- Discovered missing dependency and root cause
+
+### Challenges & Solutions
+
+- **Issue**: `@vitest/coverage-v8` reported as missing when running `npm run test -- --coverage`
+  - **Root Cause**: Dependency WAS in `package.json` (line 31) but `node_modules/` was incomplete locally (cache issue from previous setup)
+  - **Solution**: Ran `npm install @vitest/coverage-v8` which synced all deps. Revealed the dependency was already declared but never installed.
+  - **Prevention**: Add explicit `npm ci` before coverage runs to ensure clean installs
+
+- **Issue**: CI workflow doesn't run coverage reports
+  - **Root Cause**: Coverage was **intentionally disabled** in CI due to rate limits (seen in earlier learnings docs). `.github/workflows/lint-and-test.yml` runs `npm test -- --run` but not `npm run test:coverage`
+  - **Resolution**: Coverage runs locally but not enforced in CI to avoid rate limiting issues
+
+### Key Insights
+
+- **Dependency Declaration vs Installation**: A package in `package.json` doesn't guarantee it's installed. Cache issues, partial installs, or skipped steps can leave dependencies missing.
+- **CI Must Match Local Requirements**: If developers are expected to run coverage (80% threshold per AGENTS.md), CI should enforce it too
+- **devDependencies aren't automatically used**: Just listing coverage tool doesn't mean the workflow runs it
+
+### Architecture Decisions
+
+- `@vitest/coverage-v8` correctly placed in `devDependencies` (v4.0.17)
+- Script `test:coverage` exists in package.json but CI ignores it
+- All required test tools are declared; only execution is missing from CI
+
+### Tips for Similar Work
+
+- Always run `npm ci` (clean install) before running optional features like coverage
+- If a tool is required (80% threshold), add it to CI/CD pipeline explicitly
+- Check `package.json` scripts vs actual CI workflow commands - they often diverge
+- Document coverage requirements in CI config, not just in AGENTS.md
 
 ### Blockers Found
 
+- **Codecov Rate Limiting**: Codecov upload was disabled in CI (commit e89a0d2) due to rate limit issues
+  - **Status**: Coverage still runs locally with 80% threshold enforcement
+  - **Why Disabled**: `codecov/codecov-action@v3` upload was consuming rate limits
+  - **Current Solution**: No codecov uploads in workflow; coverage reports only run locally
+  - **When to Re-enable**: If coverage monitoring service changes or rate limits are resolved
+  - **Evidence**: Commit message: "This avoids codecov rate limit issues entirely while still enforcing 80% coverage locally via coverage report command"
 
+---
 
-None.
+## WU-06: App.test.tsx - Functional Tests for Connection States & Error Handling
+
+**Completed**: 2026-01-12 17:10  
+**Duration**: 1 hour  
+**Status**: ✅ Complete (partial - 46% coverage, need 80%)
+
+### What Went Well
+
+- Added 14 new functional tests covering connection states, error handling, mode switching
+- Tests now catch the WebSocket error scenario from issue #17
+- Improved App.tsx coverage from 33% → 46%
+- Overall WebUI coverage improved from 71.97% → 77.07%
+- All 22 tests pass, no flaky tests
+- Mock verification pattern established
+
+### Challenges & Solutions
+
+- **Issue**: Old branding tests failed because mock wasn't set up before they ran
+  - **Root Cause**: Mock `mockReturnValue()` called inside describe block, but tests rendered component before mock was ready
+  - **Solution**: Set global mock **outside** describe block, before any tests run
+  - **Lesson**: Mock setup timing matters - must happen before first render
+
+- **Issue**: How do you know if a mock isn't actually mocking?
+  - **Solution**: Watch for `TypeError: Cannot destructure property 'X' of undefined` - this proves mock setup failed
+  - **Verification**: Use `expect(vi.isMockFunction(fn)).toBe(true)` to verify mock is active
+  - **Lesson**: Real code errors prove the mock didn't intercept the call
+
+### Key Insights
+
+- **Mock Setup Timing**: Global mocks must be defined outside describe blocks (before imports)
+- **Component-Level Mocks**: Set defaults in beforeEach or at module level
+- **Error Detection**: "Cannot read property" or "Cannot destructure" errors mean mock failed
+- **Test Order Matters**: Test that verifies mock is working should run first (sanity check)
+- **Mock Verification Pattern**: Check vi.isMockFunction() at test start, verify .toHaveBeenCalled() within tests
+
+### Architecture Decisions
+
+- Mocks set globally before any tests (affects all tests in file)
+- Mock returns realistic object shape matching actual useWebSocket hook
+- Functional tests separate from branding/styling tests (two describe blocks)
+- beforeEach hook resets mocks for state isolation
+
+### Tips for Similar Work
+
+- Always set global mocks **before** describe blocks start
+- Test your test: verify vi.isMockFunction(fn) === true
+- Look for "Cannot read/destructure" errors as sign mock failed
+- Use .toHaveBeenCalled() to verify mock was actually invoked
+- If mock fails silently, check:
+  1. Mock defined before imports
+  2. Mock called with correct return shape
+  3. No race conditions in async tests
+- Set up mocks in this order:
+  1. vi.mock() - mock module at import time
+  2. const mock = require(); import - get reference
+  3. mock.mockReturnValue() - set return value
+  4. render() - component now uses mock
+
+### Blockers Found
+
+- **Partial Coverage**: App.tsx still at 46% (need 80%)
+  - Lines 67-79, 267-270 need additional tests for results display and file upload
+  - Estimated 6-8 more tests needed
+  - Dependent on other components being fully mocked (JobList, ResultsPanel)
 
 
