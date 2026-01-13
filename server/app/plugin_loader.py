@@ -1,8 +1,8 @@
-"""Plugin discovery and management system.
+"""Unified plugin discovery and management system.
 
-This module provides plugin discovery, loading, and lifecycle management.
-Plugins are dynamically loaded from a configured directory and must
-implement the PluginInterface protocol.
+Supports:
+- Entry-point plugins (pip installable)
+- Local development plugins (file-based)
 """
 
 import asyncio
@@ -11,6 +11,7 @@ import logging
 import sys
 from abc import ABC, abstractmethod
 from concurrent.futures import ThreadPoolExecutor
+from importlib.metadata import entry_points
 from pathlib import Path
 from typing import Any, Dict, Optional, Protocol, runtime_checkable
 
@@ -175,25 +176,20 @@ class BasePlugin(ABC):
 class PluginManager:
     """Manages plugin discovery, loading, and lifecycle.
 
-    Dynamically loads plugin modules from a directory, validates them
-    against PluginInterface protocol, and manages their lifecycle.
+    Supports both entry-point plugins (pip installable) and local development plugins.
     """
 
     def __init__(self, plugins_dir: Optional[str] = None) -> None:
         """Initialize the plugin manager.
 
         Args:
-            plugins_dir: Optional path to plugins directory.
-                        Defaults to example_plugins relative to server directory.
+            plugins_dir: Optional path to local plugins directory for development.
+                        If None, only entry-point plugins will be loaded.
 
         Raises:
             None - gracefully handles missing directories.
         """
-        if plugins_dir is None:
-            # Default to example_plugins directory outside of server
-            self.plugins_dir = Path(__file__).parent.parent.parent / "example_plugins"
-        else:
-            self.plugins_dir = Path(plugins_dir)
+        self.plugins_dir = Path(plugins_dir) if plugins_dir else None
         self.plugins: Dict[str, PluginInterface] = {}
         self._watchers: list[Any] = []
         logger.debug(
@@ -201,13 +197,98 @@ class PluginManager:
             extra={"plugins_dir": str(self.plugins_dir)},
         )
 
+    def load_entrypoint_plugins(self):
+        """Load plugins from entry points.
+
+        Returns:
+            Tuple of (loaded plugins dict, errors dict)
+        """
+        loaded = {}
+        errors = {}
+
+        eps = entry_points(group="forgesyte.plugins")
+
+        for ep in eps:
+            try:
+                plugin_class = ep.load()
+                plugin = plugin_class()
+
+                if not isinstance(plugin, PluginInterface):
+                    raise TypeError(
+                        f"Plugin {ep.name} does not implement PluginInterface"
+                    )
+
+                plugin.on_load()
+                self.plugins[plugin.name] = plugin
+                loaded[plugin.name] = f"entrypoint:{ep.name}"
+                logger.info(
+                    "Entrypoint plugin loaded successfully",
+                    extra={
+                        "plugin_name": plugin.name,
+                        "source": f"entrypoint:{ep.name}",
+                    },
+                )
+
+            except Exception as e:
+                errors[ep.name] = str(e)
+                logger.error(
+                    "Failed to load entrypoint plugin",
+                    extra={"plugin_name": ep.name, "error": str(e)},
+                )
+
+        return loaded, errors
+
+    def load_local_plugins(self):
+        """Load local development plugins from directory.
+
+        Returns:
+            Tuple of (loaded plugins dict, errors dict)
+        """
+        loaded = {}
+        errors = {}
+
+        # If no plugins_dir is set, return empty results
+        if self.plugins_dir is None:
+            logger.info("No plugins directory specified, skipping local plugin loading")
+            return loaded, errors
+
+        if not self.plugins_dir.exists():
+            logger.info(
+                f"Plugins dir {self.plugins_dir} doesn't exist, "
+                "skipping local plugin loading"
+            )
+            return loaded, errors
+
+        for item in self.plugins_dir.iterdir():
+            if item.is_dir() and not item.name.startswith("_"):
+                plugin_file = item / "plugin.py"
+                if plugin_file.exists():
+                    try:
+                        plugin = self._load_plugin_from_file(plugin_file, item.name)
+                        if plugin:
+                            plugin.on_load()
+                            self.plugins[plugin.name] = plugin
+                            loaded[plugin.name] = str(plugin_file)
+                            logger.info(
+                                "Local plugin loaded successfully",
+                                extra={
+                                    "plugin_name": plugin.name,
+                                    "plugin_file": str(plugin_file),
+                                },
+                            )
+                    except (ImportError, TypeError, AttributeError) as e:
+                        errors[item.name] = str(e)
+                        logger.error(
+                            "Failed to load local plugin",
+                            extra={"plugin_dir": item.name, "error": str(e)},
+                        )
+
+        return loaded, errors
+
     def load_plugins(
         self,
     ) -> Dict[str, Dict[str, str]]:
-        """Load all plugins from the plugins directory.
-
-        Scans plugins_dir for subdirectories containing plugin.py files,
-        loads each plugin, and validates it against PluginInterface protocol.
+        """Load all plugins from both entry points and local directory.
 
         Returns:
             Dictionary with 'loaded' (successful) and 'errors' (failed) keys.
@@ -219,36 +300,15 @@ class PluginManager:
         loaded: Dict[str, str] = {}
         errors: Dict[str, str] = {}
 
-        if not self.plugins_dir.exists():
-            logger.warning(
-                "Plugins directory not found",
-                extra={"plugins_dir": str(self.plugins_dir)},
-            )
-            return {"loaded": loaded, "errors": errors}
+        # Load entry-point plugins first
+        ep_loaded, ep_errors = self.load_entrypoint_plugins()
+        loaded.update(ep_loaded)
+        errors.update(ep_errors)
 
-        for item in self.plugins_dir.iterdir():
-            if item.is_dir() and not item.name.startswith("_"):
-                plugin_file = item / "plugin.py"
-                if plugin_file.exists():
-                    try:
-                        plugin = self._load_plugin_from_file(plugin_file, item.name)
-                        if plugin:
-                            self.plugins[plugin.name] = plugin
-                            plugin.on_load()
-                            loaded[plugin.name] = str(plugin_file)
-                            logger.info(
-                                "Plugin loaded successfully",
-                                extra={
-                                    "plugin_name": plugin.name,
-                                    "plugin_file": str(plugin_file),
-                                },
-                            )
-                    except (ImportError, TypeError, AttributeError) as e:
-                        errors[item.name] = str(e)
-                        logger.error(
-                            "Failed to load plugin",
-                            extra={"plugin_dir": item.name, "error": str(e)},
-                        )
+        # Load local development plugins
+        local_loaded, local_errors = self.load_local_plugins()
+        loaded.update(local_loaded)
+        errors.update(local_errors)
 
         return {"loaded": loaded, "errors": errors}
 
@@ -348,26 +408,28 @@ class PluginManager:
                     )
             del self.plugins[name]
 
-        # Find and reload
-        plugin_dir = self.plugins_dir / name
-        plugin_file = plugin_dir / "plugin.py"
+        # Only attempt to reload from disk if plugins_dir is set and exists
+        if self.plugins_dir is not None and self.plugins_dir.exists():
+            # Find and reload
+            plugin_dir = self.plugins_dir / name
+            plugin_file = plugin_dir / "plugin.py"
 
-        if plugin_file.exists():
-            try:
-                loaded_plugin = self._load_plugin_from_file(plugin_file, name)
-                if loaded_plugin:
-                    self.plugins[loaded_plugin.name] = loaded_plugin
-                    loaded_plugin.on_load()
-                    logger.info(
-                        "Plugin reloaded successfully",
-                        extra={"plugin_name": name},
+            if plugin_file.exists():
+                try:
+                    loaded_plugin = self._load_plugin_from_file(plugin_file, name)
+                    if loaded_plugin:
+                        self.plugins[loaded_plugin.name] = loaded_plugin
+                        loaded_plugin.on_load()
+                        logger.info(
+                            "Plugin reloaded successfully",
+                            extra={"plugin_name": name},
+                        )
+                        return True
+                except (ImportError, TypeError, AttributeError) as e:
+                    logger.error(
+                        "Failed to reload plugin",
+                        extra={"plugin_name": name, "error": str(e)},
                     )
-                    return True
-            except (ImportError, TypeError, AttributeError) as e:
-                logger.error(
-                    "Failed to reload plugin",
-                    extra={"plugin_name": name, "error": str(e)},
-                )
 
         return False
 
@@ -375,7 +437,7 @@ class PluginManager:
         """Reload all plugins.
 
         Unloads all currently loaded plugins, clears the registry,
-        then reloads all plugins from disk.
+        then reloads all plugins from disk if plugins_dir is available.
 
         Returns:
             Dictionary with 'loaded' (successful) and 'errors' (failed) keys.
@@ -394,8 +456,14 @@ class PluginManager:
                 )
 
         self.plugins.clear()
-        logger.info("All plugins cleared, reloading from disk")
-        return self.load_plugins()
+
+        # Only reload from disk if plugins_dir is set and exists
+        if self.plugins_dir is not None and self.plugins_dir.exists():
+            logger.info("All plugins cleared, reloading from disk")
+            return self.load_plugins()
+        else:
+            logger.info("All plugins cleared, no plugin directory to reload from")
+            return {"loaded": {}, "errors": {}}
 
     def install_plugin(self, source: str) -> bool:
         """Install a plugin from a URL or path.
@@ -409,8 +477,7 @@ class PluginManager:
         Raises:
             NotImplementedError: Feature not yet implemented.
         """
-        # TODO: Implement plugin installation from git URL or local path
-        raise NotImplementedError("Plugin installation not yet implemented")
+        raise NotImplementedError("Plugin installation not supported in this version")
 
     def uninstall_plugin(self, name: str) -> bool:
         """Uninstall a plugin.
@@ -440,6 +507,5 @@ class PluginManager:
                 "Plugin uninstalled",
                 extra={"plugin_name": name},
             )
-            # TODO: Remove plugin files
             return True
         return False
