@@ -61,21 +61,20 @@ async def lifespan(app: FastAPI):
             "Failed to initialize authentication service", extra={"error": str(e)}
         )
 
-    # Load plugins
+    # Initialize plugin manager with optional plugins directory
     # Use absolute path to ensure it works from any working directory
     plugins_dir_env = os.getenv("FORGESYTE_PLUGINS_DIR", None)
     if plugins_dir_env:
         plugins_dir = Path(plugins_dir_env).resolve()
+        logger.info(
+            "Loading plugins from directory",
+            extra={"plugins_dir": str(plugins_dir), "exists": plugins_dir.exists()},
+        )
+        plugin_manager = PluginManager(plugins_dir=str(plugins_dir))
     else:
-        # Default: ../example_plugins relative to this file's directory
-        plugins_dir = Path(__file__).parent.parent.parent / "example_plugins"
-
-    logger.info(
-        "Loading plugins from directory",
-        extra={"plugins_dir": str(plugins_dir), "exists": plugins_dir.exists()},
-    )
-
-    plugin_manager = PluginManager(str(plugins_dir))
+        # Initialize with no plugins directory - will only load entry-point plugins
+        logger.info("Initializing plugin manager without local plugins directory")
+        plugin_manager = PluginManager()  # No plugins_dir specified
 
     try:
         result = plugin_manager.load_plugins()
