@@ -385,7 +385,7 @@ def run_server(host: str = "0.0.0.0", port: int = 8000, reload: bool = False) ->
         reload: Enable auto-reload on code changes (dev only)
     """
     uvicorn.run(
-        "server.app.main:app",
+        "app.main:app",
         host=host,
         port=port,
         reload=reload,
