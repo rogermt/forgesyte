@@ -39,6 +39,12 @@ import os
 import sys
 from typing import Any, Dict, Optional
 
+# Configure authentication BEFORE importing app or pytest
+# This ensures that when app.main initializes during TestClient creation,
+# it will have API keys configured and enforce authentication
+os.environ.setdefault("FORGESYTE_ADMIN_KEY", "test-admin-key")
+os.environ.setdefault("FORGESYTE_USER_KEY", "test-user-key")
+
 import pytest
 
 # Set asyncio mode before pytest-asyncio imports
@@ -73,7 +79,6 @@ def app_with_plugins():
     Returns:
         FastAPI app with all services initialized and plugins loaded
     """
-    from app.auth import init_auth_service
     from app.main import app
     from app.plugin_loader import PluginManager
     from app.services import (
@@ -85,9 +90,6 @@ def app_with_plugins():
     )
     from app.tasks import init_task_processor
     from app.websocket_manager import ws_manager
-
-    # Initialize authentication service
-    init_auth_service()
 
     # Load plugins
     plugins_dir = os.getenv("FORGESYTE_PLUGINS_DIR", "../example_plugins")

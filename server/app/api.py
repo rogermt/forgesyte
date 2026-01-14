@@ -18,7 +18,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, UploadFile
 
-from .auth import get_api_key, require_auth
+from .auth import require_auth
 from .exceptions import ExternalServiceError
 from .mcp import (
     MCP_PROTOCOL_VERSION,
@@ -97,7 +97,7 @@ async def analyze_image(
     plugin: str = Query(default="ocr", description="Plugin to use"),
     image_url: Optional[str] = Query(None, description="URL of image to analyze"),
     options: Optional[str] = Query(None, description="JSON options for plugin"),
-    auth: dict = Depends(get_api_key),
+    auth: dict = Depends(require_auth(["analyze"])),
     service: AnalysisService = Depends(get_analysis_service),
 ) -> dict:
     """Submit an image for analysis.
@@ -181,7 +181,7 @@ async def analyze_image(
 @router.get("/jobs/{job_id}", response_model=JobResponse)
 async def get_job_status(
     job_id: str,
-    auth: dict = Depends(get_api_key),
+    auth: dict = Depends(require_auth(["analyze"])),
     service: JobManagementService = Depends(get_job_service),
 ) -> JobResponse:
     """Get status and results of a specific analysis job.

@@ -175,9 +175,12 @@ class AuthService:
             None
         """
         if not key:
-            # Allow unauthenticated access if no keys configured
-            if not self.repository.get_user_by_hash("_any_"):
+            # Allow unauthenticated access only if no keys are configured
+            # Check by seeing if the repository has any keys at all
+            if hasattr(self.repository, "keys") and not self.repository.keys:
+                # No keys configured - allow anonymous access
                 return {"name": "anonymous", "permissions": ["analyze", "stream"]}
+            # Keys are configured - authentication is required
             return None
 
         key_hash = self.hash_key(key)

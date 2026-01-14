@@ -16,6 +16,12 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 @pytest.fixture
 def client(app_with_plugins):
     """Create a test client."""
+    # Initialize auth service before creating client.
+    # TestClient doesn't automatically trigger app lifespan events.
+    from app.auth import init_auth_service
+
+    init_auth_service()
+
     return TestClient(app_with_plugins)
 
 
@@ -167,36 +173,30 @@ class TestAPIErrorHandling:
 class TestAuthRequiredEndpoints:
     """Test that protected endpoints require authentication."""
 
-    @pytest.mark.skip(
-        reason="Pre-existing failure: request validation issue unrelated to refactoring"
-    )
     def test_analyze_requires_auth(self, client: TestClient) -> None:
         """Test that /analyze requires authentication."""
-        response = client.post("/v1/analyze", data=b"fake_image")
+        # Send valid image data (base64) to pass validation before auth check
+        import base64
+
+        fake_image = base64.b64encode(b"fake_image_data").decode()
+        response = client.post("/v1/analyze", content=fake_image.encode())
         assert response.status_code in [401, 403]
 
-    @pytest.mark.skip(
-        reason="Pre-existing failure: request validation issue unrelated to refactoring"
-    )
     def test_get_job_requires_auth(self, client: TestClient) -> None:
         """Test that /jobs/{job_id} requires authentication."""
-        response = client.get("/v1/jobs/job123")
+        # Use a valid UUID format so path validation passes
+        response = client.get("/v1/jobs/550e8400-e29b-41d4-a716-446655440000")
         assert response.status_code in [401, 403]
 
-    @pytest.mark.skip(
-        reason="Pre-existing failure: request validation issue unrelated to refactoring"
-    )
     def test_list_jobs_requires_auth(self, client: TestClient) -> None:
         """Test that /jobs requires authentication."""
         response = client.get("/v1/jobs")
         assert response.status_code in [401, 403]
 
-    @pytest.mark.skip(
-        reason="Pre-existing failure: request validation issue unrelated to refactoring"
-    )
     def test_cancel_job_requires_auth(self, client: TestClient) -> None:
         """Test that DELETE /jobs/{job_id} requires authentication."""
-        response = client.delete("/v1/jobs/job123")
+        # Use a valid UUID format so path validation passes
+        response = client.delete("/v1/jobs/550e8400-e29b-41d4-a716-446655440000")
         assert response.status_code in [401, 403]
 
     def test_reload_plugin_requires_auth(self, client: TestClient) -> None:
@@ -219,7 +219,7 @@ class TestAnalyzeEndpointInputValidation:
             "/v1/analyze",
             data=b"fake_image",
             params={"options": "not valid json"},
-            headers={"X-API-Key": "test-key"},
+            headers={"X-API-Key": "test-user-key"},
         )
         # Should reject invalid JSON
         assert response.status_code == 400
@@ -229,7 +229,7 @@ class TestAnalyzeEndpointInputValidation:
         response = client.post(
             "/v1/analyze",
             content=b"not_valid_base64!!!",
-            headers={"X-API-Key": "test-key"},
+            headers={"X-API-Key": "test-user-key"},
         )
         assert response.status_code == 400
 
@@ -237,7 +237,7 @@ class TestAnalyzeEndpointInputValidation:
         """Test analyze without image data fails."""
         response = client.post(
             "/v1/analyze",
-            headers={"X-API-Key": "test-key"},
+            headers={"X-API-Key": "test-user-key"},
         )
         assert response.status_code == 400
 
