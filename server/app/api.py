@@ -1,22 +1,30 @@
 """REST API endpoints for the Vision MCP Server.
 
 This module provides thin endpoint handlers that delegate business logic to
-service layer classes. The separation enables testability, maintainability,
-and clear concern separation between transport (HTTP) and business logic.
+service layer classes. The separation of concerns enables testability,
+maintainability, and clear distinction between HTTP transport and business logic.
 
-Endpoints are grouped by domain:
-- /analyze: Image analysis job submission
-- /jobs: Job status and management
-- /plugins: Plugin discovery and management
-- /mcp-*: MCP protocol discovery
-- /health: System health monitoring
+Endpoints are organized by domain:
+    - /analyze: Image analysis job submission
+    - /jobs: Job status and lifecycle management
+    - /plugins: Plugin discovery and management
+    - /mcp-*: Model Context Protocol discovery
+    - /health: System health monitoring
 """
 
 import json
 import logging
-from typing import Optional
+from typing import Any, Dict, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, UploadFile
+from fastapi import (
+    APIRouter,
+    Depends,
+    HTTPException,
+    Query,
+    Request,
+    UploadFile,
+    status,
+)
 
 from .auth import require_auth
 from .exceptions import ExternalServiceError
@@ -35,18 +43,22 @@ from .services.plugin_management_service import PluginManagementService
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
+# ============================================================================
+# Dependency Injection
+# ============================================================================
+
 
 def get_analysis_service(request: Request) -> AnalysisService:
-    """Dependency to inject AnalysisService into endpoints.
+    """Inject AnalysisService from application state.
 
     Args:
-        request: FastAPI request with app state
+        request: FastAPI request with app state containing services.
 
     Returns:
-        AnalysisService instance from app state
+        AnalysisService instance from app state.
 
     Raises:
-        RuntimeError: If service not initialized in app state
+        RuntimeError: If AnalysisService not initialized in app state.
     """
     if not hasattr(request.app.state, "analysis_service_rest"):
         raise RuntimeError("AnalysisService not initialized")
@@ -54,16 +66,16 @@ def get_analysis_service(request: Request) -> AnalysisService:
 
 
 def get_job_service(request: Request) -> JobManagementService:
-    """Dependency to inject JobManagementService into endpoints.
+    """Inject JobManagementService from application state.
 
     Args:
-        request: FastAPI request with app state
+        request: FastAPI request with app state containing services.
 
     Returns:
-        JobManagementService instance from app state
+        JobManagementService instance from app state.
 
     Raises:
-        RuntimeError: If service not initialized in app state
+        RuntimeError: If JobManagementService not initialized in app state.
     """
     if not hasattr(request.app.state, "job_service"):
         raise RuntimeError("JobManagementService not initialized")
@@ -71,63 +83,67 @@ def get_job_service(request: Request) -> JobManagementService:
 
 
 def get_plugin_service(request: Request) -> PluginManagementService:
-    """Dependency to inject PluginManagementService into endpoints.
+    """Inject PluginManagementService from application state.
 
     Args:
-        request: FastAPI request with app state
+        request: FastAPI request with app state containing services.
 
     Returns:
-        PluginManagementService instance from app state
+        PluginManagementService instance from app state.
 
     Raises:
-        RuntimeError: If service not initialized in app state
+        RuntimeError: If PluginManagementService not initialized in app state.
     """
     if not hasattr(request.app.state, "plugin_service"):
         raise RuntimeError("PluginManagementService not initialized")
     return request.app.state.plugin_service
 
 
-# Analysis Endpoints
+# ============================================================================
+# Image Analysis Endpoints
+# ============================================================================
 
 
-@router.post("/analyze", response_model=dict)
+@router.post("/analyze", response_model=Dict[str, Any])
 async def analyze_image(
     request: Request,
     file: Optional[UploadFile] = None,
-    plugin: str = Query(default="ocr", description="Plugin to use"),
+    plugin: str = Query(default="ocr", description="Vision plugin identifier"),
     image_url: Optional[str] = Query(None, description="URL of image to analyze"),
-    options: Optional[str] = Query(None, description="JSON options for plugin"),
-    auth: dict = Depends(require_auth(["analyze"])),
+    options: Optional[str] = Query(None, description="JSON string of plugin options"),
+    auth: Dict[str, Any] = Depends(require_auth(["analyze"])),
     service: AnalysisService = Depends(get_analysis_service),
-) -> dict:
-    """Submit an image for analysis.
+) -> Dict[str, Any]:
+    """Submit an image for analysis using specified vision plugin.
 
-    Accepts image via file upload, URL, or base64 in request body.
-    Returns a job ID for tracking the analysis via /jobs/{job_id}.
+    Supports multiple image sources: file upload, remote URL, or raw body bytes.
+    Returns job ID for asynchronous result tracking via GET /jobs/{job_id}.
 
     Args:
-        request: FastAPI request context
-        file: Optional uploaded image file
-        plugin: Name of plugin to use (default: "ocr")
-        image_url: Optional URL to fetch image from
-        options: Optional JSON string with plugin-specific options
-        auth: Authentication credentials (required)
-        service: Injected AnalysisService
+        request: FastAPI request context with body and app state.
+        file: Optional file upload containing image data.
+        plugin: Vision plugin identifier (e.g., "ocr", "motion_detector").
+                Defaults to "ocr".
+        image_url: Optional HTTP(S) URL to fetch image from.
+        options: Optional JSON string with plugin-specific configuration.
+        auth: Authentication credentials (required, "analyze" permission).
+        service: Injected AnalysisService for orchestration.
 
     Returns:
-        Dictionary with job_id, status, and plugin name
+        Dictionary containing job_id, status, and plugin name.
 
     Raises:
-        HTTPException: 400 if no valid image source or invalid JSON options
-        HTTPException: 400 if image fetch fails
-        HTTPException: 503 if server not fully initialized
+        HTTPException: 400 Bad Request if options JSON is invalid.
+        HTTPException: 400 Bad Request if image URL fetch fails.
+        HTTPException: 400 Bad Request if image data is invalid.
+        HTTPException: 500 Internal Server Error if unexpected failure occurs.
     """
     try:
-        # Read file if provided
+        # Read uploaded file if provided
         file_bytes = await file.read() if file else None
 
-        # Parse options
-        parsed_options = {}
+        # Parse JSON options string into dict
+        parsed_options: Dict[str, Any] = {}
         if options:
             try:
                 parsed_options = json.loads(options)
@@ -136,9 +152,12 @@ async def analyze_image(
                     "Invalid JSON in options parameter",
                     extra={"error": str(e), "plugin": plugin},
                 )
-                raise HTTPException(400, "Invalid JSON in options") from e
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Invalid JSON in options",
+                ) from e
 
-        # Delegate to service
+        # Delegate to service layer for analysis orchestration
         result = await service.process_analysis_request(
             file_bytes=file_bytes,
             image_url=image_url,
@@ -158,49 +177,66 @@ async def analyze_image(
             "Failed to fetch remote image",
             extra={"url": image_url, "error": str(e)},
         )
-        raise HTTPException(400, f"Failed to fetch image: {e}") from e
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Failed to fetch image: {e}",
+        ) from e
+
     except ValueError as e:
         logger.warning(
-            "Invalid image data",
+            "Invalid image data provided",
             extra={"error": str(e), "plugin": plugin},
         )
-        raise HTTPException(400, f"Invalid image: {e}") from e
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid image: {e}",
+        ) from e
+
     except HTTPException:
         raise
+
     except Exception as e:
         logger.exception(
-            "Unexpected error during analysis request",
+            "Unexpected error during analysis submission",
             extra={"plugin": plugin, "error": str(e)},
         )
-        raise HTTPException(500, "Internal server error") from e
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Internal server error",
+        ) from e
 
 
+# ============================================================================
 # Job Management Endpoints
+# ============================================================================
 
 
 @router.get("/jobs/{job_id}", response_model=JobResponse)
 async def get_job_status(
     job_id: str,
-    auth: dict = Depends(require_auth(["analyze"])),
+    auth: Dict[str, Any] = Depends(require_auth(["analyze"])),
     service: JobManagementService = Depends(get_job_service),
 ) -> JobResponse:
-    """Get status and results of a specific analysis job.
+    """Retrieve status and results for a specific analysis job.
 
     Args:
-        job_id: Unique job identifier
-        auth: Authentication credentials (required)
-        service: Injected JobManagementService
+        job_id: Unique job identifier to retrieve.
+        auth: Authentication credentials (required, "analyze" permission).
+        service: Injected JobManagementService.
 
     Returns:
-        JobResponse with status, results, and metadata
+        JobResponse containing job status, results, and metadata.
 
     Raises:
-        HTTPException: 404 if job not found
+        HTTPException: 404 Not Found if job does not exist.
     """
     job = await service.get_job_status(job_id)
     if not job:
         logger.warning("Job not found", extra={"job_id": job_id})
-        raise HTTPException(404, "Job not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Job not found",
+        )
 
     return JobResponse(**job)
 
@@ -210,80 +246,99 @@ async def list_jobs(
     status: Optional[JobStatus] = None,
     plugin: Optional[str] = None,
     limit: int = Query(50, ge=1, le=200),
-    auth: dict = Depends(require_auth(["analyze"])),
+    auth: Dict[str, Any] = Depends(require_auth(["analyze"])),
     service: JobManagementService = Depends(get_job_service),
-) -> dict:
+) -> Dict[str, Any]:
     """List recent analysis jobs with optional filtering.
 
     Args:
-        status: Optional job status filter
-        plugin: Optional plugin name filter
-        limit: Maximum number of jobs to return (1-200)
-        auth: Authentication with "analyze" permission (required)
-        service: Injected JobManagementService
+        status: Optional job status filter (queued, running, done, error).
+        plugin: Optional plugin name filter.
+        limit: Maximum number of jobs to return. Range: 1-200, default: 50.
+        auth: Authentication credentials (required, "analyze" permission).
+        service: Injected JobManagementService.
 
     Returns:
-        Dictionary with jobs list and count
+        Dictionary containing:
+            - jobs: List of JobResponse objects.
+            - count: Total number of jobs returned.
     """
     jobs_result = await service.list_jobs(status=status, plugin=plugin, limit=limit)
     jobs_list = list(jobs_result)
+
     logger.debug(
-        "Listed jobs",
+        "Jobs listed",
         extra={"count": len(jobs_list), "status": status, "plugin": plugin},
     )
-    return {"jobs": [JobResponse(**j) for j in jobs_list], "count": len(jobs_list)}
+
+    return {
+        "jobs": [JobResponse(**j) for j in jobs_list],
+        "count": len(jobs_list),
+    }
 
 
 @router.delete("/jobs/{job_id}")
 async def cancel_job(
     job_id: str,
-    auth: dict = Depends(require_auth(["analyze"])),
+    auth: Dict[str, Any] = Depends(require_auth(["analyze"])),
     service: JobManagementService = Depends(get_job_service),
-) -> dict:
-    """Cancel a queued or processing job.
+) -> Dict[str, Any]:
+    """Cancel a queued or processing analysis job.
+
+    Only jobs in queued or processing state can be cancelled. Completed or
+    errored jobs cannot be cancelled.
 
     Args:
-        job_id: Unique job identifier
-        auth: Authentication with "analyze" permission (required)
-        service: Injected JobManagementService
+        job_id: Unique job identifier to cancel.
+        auth: Authentication credentials (required, "analyze" permission).
+        service: Injected JobManagementService.
 
     Returns:
-        Dictionary with status and job_id
+        Dictionary containing:
+            - status: "cancelled" if successful.
+            - job_id: The cancelled job identifier.
 
     Raises:
-        HTTPException: 400 if job cannot be cancelled (running or completed)
+        HTTPException: 404 Not Found if job doesn't exist or cannot be cancelled.
     """
     success = await service.cancel_job(job_id)
-    if success:
-        logger.info("Job cancelled", extra={"job_id": job_id})
-        return {"status": "cancelled", "job_id": job_id}
+    if not success:
+        logger.warning(
+            "Job cannot be cancelled",
+            extra={"job_id": job_id, "reason": "not found or already completed"},
+        )
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Job not found or already completed",
+        )
 
-    logger.warning(
-        "Job cannot be cancelled",
-        extra={"job_id": job_id, "reason": "running or completed"},
-    )
-    raise HTTPException(
-        400, "Job cannot be cancelled (may already be running or completed)"
-    )
+    logger.info("Job cancelled", extra={"job_id": job_id})
+    return {"status": "cancelled", "job_id": job_id}
 
 
+# ============================================================================
 # Plugin Management Endpoints
+# ============================================================================
 
 
 @router.get("/plugins")
 async def list_plugins(
     service: PluginManagementService = Depends(get_plugin_service),
-) -> dict:
+) -> Dict[str, Any]:
     """List all available vision analysis plugins.
 
     Args:
-        service: Injected PluginManagementService
+        service: Injected PluginManagementService.
 
     Returns:
-        Dictionary with plugins list and count
+        Dictionary containing:
+            - plugins: List of PluginMetadata objects.
+            - count: Total number of plugins available.
     """
     plugins = await service.list_plugins()
-    logger.debug("Listed plugins", extra={"count": len(plugins)})
+
+    logger.debug("Plugins listed", extra={"count": len(plugins)})
+
     return {
         "plugins": [PluginMetadata(**meta) for meta in plugins],
         "count": len(plugins),
@@ -295,22 +350,25 @@ async def get_plugin_info(
     name: str,
     service: PluginManagementService = Depends(get_plugin_service),
 ) -> PluginMetadata:
-    """Get detailed information about a specific plugin.
+    """Retrieve detailed information about a specific plugin.
 
     Args:
-        name: Plugin identifier
-        service: Injected PluginManagementService
+        name: Plugin identifier to retrieve.
+        service: Injected PluginManagementService.
 
     Returns:
-        PluginMetadata with plugin details
+        PluginMetadata containing plugin details.
 
     Raises:
-        HTTPException: 404 if plugin not found
+        HTTPException: 404 Not Found if plugin does not exist.
     """
     plugin_info = await service.get_plugin_info(name)
     if not plugin_info:
         logger.warning("Plugin not found", extra={"plugin": name})
-        raise HTTPException(404, f"Plugin '{name}' not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Plugin '{name}' not found",
+        )
 
     return PluginMetadata(**plugin_info)
 
@@ -318,89 +376,107 @@ async def get_plugin_info(
 @router.post("/plugins/{name}/reload")
 async def reload_plugin(
     name: str,
-    auth: dict = Depends(require_auth(["admin"])),
+    auth: Dict[str, Any] = Depends(require_auth(["admin"])),
     service: PluginManagementService = Depends(get_plugin_service),
-) -> dict:
+) -> Dict[str, Any]:
     """Reload a specific plugin (admin only).
 
-    Triggers a reload of the specified plugin, refreshing its code and state.
+    Triggers a dynamic reload of the specified plugin, refreshing its code
+    and internal state without restarting the server.
 
     Args:
-        name: Plugin identifier
-        auth: Authentication with "admin" permission (required)
-        service: Injected PluginManagementService
+        name: Plugin identifier to reload.
+        auth: Authentication credentials (required, "admin" permission).
+        service: Injected PluginManagementService.
 
     Returns:
-        Dictionary with status and plugin name
+        Dictionary containing:
+            - status: "reloaded" if successful.
+            - plugin: The reloaded plugin name.
 
     Raises:
-        HTTPException: 500 if reload fails
+        HTTPException: 500 Internal Server Error if reload fails.
     """
     success = await service.reload_plugin(name)
-    if success:
-        logger.info("Plugin reloaded", extra={"plugin": name})
-        return {"status": "reloaded", "plugin": name}
+    if not success:
+        logger.error("Failed to reload plugin", extra={"plugin": name})
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to reload plugin '{name}'",
+        )
 
-    logger.error("Failed to reload plugin", extra={"plugin": name})
-    raise HTTPException(500, f"Failed to reload plugin '{name}'")
+    logger.info("Plugin reloaded", extra={"plugin": name})
+    return {"status": "reloaded", "plugin": name}
 
 
 @router.post("/plugins/reload-all")
 async def reload_all_plugins(
-    auth: dict = Depends(require_auth(["admin"])),
+    auth: Dict[str, Any] = Depends(require_auth(["admin"])),
     service: PluginManagementService = Depends(get_plugin_service),
-) -> dict:
-    """Reload all plugins (admin only).
+) -> Dict[str, Any]:
+    """Reload all registered plugins (admin only).
 
-    Triggers a reload of all registered plugins.
+    Triggers a dynamic reload of all active plugins simultaneously.
 
     Args:
-        auth: Authentication with "admin" permission (required)
-        service: Injected PluginManagementService
+        auth: Authentication credentials (required, "admin" permission).
+        service: Injected PluginManagementService.
 
     Returns:
-        Operation result with status details
+        Operation result with status details and per-plugin results.
     """
     result = await service.reload_all_plugins()
+
     logger.info("All plugins reloaded", extra={"result": result})
+
     return result
 
 
-# MCP Protocol Discovery Endpoints
+# ============================================================================
+# Protocol Discovery Endpoints (MCP & Gemini)
+# ============================================================================
 
 
 @router.get("/mcp-manifest")
 async def mcp_manifest(
     request: Request,
     service: PluginManagementService = Depends(get_plugin_service),
-) -> dict:
-    """MCP manifest for Gemini-CLI discovery.
+) -> Dict[str, Any]:
+    """Return Model Context Protocol manifest for tool discovery.
 
-    Returns MCP protocol manifest describing available tools.
+    Provides MCP-compliant manifest describing available analysis tools
+    and their capabilities for integration with MCP clients.
 
     Args:
-        request: FastAPI request context
-        service: Injected PluginManagementService
+        request: FastAPI request context with base URL.
+        service: Injected PluginManagementService.
 
     Returns:
-        MCP manifest dictionary
+        MCP manifest dictionary containing tools and server information.
     """
     base_url = str(request.base_url).rstrip("/")
     adapter = MCPAdapter(request.app.state.plugins, base_url)
+
     logger.debug("MCP manifest requested", extra={"base_url": base_url})
+
     return adapter.get_manifest()
 
 
 @router.get("/mcp-version")
-async def mcp_version() -> dict:
-    """MCP protocol version and server information.
+async def mcp_version() -> Dict[str, str]:
+    """Return MCP protocol and server version information.
 
-    Returns server identity and protocol version information.
+    Provides server identity and supported MCP protocol version for clients
+    to verify compatibility before establishing connections.
 
     Returns:
-        Dictionary with server_name, server_version, and mcp_version
+        Dictionary containing:
+            - server_name: Server identifier.
+            - server_version: Application semantic version.
+            - mcp_version: Supported MCP protocol version.
     """
     logger.debug("MCP version requested")
+
     return {
         "server_name": MCP_SERVER_NAME,
         "server_version": MCP_SERVER_VERSION,
@@ -412,64 +488,80 @@ async def mcp_version() -> dict:
 async def well_known_mcp_manifest(
     request: Request,
     service: PluginManagementService = Depends(get_plugin_service),
-) -> dict:
-    """MCP manifest at well-known location for discovery.
+) -> Dict[str, Any]:
+    """Return MCP manifest at standard well-known location.
 
-    Standard location for MCP discovery as per spec.
+    Provides MCP discovery at the standardized /.well-known/ path for
+    automatic client discovery and compatibility checking.
 
     Args:
-        request: FastAPI request context
-        service: Injected PluginManagementService
+        request: FastAPI request context with base URL.
+        service: Injected PluginManagementService.
 
     Returns:
-        MCP manifest dictionary
+        MCP manifest dictionary (same as /mcp-manifest).
     """
     base_url = str(request.base_url).rstrip("/")
     adapter = MCPAdapter(request.app.state.plugins, base_url)
+
     logger.debug("Well-known MCP manifest requested", extra={"base_url": base_url})
+
     return adapter.get_manifest()
 
 
 @router.get("/gemini-extension")
-async def gemini_extension_manifest(request: Request) -> dict:
-    """Gemini extension manifest for easy installation.
+async def gemini_extension_manifest(request: Request) -> Dict[str, Any]:
+    """Return manifest for Gemini CLI extension installation.
 
-    Returns manifest compatible with Gemini CLI extension system.
+    Provides extension manifest compatible with Gemini CLI for streamlined
+    plugin installation and integration.
 
     Args:
-        request: FastAPI request context
+        request: FastAPI request context with base URL.
 
     Returns:
-        Extension manifest dictionary
+        Gemini extension manifest dictionary.
     """
     base_url = str(request.base_url).rstrip("/")
+
     logger.debug("Gemini extension manifest requested", extra={"base_url": base_url})
+
     return build_gemini_extension_manifest(base_url)
 
 
-# Health Check Endpoint
+# ============================================================================
+# Health Monitoring Endpoint
+# ============================================================================
 
 
 @router.get("/health")
 async def health_check(
     request: Request,
     service: PluginManagementService = Depends(get_plugin_service),
-) -> dict:
-    """System health check endpoint.
+) -> Dict[str, Any]:
+    """System health check endpoint for infrastructure monitoring.
 
-    Verifies that core components are operational.
+    Verifies that core components are operational. Used by load balancers,
+    container orchestrators, and monitoring systems to detect failures and
+    route traffic accordingly.
+
+    Note: Plugins are optional in the current architecture. System is considered
+    healthy if core services are running, regardless of plugin count.
 
     Args:
-        request: FastAPI request context
-        service: Injected PluginManagementService
+        request: FastAPI request context with app state.
+        service: Injected PluginManagementService.
 
     Returns:
-        Dictionary with status, plugins_loaded, and version
+        Dictionary containing:
+            - status: "healthy" or "degraded" based on system state.
+            - plugins_loaded: Number of loaded vision plugins.
+            - version: Application semantic version.
     """
     pm = request.app.state.plugins
     plugins_count = len(pm.list())
-    # System is healthy if core services are running, regardless of plugin count
-    # Plugins are now optional in the new architecture
+
+    # Core services determine health; plugins are optional
     is_healthy = True
 
     logger.debug(
