@@ -378,3 +378,32 @@ def test_load_plugins_no_directory_specified():
     # Verify that other methods work correctly
     assert pm.get("any_plugin") is None
     assert pm.list() == {}
+
+
+def test_server_starts_with_no_plugin_directories():
+    """Test that the server can start when no plugin directories exist.
+
+    This test reproduces the E2E failure we saw where the server fails to start
+    when the example_plugins directory doesn't exist.
+    """
+    import os
+    import tempfile
+
+    # Create a temporary directory that doesn't have plugins
+    with tempfile.TemporaryDirectory() as temp_dir:
+        # Set up a PluginManager with a non-existent directory
+        nonexistent_dir = os.path.join(temp_dir, "nonexistent_plugins")
+
+        # Create a PluginManager with non-existent directory
+        from app.plugin_loader import PluginManager
+
+        plugin_manager = PluginManager(plugins_dir=nonexistent_dir)
+
+        # This should not raise an exception
+        result = plugin_manager.load_plugins()
+
+        # Verify that it returns empty results without errors
+        assert "loaded" in result
+        assert "errors" in result
+        assert result["loaded"] == {}
+        assert result["errors"] == {}

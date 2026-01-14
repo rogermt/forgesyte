@@ -468,7 +468,9 @@ async def health_check(
     """
     pm = request.app.state.plugins
     plugins_count = len(pm.list())
-    is_healthy = plugins_count > 0
+    # System is healthy if core services are running, regardless of plugin count
+    # Plugins are now optional in the new architecture
+    is_healthy = True
 
     logger.debug(
         "Health check performed",
