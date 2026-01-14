@@ -241,6 +241,9 @@ class PluginManager:
     def load_local_plugins(self):
         """Load local development plugins from directory.
 
+        Searches for plugin.py in both direct subdirectories and nested
+        package directories (e.g., ocr/plugin.py or ocr/forgesyte_ocr/plugin.py).
+
         Returns:
             Tuple of (loaded plugins dict, errors dict)
         """
@@ -261,27 +264,38 @@ class PluginManager:
 
         for item in self.plugins_dir.iterdir():
             if item.is_dir() and not item.name.startswith("_"):
+                # First, check for plugin.py directly in subdirectory
                 plugin_file = item / "plugin.py"
-                if plugin_file.exists():
-                    try:
-                        plugin = self._load_plugin_from_file(plugin_file, item.name)
-                        if plugin:
-                            plugin.on_load()
-                            self.plugins[plugin.name] = plugin
-                            loaded[plugin.name] = str(plugin_file)
-                            logger.info(
-                                "Local plugin loaded successfully",
-                                extra={
-                                    "plugin_name": plugin.name,
-                                    "plugin_file": str(plugin_file),
-                                },
-                            )
-                    except (ImportError, TypeError, AttributeError) as e:
-                        errors[item.name] = str(e)
-                        logger.error(
-                            "Failed to load local plugin",
-                            extra={"plugin_dir": item.name, "error": str(e)},
+
+                # If not found, search recursively for plugin.py in nested dirs
+                if not plugin_file.exists():
+                    plugin_files = list(item.glob("**/plugin.py"))
+                    if plugin_files:
+                        # Use first plugin.py found (typically in package dir)
+                        plugin_file = plugin_files[0]
+                    else:
+                        # No plugin.py found
+                        continue
+
+                try:
+                    plugin = self._load_plugin_from_file(plugin_file, item.name)
+                    if plugin:
+                        plugin.on_load()
+                        self.plugins[plugin.name] = plugin
+                        loaded[plugin.name] = str(plugin_file)
+                        logger.info(
+                            "Local plugin loaded successfully",
+                            extra={
+                                "plugin_name": plugin.name,
+                                "plugin_file": str(plugin_file),
+                            },
                         )
+                except (ImportError, TypeError, AttributeError) as e:
+                    errors[item.name] = str(e)
+                    logger.error(
+                        "Failed to load local plugin",
+                        extra={"plugin_dir": item.name, "error": str(e)},
+                    )
 
         return loaded, errors
 
@@ -378,8 +392,18 @@ class PluginManager:
 
         Returns:
             Dictionary mapping plugin names to their metadata dictionaries.
+
+        Note:
+            Handles both dict metadata (legacy) and Pydantic model metadata.
         """
-        return {name: plugin.metadata() for name, plugin in self.plugins.items()}
+        result = {}
+        for name, plugin in self.plugins.items():
+            metadata = plugin.metadata()
+            # Convert Pydantic models to dict if necessary
+            if hasattr(metadata, "model_dump"):
+                metadata = metadata.model_dump()
+            result[name] = metadata
+        return result
 
     def reload_plugin(self, name: str) -> bool:
         """Reload a specific plugin.
@@ -413,6 +437,12 @@ class PluginManager:
             # Find and reload
             plugin_dir = self.plugins_dir / name
             plugin_file = plugin_dir / "plugin.py"
+
+            # If not found directly, search recursively
+            if not plugin_file.exists():
+                plugin_files = list(plugin_dir.glob("**/plugin.py"))
+                if plugin_files:
+                    plugin_file = plugin_files[0]
 
             if plugin_file.exists():
                 try:
