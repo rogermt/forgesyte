@@ -145,6 +145,42 @@ class PluginMetadata(BaseModel):
         raise ValueError("description must be a non-empty string")
 
 
+class AnalysisResult(BaseModel):
+    """Shared contract for plugin analysis results.
+
+    All plugins must return this type from their analyze() method.
+    Ensures consistent schema for results across all plugins and enables
+    serialization to dict for storage and API responses.
+
+    Attributes:
+        text: Extracted or analyzed text content (e.g., OCR text).
+              Can be empty string if no text extracted.
+        blocks: List of detected regions/blocks with details.
+                Structure depends on plugin (OCR blocks, motion regions, etc).
+                Can be empty list if no regions detected.
+        confidence: Overall confidence score (0.0-1.0).
+                    Represents plugin's confidence in results.
+        language: Detected language code (e.g., "eng", "fra").
+                  Optional; only relevant for text-based plugins.
+        error: Error message if analysis failed.
+               Optional; only set when analysis encounters an error.
+    """
+
+    text: str = Field(..., description="Extracted or analyzed text content")
+    blocks: List[Dict[str, Any]] = Field(
+        default_factory=list, description="Detected regions/blocks with details"
+    )
+    confidence: float = Field(
+        ..., ge=0.0, le=1.0, description="Confidence score (0.0-1.0)"
+    )
+    language: Optional[str] = Field(
+        default=None, description="Detected language code (e.g., 'eng', 'fra')"
+    )
+    error: Optional[str] = Field(
+        default=None, description="Error message if analysis failed"
+    )
+
+
 class MCPTool(BaseModel):
     """MCP tool definition for plugin capabilities.
 
