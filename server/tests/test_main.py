@@ -124,27 +124,6 @@ def test_get_analysis_service():
         get_analysis_service(mock_ws)
 
 
-@pytest.mark.skip(reason="WebSocket testing requires TestClient, not AsyncClient")
-@pytest.mark.asyncio
-async def test_websocket_stream_success(mock_vision_service, mock_ws_manager):
-    """Test successful WebSocket connection and frame handling."""
-    pass
-
-
-@pytest.mark.skip(reason="WebSocket testing requires TestClient, not AsyncClient")
-@pytest.mark.asyncio
-async def test_websocket_stream_invalid_plugin(mock_vision_service, mock_ws_manager):
-    """Test switching to invalid plugin returns error."""
-    pass
-
-
-@pytest.mark.skip(reason="WebSocket testing requires TestClient, not AsyncClient")
-@pytest.mark.asyncio
-async def test_websocket_disconnect_graceful(mock_vision_service, mock_ws_manager):
-    """Test client disconnect handled gracefully."""
-    pass
-
-
 def test_root_endpoint():
     """Test root endpoint returns expected info."""
     client = TestClient(app)
