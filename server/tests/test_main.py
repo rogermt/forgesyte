@@ -18,7 +18,6 @@ from app.main import (
     app,
     get_analysis_service,
     lifespan,
-    run_server,
     ws_manager,
 )
 
@@ -294,17 +293,3 @@ def test_websocket_stream_subscribe_topic(mock_vision_service):
     finally:
         if hasattr(app.state, "analysis_service"):
             delattr(app.state, "analysis_service")
-
-
-@pytest.mark.skip(reason="Integration-style; doesn't affect coverage much")
-def test_run_server():
-    """Mock test for run_server — avoid actually starting server."""
-    with patch("app.main.uvicorn.run") as mock_run:
-        run_server(host="127.0.0.1", port=8001, reload=True)
-        mock_run.assert_called_once_with(
-            "server.app.main:app",
-            host="127.0.0.1",
-            port=8001,
-            reload=True,
-            log_level="info",
-        )
