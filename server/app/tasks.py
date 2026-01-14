@@ -379,11 +379,15 @@ class TaskProcessor:
             processing_time_ms = (time.perf_counter() - start_time) * 1000
 
             # Update with successful result
+            # Handle both dict and Pydantic model returns from plugins
+            result_dict = (
+                result.model_dump() if hasattr(result, "model_dump") else result
+            )
             await self.job_store.update(
                 job_id,
                 {
                     "status": JobStatus.DONE,
-                    "result": {**result, "processing_time_ms": processing_time_ms},
+                    "result": {**result_dict, "processing_time_ms": processing_time_ms},
                     "completed_at": datetime.utcnow(),
                     "progress": 1.0,
                 },

@@ -1044,3 +1044,43 @@ class TestTaskProcessorErrorHandling:
         job = await task_processor.get_job(job_id)
         assert job is not None
         assert job["completed_at"] is not None
+
+    @pytest.mark.asyncio
+    async def test_process_job_with_pydantic_model_result(
+        self, task_processor: TaskProcessor, mock_plugin_manager: MagicMock
+    ) -> None:
+        """Test that task processor handles Pydantic model returns from plugins.
+
+        Plugins may return Pydantic models (e.g., AnalysisResult) which need
+        to be converted to dicts before unpacking in job results.
+        """
+        from app.models import AnalysisResult
+
+        # Mock plugin returns AnalysisResult (Pydantic model)
+        mock_plugin = MagicMock()
+        mock_plugin.name = "test_plugin"
+        pydantic_result = AnalysisResult(
+            text="test output",
+            blocks=[],
+            confidence=0.95,
+            language="eng",
+            error=None,
+        )
+        # Tasks.py calls plugin.analyze (sync), not analyze_async
+        mock_plugin.analyze = MagicMock(return_value=pydantic_result)
+        mock_plugin_manager.get.return_value = mock_plugin
+
+        # Submit and process job
+        job_id = await task_processor.submit_job(b"image_data", "test_plugin")
+        await asyncio.sleep(0.1)
+
+        # Verify job completed successfully
+        job = await task_processor.get_job(job_id)
+        assert job is not None
+        assert job["status"] == JobStatus.DONE
+        # Result should be dict with processing_time_ms added
+        assert isinstance(job["result"], dict)
+        assert "processing_time_ms" in job["result"]
+        # Pydantic model should be converted to dict
+        assert job["result"].get("text") == "test output"
+        assert job["result"].get("confidence") == 0.95
