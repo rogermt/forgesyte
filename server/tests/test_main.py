@@ -143,6 +143,159 @@ def test_mcp_manifest_redirect():
     assert response.headers["location"] == "/v1/.well-known/mcp-manifest"
 
 
+def test_websocket_stream_connection(mock_vision_service):
+    """Test WebSocket connection establishment and initial message."""
+    client = TestClient(app)
+    mock_vision_service.plugins = {"motion_detector": MagicMock()}
+    mock_vision_service.handle_frame = AsyncMock(return_value=None)
+
+    # Set up app state for dependency injection
+    app.state.analysis_service = mock_vision_service
+
+    try:
+        with client.websocket_connect("/v1/stream?plugin=motion_detector") as websocket:
+            # Receive initial connection confirmation
+            data = websocket.receive_json()
+            assert data["type"] == "connected"
+            assert "client_id" in data["payload"]
+            assert data["payload"]["plugin"] == "motion_detector"
+    finally:
+        # Clean up app state
+        if hasattr(app.state, "analysis_service"):
+            delattr(app.state, "analysis_service")
+
+
+def test_websocket_stream_frame_handling(mock_vision_service):
+    """Test frame message delegation to service layer."""
+    client = TestClient(app)
+    mock_vision_service.plugins = {"motion_detector": MagicMock()}
+    mock_vision_service.handle_frame = AsyncMock(return_value=None)
+
+    app.state.analysis_service = mock_vision_service
+
+    try:
+        with client.websocket_connect("/v1/stream?plugin=motion_detector") as websocket:
+            # Skip initial connection message
+            websocket.receive_json()
+
+            # Send ping first to verify connection works
+            websocket.send_json({"type": "ping"})
+            pong = websocket.receive_json()
+            assert pong["type"] == "pong"
+
+            # Service handle_frame is called but we don't await response
+            # Just verify endpoint handles frame without error
+            websocket.send_json(
+                {"type": "frame", "data": "base64data==", "options": {}}
+            )
+    finally:
+        if hasattr(app.state, "analysis_service"):
+            delattr(app.state, "analysis_service")
+
+
+def test_websocket_stream_ping_pong(mock_vision_service):
+    """Test ping/pong message exchange."""
+    client = TestClient(app)
+    mock_vision_service.plugins = {"motion_detector": MagicMock()}
+    mock_vision_service.handle_frame = AsyncMock(return_value=None)
+
+    app.state.analysis_service = mock_vision_service
+
+    try:
+        with client.websocket_connect("/v1/stream?plugin=motion_detector") as websocket:
+            # Skip connected message
+            websocket.receive_json()
+
+            # Send ping
+            websocket.send_json({"type": "ping"})
+
+            # Receive pong
+            response = websocket.receive_json()
+            assert response["type"] == "pong"
+    finally:
+        if hasattr(app.state, "analysis_service"):
+            delattr(app.state, "analysis_service")
+
+
+def test_websocket_stream_plugin_switch_valid(mock_vision_service):
+    """Test plugin switching with valid plugin."""
+    client = TestClient(app)
+    mock_vision_service.plugins = {
+        "motion_detector": MagicMock(),
+        "ocr": MagicMock(),
+    }
+    mock_vision_service.handle_frame = AsyncMock(return_value=None)
+
+    app.state.analysis_service = mock_vision_service
+
+    try:
+        with client.websocket_connect("/v1/stream?plugin=motion_detector") as websocket:
+            # Skip connected message
+            websocket.receive_json()
+
+            # Switch to valid plugin
+            websocket.send_json({"type": "switch_plugin", "plugin": "ocr"})
+
+            # Receive confirmation
+            response = websocket.receive_json()
+            assert response["type"] == "plugin_switched"
+            assert response["payload"]["plugin"] == "ocr"
+    finally:
+        if hasattr(app.state, "analysis_service"):
+            delattr(app.state, "analysis_service")
+
+
+def test_websocket_stream_plugin_switch_invalid(mock_vision_service):
+    """Test plugin switching with invalid plugin name."""
+    client = TestClient(app)
+    mock_vision_service.plugins = {"motion_detector": MagicMock()}
+    mock_vision_service.handle_frame = AsyncMock(return_value=None)
+
+    app.state.analysis_service = mock_vision_service
+
+    try:
+        with client.websocket_connect("/v1/stream?plugin=motion_detector") as websocket:
+            # Skip connected message
+            websocket.receive_json()
+
+            # Try to switch to non-existent plugin
+            websocket.send_json({"type": "switch_plugin", "plugin": "nonexistent"})
+
+            # Receive error
+            response = websocket.receive_json()
+            assert response["type"] == "error"
+            assert "not found" in response["message"]
+    finally:
+        if hasattr(app.state, "analysis_service"):
+            delattr(app.state, "analysis_service")
+
+
+def test_websocket_stream_subscribe_topic(mock_vision_service):
+    """Test topic subscription message."""
+    client = TestClient(app)
+    mock_vision_service.plugins = {"motion_detector": MagicMock()}
+    mock_vision_service.handle_frame = AsyncMock(return_value=None)
+
+    app.state.analysis_service = mock_vision_service
+
+    try:
+        with client.websocket_connect("/v1/stream?plugin=motion_detector") as websocket:
+            # Skip connected message
+            websocket.receive_json()
+
+            # Subscribe to topic
+            websocket.send_json({"type": "subscribe", "topic": "analysis_results"})
+
+            # Should not receive immediate response, but should be subscribed
+            # Verify by sending ping and getting pong (connection still works)
+            websocket.send_json({"type": "ping"})
+            response = websocket.receive_json()
+            assert response["type"] == "pong"
+    finally:
+        if hasattr(app.state, "analysis_service"):
+            delattr(app.state, "analysis_service")
+
+
 @pytest.mark.skip(reason="Integration-style; doesn't affect coverage much")
 def test_run_server():
     """Mock test for run_server — avoid actually starting server."""
