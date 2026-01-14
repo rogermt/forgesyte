@@ -108,19 +108,22 @@ def test_app_creation():
 
 def test_get_analysis_service():
     """Test dependency injection of VisionAnalysisService."""
-    mock_ws = MagicMock()
-    mock_app_state = MagicMock()
     mock_service = MagicMock()
-    mock_app_state.analysis_service = mock_service
-    mock_ws.app.state = mock_app_state
+    app.state.analysis_service = mock_service
 
-    service = get_analysis_service(mock_ws)
-    assert service == mock_service
+    try:
+        service = get_analysis_service()
+        assert service == mock_service
 
-    # Test missing service raises RuntimeError
-    mock_app_state.analysis_service = None
-    with pytest.raises(RuntimeError, match="Analysis service not available"):
-        get_analysis_service(mock_ws)
+        # Test missing service raises HTTPException
+        delattr(app.state, "analysis_service")
+        from fastapi import HTTPException
+
+        with pytest.raises(HTTPException):
+            get_analysis_service()
+    finally:
+        if hasattr(app.state, "analysis_service"):
+            delattr(app.state, "analysis_service")
 
 
 def test_root_endpoint():
