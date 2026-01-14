@@ -79,6 +79,7 @@ def app_with_plugins():
     Returns:
         FastAPI app with all services initialized and plugins loaded
     """
+    from app.auth import init_auth_service
     from app.main import app
     from app.plugin_loader import PluginManager
     from app.services import (
@@ -90,6 +91,9 @@ def app_with_plugins():
     )
     from app.tasks import init_task_processor
     from app.websocket_manager import ws_manager
+
+    # Initialize auth service FIRST (needed for API endpoints)
+    init_auth_service()
 
     # Load plugins
     plugins_dir = os.getenv("FORGESYTE_PLUGINS_DIR", "../example_plugins")
@@ -132,7 +136,11 @@ async def client(app_with_plugins):
     from httpx import ASGITransport, AsyncClient
 
     transport = ASGITransport(app=app_with_plugins)
-    async with AsyncClient(transport=transport, base_url="http://test") as async_client:
+    # Include auth header for integration tests
+    headers = {"X-API-Key": os.getenv("FORGESYTE_USER_KEY", "test-user-key")}
+    async with AsyncClient(
+        transport=transport, base_url="http://test", headers=headers
+    ) as async_client:
         yield async_client
 
 

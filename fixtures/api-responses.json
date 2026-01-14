@@ -126,7 +126,7 @@
     "processing_time_ms": 45
   },
   "health": {
-    "status": "ok",
+    "status": "healthy",
     "plugins_loaded": 2,
     "version": "0.1.0"
   }
