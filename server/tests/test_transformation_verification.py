@@ -37,12 +37,16 @@ def test_root_endpoint_updated():
 
 def test_environment_variables_updated():
     """Test that environment variables have been updated to FORGESYTE_ prefix."""
-    import inspect
-
     import app.main as main_module
 
-    # Check the source code of the lifespan function for environment variable usage
-    source = inspect.getsource(main_module.lifespan)
+    # Check that AppSettings uses FORGESYTE_PLUGINS_DIR
+    settings = main_module.AppSettings()
+    assert hasattr(settings, "plugins_dir")
+
+    # Verify the env var name is correct
+    import inspect
+
+    source = inspect.getsource(main_module.AppSettings)
     assert "FORGESYTE_PLUGINS_DIR" in source
     assert "VISION_PLUGINS_DIR" not in source  # Ensure old variable is gone
 
