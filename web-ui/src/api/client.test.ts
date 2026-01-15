@@ -175,6 +175,23 @@ describe("ForgeSyteAPIClient", () => {
             );
         });
 
+        it("should pass plugin as query parameter, not form field", async () => {
+            const mockFile = new File(["test"], "test.jpg", {
+                type: "image/jpeg",
+            });
+            const mockResult = { job_id: "job-123", status: "processing" };
+
+            fetchMock.mockResolvedValueOnce({
+                ok: true,
+                json: async () => mockResult,
+            });
+
+            await client.analyzeImage(mockFile, "moderation");
+
+            const callUrl = fetchMock.mock.calls[0][0] as string;
+            expect(callUrl).toContain("plugin=moderation");
+        });
+
         it("should include API key in headers", async () => {
             const clientWithKey = new ForgeSyteAPIClient(
                 "http://localhost:3000/v1",
