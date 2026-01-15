@@ -334,19 +334,37 @@ async def websocket_stream(
 
             elif msg_type == "switch_plugin":
                 new_plugin_name: str | None = data.get("plugin")
-                plugins_dict = getattr(service, "plugins", {})
-                if new_plugin_name and new_plugin_name in plugins_dict:
-                    plugin = new_plugin_name
+                registry = getattr(service, "plugins", {})
+
+                # Check for plugin existence robustly (Protocol or Dict)
+                exists = False
+                if new_plugin_name and registry is not None:
+                    if hasattr(registry, "get"):
+                        # Use .get() if available (Protocol recommendation)
+                        try:
+                            exists = registry.get(new_plugin_name) is not None
+                        except (TypeError, AttributeError):
+                            exists = False
+                    else:
+                        # Fallback to 'in' operator for dicts or other objects
+                        try:
+                            exists = new_plugin_name in registry
+                        except TypeError:
+                            exists = False
+
+                if exists:
+                    # new_plugin_name is not None here because exists is True
+                    plugin = str(new_plugin_name)
                     await ws_manager.send_personal(
                         client_id,
                         {
                             "type": "plugin_switched",
-                            "payload": {"plugin": new_plugin_name},
+                            "payload": {"plugin": plugin},
                         },
                     )
                     logger.debug(
                         "Plugin switched",
-                        extra={"client_id": client_id, "plugin": new_plugin_name},
+                        extra={"client_id": client_id, "plugin": plugin},
                     )
                 else:
                     await ws_manager.send_personal(
