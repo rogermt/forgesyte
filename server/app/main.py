@@ -73,10 +73,35 @@ settings = AppSettings()
 # Observability & Logging Setup
 # ---------------------------------------------------------------------------
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-)
+
+def setup_logging() -> None:
+    """Configure JSON structured logging with support for extra fields."""
+    try:
+        from pythonjsonlogger import jsonlogger
+
+        # Root logger config
+        root_logger = logging.getLogger()
+        root_logger.setLevel(logging.INFO)
+
+        # Remove any existing handlers
+        root_logger.handlers.clear()
+
+        # Console handler with JSON formatter
+        console_handler = logging.StreamHandler()
+        json_formatter = jsonlogger.JsonFormatter(
+            fmt="%(timestamp)s %(level)s %(name)s %(message)s", timestamp=True
+        )
+        console_handler.setFormatter(json_formatter)
+        root_logger.addHandler(console_handler)
+    except ImportError:
+        # Fallback to basic config if pythonjsonlogger not installed
+        logging.basicConfig(
+            level=logging.INFO,
+            format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+        )
+
+
+setup_logging()
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
