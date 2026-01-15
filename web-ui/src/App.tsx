@@ -9,7 +9,6 @@
 
 import React, { useCallback, useMemo, useState } from "react";
 import { CameraPreview } from "./components/CameraPreview";
-import { PluginSelector } from "./components/PluginSelector";
 import { JobList } from "./components/JobList";
 import { ResultsPanel } from "./components/ResultsPanel";
 import { useWebSocket, FrameResult } from "./hooks/useWebSocket";
@@ -244,12 +243,29 @@ function App() {
 
       <main style={styles.main}>
         <aside style={styles.sidebar}>
+          {/* TODO: Replace with PluginHost component that dynamically loads plugin_selector UI plugin */}
           <div style={styles.panel}>
-            <PluginSelector
-              selectedPlugin={selectedPlugin}
-              onPluginChange={handlePluginChange}
+            <label style={{ display: "block", marginBottom: "8px", fontWeight: 500 }}>
+              Plugin
+            </label>
+            <select
+              value={selectedPlugin}
+              onChange={(e) => handlePluginChange(e.target.value)}
               disabled={streamEnabled}
-            />
+              style={{
+                width: "100%",
+                padding: "8px 12px",
+                borderRadius: "4px",
+                border: "1px solid var(--border-light)",
+                backgroundColor: "var(--bg-tertiary)",
+                color: "var(--text-primary)",
+                cursor: streamEnabled ? "not-allowed" : "pointer",
+                opacity: streamEnabled ? 0.6 : 1,
+              }}
+            >
+              <option value="motion_detector">Motion Detector</option>
+              <option value="ocr">OCR</option>
+            </select>
           </div>
 
           {viewMode === "jobs" && (
