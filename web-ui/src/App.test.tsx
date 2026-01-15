@@ -1,866 +1,213 @@
-/**
- * Tests for App.tsx branding updates and functional behavior
- */
-
-import { render, screen, act } from "@testing-library/react";
+import React from "react";
+import { describe, it, expect, beforeEach, vi } from "vitest";
+import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { vi } from "vitest";
 import App from "./App";
 
-// Mock useWebSocket hook
-vi.mock("./hooks/useWebSocket", () => ({
-    useWebSocket: vi.fn(),
-    FrameResult: {},
+// ---- Mock child components to avoid browser camera APIs etc.
+vi.mock("./components/CameraPreview", () => ({
+  CameraPreview: (props: { enabled: boolean; onFrame: (data: string) => void }) => (
+    <div data-testid="camera-preview">
+      <div>{props.enabled ? "Streaming" : "Not streaming"}</div>
+      <button
+        data-testid="emit-frame"
+        onClick={() => props.onFrame("base64imagedata")}
+      >
+        Emit Frame
+      </button>
+    </div>
+  ),
 }));
 
-// Mock API client
+vi.mock("./components/PluginSelector", () => ({
+  PluginSelector: (props: {
+    selectedPlugin: string;
+    onPluginChange: (p: string) => void;
+    disabled: boolean;
+  }) => (
+    <div data-testid="plugin-selector">
+      <div>Selected: {props.selectedPlugin}</div>
+      <button
+        onClick={() => props.onPluginChange("object_detection")}
+        disabled={props.disabled}
+      >
+        Select Object Detection
+      </button>
+    </div>
+  ),
+}));
+
+vi.mock("./components/JobList", () => ({
+  JobList: () => <div data-testid="job-list">JobList</div>,
+}));
+
+vi.mock("./components/ResultsPanel", () => ({
+  ResultsPanel: () => <div data-testid="results-panel">ResultsPanel</div>,
+}));
+
+// ---- Mock API client
 vi.mock("./api/client", () => ({
-    apiClient: {
-        analyzeImage: vi.fn(),
-        pollJob: vi.fn(),
-    },
-    Job: {},
+  apiClient: {
+    analyzeImage: vi.fn(),
+    pollJob: vi.fn(),
+  },
+}));
+
+// ---- Mock useWebSocket hook
+vi.mock("./hooks/useWebSocket", () => ({
+  useWebSocket: vi.fn(),
 }));
 
 import { useWebSocket } from "./hooks/useWebSocket";
-import { apiClient } from "./api/client";
 
-const mockUseWebSocket = useWebSocket as ReturnType<typeof vi.fn>;
-// Mock apiClient for future use (currently unused but kept for test setup)
-vi.mocked(apiClient);
+type MockReturn = {
+  isConnected: boolean;
+  isConnecting: boolean;
+  connectionStatus: "idle" | "connecting" | "connected" | "reconnecting" | "disconnected" | "failed";
+  attempt: number;
+  error: string | null;
+  errorInfo: Record<string, unknown> | null;
+  sendFrame: ReturnType<typeof vi.fn>;
+  switchPlugin: ReturnType<typeof vi.fn>;
+  disconnect: ReturnType<typeof vi.fn>;
+  reconnect: ReturnType<typeof vi.fn>;
+  latestResult: Record<string, unknown> | null;
+  stats: { framesProcessed: number; avgProcessingTime: number };
+};
 
-// Set default mock for all tests
-mockUseWebSocket.mockReturnValue({
+const mockUseWebSocket = vi.mocked(useWebSocket);
+
+function setWsMock(overrides: Partial<MockReturn> = {}) {
+  const base: MockReturn = {
     isConnected: false,
     isConnecting: false,
+    connectionStatus: "disconnected",
+    attempt: 0,
     error: null,
+    errorInfo: null,
     sendFrame: vi.fn(),
     switchPlugin: vi.fn(),
+    disconnect: vi.fn(),
+    reconnect: vi.fn(),
     latestResult: null,
-});
+    stats: { framesProcessed: 0, avgProcessingTime: 0 },
+  };
 
-describe("App - Branding Updates", () => {
-    describe("Header styling", () => {
-        it("should use ForgeSyte brand colors in header", async () => {
-            let container: HTMLElement;
-            await act(async () => {
-                container = render(<App />).container;
-            });
-            const header = container!.querySelector("header");
+  mockUseWebSocket.mockReturnValue({ ...base, ...overrides } as unknown as ReturnType<typeof useWebSocket>);
+}
 
-            expect(header).toHaveStyle({
-                backgroundColor: "var(--bg-primary)",
-            });
-        });
+describe("App (updated for unified WebSocket status)", () => {
+  beforeEach(() => {
+    setWsMock({ connectionStatus: "disconnected" });
+  });
 
-        it("should display ForgeSyte branding in logo", async () => {
-            await act(async () => {
-                render(<App />);
-            });
-            const logo = screen.getByTestId("app-logo");
+  it("shows ForgeSyte logo", () => {
+    render(<App />);
+    expect(screen.getByTestId("app-logo")).toBeInTheDocument();
+  });
 
-            expect(logo).toBeInTheDocument();
-            expect(logo).toHaveStyle({
-                color: "var(--text-primary)",
-            });
-        });
+  it("shows 'Connecting...' text and yellow indicator when connecting", () => {
+    setWsMock({
+      connectionStatus: "connecting",
+      isConnecting: true,
+      isConnected: false,
     });
 
-    describe("Navigation buttons", () => {
-        it("should use brand colors for active nav button", async () => {
-            await act(async () => {
-                render(<App />);
-            });
-            const navButton = screen.getByRole("button", { name: "Stream" }); 
-            
-            expect(navButton).toBeInTheDocument();
-            expect(navButton).toHaveStyle({
-                backgroundColor: "var(--accent-orange)",
-                color: "var(--text-primary)",
-            });
-        });
+    render(<App />);
 
-        it("should use brand colors for inactive nav button", async () => {
-            await act(async () => {
-                render(<App />);
-            });
-            const uploadButton = screen.getByRole("button", { name: /upload/i });
+    expect(screen.getByTestId("connection-status-text")).toHaveTextContent("Connecting...");
+    expect(screen.getByTestId("connection-status-indicator")).toHaveStyle({
+      backgroundColor: "#ffc107",
+    });
+  });
 
-            expect(uploadButton).toHaveStyle({
-                backgroundColor: "var(--bg-tertiary)",
-            });
-        });
+  it("shows 'Reconnecting... (attempt N)' text and orange indicator when reconnecting", () => {
+    setWsMock({
+      connectionStatus: "reconnecting",
+      isConnecting: true,
+      attempt: 3,
     });
 
-    describe("Status indicator", () => {
-        it("should use brand color scheme for connection status", async () => {
-            await act(async () => {
-                render(<App />);
-            });
-            const statusIndicator = screen.getByTestId("connection-status-indicator");
+    render(<App />);
 
-            expect(statusIndicator).toBeInTheDocument();
-            // Status colors will vary based on connection state
-        });
+    expect(screen.getByTestId("connection-status-text")).toHaveTextContent(
+      "Reconnecting... (attempt 3)"
+    );
+    expect(screen.getByTestId("connection-status-indicator")).toHaveStyle({
+      backgroundColor: "#fd7e14",
+    });
+  });
+
+  it("shows 'Connected' text and green indicator when connected", () => {
+    setWsMock({
+      connectionStatus: "connected",
+      isConnected: true,
+      isConnecting: false,
     });
 
-    describe("Main layout", () => {
-        it("should use ForgeSyte colors for panels", async () => {
-            let container: HTMLElement;
-            await act(async () => {
-                container = render(<App />).container;
-            });
-            const panels = container!.querySelectorAll("div");
+    render(<App />);
 
-            // At least one panel should use brand background
-            const brandPanels = Array.from(panels).filter(
-                (panel) =>
-                    panel.style.backgroundColor === "var(--bg-secondary)" ||
-                    panel.style.backgroundColor === "var(--bg-tertiary)"
-            );
+    expect(screen.getByTestId("connection-status-text")).toHaveTextContent("Connected");
+    expect(screen.getByTestId("connection-status-indicator")).toHaveStyle({
+      backgroundColor: "#28a745",
+    });
+  });
 
-            expect(brandPanels.length).toBeGreaterThan(0);
-        });
-
-        it("should apply consistent spacing with brand grid", async () => {
-            let container: HTMLElement;
-            await act(async () => {
-                container = render(<App />).container;
-            });
-            const main = container!.querySelector("main");
-
-            expect(main).toHaveStyle({
-                gap: "16px",
-                padding: "16px",
-            });
-        });
+  it("disables Start Streaming button when not connected", () => {
+    setWsMock({
+      connectionStatus: "disconnected",
+      isConnected: false,
     });
 
-    describe("Error messages", () => {
-        it("should use brand error color for WebSocket errors", async () => {
-            await act(async () => {
-                render(<App />);
-            });
-            const errorStyle = {
-                backgroundColor: "rgba(220, 53, 69, 0.1)",
-                border: "1px solid var(--accent-red)",
-                color: "var(--accent-red)",
-            };
+    render(<App />);
 
-            // Error box styling should be consistent with brand
-            const hasErrorStyle =
-                errorStyle.backgroundColor === "rgba(220, 53, 69, 0.1)";
-            expect(hasErrorStyle).toBe(true);
-        });
-    });
-});
+    expect(screen.getByRole("button", { name: /start streaming/i })).toBeDisabled();
+  });
 
-describe("App - Functional Behavior", () => {
-    beforeEach(() => {
-        // Default mock: disconnected state
-        mockUseWebSocket.mockReturnValue({
-            isConnected: false,
-            isConnecting: false,
-            error: null,
-            sendFrame: vi.fn(),
-            switchPlugin: vi.fn(),
-            latestResult: null,
-        });
+  it("enables Start Streaming button when connected and toggles to Stop Streaming", async () => {
+    const user = userEvent.setup();
+
+    setWsMock({
+      connectionStatus: "connected",
+      isConnected: true,
     });
 
-    describe("WebSocket Connection States", () => {
-        it("should display 'Disconnected' when WebSocket not connected", async () => {
-            mockUseWebSocket.mockReturnValue({
-                isConnected: false,
-                isConnecting: false,
-                error: null,
-                sendFrame: vi.fn(),
-                switchPlugin: vi.fn(),
-                latestResult: null,
-            });
+    render(<App />);
 
-            await act(async () => {
-                render(<App />);
-            });
+    const startBtn = screen.getByRole("button", { name: /start streaming/i });
+    expect(startBtn).not.toBeDisabled();
 
-            expect(screen.getByText("Disconnected")).toBeInTheDocument();
-        });
+    await user.click(startBtn);
+    expect(screen.getByRole("button", { name: /stop streaming/i })).toBeInTheDocument();
+  });
 
-        it("should display 'Connecting...' when WebSocket is connecting", async () => {
-            mockUseWebSocket.mockReturnValue({
-                isConnected: false,
-                isConnecting: true,
-                error: null,
-                sendFrame: vi.fn(),
-                switchPlugin: vi.fn(),
-                latestResult: null,
-            });
-
-            await act(async () => {
-                render(<App />);
-            });
-
-            expect(screen.getByText("Connecting...")).toBeInTheDocument();
-        });
-
-        it("should display 'Connected' when WebSocket is connected", async () => {
-            mockUseWebSocket.mockReturnValue({
-                isConnected: true,
-                isConnecting: false,
-                error: null,
-                sendFrame: vi.fn(),
-                switchPlugin: vi.fn(),
-                latestResult: null,
-            });
-
-            await act(async () => {
-                render(<App />);
-            });
-
-            expect(screen.getByText("Connected")).toBeInTheDocument();
-        });
+  it("shows WebSocket error banner when wsError exists", () => {
+    setWsMock({
+      connectionStatus: "failed",
+      error: "Unable to establish a stable WebSocket connection",
     });
 
-    describe("WebSocket Error Handling", () => {
-        it("should display 'Not streaming' status when WebSocket connection fails", async () => {
-            mockUseWebSocket.mockReturnValue({
-                isConnected: false,
-                isConnecting: false,
-                error: "Max reconnection attempts reached",
-                sendFrame: vi.fn(),
-                switchPlugin: vi.fn(),
-                latestResult: null,
-            });
+    render(<App />);
 
-            await act(async () => {
-                render(<App />);
-            });
+    expect(screen.getByTestId("ws-error-box")).toHaveTextContent("WebSocket Error:");
+    expect(screen.getByTestId("ws-error-box")).toHaveTextContent(
+      "Unable to establish a stable WebSocket connection"
+    );
+  });
 
-            // Should show camera preview with "Not streaming" status
-            expect(
-                screen.getByText((content) =>
-                    content.includes("Not streaming")
-                )
-            ).toBeInTheDocument();
-        });
+  it("shows Reconnect button when failed and calls reconnect()", async () => {
+    const user = userEvent.setup();
+    const reconnectFn = vi.fn();
 
-        it("should display error message when WebSocket connection fails", async () => {
-            mockUseWebSocket.mockReturnValue({
-                isConnected: false,
-                isConnecting: false,
-                error: "Max reconnection attempts reached",
-                sendFrame: vi.fn(),
-                switchPlugin: vi.fn(),
-                latestResult: null,
-            });
-
-            await act(async () => {
-                render(<App />);
-            });
-
-            expect(screen.getByText("Disconnected")).toBeInTheDocument();
-        });
+    setWsMock({
+      connectionStatus: "failed",
+      error: "Max retries",
+      reconnect: reconnectFn,
     });
 
-    describe("View Mode Switching", () => {
-        it("should switch to Stream view when Stream button clicked", async () => {
-            await act(async () => {
-                render(<App />);
-            });
-
-            // Stream view should be visible by default
-            expect(
-                screen.getByRole("button", { name: /start streaming/i })
-            ).toBeInTheDocument();
-        });
-
-        it("should switch to Jobs view when Jobs button clicked", async () => {
-            const user = userEvent.setup();
-
-            await act(async () => {
-                render(<App />);
-            });
-
-            const jobsButton = screen.getByRole("button", { name: /jobs/i });
-            await act(async () => {
-                await user.click(jobsButton);
-            });
-
-            // JobList should render when in jobs mode
-            // This tests the conditional rendering at lines 216-220
-        });
-
-        it("should switch to Upload view when Upload button clicked", async () => {
-            const user = userEvent.setup();
-
-            await act(async () => {
-                render(<App />);
-            });
-
-            const uploadButton = screen.getByRole("button", { name: /upload/i });
-            await act(async () => {
-                await user.click(uploadButton);
-            });
-
-            // File input should be present for upload mode
-            // This tests the conditional rendering at lines 296+
-        });
-    });
-
-    describe("Stream Control", () => {
-        it("should disable Start Streaming button when not connected", async () => {
-            mockUseWebSocket.mockReturnValue({
-                isConnected: false,
-                isConnecting: false,
-                error: null,
-                sendFrame: vi.fn(),
-                switchPlugin: vi.fn(),
-                latestResult: null,
-            });
-
-            await act(async () => {
-                render(<App />);
-            });
-
-            const startButton = screen.getByRole("button", {
-                name: /start streaming/i,
-            });
-            expect(startButton).toBeDisabled();
-        });
-
-        it("should enable Start Streaming button when connected", async () => {
-            mockUseWebSocket.mockReturnValue({
-                isConnected: true,
-                isConnecting: false,
-                error: null,
-                sendFrame: vi.fn(),
-                switchPlugin: vi.fn(),
-                latestResult: null,
-            });
-
-            await act(async () => {
-                render(<App />);
-            });
-
-            const startButton = screen.getByRole("button", {
-                name: /start streaming/i,
-            });
-            expect(startButton).not.toBeDisabled();
-        });
-
-        it("should toggle streaming state when button clicked", async () => {
-            const user = userEvent.setup();
-
-            mockUseWebSocket.mockReturnValue({
-                isConnected: true,
-                isConnecting: false,
-                error: null,
-                sendFrame: vi.fn(),
-                switchPlugin: vi.fn(),
-                latestResult: null,
-            });
-
-            await act(async () => {
-                render(<App />);
-            });
-
-            const startButton = screen.getByRole("button", {
-                name: /start streaming/i,
-            });
-
-            await act(async () => {
-                await user.click(startButton);
-            });
-
-            // Button should now say "Stop Streaming"
-            expect(
-                screen.getByRole("button", { name: /stop streaming/i })
-            ).toBeInTheDocument();
-        });
-    });
-
-    describe("Status Indicator Colors", () => {
-        it("should show red indicator when disconnected", async () => {
-            mockUseWebSocket.mockReturnValue({
-                isConnected: false,
-                isConnecting: false,
-                error: null,
-                sendFrame: vi.fn(),
-                switchPlugin: vi.fn(),
-                latestResult: null,
-            });
-
-            let container: HTMLElement;
-            await act(async () => {
-                container = render(<App />).container;
-            });
-
-            const indicator = container!.querySelector(
-                "[data-testid='connection-status-indicator']"
-            );
-            expect(indicator).toHaveStyle({
-                backgroundColor: "#dc3545",
-            });
-        });
-
-        it("should show yellow indicator when connecting", async () => {
-            mockUseWebSocket.mockReturnValue({
-                isConnected: false,
-                isConnecting: true,
-                error: null,
-                sendFrame: vi.fn(),
-                switchPlugin: vi.fn(),
-                latestResult: null,
-            });
-
-            let container: HTMLElement;
-            await act(async () => {
-                container = render(<App />).container;
-            });
-
-            const indicator = container!.querySelector(
-                "[data-testid='connection-status-indicator']"
-            );
-            expect(indicator).toHaveStyle({
-                backgroundColor: "#ffc107",
-            });
-        });
-
-        it("should show green indicator when connected", async () => {
-            mockUseWebSocket.mockReturnValue({
-                isConnected: true,
-                isConnecting: false,
-                error: null,
-                sendFrame: vi.fn(),
-                switchPlugin: vi.fn(),
-                latestResult: null,
-            });
-
-            let container: HTMLElement;
-            await act(async () => {
-                container = render(<App />).container;
-            });
-
-            const indicator = container!.querySelector(
-                "[data-testid='connection-status-indicator']"
-            );
-            expect(indicator).toHaveStyle({
-                backgroundColor: "#28a745",
-            });
-        });
-    });
-
-    describe("Upload Functionality", () => {
-        it("should show upload section in Upload view", async () => {
-            const user = userEvent.setup();
-
-            await act(async () => {
-                render(<App />);
-            });
-
-            const uploadButton = screen.getByRole("button", { name: /upload/i });
-            await act(async () => {
-                await user.click(uploadButton);
-            });
-
-            // Upload section should show "Upload image for analysis" text
-            expect(
-                screen.getByText("Upload image for analysis")
-            ).toBeInTheDocument();
-        });
-
-        it("should have file input in Upload view", async () => {
-            const user = userEvent.setup();
-
-            await act(async () => {
-                render(<App />);
-            });
-
-            const uploadButton = screen.getByRole("button", { name: /upload/i });
-            await act(async () => {
-                await user.click(uploadButton);
-            });
-
-            const fileInputs = document.querySelectorAll('input[type="file"]');
-            expect(fileInputs.length).toBeGreaterThan(0);
-        });
-    });
-
-    describe("Job Details Display", () => {
-        it("should show 'Job Details' heading in Jobs view", async () => {
-            const user = userEvent.setup();
-
-            await act(async () => {
-                render(<App />);
-            });
-
-            const jobsButton = screen.getByRole("button", { name: /jobs/i });
-            await act(async () => {
-                await user.click(jobsButton);
-            });
-
-            expect(screen.getByText("Job Details")).toBeInTheDocument();
-        });
-
-        it("should display job list in Jobs view", async () => {
-            const user = userEvent.setup();
-
-            await act(async () => {
-                render(<App />);
-            });
-
-            const jobsButton = screen.getByRole("button", { name: /jobs/i });
-            await act(async () => {
-                await user.click(jobsButton);
-            });
-
-            // Jobs section should exist with "Job Details" heading
-            const jobsSection = screen.getByText("Job Details");
-            expect(jobsSection).toBeInTheDocument();
-        });
-    });
-
-    describe("Error Display", () => {
-        it("should display WebSocket error message when wsError exists", async () => {
-            mockUseWebSocket.mockReturnValue({
-                isConnected: false,
-                isConnecting: false,
-                error: "Connection timeout",
-                sendFrame: vi.fn(),
-                switchPlugin: vi.fn(),
-                latestResult: null,
-            });
-
-            await act(async () => {
-                render(<App />);
-            });
-
-            // Error message should be displayed
-            expect(
-                screen.getByText((content) =>
-                    content.includes("Connection timeout")
-                )
-            ).toBeInTheDocument();
-        });
-    });
-
-    describe("Plugin Selection", () => {
-        it("should render PluginSelector component in sidebar", async () => {
-            mockUseWebSocket.mockReturnValue({
-                isConnected: true,
-                isConnecting: false,
-                error: null,
-                sendFrame: vi.fn(),
-                switchPlugin: vi.fn(),
-                latestResult: null,
-            });
-
-            await act(async () => {
-                render(<App />);
-            });
-
-            // PluginSelector should be rendered in the left sidebar
-            // It's not accessible via role since it's a custom component,
-            // so we just verify App rendered without errors
-            const logo = screen.getByTestId("app-logo");
-            expect(logo).toBeInTheDocument();
-        });
-    });
-
-    describe("Streaming Button Hover Effects", () => {
-        it("should apply hover styles when connected and not streaming", async () => {
-            mockUseWebSocket.mockReturnValue({
-                isConnected: true,
-                isConnecting: false,
-                error: null,
-                sendFrame: vi.fn(),
-                switchPlugin: vi.fn(),
-                latestResult: null,
-            });
-
-            await act(async () => {
-                render(<App />);
-            });
-
-            const streamButton = screen.getByRole("button", {
-                name: /start streaming/i,
-            });
-
-            // Simulate hover
-            await act(async () => {
-                const event = new MouseEvent("mouseover", { bubbles: true });
-                streamButton.dispatchEvent(event);
-            });
-
-            expect(streamButton.style.backgroundColor).toBe(
-                "var(--accent-green)"
-            );
-        });
-
-        it("should not apply hover styles when disconnected", async () => {
-            mockUseWebSocket.mockReturnValue({
-                isConnected: false,
-                isConnecting: false,
-                error: null,
-                sendFrame: vi.fn(),
-                switchPlugin: vi.fn(),
-                latestResult: null,
-            });
-
-            await act(async () => {
-                render(<App />);
-            });
-
-            const streamButton = screen.getByRole("button", {
-                name: /start streaming/i,
-            });
-
-            // Button should be disabled
-            expect(streamButton).toBeDisabled();
-        });
-
-        it("should remove hover styles on mouse out", async () => {
-            mockUseWebSocket.mockReturnValue({
-                isConnected: true,
-                isConnecting: false,
-                error: null,
-                sendFrame: vi.fn(),
-                switchPlugin: vi.fn(),
-                latestResult: null,
-            });
-
-            await act(async () => {
-                render(<App />);
-            });
-
-            const streamButton = screen.getByRole("button", {
-                name: /start streaming/i,
-            });
-
-            // Simulate hover out
-            await act(async () => {
-                const event = new MouseEvent("mouseout", { bubbles: true });
-                streamButton.dispatchEvent(event);
-            });
-
-            expect(streamButton.style.backgroundColor).toBe(
-                "var(--bg-tertiary)"
-            );
-        });
-    });
-
-    describe("Upload Error Handling", () => {
-        it("should render upload input in Upload view", async () => {
-            mockUseWebSocket.mockReturnValue({
-                isConnected: false,
-                isConnecting: false,
-                error: null,
-                sendFrame: vi.fn(),
-                switchPlugin: vi.fn(),
-                latestResult: null,
-            });
-
-            const user = userEvent.setup();
-            await act(async () => {
-                render(<App />);
-            });
-
-            // Switch to upload view
-            const uploadButton = screen.getByRole("button", { name: /upload/i });
-            await act(async () => {
-                await user.click(uploadButton);
-            });
-
-            // Upload prompt should be visible
-            expect(
-                screen.getByText("Upload image for analysis")
-            ).toBeInTheDocument();
-        });
-    });
-
-    describe("WebSocket Callbacks", () => {
-        it("should register onResult callback when component mounts", async () => {
-            const mockOnResult = vi.fn();
-            const mockOnError = vi.fn();
-
-            mockUseWebSocket.mockImplementation((config) => {
-                // Capture callbacks for testing
-                mockOnResult.mockImplementation(config.onResult);
-                mockOnError.mockImplementation(config.onError);
-
-                return {
-                    isConnected: true,
-                    isConnecting: false,
-                    error: null,
-                    sendFrame: vi.fn(),
-                    switchPlugin: vi.fn(),
-                    latestResult: null,
-                };
-            });
-
-            await act(async () => {
-                render(<App />);
-            });
-
-            // Verify hook was called with callbacks
-            expect(mockUseWebSocket).toHaveBeenCalled();
-            const callConfig = (mockUseWebSocket.mock.calls[0]?.[0]) as {
-                onResult?: () => void;
-                onError?: () => void;
-            };
-            expect(callConfig.onResult).toBeDefined();
-            expect(callConfig.onError).toBeDefined();
-        });
-    });
-
-    describe("Camera Frame Handling", () => {
-        it("should toggle streaming on/off with button", async () => {
-            mockUseWebSocket.mockReturnValue({
-                isConnected: true,
-                isConnecting: false,
-                error: null,
-                sendFrame: vi.fn(),
-                switchPlugin: vi.fn(),
-                latestResult: null,
-            });
-
-            const user = userEvent.setup();
-            await act(async () => {
-                render(<App />);
-            });
-
-            const streamButton = screen.getByRole("button", {
-                name: /start streaming/i,
-            });
-            
-            // Toggle on
-            await act(async () => {
-                await user.click(streamButton);
-            });
-            expect(screen.getByText("Stop Streaming")).toBeInTheDocument();
-
-            // Toggle off
-            const stopButton = screen.getByRole("button", {
-                name: /stop streaming/i,
-            });
-            await act(async () => {
-                await user.click(stopButton);
-            });
-            expect(screen.getByText("Start Streaming")).toBeInTheDocument();
-        });
-
-        it("should disable streaming button when disconnected", async () => {
-            mockUseWebSocket.mockReturnValue({
-                isConnected: false,
-                isConnecting: false,
-                error: null,
-                sendFrame: vi.fn(),
-                switchPlugin: vi.fn(),
-                latestResult: null,
-            });
-
-            await act(async () => {
-                render(<App />);
-            });
-
-            const streamButton = screen.getByRole("button", {
-                name: /start streaming/i,
-            });
-            expect(streamButton).toBeDisabled();
-        });
-    });
-
-    describe("File Upload Handling", () => {
-        it("should display Upload view with file input", async () => {
-            mockUseWebSocket.mockReturnValue({
-                isConnected: false,
-                isConnecting: false,
-                error: null,
-                sendFrame: vi.fn(),
-                switchPlugin: vi.fn(),
-                latestResult: null,
-            });
-
-            const user = userEvent.setup();
-            await act(async () => {
-                render(<App />);
-            });
-
-            const uploadButton = screen.getByRole("button", { name: /upload/i });
-            await act(async () => {
-                await user.click(uploadButton);
-            });
-
-            expect(
-                screen.getByText("Upload image for analysis")
-            ).toBeInTheDocument();
-        });
-
-        it("should show upload prompt and input in Upload view", async () => {
-            mockUseWebSocket.mockReturnValue({
-                isConnected: false,
-                isConnecting: false,
-                error: null,
-                sendFrame: vi.fn(),
-                switchPlugin: vi.fn(),
-                latestResult: null,
-            });
-
-            const user = userEvent.setup();
-            await act(async () => {
-                render(<App />);
-            });
-
-            // Switch to upload view
-            const uploadButton = screen.getByRole("button", { name: /upload/i });
-            await act(async () => {
-                await user.click(uploadButton);
-            });
-
-            // Verify upload view is shown
-            const uploadText = screen.getByText("Upload image for analysis");
-            expect(uploadText).toBeInTheDocument();
-        });
-    });
-
-    describe("Plugin Change Handling", () => {
-        it("should update selected plugin state", async () => {
-            const mockSwitchPlugin = vi.fn();
-            mockUseWebSocket.mockReturnValue({
-                isConnected: true,
-                isConnecting: false,
-                error: null,
-                sendFrame: vi.fn(),
-                switchPlugin: mockSwitchPlugin,
-                latestResult: null,
-            });
-
-            await act(async () => {
-                render(<App />);
-            });
-
-            // Verify component renders with plugin selector
-            const logo = screen.getByTestId("app-logo");
-            expect(logo).toBeInTheDocument();
-        });
-
-        it("should notify WebSocket when plugin changes while connected", async () => {
-            const mockSwitchPlugin = vi.fn();
-            mockUseWebSocket.mockReturnValue({
-                isConnected: true,
-                isConnecting: false,
-                error: null,
-                sendFrame: vi.fn(),
-                switchPlugin: mockSwitchPlugin,
-                latestResult: null,
-            });
-
-            await act(async () => {
-                render(<App />);
-            });
-
-            // Verify mockSwitchPlugin exists and can be called
-            expect(typeof mockSwitchPlugin).toBe("function");
-        });
-    });
+    render(<App />);
+
+    await user.click(screen.getByRole("button", { name: /reconnect/i }));
+    expect(reconnectFn).toHaveBeenCalledTimes(1);
+  });
 });

@@ -36,11 +36,16 @@ describe("App - WebSocket Streaming Integration", () => {
         mockUseWebSocket.mockReturnValue({
             isConnected: false,
             isConnecting: false,
+            connectionStatus: "disconnected",
+            attempt: 0,
             error: null,
+            errorInfo: null,
             sendFrame: vi.fn(),
             switchPlugin: vi.fn(),
+            disconnect: vi.fn(),
+            reconnect: vi.fn(),
             latestResult: null,
-            stats: { frames_sent: 0, frames_received: 0 },
+            stats: { framesProcessed: 0, avgProcessingTime: 0 },
         });
 
         vi.mocked(useWebSocketModule.useWebSocket).mockImplementation(
@@ -97,11 +102,16 @@ describe("App - WebSocket Streaming Integration", () => {
             mockUseWebSocket.mockReturnValue({
                 isConnected: true,
                 isConnecting: false,
+                connectionStatus: "connected",
+                attempt: 0,
                 error: null,
+                errorInfo: null,
                 sendFrame: vi.fn(),
                 switchPlugin: vi.fn(),
+                disconnect: vi.fn(),
+                reconnect: vi.fn(),
                 latestResult: null,
-                stats: { frames_sent: 0, frames_received: 0 },
+                stats: { framesProcessed: 0, avgProcessingTime: 0 },
             });
 
             await act(async () => {
@@ -115,11 +125,16 @@ describe("App - WebSocket Streaming Integration", () => {
             mockUseWebSocket.mockReturnValue({
                 isConnected: false,
                 isConnecting: true,
+                connectionStatus: "connecting",
+                attempt: 1,
                 error: null,
+                errorInfo: null,
                 sendFrame: vi.fn(),
                 switchPlugin: vi.fn(),
+                disconnect: vi.fn(),
+                reconnect: vi.fn(),
                 latestResult: null,
-                stats: { frames_sent: 0, frames_received: 0 },
+                stats: { framesProcessed: 0, avgProcessingTime: 0 },
             });
 
             await act(async () => {
@@ -134,11 +149,16 @@ describe("App - WebSocket Streaming Integration", () => {
             mockUseWebSocket.mockReturnValue({
                 isConnected: false,
                 isConnecting: false,
+                connectionStatus: "failed",
+                attempt: 5,
                 error: errorMsg,
+                errorInfo: null,
                 sendFrame: vi.fn(),
                 switchPlugin: vi.fn(),
+                disconnect: vi.fn(),
+                reconnect: vi.fn(),
                 latestResult: null,
-                stats: { frames_sent: 0, frames_received: 0 },
+                stats: { framesProcessed: 0, avgProcessingTime: 0 },
             });
 
             await act(async () => {
