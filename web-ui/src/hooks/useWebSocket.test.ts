@@ -443,7 +443,7 @@ describe("useWebSocket", () => {
 
             expect(global.WebSocket).toHaveBeenCalledTimes(2);
             expect(result.current.isConnecting).toBe(true);
-            
+
             vi.useRealTimers();
         });
 
@@ -464,6 +464,37 @@ describe("useWebSocket", () => {
             expect(mockWs.close).toHaveBeenCalled();
             // Should have created a new instance
             expect(global.WebSocket).toHaveBeenCalledTimes(2);
+        });
+    });
+
+    describe("error state management", () => {
+        it("should clear error state when transitioning from error to successful connection", async () => {
+            const { result } = renderHook(() =>
+                useWebSocket({ url: "ws://localhost:8000/v1/stream" })
+            );
+
+            const mockWs = getLatestMock();
+
+            // Simulate an error first
+            act(() => {
+                mockWs.simulateError();
+            });
+
+            await waitFor(() => {
+                expect(result.current.error).not.toBeNull();
+                expect(result.current.error).toContain("WebSocket connection error");
+            });
+
+            // Then simulate a successful connection
+            act(() => {
+                mockWs.simulateOpen();
+            });
+
+            await waitFor(() => {
+                expect(result.current.isConnected).toBe(true);
+                // The error should be cleared after successful connection
+                expect(result.current.error).toBeNull();
+            });
         });
     });
 });

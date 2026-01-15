@@ -109,6 +109,7 @@ export function useWebSocket(
         ws.onopen = () => {
             setIsConnected(true);
             setIsConnecting(false);
+            setError(null); // Clear any previous error when successfully connected
             reconnectAttemptsRef.current = 0;
             console.log(
                 `[WebSocket] Connected to ${url} (plugin: ${plugin})`
