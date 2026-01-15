@@ -84,16 +84,17 @@ export class ForgeSyteAPIClient {
     ): Promise<AnalysisResult> {
         const formData = new FormData();
         formData.append("file", file);
-        formData.append("plugin", plugin);
 
-        const url = `${this.baseUrl}/analyze`;
+        const url = new URL(`${this.baseUrl}/analyze`, window.location.origin);
+        url.searchParams.append("plugin", plugin);
+
         const headers: HeadersInit = {};
 
         if (this.apiKey) {
             headers["X-API-Key"] = this.apiKey;
         }
 
-        const response = await fetch(url, {
+        const response = await fetch(url.toString(), {
             method: "POST",
             headers,
             body: formData,
