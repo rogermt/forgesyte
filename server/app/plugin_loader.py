@@ -387,6 +387,17 @@ class PluginManager:
         """
         return self.plugins.get(name)
 
+    def __contains__(self, name: str) -> bool:
+        """Check if a plugin is loaded.
+
+        Args:
+            name: The name of the plugin to check.
+
+        Returns:
+            True if plugin is loaded, False otherwise.
+        """
+        return name in self.plugins
+
     def list(self) -> Dict[str, Dict[str, Any]]:
         """List all plugins with their metadata.
 

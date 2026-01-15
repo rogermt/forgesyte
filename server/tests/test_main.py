@@ -272,6 +272,51 @@ def test_websocket_stream_plugin_switch_invalid(mock_vision_service):
             delattr(app.state, "analysis_service")
 
 
+@pytest.mark.asyncio
+async def test_websocket_stream_plugin_switch_registry_protocol(mock_vision_service):
+    """Test plugin switching when using a registry that
+    implements .get() but not 'in'."""
+    from app.main import websocket_stream
+
+    class StrictRegistry:
+        def __init__(self, plugins):
+            self._plugins = plugins
+
+        def get(self, name):
+            return self._plugins.get(name)
+
+        def __iter__(self):
+            # This makes 'in' operator raise TypeError
+            raise TypeError("StrictRegistry is not iterable")
+
+    mock_vision_service.plugins = StrictRegistry({"ocr": MagicMock()})
+
+    # Mock WebSocket
+    mock_ws = AsyncMock()
+    # First message: connected, then switch_plugin, then stop
+    mock_ws.receive_json.side_effect = [
+        {"type": "switch_plugin", "plugin": "ocr"},
+        Exception("Stop Loop"),
+    ]
+
+    try:
+        await websocket_stream(
+            websocket=mock_ws, plugin="motion_detector", service=mock_vision_service
+        )
+    except Exception as e:
+        if str(e) != "Stop Loop":
+            raise
+
+    # Verify 'plugin_switched' message was sent
+    # In broken state, this will fail because TypeError causes disconnect before sending
+    mock_ws.send_json.assert_any_call(
+        {
+            "type": "plugin_switched",
+            "payload": {"plugin": "ocr"},
+        }
+    )
+
+
 def test_websocket_stream_subscribe_topic(mock_vision_service):
     """Test topic subscription message."""
     client = TestClient(app)

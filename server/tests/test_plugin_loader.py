@@ -407,3 +407,16 @@ def test_server_starts_with_no_plugin_directories():
         assert "errors" in result
         assert result["loaded"] == {}
         assert result["errors"] == {}
+
+
+def test_plugin_manager_contains_operator():
+    """Test that PluginManager supports the 'in' operator."""
+    pm = PluginManager()
+    # Manually inject a plugin for testing the operator
+    mock_plugin = MagicMock()
+    mock_plugin.name = "test_plugin"
+    pm.plugins["test_plugin"] = mock_plugin
+
+    # This should return True and NOT raise TypeError
+    assert "test_plugin" in pm
+    assert "nonexistent" not in pm
