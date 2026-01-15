@@ -2,21 +2,62 @@
  * Results panel component
  */
 
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { FrameResult } from "../hooks/useWebSocket";
 import { Job } from "../api/client";
+import { UIPluginManager } from "../plugin-system/uiPluginManager";
 
 export interface ResultsPanelProps {
-    mode: "stream" | "job";
+    mode?: "stream" | "job";
     streamResult?: FrameResult | null;
     job?: Job | null;
+    pluginName?: string;
+    result?: Record<string, unknown> | null;
 }
 
 export function ResultsPanel({
-    mode,
+    mode = "stream",
     streamResult,
     job,
+    pluginName,
+    result,
 }: ResultsPanelProps) {
+    const [Renderer, setRenderer] = useState<any>(null);
+
+    useEffect(() => {
+        if (!pluginName) return;
+
+        let mounted = true;
+
+        async function load() {
+            const comp = await UIPluginManager.loadResultComponent(pluginName);
+            if (mounted) setRenderer(() => comp);
+        }
+
+        load();
+        return () => {
+            mounted = false;
+        };
+    }, [pluginName]);
+
+    // New plugin mode: use dynamic renderer
+    if (pluginName && result !== undefined) {
+        if (!result) {
+            return <div>No results yet.</div>;
+        }
+        if (Renderer) {
+            return <Renderer result={result} pluginName={pluginName} />;
+        }
+        // Fallback to JSON
+        return (
+            <div>
+                <h3>Results</h3>
+                <pre>{JSON.stringify(result, null, 2)}</pre>
+            </div>
+        );
+    }
+
+    // Legacy mode: original stream/job rendering
     const styles: Record<string, React.CSSProperties> = {
         panel: {
             backgroundColor: "var(--bg-secondary)",
