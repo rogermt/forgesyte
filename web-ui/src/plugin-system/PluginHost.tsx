@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import type { ComponentType } from "react";
 import { UIPluginManager } from "./uiPluginManager";
 
 interface PluginHostProps {
@@ -7,7 +8,7 @@ interface PluginHostProps {
 }
 
 export function PluginHost({ plugin, props = {} }: PluginHostProps) {
-    const [Component, setComponent] = useState<any>(null);
+    const [Component, setComponent] = useState<ComponentType<Record<string, unknown>> | null>(null);
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
@@ -17,9 +18,10 @@ export function PluginHost({ plugin, props = {} }: PluginHostProps) {
             try {
                 const comp = await UIPluginManager.loadUIComponent(plugin);
                 if (mounted) setComponent(() => comp);
-            } catch (err: any) {
+            } catch (err: unknown) {
                 if (mounted) {
-                    setError(err.message || "Failed to load plugin UI");
+                    const message = err instanceof Error ? err.message : "Failed to load plugin UI";
+                    setError(message);
                 }
             }
         }

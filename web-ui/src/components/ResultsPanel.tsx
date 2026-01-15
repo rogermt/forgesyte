@@ -3,6 +3,7 @@
  */
 
 import React, { useEffect, useState } from "react";
+import type { ComponentType } from "react";
 import { FrameResult } from "../hooks/useWebSocket";
 import { Job } from "../api/client";
 import { UIPluginManager } from "../plugin-system/uiPluginManager";
@@ -22,7 +23,7 @@ export function ResultsPanel({
     pluginName,
     result,
 }: ResultsPanelProps) {
-    const [Renderer, setRenderer] = useState<any>(null);
+    const [Renderer, setRenderer] = useState<ComponentType<Record<string, unknown>> | null>(null);
 
     useEffect(() => {
         if (!pluginName) return;

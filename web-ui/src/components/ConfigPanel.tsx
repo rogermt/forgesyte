@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import type { ComponentType } from "react";
 import { UIPluginManager } from "../plugin-system/uiPluginManager";
 
 interface ConfigPanelProps {
@@ -12,7 +13,7 @@ export function ConfigPanel({
     options,
     onChange,
 }: ConfigPanelProps) {
-    const [ConfigComponent, setConfigComponent] = useState<any>(null);
+    const [ConfigComponent, setConfigComponent] = useState<ComponentType<Record<string, unknown>> | null>(null);
 
     useEffect(() => {
         let mounted = true;

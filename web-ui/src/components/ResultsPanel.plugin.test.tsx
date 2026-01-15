@@ -3,6 +3,7 @@
  */
 
 import { render, screen, waitFor } from "@testing-library/react";
+import type { ComponentType } from "react";
 import { ResultsPanel } from "./ResultsPanel";
 import { UIPluginManager } from "../plugin-system/uiPluginManager";
 import { createMockFrameResult } from "../test-utils/factories";
@@ -19,10 +20,10 @@ describe("ResultsPanel - Plugin Renderers", () => {
     });
 
     it("should render custom result component when available", async () => {
-        const CustomRenderer = ({ result }: any) => (
-            <div>Custom: {result.frame_id}</div>
+        const CustomRenderer: ComponentType<{ result: Record<string, unknown> }> = ({ result }) => (
+            <div>Custom: {(result.frame_id as string)}</div>
         );
-        (UIPluginManager.loadResultComponent as any).mockResolvedValue(
+        (UIPluginManager.loadResultComponent as unknown as ReturnType<typeof vi.fn>).mockResolvedValue(
             CustomRenderer
         );
 
@@ -37,7 +38,7 @@ describe("ResultsPanel - Plugin Renderers", () => {
     });
 
     it("should show fallback JSON when no custom renderer", async () => {
-        (UIPluginManager.loadResultComponent as any).mockResolvedValue(null);
+        (UIPluginManager.loadResultComponent as unknown as ReturnType<typeof vi.fn>).mockResolvedValue(null);
 
         const result = createMockFrameResult();
         const { container } = render(
@@ -51,7 +52,7 @@ describe("ResultsPanel - Plugin Renderers", () => {
     });
 
     it("should show no results message when result is null", async () => {
-        (UIPluginManager.loadResultComponent as any).mockResolvedValue(null);
+        (UIPluginManager.loadResultComponent as unknown as ReturnType<typeof vi.fn>).mockResolvedValue(null);
 
         render(<ResultsPanel pluginName="motion_detector" result={null} />);
 
@@ -59,10 +60,10 @@ describe("ResultsPanel - Plugin Renderers", () => {
     });
 
     it("should load renderer for new plugin", async () => {
-        const Renderer1 = () => <div>Renderer 1</div>;
-        const Renderer2 = () => <div>Renderer 2</div>;
+        const Renderer1: ComponentType = () => <div>Renderer 1</div>;
+        const Renderer2: ComponentType = () => <div>Renderer 2</div>;
 
-        (UIPluginManager.loadResultComponent as any)
+        (UIPluginManager.loadResultComponent as unknown as ReturnType<typeof vi.fn>)
             .mockResolvedValueOnce(Renderer1)
             .mockResolvedValueOnce(Renderer2);
 

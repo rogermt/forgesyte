@@ -3,6 +3,7 @@
  */
 
 import { render, screen, waitFor } from "@testing-library/react";
+import type { ComponentType } from "react";
 import { ConfigPanel } from "./ConfigPanel";
 import { UIPluginManager } from "../plugin-system/uiPluginManager";
 
@@ -18,10 +19,10 @@ describe("ConfigPanel", () => {
     });
 
     it("should render custom config component when available", async () => {
-        const CustomConfig = ({ options }: any) => (
-            <div>Custom Config: {options.mode}</div>
+        const CustomConfig: ComponentType<{ options: Record<string, unknown> }> = ({ options }) => (
+            <div>Custom Config: {(options.mode as string)}</div>
         );
-        (UIPluginManager.loadConfigComponent as any).mockResolvedValue(
+        (UIPluginManager.loadConfigComponent as unknown as ReturnType<typeof vi.fn>).mockResolvedValue(
             CustomConfig
         );
 
@@ -39,7 +40,7 @@ describe("ConfigPanel", () => {
     });
 
     it("should show fallback when no custom config", async () => {
-        (UIPluginManager.loadConfigComponent as any).mockResolvedValue(null);
+        (UIPluginManager.loadConfigComponent as unknown as ReturnType<typeof vi.fn>).mockResolvedValue(null);
 
         render(
             <ConfigPanel
@@ -58,10 +59,10 @@ describe("ConfigPanel", () => {
 
     it("should call onChange when config updates", async () => {
         const handleChange = vi.fn();
-        const CustomConfig = ({ onChange }: any) => (
+        const CustomConfig: ComponentType<{ onChange: (opts: Record<string, unknown>) => void }> = ({ onChange }) => (
             <button onClick={() => onChange({ setting: true })}>Update</button>
         );
-        (UIPluginManager.loadConfigComponent as any).mockResolvedValue(
+        (UIPluginManager.loadConfigComponent as unknown as ReturnType<typeof vi.fn>).mockResolvedValue(
             CustomConfig
         );
 
@@ -85,10 +86,10 @@ describe("ConfigPanel", () => {
     });
 
     it("should load config for new plugin", async () => {
-        const Config1 = () => <div>Config 1</div>;
-        const Config2 = () => <div>Config 2</div>;
+        const Config1: ComponentType = () => <div>Config 1</div>;
+        const Config2: ComponentType = () => <div>Config 2</div>;
 
-        (UIPluginManager.loadConfigComponent as any)
+        (UIPluginManager.loadConfigComponent as unknown as ReturnType<typeof vi.fn>)
             .mockResolvedValueOnce(Config1)
             .mockResolvedValueOnce(Config2);
 

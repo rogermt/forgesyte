@@ -5,6 +5,7 @@
  */
 
 import { render, screen, waitFor } from "@testing-library/react";
+import type { ComponentType } from "react";
 import { PluginHost } from "./PluginHost";
 import { UIPluginManager } from "./uiPluginManager";
 
@@ -24,8 +25,8 @@ describe("PluginHost", () => {
     });
 
     it("should load and render a plugin component", async () => {
-        const TestComponent = () => <div>Test Plugin</div>;
-        (UIPluginManager.loadUIComponent as any).mockResolvedValue(TestComponent);
+        const TestComponent: ComponentType = () => <div>Test Plugin</div>;
+        (UIPluginManager.loadUIComponent as unknown as ReturnType<typeof vi.fn>).mockResolvedValue(TestComponent);
 
         render(<PluginHost plugin="test_plugin" />);
 
@@ -36,8 +37,8 @@ describe("PluginHost", () => {
     });
 
     it("should pass props to loaded plugin", async () => {
-        const TestComponent = ({ message }: { message: string }) => <div>{message}</div>;
-        (UIPluginManager.loadUIComponent as any).mockResolvedValue(TestComponent);
+        const TestComponent: ComponentType<{ message: string }> = ({ message }) => <div>{message}</div>;
+        (UIPluginManager.loadUIComponent as unknown as ReturnType<typeof vi.fn>).mockResolvedValue(TestComponent);
 
         render(
             <PluginHost plugin="test_plugin" props={{ message: "Hello Plugin" }} />
@@ -49,7 +50,7 @@ describe("PluginHost", () => {
     });
 
     it("should show loading state while loading plugin", () => {
-        (UIPluginManager.loadUIComponent as any).mockImplementation(
+        (UIPluginManager.loadUIComponent as unknown as ReturnType<typeof vi.fn>).mockImplementation(
             () => new Promise(() => {})
         );
 
@@ -59,7 +60,7 @@ describe("PluginHost", () => {
 
     it("should handle plugin load error", async () => {
         const error = new Error("Plugin not found");
-        (UIPluginManager.loadUIComponent as any).mockRejectedValue(error);
+        (UIPluginManager.loadUIComponent as unknown as ReturnType<typeof vi.fn>).mockRejectedValue(error);
 
         render(<PluginHost plugin="missing_plugin" />);
 
@@ -71,10 +72,10 @@ describe("PluginHost", () => {
     });
 
     it("should reload when plugin name changes", async () => {
-        const Plugin1 = () => <div>Plugin 1</div>;
-        const Plugin2 = () => <div>Plugin 2</div>;
+        const Plugin1: ComponentType = () => <div>Plugin 1</div>;
+        const Plugin2: ComponentType = () => <div>Plugin 2</div>;
 
-        (UIPluginManager.loadUIComponent as any)
+        (UIPluginManager.loadUIComponent as unknown as ReturnType<typeof vi.fn>)
             .mockResolvedValueOnce(Plugin1)
             .mockResolvedValueOnce(Plugin2);
 
@@ -94,8 +95,8 @@ describe("PluginHost", () => {
     });
 
     it("should cleanup on unmount", async () => {
-        const TestComponent = () => <div>Plugin</div>;
-        (UIPluginManager.loadUIComponent as any).mockResolvedValue(TestComponent);
+        const TestComponent: ComponentType = () => <div>Plugin</div>;
+        (UIPluginManager.loadUIComponent as unknown as ReturnType<typeof vi.fn>).mockResolvedValue(TestComponent);
 
         const { unmount } = render(<PluginHost plugin="test_plugin" />);
 
