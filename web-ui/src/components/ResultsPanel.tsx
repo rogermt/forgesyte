@@ -29,9 +29,10 @@ export function ResultsPanel({
         if (!pluginName) return;
 
         let mounted = true;
+        const name = pluginName;
 
         async function load() {
-            const comp = await UIPluginManager.loadResultComponent(pluginName);
+            const comp = await UIPluginManager.loadResultComponent(name);
             if (mounted) setRenderer(() => comp);
         }
 

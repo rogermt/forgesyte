@@ -39,3 +39,8 @@ coverage/
 *.tmp
 *.temp
 scratch/
+
+# Drop Ui Plugins here
+forgesyte-plugins/*
+!forgesyte-plugins/.keep
+

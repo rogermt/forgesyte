@@ -207,4 +207,87 @@ describe("UIPluginManager", () => {
 
         expect(renderer).toBeNull();
     });
+
+    // ---------------------------------------------------------
+    // 5. Error Handling
+    // ---------------------------------------------------------
+    it("throws an error when manifest import fails", async () => {
+        // @ts-expect-error - Mocking internal method for testing
+        UIPluginManager.dynamicImport = vi.fn().mockRejectedValue(
+            new Error("Failed to load manifest")
+        );
+
+        await expect(UIPluginManager.loadManifest("ocr"))
+            .rejects
+            .toThrow("Failed to load manifest");
+    });
+
+    it("throws an error when UI component import fails", async () => {
+        const mockManifest = {
+            name: "ocr",
+            version: "1.0.0",
+            ui: { entry: "ResultRenderer.tsx" },
+        };
+
+        // First call → manifest  
+        // Second call → component → throw
+        const dynamicImportMock = vi
+            .fn()
+            .mockResolvedValueOnce({ default: mockManifest })
+            .mockRejectedValueOnce(new Error("Failed to load UI component"));
+
+        // @ts-expect-error - Mocking internal method for testing
+        UIPluginManager.dynamicImport = dynamicImportMock;
+
+        await expect(UIPluginManager.loadUIComponent("ocr"))
+            .rejects
+            .toThrow("Failed to load UI component");
+    });
+
+    it("throws an error when config component import fails", async () => {
+        const mockManifest = {
+            name: "ocr",
+            version: "1.0.0",
+            ui: {
+                entry: "ResultRenderer.tsx",
+                configComponent: "ConfigForm.tsx",
+            },
+        };
+
+        const dynamicImportMock = vi
+            .fn()
+            .mockResolvedValueOnce({ default: mockManifest }) // manifest
+            .mockRejectedValueOnce(new Error("Failed to load config component")); // config
+
+        // @ts-expect-error - testing private property override
+        UIPluginManager.dynamicImport = dynamicImportMock;
+
+        await expect(UIPluginManager.loadConfigComponent("ocr"))
+            .rejects
+            .toThrow("Failed to load config component");
+    });
+
+    it("throws an error when result renderer import fails", async () => {
+        const mockManifest = {
+            name: "motion_detector",
+            version: "1.0.0",
+            ui: {
+                entry: "ResultRenderer.tsx",
+                resultComponent: "ResultRenderer.tsx",
+            },
+        };
+
+        const dynamicImportMock = vi
+            .fn()
+            .mockResolvedValueOnce({ default: mockManifest }) // manifest
+            .mockRejectedValueOnce(new Error("Failed to load result renderer")); // renderer
+
+        // @ts-expect-error - testing private property override
+        UIPluginManager.dynamicImport = dynamicImportMock;
+
+        await expect(UIPluginManager.loadResultComponent("motion_detector"))
+            .rejects
+            .toThrow("Failed to load result renderer");
+    });
 });
+

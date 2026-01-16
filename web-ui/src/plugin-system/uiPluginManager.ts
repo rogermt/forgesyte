@@ -116,7 +116,7 @@ class UIPluginManagerClass {
      * This is extracted to a separate method to allow easy mocking in tests
      */
     async dynamicImport(pluginPath: string): Promise<Record<string, unknown>> {
-        return import(`../../../forgesyte-plugins/${pluginPath}`);
+        return import(/* @vite-ignore */ `../../../forgesyte-plugins/${pluginPath}`);
     }
 
     /**
