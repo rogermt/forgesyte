@@ -9,7 +9,7 @@
 
 import React, { useCallback, useMemo, useState } from "react";
 import { CameraPreview } from "./components/CameraPreview";
-import { PluginHost } from "./plugin-system/PluginHost";
+import { PluginSelector } from "./components/PluginSelector";
 import { JobList } from "./components/JobList";
 import { ResultsPanel } from "./components/ResultsPanel";
 import { useWebSocket, FrameResult } from "./hooks/useWebSocket";
@@ -245,13 +245,10 @@ function App() {
       <main style={styles.main}>
         <aside style={styles.sidebar}>
           <div style={styles.panel}>
-            <PluginHost
-              plugin="plugin_selector"
-              props={{
-                selectedPlugin,
-                onPluginChange: handlePluginChange,
-                disabled: streamEnabled
-              }}
+            <PluginSelector
+              selectedPlugin={selectedPlugin}
+              onPluginChange={handlePluginChange}
+              disabled={streamEnabled}
             />
           </div>
 
