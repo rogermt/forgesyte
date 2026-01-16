@@ -8,7 +8,6 @@ initialization and graceful plugin unloading.
 import logging
 import uuid
 from contextlib import asynccontextmanager
-from pathlib import Path
 from typing import Dict, List, Optional
 
 import uvicorn
@@ -56,9 +55,6 @@ class AppSettings(BaseSettings):
         "ForgeSyte: A modular AI-vision MCP server engineered for developers"
     )
     version: str = "0.1.0"
-    plugins_dir: Optional[Path] = Field(
-        default=None, validation_alias="FORGESYTE_PLUGINS_DIR"
-    )
     cors_origins: List[str] = Field(
         default_factory=lambda: ["*"], validation_alias="CORS_ORIGINS"
     )
@@ -134,17 +130,9 @@ async def lifespan(app: FastAPI):
             "Failed to initialize authentication service", extra={"error": str(e)}
         )
 
-    # Plugin Manager Initialization (pathlib for path management)
-    if settings.plugins_dir:
-        plugins_path = settings.plugins_dir.resolve()
-        logger.info(
-            "Loading plugins from directory",
-            extra={"plugins_dir": str(plugins_path), "exists": plugins_path.exists()},
-        )
-        plugin_manager = PluginManager(plugins_dir=str(plugins_path))
-    else:
-        logger.info("Initializing plugin manager without local plugins directory")
-        plugin_manager = PluginManager()
+    # Plugin Manager Initialization (entry-point plugins only)
+    logger.info("Initializing plugin manager for entry-point plugins")
+    plugin_manager = PluginManager()
 
     # Dynamic Plugin Loading
     try:

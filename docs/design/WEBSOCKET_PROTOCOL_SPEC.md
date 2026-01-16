@@ -343,7 +343,8 @@ VITE_API_KEY=optional_api_key              # Optional API authentication
 
 ```bash
 # .env or passed at runtime
-FORGESYTE_PLUGINS_DIR=./example_plugins    # Directory containing plugins
+# Plugins are loaded via pip entry-points (forgesyte.plugins group)
+# No directory configuration needed - install plugins with: pip install forgesyte-plugin-name
 ```
 
 ---

@@ -1,14 +1,10 @@
-"""Complete pytest suite for plugin_loader module (80-90% coverage)"""
+"""Complete pytest suite for plugin_loader module (entry-point plugins only)"""
 
 import asyncio
-from pathlib import Path
 from unittest.mock import MagicMock
-
-import pytest
 
 from app.plugin_loader import (
     BasePlugin,
-    PluginInterface,
     PluginManager,
 )
 
@@ -52,8 +48,22 @@ def test_baseplugin_on_load_and_unload():
     plugin.on_unload()  # Should not raise
 
 
+def test_baseplugin_validate_image_valid():
+    plugin = DummyPlugin()
+    # PNG header + padding
+    png_data = b"\x89PNG" + b"\x00" * 100
+    assert plugin.validate_image(png_data) is True
+
+
+def test_baseplugin_validate_image_invalid():
+    plugin = DummyPlugin()
+    assert plugin.validate_image(b"not an image") is False
+    assert plugin.validate_image(b"") is False
+    assert plugin.validate_image(b"short") is False
+
+
 # -------------------------------------------------------------------
-# Entry‑point plugin loading
+# Entry-point plugin loading
 # -------------------------------------------------------------------
 
 
@@ -89,200 +99,33 @@ def test_load_entrypoint_plugins_invalid_plugin(monkeypatch):
     assert "invalid_ep" in errors
 
 
-# -------------------------------------------------------------------
-# Local plugin loading
-# -------------------------------------------------------------------
+def test_load_entrypoint_plugins_exception(monkeypatch):
+    mock_ep = MagicMock()
+    mock_ep.name = "failing_ep"
+    mock_ep.load.side_effect = ImportError("Module not found")
 
-
-def test_load_local_plugins_disabled_by_default(tmp_path):
-    """Local plugin loading should be disabled by default."""
-    plugin_dir = tmp_path / "myplugin"
-    plugin_dir.mkdir()
-
-    plugin_file = plugin_dir / "plugin.py"
-    plugin_file.write_text(
-        """
-from app.plugin_loader import BasePlugin
-
-class Plugin(BasePlugin):
-    name = "local_dummy"
-    def metadata(self): return {"name": "local_dummy"}
-    def analyze(self, image_bytes, options=None): return {"ok": True}
-"""
-    )
-
-    pm = PluginManager(plugins_dir=str(tmp_path))
-    loaded, errors = pm.load_local_plugins()
-
-    # Should return empty because ALLOW_LOCAL_PLUGINS is not set
-    assert loaded == {}
-    assert errors == {}
-    assert pm.get("local_dummy") is None
-
-
-def test_load_local_plugins_disabled_when_env_false(tmp_path, monkeypatch):
-    """Local plugin loading should be disabled when ALLOW_LOCAL_PLUGINS=false."""
-    monkeypatch.setenv("ALLOW_LOCAL_PLUGINS", "false")
-
-    plugin_dir = tmp_path / "myplugin"
-    plugin_dir.mkdir()
-
-    plugin_file = plugin_dir / "plugin.py"
-    plugin_file.write_text(
-        """
-from app.plugin_loader import BasePlugin
-
-class Plugin(BasePlugin):
-    name = "local_dummy"
-    def metadata(self): return {"name": "local_dummy"}
-    def analyze(self, image_bytes, options=None): return {"ok": True}
-"""
-    )
-
-    pm = PluginManager(plugins_dir=str(tmp_path))
-    loaded, errors = pm.load_local_plugins()
-
-    assert loaded == {}
-    assert errors == {}
-
-
-def test_load_local_plugins_success(tmp_path, monkeypatch):
-    monkeypatch.setenv("ALLOW_LOCAL_PLUGINS", "true")
-
-    plugin_dir = tmp_path / "myplugin"
-    plugin_dir.mkdir()
-
-    plugin_file = plugin_dir / "plugin.py"
-    plugin_file.write_text(
-        """
-from app.plugin_loader import BasePlugin
-
-class Plugin(BasePlugin):
-    name = "local_dummy"
-    def metadata(self): return {"name": "local_dummy"}
-    def analyze(self, image_bytes, options=None): return {"ok": True}
-"""
-    )
-
-    pm = PluginManager(plugins_dir=str(tmp_path))
-    loaded, errors = pm.load_local_plugins()
-
-    assert "local_dummy" in loaded
-    assert errors == {}
-    assert pm.get("local_dummy") is not None
-
-
-def test_load_local_plugins_missing_plugin_file(tmp_path, monkeypatch):
-    monkeypatch.setenv("ALLOW_LOCAL_PLUGINS", "true")
-    (tmp_path / "emptydir").mkdir()
-
-    pm = PluginManager(plugins_dir=str(tmp_path))
-    loaded, errors = pm.load_local_plugins()
-
-    assert loaded == {}
-    assert errors == {}
-
-
-def test_load_local_plugins_invalid_plugin(tmp_path, monkeypatch):
-    monkeypatch.setenv("ALLOW_LOCAL_PLUGINS", "true")
-
-    plugin_dir = tmp_path / "badplugin"
-    plugin_dir.mkdir()
-
-    plugin_file = plugin_dir / "plugin.py"
-    plugin_file.write_text("class Plugin: pass")  # Missing interface
-
-    pm = PluginManager(plugins_dir=str(tmp_path))
-    loaded, errors = pm.load_local_plugins()
-
-    assert loaded == {}
-    assert "badplugin" in errors
-
-
-# -------------------------------------------------------------------
-# File loader tests
-# -------------------------------------------------------------------
-
-
-def test_load_plugin_from_file_success(tmp_path):
-    plugin_file = tmp_path / "plugin.py"
-    plugin_file.write_text(
-        """
-from app.plugin_loader import BasePlugin
-
-class Plugin(BasePlugin):
-    name = "file_dummy"
-    def metadata(self): return {"name": "file_dummy"}
-    def analyze(self, image_bytes, options=None): return {"ok": True}
-"""
-    )
+    monkeypatch.setattr("app.plugin_loader.entry_points", lambda group: [mock_ep])
 
     pm = PluginManager()
-    plugin = pm._load_plugin_from_file(plugin_file, "file_dummy")
+    loaded, errors = pm.load_entrypoint_plugins()
 
-    assert plugin.name == "file_dummy"
-    assert isinstance(plugin, PluginInterface)
-
-
-def test_load_plugin_from_file_missing_class(tmp_path):
-    plugin_file = tmp_path / "plugin.py"
-    plugin_file.write_text("x = 1")
-
-    pm = PluginManager()
-
-    with pytest.raises(AttributeError):
-        pm._load_plugin_from_file(plugin_file, "missing")
+    assert loaded == {}
+    assert "failing_ep" in errors
 
 
-def test_load_plugin_from_file_invalid_interface(tmp_path):
-    plugin_file = tmp_path / "plugin.py"
-    plugin_file.write_text(
-        """
-class Plugin:
-    pass
-"""
-    )
-
-    pm = PluginManager()
-
-    with pytest.raises(TypeError):
-        pm._load_plugin_from_file(plugin_file, "invalid")
-
-
-# -------------------------------------------------------------------
-# Combined loader
-# -------------------------------------------------------------------
-
-
-def test_load_plugins_combined(monkeypatch, tmp_path):
-    # Enable local plugin loading
-    monkeypatch.setenv("ALLOW_LOCAL_PLUGINS", "true")
-
-    # Mock entrypoint plugin
+def test_load_plugins_returns_correct_structure(monkeypatch):
     mock_ep = MagicMock()
     mock_ep.name = "dummy_ep"
     mock_ep.load.return_value = DummyPlugin
 
     monkeypatch.setattr("app.plugin_loader.entry_points", lambda group: [mock_ep])
 
-    # Local plugin
-    plugin_dir = tmp_path / "local"
-    plugin_dir.mkdir()
-    (plugin_dir / "plugin.py").write_text(
-        """
-from app.plugin_loader import BasePlugin
-class Plugin(BasePlugin):
-    name = "local_dummy"
-    def metadata(self): return {"name": "local_dummy"}
-    def analyze(self, image_bytes, options=None): return {"ok": True}
-"""
-    )
-
-    pm = PluginManager(plugins_dir=str(tmp_path))
+    pm = PluginManager()
     result = pm.load_plugins()
 
+    assert "loaded" in result
+    assert "errors" in result
     assert "dummy" in result["loaded"]
-    assert "local_dummy" in result["loaded"]
     assert result["errors"] == {}
 
 
@@ -305,180 +148,178 @@ def test_plugin_manager_get_and_list(monkeypatch):
     assert "dummy" in pm.list()
 
 
-# -------------------------------------------------------------------
-# High-value missing tests
-# -------------------------------------------------------------------
-
-
-def test_plugin_manager_with_none_plugins_dir():
-    """Ensures PluginManager handles None cleanly - a real-world scenario."""
-    # Initialize PluginManager with None plugins_dir
-    plugin_manager = PluginManager(plugins_dir=None)
-
-    # Verify that the plugins_dir is properly set to None
-    assert plugin_manager.plugins_dir is None
-
-    # Verify that the plugins dictionary is initialized empty
-    assert plugin_manager.plugins == {}
-
-    # Verify that load_plugins works without errors when plugins_dir is None
-    result = plugin_manager.load_plugins()
-
-    # Should return empty loaded and errors dicts
-    assert result["loaded"] == {}
-    assert result["errors"] == {}
-
-    # Verify that other methods work correctly with empty plugin set
-    assert plugin_manager.get("nonexistent") is None
-    assert plugin_manager.list() == {}
-
-    # Verify that reload operations work correctly with empty plugin set
-    assert plugin_manager.reload_plugin("nonexistent") is False
-    reload_all_result = plugin_manager.reload_all()
-    assert reload_all_result == {"loaded": {}, "errors": {}}
-
-
-def test_plugin_manager_with_nonexistent_plugins_dir():
-    """Prevents crashes when someone misconfigures the path."""
-    # Create a path that definitely doesn't exist
-    nonexistent_path = Path("/definitely/not/a/real/path/12345")
-
-    # Verify the path doesn't exist
-    assert not nonexistent_path.exists()
-
-    # Initialize PluginManager with non-existent plugins_dir
-    plugin_manager = PluginManager(plugins_dir=str(nonexistent_path))
-
-    # Verify that the plugins_dir is set correctly
-    assert plugin_manager.plugins_dir == nonexistent_path
-
-    # Verify that the plugins dictionary is initialized empty
-    assert plugin_manager.plugins == {}
-
-    # Verify that load_plugins works without errors when plugins_dir doesn't exist
-    result = plugin_manager.load_plugins()
-
-    # Should return empty loaded and errors dicts
-    assert result["loaded"] == {}
-    assert result["errors"] == {}
-
-    # Verify that other methods work correctly with empty plugin set
-    assert plugin_manager.get("nonexistent") is None
-    assert plugin_manager.list() == {}
-
-    # Verify that reload operations work correctly with empty plugin set
-    assert plugin_manager.reload_plugin("nonexistent") is False
-    reload_all_result = plugin_manager.reload_all()
-    assert reload_all_result == {"loaded": {}, "errors": {}}
-
-
-def test_load_local_plugins_empty_directory(monkeypatch):
-    """Ensures the loader doesn't blow up on empty dirs."""
-    monkeypatch.setenv("ALLOW_LOCAL_PLUGINS", "true")
-
-    # Create an empty temporary directory
-    import tempfile
-
-    with tempfile.TemporaryDirectory() as tmp_dir:
-        tmp_path = Path(tmp_dir)
-
-        # Create an empty subdirectory
-        empty_dir = tmp_path / "empty_dir"
-        empty_dir.mkdir()
-
-        # Initialize PluginManager with the empty directory
-        pm = PluginManager(plugins_dir=str(tmp_path))
-
-        # Call load_local_plugins - should not raise an exception
-        loaded, errors = pm.load_local_plugins()
-
-        # Should return empty results since there are no plugin files
-        assert loaded == {}
-        assert errors == {}
-
-        # Verify the plugin manager still works normally
-        assert pm.plugins == {}
-
-
-def test_uninstall_plugin_nonexistent():
-    """Ensures uninstall is idempotent and safe."""
-    # Initialize PluginManager
+def test_plugin_manager_get_nonexistent():
     pm = PluginManager()
-
-    # Try to uninstall a plugin that doesn't exist
-    result = pm.uninstall_plugin("nonexistent_plugin")
-
-    # Should return False since plugin wasn't found
-    assert result is False
-
-    # Verify that the plugins dict is still empty
-    assert pm.plugins == {}
-
-    # Verify that calling it again doesn't cause issues (idempotent)
-    result2 = pm.uninstall_plugin("nonexistent_plugin")
-    assert result2 is False
-
-
-def test_load_plugins_no_directory_specified():
-    """Ensures entry-point loading works even without local plugins."""
-    # Initialize PluginManager with no plugins_dir (None)
-    pm = PluginManager(plugins_dir=None)
-
-    # Verify that plugins_dir is None
-    assert pm.plugins_dir is None
-
-    # Call load_plugins - should work without errors even with no directory
-    result = pm.load_plugins()
-
-    # Should return empty loaded and errors since no directory and no entry points
-    assert result["loaded"] == {}
-    assert result["errors"] == {}
-
-    # Verify that the plugin manager still works normally
-    assert pm.plugins == {}
-
-    # Verify that other methods work correctly
-    assert pm.get("any_plugin") is None
-    assert pm.list() == {}
-
-
-def test_server_starts_with_no_plugin_directories():
-    """Test that the server can start when no plugin directories exist.
-
-    This test reproduces the E2E failure we saw where the server fails to start
-    when the example_plugins directory doesn't exist.
-    """
-    import os
-    import tempfile
-
-    # Create a temporary directory that doesn't have plugins
-    with tempfile.TemporaryDirectory() as temp_dir:
-        # Set up a PluginManager with a non-existent directory
-        nonexistent_dir = os.path.join(temp_dir, "nonexistent_plugins")
-
-        # Create a PluginManager with non-existent directory
-        from app.plugin_loader import PluginManager
-
-        plugin_manager = PluginManager(plugins_dir=nonexistent_dir)
-
-        # This should not raise an exception
-        result = plugin_manager.load_plugins()
-
-        # Verify that it returns empty results without errors
-        assert "loaded" in result
-        assert "errors" in result
-        assert result["loaded"] == {}
-        assert result["errors"] == {}
+    assert pm.get("nonexistent") is None
 
 
 def test_plugin_manager_contains_operator():
     """Test that PluginManager supports the 'in' operator."""
     pm = PluginManager()
-    # Manually inject a plugin for testing the operator
     mock_plugin = MagicMock()
     mock_plugin.name = "test_plugin"
     pm.plugins["test_plugin"] = mock_plugin
 
-    # This should return True and NOT raise TypeError
     assert "test_plugin" in pm
     assert "nonexistent" not in pm
+
+
+def test_plugin_manager_list_empty():
+    pm = PluginManager()
+    assert pm.list() == {}
+
+
+def test_plugin_manager_list_with_pydantic_metadata(monkeypatch):
+    """Test list() handles Pydantic model metadata."""
+    mock_ep = MagicMock()
+    mock_ep.name = "pydantic_ep"
+
+    class PydanticPlugin(BasePlugin):
+        name = "pydantic_test"
+
+        def metadata(self):
+            mock_model = MagicMock()
+            mock_model.model_dump.return_value = {"name": "pydantic_test"}
+            return mock_model
+
+        def analyze(self, image_bytes, options=None):
+            return {}
+
+    mock_ep.load.return_value = PydanticPlugin
+    monkeypatch.setattr("app.plugin_loader.entry_points", lambda group: [mock_ep])
+
+    pm = PluginManager()
+    pm.load_plugins()
+
+    result = pm.list()
+    assert "pydantic_test" in result
+    assert result["pydantic_test"]["name"] == "pydantic_test"
+
+
+# -------------------------------------------------------------------
+# Reload operations
+# -------------------------------------------------------------------
+
+
+def test_reload_plugin_existing(monkeypatch):
+    mock_ep = MagicMock()
+    mock_ep.name = "dummy_ep"
+    mock_ep.load.return_value = DummyPlugin
+
+    monkeypatch.setattr("app.plugin_loader.entry_points", lambda group: [mock_ep])
+
+    pm = PluginManager()
+    pm.load_plugins()
+
+    assert "dummy" in pm
+    result = pm.reload_plugin("dummy")
+    assert result is True
+    assert "dummy" not in pm  # Removed, needs reload_all to rediscover
+
+
+def test_reload_plugin_nonexistent():
+    pm = PluginManager()
+    result = pm.reload_plugin("nonexistent")
+    assert result is False
+
+
+def test_reload_all(monkeypatch):
+    mock_ep = MagicMock()
+    mock_ep.name = "dummy_ep"
+    mock_ep.load.return_value = DummyPlugin
+
+    monkeypatch.setattr("app.plugin_loader.entry_points", lambda group: [mock_ep])
+
+    pm = PluginManager()
+    pm.load_plugins()
+
+    result = pm.reload_all()
+    assert "loaded" in result
+    assert "errors" in result
+    assert "dummy" in result["loaded"]
+
+
+def test_reload_all_handles_unload_exception(monkeypatch):
+    mock_ep = MagicMock()
+    mock_ep.name = "dummy_ep"
+    mock_ep.load.return_value = DummyPlugin
+
+    monkeypatch.setattr("app.plugin_loader.entry_points", lambda group: [mock_ep])
+
+    pm = PluginManager()
+    pm.load_plugins()
+
+    # Make on_unload raise an exception
+    pm.plugins["dummy"].on_unload = MagicMock(side_effect=Exception("Unload failed"))
+
+    # Should not raise, should log warning and continue
+    result = pm.reload_all()
+    assert "loaded" in result
+
+
+# -------------------------------------------------------------------
+# Uninstall operations
+# -------------------------------------------------------------------
+
+
+def test_uninstall_plugin_existing(monkeypatch):
+    mock_ep = MagicMock()
+    mock_ep.name = "dummy_ep"
+    mock_ep.load.return_value = DummyPlugin
+
+    monkeypatch.setattr("app.plugin_loader.entry_points", lambda group: [mock_ep])
+
+    pm = PluginManager()
+    pm.load_plugins()
+
+    assert "dummy" in pm
+    result = pm.uninstall_plugin("dummy")
+    assert result is True
+    assert "dummy" not in pm
+
+
+def test_uninstall_plugin_nonexistent():
+    pm = PluginManager()
+    result = pm.uninstall_plugin("nonexistent_plugin")
+    assert result is False
+
+
+def test_uninstall_plugin_handles_exception(monkeypatch):
+    mock_ep = MagicMock()
+    mock_ep.name = "dummy_ep"
+    mock_ep.load.return_value = DummyPlugin
+
+    monkeypatch.setattr("app.plugin_loader.entry_points", lambda group: [mock_ep])
+
+    pm = PluginManager()
+    pm.load_plugins()
+
+    # Make on_unload raise an exception
+    pm.plugins["dummy"].on_unload = MagicMock(side_effect=Exception("Unload failed"))
+
+    # Should not raise, should log warning and still remove
+    result = pm.uninstall_plugin("dummy")
+    assert result is True
+    assert "dummy" not in pm
+
+
+# -------------------------------------------------------------------
+# Edge cases
+# -------------------------------------------------------------------
+
+
+def test_plugin_manager_initialization():
+    """Test basic initialization."""
+    pm = PluginManager()
+    assert pm.plugins == {}
+
+
+def test_load_plugins_no_entrypoints(monkeypatch):
+    """Test loading when no entry-points are registered."""
+    monkeypatch.setattr("app.plugin_loader.entry_points", lambda group: [])
+
+    pm = PluginManager()
+    result = pm.load_plugins()
+
+    assert result["loaded"] == {}
+    assert result["errors"] == {}

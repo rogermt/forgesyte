@@ -5,7 +5,6 @@ This verifies that the vision-mcp code has been successfully transformed to Forg
 
 import os
 import sys
-from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
@@ -35,35 +34,13 @@ def test_root_endpoint_updated():
         assert "Vision MCP Server" not in str(data)  # Ensure old branding is gone
 
 
-def test_environment_variables_updated():
-    """Test that environment variables have been updated to FORGESYTE_ prefix."""
-    import app.main as main_module
-
-    # Check that AppSettings uses FORGESYTE_PLUGINS_DIR
-    settings = main_module.AppSettings()
-    assert hasattr(settings, "plugins_dir")
-
-    # Verify the env var name is correct
-    import inspect
-
-    source = inspect.getsource(main_module.AppSettings)
-    assert "FORGESYTE_PLUGINS_DIR" in source
-    assert "VISION_PLUGINS_DIR" not in source  # Ensure old variable is gone
-
-
-def test_plugin_loading_path_updated():
-    """Test that plugin manager loads from the new directory structure."""
-    # Test with the example plugins directory
-    plugins_dir = Path(__file__).parent.parent / "example_plugins"
-    pm = PluginManager(plugins_dir=str(plugins_dir))
-
-    # Verify the plugin manager is configured correctly
-    assert "example_plugins" in str(pm.plugins_dir)
+def test_plugin_manager_entrypoint_only():
+    """Test that plugin manager loads via entry-points only."""
+    pm = PluginManager()
 
     # Try to load plugins (should not raise an exception)
     result = pm.load_plugins()
-    # Even if plugins fail to load due to missing dependencies, the structure
-    # should be correct
+    # Even if no plugins are installed, the structure should be correct
     assert isinstance(result, dict)
     assert "loaded" in result
     assert "errors" in result

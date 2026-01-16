@@ -95,9 +95,8 @@ def app_with_plugins():
     # Initialize auth service FIRST (needed for API endpoints)
     init_auth_service()
 
-    # Load plugins
-    plugins_dir = os.getenv("FORGESYTE_PLUGINS_DIR", "../example_plugins")
-    plugin_manager = PluginManager(plugins_dir)
+    # Load plugins via entry-points
+    plugin_manager = PluginManager()
     plugin_manager.load_plugins()
     app.state.plugins = plugin_manager
 

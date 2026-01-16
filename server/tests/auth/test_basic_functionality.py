@@ -67,11 +67,7 @@ def test_plugins_endpoint_exists():
 
 def test_plugin_manager_initialization():
     """Test that plugin manager can be initialized."""
-    from pathlib import Path
-
-    # Use the example_plugins directory
-    plugins_dir = Path(__file__).parent.parent / "example_plugins"
-    pm = PluginManager(plugins_dir=str(plugins_dir))
+    pm = PluginManager()
     assert pm is not None
     assert hasattr(pm, "load_plugins")
 

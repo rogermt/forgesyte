@@ -454,7 +454,7 @@ class Plugin(BasePlugin):
 **Error**: `Plugin 'my_plugin' not found`
 - **Check**: Is `plugin.name` set correctly?
 - **Check**: Did you call `PluginManager.load_plugins()` before accessing plugins?
-- **Check**: Is the plugins directory accessible? Check `FORGESYTE_PLUGINS_DIR` env var
+- **Check**: Is your plugin installed via `pip install`? Plugins are loaded via entry-points only.
 
 ### Image Validation Errors
 
@@ -503,12 +503,15 @@ Located in `server/app/plugin_loader.py`
 
 ```python
 class PluginManager:
-    def __init__(self, plugins_dir: Optional[str] = None) -> None: ...
+    def __init__(self) -> None: ...
     def load_plugins(self) -> Dict[str, Dict[str, str]]: ...
     def get(self, name: str) -> Optional[PluginInterface]: ...
     def list(self) -> Dict[str, Dict[str, Any]]: ...
     def reload_plugin(self, name: str) -> bool: ...
+    def reload_all(self) -> Dict[str, Dict[str, str]]: ...
 ```
+
+**Note**: Plugins are discovered via Python entry-points (`forgesyte.plugins` group). Install plugins with `pip install` to make them available.
 
 ---
 
