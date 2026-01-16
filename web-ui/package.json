@@ -5,9 +5,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "sync": "dotenv -- node scripts/sync-plugins.js auto",
-    "sync:local": "dotenv -- node scripts/sync-plugins.js local $FORGESYTE_PLUGINS_PATH",
-    "sync:github": "dotenv -- node scripts/sync-plugins.js github $FORGESYTE_PLUGINS_REPO",
+    "sync": "npx dotenv-cli -- node scripts/sync-plugins.cjs auto",
+    "sync:local": "npx dotenv-cli -- node scripts/sync-plugins.cjs local $FORGESYTE_PLUGINS_PATH",
+    "sync:github": "npx dotenv-cli -- node scripts/sync-plugins.cjs github $FORGESYTE_PLUGINS_REPO",
     "predev": "npm run sync",
     "dev": "vite",
     "prebuild": "npm run sync",

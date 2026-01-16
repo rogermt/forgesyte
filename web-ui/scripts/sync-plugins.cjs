@@ -68,8 +68,8 @@ function syncFromLocal(localPath) {
 
     console.log("📂 Copying plugins from local:", srcPath);
     
-    // Copy contents (merging with existing if DEST already has files)
-    execSync(`cp -r "${srcPath}/." "${DEST}/"`, { stdio: "inherit" });
+    // Copy contents, excluding node_modules, .git, and other dev artifacts
+    execSync(`rsync -a --exclude='node_modules' --exclude='.git' --exclude='__pycache__' --exclude='.pytest_cache' --exclude='.mypy_cache' --exclude='.ruff_cache' --exclude='.venv' --exclude='*.egg-info' "${srcPath}/" "${DEST}/"`, { stdio: "inherit" });
     
     console.log("✅ Local plugins synced.");
     return true;
