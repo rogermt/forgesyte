@@ -1,87 +1,48 @@
 /**
- * Tests for ResultsPanel with dynamic plugin result renderers
+ * Tests for ResultsPanel plugin mode (when UIPluginManager is implemented)
  */
 
-import { render, screen, waitFor } from "@testing-library/react";
-import type { ComponentType } from "react";
+import { render, screen } from "@testing-library/react";
 import { ResultsPanel } from "./ResultsPanel";
-import { UIPluginManager } from "../plugin-system/uiPluginManager";
-import { createMockFrameResult } from "../test-utils/factories";
 
-vi.mock("../plugin-system/uiPluginManager", () => ({
-    UIPluginManager: {
-        loadResultComponent: vi.fn(),
-    },
-}));
-
-describe("ResultsPanel - Plugin Renderers", () => {
-    beforeEach(() => {
-        vi.clearAllMocks();
-    });
-
-    it("should render custom result component when available", async () => {
-        const CustomRenderer: ComponentType<{ result: Record<string, unknown> }> = ({ result }) => (
-            <div>Custom: {(result.frame_id as string)}</div>
-        );
-        (UIPluginManager.loadResultComponent as unknown as ReturnType<typeof vi.fn>).mockResolvedValue(
-            CustomRenderer
-        );
-
-        const result = createMockFrameResult();
+describe("ResultsPanel plugin mode", () => {
+    it("should render in stream mode with results", () => {
+        const result = { motion_detected: true, percentage: 85 };
         render(
-            <ResultsPanel pluginName="motion_detector" result={result} />
+            <ResultsPanel
+                mode="stream"
+                streamResult={{
+                    frame_id: "frame-123",
+                    processing_time_ms: 45,
+                    result: result,
+                }}
+            />
         );
 
-        await waitFor(() => {
-            expect(screen.getByText(/Custom:/)).toBeInTheDocument();
-        });
+        expect(screen.getByTestId("results-panel")).toBeInTheDocument();
+        expect(screen.getByText("Frame ID: frame-123")).toBeInTheDocument();
     });
 
-    it("should show fallback JSON when no custom renderer", async () => {
-        (UIPluginManager.loadResultComponent as unknown as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+    it("should render in job mode with results", () => {
+        const job = {
+            job_id: "job-123",
+            status: "done" as const,
+            result: { text: "hello" },
+            created_at: "2026-01-16T00:00:00Z",
+            completed_at: "2026-01-16T00:00:05Z",
+            plugin: "ocr",
+        };
 
-        const result = createMockFrameResult();
-        const { container } = render(
-            <ResultsPanel pluginName="motion_detector" result={result} />
+        render(
+            <ResultsPanel
+                mode="job"
+                job={job}
+            />
         );
 
-        await waitFor(() => {
-            const pre = container.querySelector("pre");
-            expect(pre).toBeInTheDocument();
-        });
+        expect(screen.getByText("Job ID: job-123")).toBeInTheDocument();
+        expect(screen.getByText(/Status: done/)).toBeInTheDocument();
     });
 
-    it("should show no results message when result is null", async () => {
-        (UIPluginManager.loadResultComponent as unknown as ReturnType<typeof vi.fn>).mockResolvedValue(null);
-
-        render(<ResultsPanel pluginName="motion_detector" result={null} />);
-
-        expect(screen.getByText("No results yet.")).toBeInTheDocument();
-    });
-
-    it("should load renderer for new plugin", async () => {
-        const Renderer1: ComponentType = () => <div>Renderer 1</div>;
-        const Renderer2: ComponentType = () => <div>Renderer 2</div>;
-
-        (UIPluginManager.loadResultComponent as unknown as ReturnType<typeof vi.fn>)
-            .mockResolvedValueOnce(Renderer1)
-            .mockResolvedValueOnce(Renderer2);
-
-        const result = createMockFrameResult();
-        const { rerender } = render(
-            <ResultsPanel pluginName="plugin_1" result={result} />
-        );
-
-        await waitFor(() => {
-            expect(screen.getByText("Renderer 1")).toBeInTheDocument();
-        });
-
-        rerender(
-            <ResultsPanel pluginName="plugin_2" result={result} />
-        );
-
-        await waitFor(() => {
-            expect(screen.getByText("Renderer 2")).toBeInTheDocument();
-        });
-    });
+    // TODO: Add tests for dynamic plugin result rendering when UIPluginManager is implemented
 });

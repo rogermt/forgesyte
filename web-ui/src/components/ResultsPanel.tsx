@@ -2,11 +2,9 @@
  * Results panel component
  */
 
-import React, { useEffect, useState } from "react";
-import type { ComponentType } from "react";
+import React from "react";
 import { FrameResult } from "../hooks/useWebSocket";
 import { Job } from "../api/client";
-import { UIPluginManager } from "../plugin-system/uiPluginManager";
 
 export interface ResultsPanelProps {
     mode?: "stream" | "job";
@@ -20,46 +18,9 @@ export function ResultsPanel({
     mode = "stream",
     streamResult,
     job,
-    pluginName,
-    result,
 }: ResultsPanelProps) {
-    const [Renderer, setRenderer] = useState<ComponentType<Record<string, unknown>> | null>(null);
-
-    useEffect(() => {
-        if (!pluginName) return;
-
-        let mounted = true;
-        const name = pluginName;
-
-        async function load() {
-            const comp = await UIPluginManager.loadResultComponent(name);
-            if (mounted) setRenderer(() => comp);
-        }
-
-        load();
-        return () => {
-            mounted = false;
-        };
-    }, [pluginName]);
-
-    // New plugin mode: use dynamic renderer
-    if (pluginName && result !== undefined) {
-        if (!result) {
-            return <div>No results yet.</div>;
-        }
-        if (Renderer) {
-            return <Renderer result={result} pluginName={pluginName} />;
-        }
-        // Fallback to JSON
-        return (
-            <div>
-                <h3>Results</h3>
-                <pre>{JSON.stringify(result, null, 2)}</pre>
-            </div>
-        );
-    }
-
-    // Legacy mode: original stream/job rendering
+    // TODO: Implement UI plugin loading for result components
+    // Future: Load Renderer dynamically via UIPluginManager for pluginName mode
     const styles: Record<string, React.CSSProperties> = {
         panel: {
             backgroundColor: "var(--bg-secondary)",
