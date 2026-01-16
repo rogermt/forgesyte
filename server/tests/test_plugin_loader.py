@@ -94,7 +94,61 @@ def test_load_entrypoint_plugins_invalid_plugin(monkeypatch):
 # -------------------------------------------------------------------
 
 
-def test_load_local_plugins_success(tmp_path):
+def test_load_local_plugins_disabled_by_default(tmp_path):
+    """Local plugin loading should be disabled by default."""
+    plugin_dir = tmp_path / "myplugin"
+    plugin_dir.mkdir()
+
+    plugin_file = plugin_dir / "plugin.py"
+    plugin_file.write_text(
+        """
+from app.plugin_loader import BasePlugin
+
+class Plugin(BasePlugin):
+    name = "local_dummy"
+    def metadata(self): return {"name": "local_dummy"}
+    def analyze(self, image_bytes, options=None): return {"ok": True}
+"""
+    )
+
+    pm = PluginManager(plugins_dir=str(tmp_path))
+    loaded, errors = pm.load_local_plugins()
+
+    # Should return empty because ALLOW_LOCAL_PLUGINS is not set
+    assert loaded == {}
+    assert errors == {}
+    assert pm.get("local_dummy") is None
+
+
+def test_load_local_plugins_disabled_when_env_false(tmp_path, monkeypatch):
+    """Local plugin loading should be disabled when ALLOW_LOCAL_PLUGINS=false."""
+    monkeypatch.setenv("ALLOW_LOCAL_PLUGINS", "false")
+
+    plugin_dir = tmp_path / "myplugin"
+    plugin_dir.mkdir()
+
+    plugin_file = plugin_dir / "plugin.py"
+    plugin_file.write_text(
+        """
+from app.plugin_loader import BasePlugin
+
+class Plugin(BasePlugin):
+    name = "local_dummy"
+    def metadata(self): return {"name": "local_dummy"}
+    def analyze(self, image_bytes, options=None): return {"ok": True}
+"""
+    )
+
+    pm = PluginManager(plugins_dir=str(tmp_path))
+    loaded, errors = pm.load_local_plugins()
+
+    assert loaded == {}
+    assert errors == {}
+
+
+def test_load_local_plugins_success(tmp_path, monkeypatch):
+    monkeypatch.setenv("ALLOW_LOCAL_PLUGINS", "true")
+
     plugin_dir = tmp_path / "myplugin"
     plugin_dir.mkdir()
 
@@ -118,7 +172,8 @@ class Plugin(BasePlugin):
     assert pm.get("local_dummy") is not None
 
 
-def test_load_local_plugins_missing_plugin_file(tmp_path):
+def test_load_local_plugins_missing_plugin_file(tmp_path, monkeypatch):
+    monkeypatch.setenv("ALLOW_LOCAL_PLUGINS", "true")
     (tmp_path / "emptydir").mkdir()
 
     pm = PluginManager(plugins_dir=str(tmp_path))
@@ -128,7 +183,9 @@ def test_load_local_plugins_missing_plugin_file(tmp_path):
     assert errors == {}
 
 
-def test_load_local_plugins_invalid_plugin(tmp_path):
+def test_load_local_plugins_invalid_plugin(tmp_path, monkeypatch):
+    monkeypatch.setenv("ALLOW_LOCAL_PLUGINS", "true")
+
     plugin_dir = tmp_path / "badplugin"
     plugin_dir.mkdir()
 
@@ -198,6 +255,9 @@ class Plugin:
 
 
 def test_load_plugins_combined(monkeypatch, tmp_path):
+    # Enable local plugin loading
+    monkeypatch.setenv("ALLOW_LOCAL_PLUGINS", "true")
+
     # Mock entrypoint plugin
     mock_ep = MagicMock()
     mock_ep.name = "dummy_ep"
@@ -312,8 +372,10 @@ def test_plugin_manager_with_nonexistent_plugins_dir():
     assert reload_all_result == {"loaded": {}, "errors": {}}
 
 
-def test_load_local_plugins_empty_directory():
+def test_load_local_plugins_empty_directory(monkeypatch):
     """Ensures the loader doesn't blow up on empty dirs."""
+    monkeypatch.setenv("ALLOW_LOCAL_PLUGINS", "true")
+
     # Create an empty temporary directory
     import tempfile
 

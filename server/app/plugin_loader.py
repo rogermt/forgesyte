@@ -8,6 +8,7 @@ Supports:
 import asyncio
 import importlib.util
 import logging
+import os
 import sys
 from abc import ABC, abstractmethod
 from concurrent.futures import ThreadPoolExecutor
@@ -244,11 +245,22 @@ class PluginManager:
         Searches for plugin.py in both direct subdirectories and nested
         package directories (e.g., ocr/plugin.py or ocr/forgesyte_ocr/plugin.py).
 
+        Requires ALLOW_LOCAL_PLUGINS=true environment variable to be set.
+        This is disabled by default for security in production.
+
         Returns:
             Tuple of (loaded plugins dict, errors dict)
         """
         loaded = {}
         errors = {}
+
+        # Check if local plugin loading is allowed (disabled by default)
+        if os.getenv("ALLOW_LOCAL_PLUGINS", "false").lower() != "true":
+            logger.info(
+                "Local plugin loading disabled. "
+                "Set ALLOW_LOCAL_PLUGINS=true to enable."
+            )
+            return loaded, errors
 
         # If no plugins_dir is set, return empty results
         if self.plugins_dir is None:
