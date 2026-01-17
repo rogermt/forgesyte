@@ -49,6 +49,14 @@ class MockPlugin:
             meta["title"] = self.title
         return meta
 
+    def analyze(self, image_bytes: bytes, options: dict) -> dict:
+        """Analyze image bytes and return results."""
+        return {
+            "text": "mock result",
+            "confidence": 0.95,
+            "blocks": [],
+        }
+
     def on_unload(self) -> None:
         """Called when plugin is unloaded."""
         pass
@@ -353,7 +361,7 @@ class TestGeminiCLIToolInvocationWorkflow:
                 "method": "tools/call",
                 "params": {
                     "name": "motion_detector",
-                    "arguments": {"frame": "frame_data"},
+                    "arguments": {"image": "frame_data"},
                 },
                 "id": 3,
             }

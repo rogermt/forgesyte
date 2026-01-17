@@ -45,6 +45,14 @@ class MockPlugin:
             meta["title"] = self.title
         return meta
 
+    def analyze(self, image_bytes: bytes, options: dict) -> dict:
+        """Analyze image bytes and return results."""
+        return {
+            "text": "mock result",
+            "confidence": 0.95,
+            "blocks": [],
+        }
+
     def on_unload(self) -> None:
         """Called when plugin is unloaded."""
         pass
@@ -316,7 +324,7 @@ class TestMCPHTTPEndpoint:
                 "method": "tools/call",
                 "params": {
                     "name": "test_tool",
-                    "arguments": {"key": "value"},
+                    "arguments": {"image": "test_data"},
                 },
                 "id": 1,
             }

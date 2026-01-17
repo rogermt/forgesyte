@@ -9,8 +9,14 @@ This module implements the core MCP protocol methods:
 - ping: Keep-alive verification
 """
 
+import base64
+import inspect
+import json
 import logging
 from typing import Any, Dict, Optional
+
+import httpx
+from pydantic import BaseModel
 
 from ..plugin_loader import PluginManager
 from ..tasks import job_store
@@ -57,7 +63,6 @@ class MCPProtocolHandlers:
                 - serverInfo: Server metadata
                 - capabilities: Server's protocol capabilities
         """
-        # Extract client info from params (optional)
         client_info = params.get("clientInfo", {})
         client_version = params.get("protocolVersion")
 
@@ -102,9 +107,7 @@ class MCPProtocolHandlers:
 
         tools = []
 
-        # Get all plugins and convert to MCP tool format
         for plugin_name, plugin_meta in plugins.items():
-            # Build MCP tool with required fields
             tool = {
                 "name": plugin_name,
                 "description": plugin_meta.get("description", f"Plugin: {plugin_name}"),
@@ -134,6 +137,7 @@ class MCPProtocolHandlers:
         """Handle tools/call method.
 
         Invokes a tool (plugin) with given arguments.
+        Supports image input as: URL (http/https), base64 string, or data URL.
 
         Args:
             params: Request parameters containing:
@@ -143,12 +147,11 @@ class MCPProtocolHandlers:
         Returns:
             Response dictionary containing:
                 - content: List of content items with results
-                - isError: Boolean indicating if execution failed (optional)
 
         Raises:
             MCPTransportError: If tool not found or invalid params
         """
-        # Extract and validate required parameters
+        # Validate required params
         tool_name = params.get("name")
         if not tool_name:
             raise MCPTransportError(
@@ -156,9 +159,9 @@ class MCPProtocolHandlers:
                 message="Missing required parameter: name",
             )
 
-        tool_arguments = params.get("arguments", {})
+        tool_arguments = params.get("arguments") or {}
         image = tool_arguments.get("image")
-        options = tool_arguments.get("options", {})
+        options = tool_arguments.get("options") or {}
 
         if not image:
             raise MCPTransportError(
@@ -176,52 +179,101 @@ class MCPProtocolHandlers:
 
         try:
             # Convert image to bytes
-            import base64
+            image_bytes: bytes
 
-            image_bytes = image
-            if isinstance(image, str):
-                try:
-                    image_bytes = base64.b64decode(image)
-                except Exception:
-                    image_bytes = image.encode()
+            if isinstance(image, (bytes, bytearray)):
+                image_bytes = bytes(image)
+            elif isinstance(image, str):
+                # Check if URL - fetch the image
+                if image.startswith(("http://", "https://")):
+                    logger.debug(
+                        "Fetching image from URL",
+                        extra={"url": image[:100]},
+                    )
+                    try:
+                        async with httpx.AsyncClient(timeout=30.0) as client:
+                            resp = await client.get(image)
+                            resp.raise_for_status()
+                            image_bytes = resp.content
+                        logger.debug(
+                            "Image fetched successfully",
+                            extra={"size": len(image_bytes)},
+                        )
+                    except httpx.HTTPStatusError as e:
+                        raise MCPTransportError(
+                            code=JSONRPCErrorCode.INVALID_PARAMS,
+                            message=(
+                                f"Failed to fetch image: HTTP {e.response.status_code}"
+                            ),
+                        ) from e
+                    except httpx.RequestError as e:
+                        raise MCPTransportError(
+                            code=JSONRPCErrorCode.INVALID_PARAMS,
+                            message=f"Failed to fetch image: {type(e).__name__}: {e}",
+                        ) from e
+                # Check if data URL
+                elif image.startswith("data:") and "base64," in image:
+                    b64_part = image.split("base64,", 1)[1]
+                    try:
+                        image_bytes = base64.b64decode(b64_part, validate=True)
+                    except Exception as e:
+                        raise MCPTransportError(
+                            code=JSONRPCErrorCode.INVALID_PARAMS,
+                            message=f"Invalid base64 in data URL: {e}",
+                        ) from e
+                # Try base64 decode
+                else:
+                    try:
+                        image_bytes = base64.b64decode(image, validate=True)
+                    except Exception:
+                        # Last resort: encode as UTF-8 bytes
+                        image_bytes = image.encode("utf-8")
+            else:
+                raise MCPTransportError(
+                    code=JSONRPCErrorCode.INVALID_PARAMS,
+                    message="Invalid argument: image must be string or bytes",
+                )
 
-            # Call plugin.analyze() - supports both sync and async
-            if hasattr(plugin, "run_async"):
+            # Invoke plugin (supports sync and async analyze methods)
+            if hasattr(plugin, "run_async") and callable(plugin.run_async):
                 result = await plugin.run_async(image_bytes, options)
-            elif callable(plugin.analyze):
-                result = plugin.analyze(image_bytes, options)
+            elif hasattr(plugin, "analyze") and callable(plugin.analyze):
+                maybe_coro = plugin.analyze(image_bytes, options)
+                if inspect.isawaitable(maybe_coro):
+                    result = await maybe_coro
+                else:
+                    result = maybe_coro
             else:
                 raise MCPTransportError(
                     code=JSONRPCErrorCode.INTERNAL_ERROR,
                     message="Plugin does not have analyze method",
                 )
 
-            # Convert Pydantic models to dict for JSON serialization
-            from pydantic import BaseModel
-
+            # Convert Pydantic models to dict
             if isinstance(result, BaseModel):
                 result = result.model_dump()
 
-            # Validate result is JSON-serializable
-            import json
-
+            # Serialize to JSON string
             try:
-                json.dumps(result)
+                result_text = json.dumps(result, ensure_ascii=False)
             except (TypeError, ValueError) as e:
                 raise MCPTransportError(
                     code=JSONRPCErrorCode.INTERNAL_ERROR,
-                    message=f"Plugin result is not JSON-serializable: {str(e)}",
+                    message=f"Plugin result is not JSON-serializable: {e}",
                 ) from e
 
-            # MCP spec: content: [ { type: "text", text: "..." } ]
+            # Return MCP content format
             return {
                 "content": [
                     {
                         "type": "text",
-                        "text": json.dumps(result),
+                        "text": result_text,
                     }
                 ]
             }
+
+        except MCPTransportError:
+            raise
         except Exception as e:
             logger.error(
                 "Error invoking tool",
@@ -248,13 +300,10 @@ class MCPProtocolHandlers:
         """
         logger.debug("Listing available resources")
 
-        # Build resource list
         resources = []
 
-        # Add job resources if job store exists
         if job_store:
             try:
-                # Get recent jobs
                 jobs = await job_store.list_jobs(limit=10)
                 for job in jobs:
                     plugin_name = job.get("plugin", "unknown")
@@ -278,7 +327,7 @@ class MCPProtocolHandlers:
 
         return {
             "resources": resources,
-            "nextCursor": None,  # No pagination for now
+            "nextCursor": None,
         }
 
     async def resources_read(self, params: Dict[str, Any]) -> Dict[str, Any]:
@@ -297,8 +346,6 @@ class MCPProtocolHandlers:
         Raises:
             MCPTransportError: If URI is missing or resource not found
         """
-        import json
-
         uri = params.get("uri")
         if not uri:
             raise MCPTransportError(
@@ -311,7 +358,6 @@ class MCPProtocolHandlers:
             extra={"uri": uri},
         )
 
-        # Parse URI to get resource type and ID
         if uri.startswith("forgesyte://job/"):
             job_id = uri.replace("forgesyte://job/", "")
             job = await job_store.get(job_id)
@@ -321,7 +367,6 @@ class MCPProtocolHandlers:
                     message=f"Job '{job_id}' not found",
                 )
 
-            # Return job data as JSON
             return {
                 "contents": [
                     {
@@ -332,7 +377,6 @@ class MCPProtocolHandlers:
                 ]
             }
 
-        # Unknown resource type
         raise MCPTransportError(
             code=JSONRPCErrorCode.INVALID_PARAMS,
             message=f"Unknown resource type in URI: {uri}",

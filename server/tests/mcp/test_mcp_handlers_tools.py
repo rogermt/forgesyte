@@ -1,12 +1,19 @@
+"""Tests for MCP protocol handlers - tools methods."""
+
 import asyncio
+import base64
 import os
 import sys
 
-# Add server directory to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from app.mcp.jsonrpc import JSONRPCErrorCode, JSONRPCRequest
 from app.mcp.transport import MCPTransport
+
+# Valid 1x1 PNG for testing
+PNG_1X1 = base64.b64decode(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8DwHwAFBQIAX8jx0gAAAABJRU5ErkJggg=="
+)
 
 
 class TestInitializeHandler:
@@ -78,7 +85,6 @@ class TestToolsListHandler:
             assert "tools" in response.result
             assert isinstance(response.result["tools"], list)
 
-            # Each tool must have required fields
             for tool in response.result["tools"]:
                 assert "name" in tool
                 assert "description" in tool
@@ -88,7 +94,7 @@ class TestToolsListHandler:
 
 
 class TestToolsCallHandler:
-    """TDD tests for tools/call handler - MUST return JSON, not text."""
+    """Tests for tools/call handler."""
 
     def test_tools_call_missing_name(self):
         async def run_test():
@@ -148,12 +154,11 @@ class TestToolsCallHandler:
         asyncio.run(run_test())
 
     def test_tools_call_must_return_json_not_text(self, monkeypatch):
-        """CRITICAL: tools/call MUST return type='json', NOT hardcoded text."""
+        """tools/call MUST return type='text' with JSON-stringified result."""
 
         async def run_test():
             transport = MCPTransport()
 
-            # Fake plugin that returns structured result
             class FakePlugin:
                 def analyze(self, image_bytes, options):
                     return {
@@ -162,7 +167,6 @@ class TestToolsCallHandler:
                         "blocks": [{"x": 0, "y": 0}],
                     }
 
-            # Patch plugin_manager.get()
             monkeypatch.setattr(
                 transport._protocol_handlers.plugin_manager,
                 "get",
@@ -174,34 +178,25 @@ class TestToolsCallHandler:
                 method="tools/call",
                 params={
                     "name": "ocr",
-                    "arguments": {"image": "test_data"},
+                    "arguments": {"image": "dGVzdF9kYXRh"},  # base64 of "test_data"
                 },
                 id=7,
             )
 
             response = await transport.handle_request(request)
 
-            # Must not error
             assert response.error is None
             assert response.result is not None
 
-            # Content must be a list
             content = response.result["content"]
             assert isinstance(content, list)
             assert len(content) > 0
+            assert content[0]["type"] == "text"
 
-            # CRITICAL: type MUST be 'text' per MCP spec (not 'json')
-            assert (
-                content[0]["type"] == "text"
-            ), f"Expected type='text', got type='{content[0]['type']}'"
+            import json
 
-            # Content must be JSON-stringified in "text" field
-            import json as json_module
-
-            json_payload = json_module.loads(content[0]["text"])
-            assert (
-                json_payload["text"] == "hello world"
-            ), "Should return plugin's actual text output"
+            json_payload = json.loads(content[0]["text"])
+            assert json_payload["text"] == "hello world"
             assert json_payload["confidence"] == 0.99
             assert json_payload["blocks"] == [{"x": 0, "y": 0}]
 
@@ -228,7 +223,7 @@ class TestToolsCallHandler:
                 method="tools/call",
                 params={
                     "name": "ocr",
-                    "arguments": {"image": "test_data"},
+                    "arguments": {"image": "dGVzdF9kYXRh"},
                 },
                 id=8,
             )
@@ -247,7 +242,6 @@ class TestToolsCallHandler:
         async def run_test():
             transport = MCPTransport()
 
-            # Plugin that returns unicode/special characters
             class UnicodePlugin:
                 def analyze(self, image_bytes, options):
                     return {
@@ -267,7 +261,7 @@ class TestToolsCallHandler:
                 method="tools/call",
                 params={
                     "name": "ocr",
-                    "arguments": {"image": "test_data"},
+                    "arguments": {"image": "dGVzdF9kYXRh"},
                 },
                 id=9,
             )
@@ -280,18 +274,11 @@ class TestToolsCallHandler:
             content = response.result["content"]
             assert content[0]["type"] == "text"
 
-            import json as json_module
-
-            json_payload = json_module.loads(content[0]["text"])
-            assert "Héllo wørld 中文" in json_payload["text"]
-            assert json_payload["metadata"]["chars"] == "spëcial"
-
-            # Test actual JSON serialization (what FastAPI does)
             import json
 
-            serialized = json.dumps(response.model_dump(exclude_none=True))
-            # Must serialize without errors
-            assert len(serialized) > 0
+            json_payload = json.loads(content[0]["text"])
+            assert "Héllo wørld 中文" in json_payload["text"]
+            assert json_payload["metadata"]["chars"] == "spëcial"
 
         asyncio.run(run_test())
 
@@ -301,13 +288,12 @@ class TestToolsCallHandler:
         async def run_test():
             transport = MCPTransport()
 
-            # Plugin that returns non-serializable object
             class BadPlugin:
                 def analyze(self, image_bytes, options):
                     import datetime
 
                     return {
-                        "timestamp": datetime.datetime.now(),  # Not JSON-serializable
+                        "timestamp": datetime.datetime.now(),
                         "text": "test",
                     }
 
@@ -322,14 +308,13 @@ class TestToolsCallHandler:
                 method="tools/call",
                 params={
                     "name": "ocr",
-                    "arguments": {"image": "test_data"},
+                    "arguments": {"image": "dGVzdF9kYXRh"},
                 },
                 id=10,
             )
 
             response = await transport.handle_request(request)
 
-            # Should have error since object is not JSON serializable
             assert response.error is not None
 
         asyncio.run(run_test())
@@ -342,7 +327,6 @@ class TestToolsCallHandler:
 
             transport = MCPTransport()
 
-            # Plugin that returns Pydantic model (like AnalysisResult)
             class AnalysisResult(BaseModel):
                 text: str
                 confidence: float
@@ -367,67 +351,88 @@ class TestToolsCallHandler:
                 method="tools/call",
                 params={
                     "name": "ocr",
-                    "arguments": {"image": "test_data"},
+                    "arguments": {"image": "dGVzdF9kYXRh"},
                 },
                 id=11,
             )
 
             response = await transport.handle_request(request)
 
-            # Must NOT error
             assert response.error is None
             assert response.result is not None
 
-            # Content must be valid JSON in "text" field per MCP spec
             content = response.result["content"]
             assert content[0]["type"] == "text"
 
-            # Parse JSON from text field
-            import json as json_module
+            import json
 
-            parsed = json_module.loads(content[0]["text"])
+            parsed = json.loads(content[0]["text"])
             assert parsed["text"] == "extracted text"
             assert parsed["confidence"] == 0.95
             assert parsed["blocks"] == [{"x": 0, "y": 0, "text": "line1"}]
 
         asyncio.run(run_test())
 
-    def test_tools_call_must_not_pass_url_string_to_plugin(self, monkeypatch):
-        """tools/call must NOT pass URL string directly to plugin - must fetch bytes."""
+    def test_mcp_route_large_json_response_serialization(self, monkeypatch):
+        """MCP route must serialize large JSON responses correctly."""
 
         async def run_test():
-            transport = MCPTransport()
+            from fastapi import FastAPI
+            from fastapi.testclient import TestClient
 
-            # Plugin that will fail if it gets a URL string instead of bytes
-            class StrictPlugin:
+            from app.mcp.routes import router
+            from app.plugin_loader import PluginManager
+
+            app = FastAPI()
+            app.include_router(router)
+
+            class LargePlugin:
                 def analyze(self, image_bytes, options):
-                    # Plugin expects actual bytes, not URL string
-                    if isinstance(image_bytes, str):
-                        raise ValueError(f"Expected bytes, got string: {image_bytes}")
-                    if image_bytes.startswith(b"https://"):
-                        raise ValueError("Received URL string encoded as UTF-8!")
-                    return {"text": "ok", "confidence": 1.0, "blocks": []}
+                    return {
+                        "text": "x" * 5000,
+                        "confidence": 0.9,
+                        "blocks": [
+                            {"x": i, "y": i, "text": "block" * 50} for i in range(50)
+                        ],
+                    }
 
-            monkeypatch.setattr(
-                transport._protocol_handlers.plugin_manager,
-                "get",
-                lambda name: StrictPlugin(),
-            )
+            plugin_manager = PluginManager()
+            monkeypatch.setattr(plugin_manager, "get", lambda name: LargePlugin())
+            monkeypatch.setattr(plugin_manager, "list", lambda: {"ocr": {}})
+            app.state.plugins = plugin_manager
 
-            request = JSONRPCRequest(
-                jsonrpc="2.0",
-                method="tools/call",
-                params={
-                    "name": "ocr",
-                    "arguments": {"image": "https://example.com/test.png"},
+            # Reset global transport
+            import app.mcp.routes as routes_module
+
+            routes_module._transport = None
+
+            client = TestClient(app)
+
+            response = client.post(
+                "/mcp",
+                json={
+                    "jsonrpc": "2.0",
+                    "method": "tools/call",
+                    "params": {
+                        "name": "ocr",
+                        "arguments": {"image": "dGVzdF9kYXRh"},
+                    },
+                    "id": 14,
                 },
-                id=12,
             )
 
-            response = await transport.handle_request(request)
+            assert (
+                response.status_code == 200
+            ), f"Status {response.status_code}: {response.text}"
 
-            # Should have error since URL was passed to plugin instead of fetched
-            assert response.error is not None
-            assert "URL string encoded as UTF-8" in response.error["message"]
+            data = response.json()
+            assert data.get("error") is None, f"Error: {data.get('error')}"
+            assert data["result"]["content"][0]["type"] == "text"
+
+            import json
+
+            result_json = json.loads(data["result"]["content"][0]["text"])
+            assert len(result_json["text"]) == 5000
+            assert len(result_json["blocks"]) == 50
 
         asyncio.run(run_test())
