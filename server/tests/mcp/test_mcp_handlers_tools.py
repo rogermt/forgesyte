@@ -190,13 +190,15 @@ class TestToolsCallHandler:
             assert isinstance(content, list)
             assert len(content) > 0
 
-            # CRITICAL: type MUST be 'json', NOT 'text'
+            # CRITICAL: type MUST be 'text' per MCP spec (not 'json')
             assert (
-                content[0]["type"] == "json"
-            ), f"Expected type='json', got type='{content[0]['type']}'"
+                content[0]["type"] == "text"
+            ), f"Expected type='text', got type='{content[0]['type']}'"
 
-            # CRITICAL: Must NOT have hardcoded text like "executed successfully"
-            json_payload = content[0]["json"]
+            # Content must be JSON-stringified in "text" field
+            import json as json_module
+
+            json_payload = json_module.loads(content[0]["text"])
             assert (
                 json_payload["text"] == "hello world"
             ), "Should return plugin's actual text output"
@@ -276,9 +278,11 @@ class TestToolsCallHandler:
             assert response.result is not None
 
             content = response.result["content"]
-            assert content[0]["type"] == "json"
+            assert content[0]["type"] == "text"
 
-            json_payload = content[0]["json"]
+            import json as json_module
+
+            json_payload = json_module.loads(content[0]["text"])
             assert "Héllo wørld 中文" in json_payload["text"]
             assert json_payload["metadata"]["chars"] == "spëcial"
 
@@ -374,13 +378,16 @@ class TestToolsCallHandler:
             assert response.error is None
             assert response.result is not None
 
-            # Content must be valid JSON
+            # Content must be valid JSON in "text" field per MCP spec
             content = response.result["content"]
-            assert content[0]["type"] == "json"
+            assert content[0]["type"] == "text"
 
-            json_payload = content[0]["json"]
-            assert json_payload["text"] == "extracted text"
-            assert json_payload["confidence"] == 0.95
-            assert json_payload["blocks"] == [{"x": 0, "y": 0, "text": "line1"}]
+            # Parse JSON from text field
+            import json as json_module
+
+            parsed = json_module.loads(content[0]["text"])
+            assert parsed["text"] == "extracted text"
+            assert parsed["confidence"] == 0.95
+            assert parsed["blocks"] == [{"x": 0, "y": 0, "text": "line1"}]
 
         asyncio.run(run_test())

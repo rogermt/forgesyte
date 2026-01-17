@@ -213,12 +213,12 @@ class MCPProtocolHandlers:
                     message=f"Plugin result is not JSON-serializable: {str(e)}",
                 ) from e
 
-            # MCP requires: content: [ { type, text/json } ]
+            # MCP spec: content: [ { type: "text", text: "..." } ]
             return {
                 "content": [
                     {
-                        "type": "json",
-                        "json": result,
+                        "type": "text",
+                        "text": json.dumps(result),
                     }
                 ]
             }
