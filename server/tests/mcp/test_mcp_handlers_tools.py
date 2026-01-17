@@ -329,3 +329,58 @@ class TestToolsCallHandler:
             assert response.error is not None
 
         asyncio.run(run_test())
+
+    def test_tools_call_plugin_returning_pydantic_model(self, monkeypatch):
+        """tools/call must convert Pydantic models to dict for JSON serialization."""
+
+        async def run_test():
+            from pydantic import BaseModel
+
+            transport = MCPTransport()
+
+            # Plugin that returns Pydantic model (like AnalysisResult)
+            class AnalysisResult(BaseModel):
+                text: str
+                confidence: float
+                blocks: list
+
+            class PydanticPlugin:
+                def analyze(self, image_bytes, options):
+                    return AnalysisResult(
+                        text="extracted text",
+                        confidence=0.95,
+                        blocks=[{"x": 0, "y": 0, "text": "line1"}],
+                    )
+
+            monkeypatch.setattr(
+                transport._protocol_handlers.plugin_manager,
+                "get",
+                lambda name: PydanticPlugin(),
+            )
+
+            request = JSONRPCRequest(
+                jsonrpc="2.0",
+                method="tools/call",
+                params={
+                    "name": "ocr",
+                    "arguments": {"image": "test_data"},
+                },
+                id=11,
+            )
+
+            response = await transport.handle_request(request)
+
+            # Must NOT error
+            assert response.error is None
+            assert response.result is not None
+
+            # Content must be valid JSON
+            content = response.result["content"]
+            assert content[0]["type"] == "json"
+
+            json_payload = content[0]["json"]
+            assert json_payload["text"] == "extracted text"
+            assert json_payload["confidence"] == 0.95
+            assert json_payload["blocks"] == [{"x": 0, "y": 0, "text": "line1"}]
+
+        asyncio.run(run_test())

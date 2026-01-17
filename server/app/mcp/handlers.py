@@ -196,6 +196,12 @@ class MCPProtocolHandlers:
                     message="Plugin does not have analyze method",
                 )
 
+            # Convert Pydantic models to dict for JSON serialization
+            from pydantic import BaseModel
+
+            if isinstance(result, BaseModel):
+                result = result.model_dump()
+
             # Validate result is JSON-serializable
             import json
 
