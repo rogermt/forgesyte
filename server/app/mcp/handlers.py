@@ -157,16 +157,16 @@ class MCPProtocolHandlers:
             )
 
         tool_arguments = params.get("arguments", {})
+        image = tool_arguments.get("image")
+        options = tool_arguments.get("options", {})
 
-        logger.debug(
-            "Invoking tool",
-            extra={
-                "tool_name": tool_name,
-                "argument_keys": list(tool_arguments.keys()) if tool_arguments else [],
-            },
-        )
+        if not image:
+            raise MCPTransportError(
+                code=JSONRPCErrorCode.INVALID_PARAMS,
+                message="Missing required argument: image",
+            )
 
-        # Get the plugin/tool
+        # Load plugin
         plugin = self.plugin_manager.get(tool_name)
         if not plugin:
             raise MCPTransportError(
@@ -175,17 +175,47 @@ class MCPProtocolHandlers:
             )
 
         try:
-            # For now, we'll return a simple response
-            # In a real implementation, this would actually invoke the plugin
-            result = {
+            # Convert image to bytes
+            import base64
+
+            image_bytes = image
+            if isinstance(image, str):
+                try:
+                    image_bytes = base64.b64decode(image)
+                except Exception:
+                    image_bytes = image.encode()
+
+            # Call plugin.analyze() - supports both sync and async
+            if hasattr(plugin, "run_async"):
+                result = await plugin.run_async(image_bytes, options)
+            elif callable(plugin.analyze):
+                result = plugin.analyze(image_bytes, options)
+            else:
+                raise MCPTransportError(
+                    code=JSONRPCErrorCode.INTERNAL_ERROR,
+                    message="Plugin does not have analyze method",
+                )
+
+            # Validate result is JSON-serializable
+            import json
+
+            try:
+                json.dumps(result)
+            except (TypeError, ValueError) as e:
+                raise MCPTransportError(
+                    code=JSONRPCErrorCode.INTERNAL_ERROR,
+                    message=f"Plugin result is not JSON-serializable: {str(e)}",
+                ) from e
+
+            # MCP requires: content: [ { type, text/json } ]
+            return {
                 "content": [
                     {
-                        "type": "text",
-                        "text": f"Tool '{tool_name}' executed successfully",
+                        "type": "json",
+                        "json": result,
                     }
                 ]
             }
-            return result
         except Exception as e:
             logger.error(
                 "Error invoking tool",
