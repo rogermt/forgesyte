@@ -4,7 +4,7 @@ import logging
 from typing import Optional
 
 from fastapi import APIRouter, Request
-from fastapi.responses import JSONResponse, Response
+from fastapi.responses import JSONResponse
 from pydantic import ValidationError
 
 from .jsonrpc import JSONRPCError, JSONRPCErrorCode, JSONRPCRequest
@@ -107,14 +107,7 @@ async def mcp_rpc(request: Request) -> JSONResponse:
             return JSONResponse({"jsonrpc": "2.0"}, status_code=204)
 
         # Return JSON-RPC response
-        # Use Response with pre-encoded JSON to avoid Content-Length mismatch
-        import json
-
-        response_dict = response.model_dump(exclude_none=True)
-        response_body = json.dumps(response_dict).encode("utf-8")
-        return Response(
-            content=response_body, status_code=200, media_type="application/json"
-        )
+        return JSONResponse(response.model_dump(exclude_none=True), status_code=200)
 
     except ValidationError as e:
         # Validation error in JSON-RPC request
