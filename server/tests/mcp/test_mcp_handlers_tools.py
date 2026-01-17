@@ -391,3 +391,43 @@ class TestToolsCallHandler:
             assert parsed["blocks"] == [{"x": 0, "y": 0, "text": "line1"}]
 
         asyncio.run(run_test())
+
+    def test_tools_call_must_not_pass_url_string_to_plugin(self, monkeypatch):
+        """tools/call must NOT pass URL string directly to plugin - must fetch bytes."""
+
+        async def run_test():
+            transport = MCPTransport()
+
+            # Plugin that will fail if it gets a URL string instead of bytes
+            class StrictPlugin:
+                def analyze(self, image_bytes, options):
+                    # Plugin expects actual bytes, not URL string
+                    if isinstance(image_bytes, str):
+                        raise ValueError(f"Expected bytes, got string: {image_bytes}")
+                    if image_bytes.startswith(b"https://"):
+                        raise ValueError("Received URL string encoded as UTF-8!")
+                    return {"text": "ok", "confidence": 1.0, "blocks": []}
+
+            monkeypatch.setattr(
+                transport._protocol_handlers.plugin_manager,
+                "get",
+                lambda name: StrictPlugin(),
+            )
+
+            request = JSONRPCRequest(
+                jsonrpc="2.0",
+                method="tools/call",
+                params={
+                    "name": "ocr",
+                    "arguments": {"image": "https://example.com/test.png"},
+                },
+                id=12,
+            )
+
+            response = await transport.handle_request(request)
+
+            # Should have error since URL was passed to plugin instead of fetched
+            assert response.error is not None
+            assert "URL string encoded as UTF-8" in response.error["message"]
+
+        asyncio.run(run_test())
