@@ -30,6 +30,21 @@ git push origin main
 - Setup/init branches: `init-setup`
 - Documentation: `docs-update`
 
+### Creating Pull Requests with GitHub CLI
+
+After pushing a feature branch, create a PR using `gh`:
+
+```bash
+# Create PR with title and body (requires gh CLI installed)
+gh pr create \
+  --base main \
+  --head feature-name \
+  --title "feat: description of changes" \
+  --body "Description of changes, testing notes, issue references"
+```
+
+**When user requests "PR"**: Always use `gh pr create` command, not manual GitHub web UI.
+
 ### Important: Never Commit Directly to Main
 
 All changes must go through a feature branch and be merged to main. Direct commits to main are strictly prohibited:
@@ -37,6 +52,7 @@ All changes must go through a feature branch and be merged to main. Direct commi
 - Always create a feature branch for your work
 - Make commits to the feature branch
 - Push the feature branch to origin
+- Create PR with `gh pr create` command (not web UI)
 - Merge to main locally and push after verification
 - Never use `git push origin main` to push commits made directly on main
 
