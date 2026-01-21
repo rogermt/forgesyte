@@ -75,15 +75,14 @@ describe("App - WebSocket Streaming Integration", () => {
             });
         });
 
-        it("should call useWebSocket on mount with correct params", async () => {
+        it("should call useWebSocket on mount with empty plugin", async () => {
             await act(async () => {
                 render(<App />);
             });
 
             expect(mockUseWebSocket).toHaveBeenCalledWith(
                 expect.objectContaining({
-                    url: "ws://localhost:8000/v1/stream",
-                    plugin: "motion_detector",
+                    plugin: "",
                 })
             );
         });

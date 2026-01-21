@@ -21,7 +21,7 @@ type ViewMode = "stream" | "upload" | "jobs";
 
 function App() {
   const [viewMode, setViewMode] = useState<ViewMode>("stream");
-  const [selectedPlugin, setSelectedPlugin] = useState("motion_detector");
+  const [selectedPlugin, setSelectedPlugin] = useState<string>("");
   const [streamEnabled, setStreamEnabled] = useState(false);
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
   const [uploadResult, setUploadResult] = useState<Job | null>(null);

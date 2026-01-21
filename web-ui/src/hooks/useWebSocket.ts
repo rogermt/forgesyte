@@ -274,7 +274,7 @@ function timeoutErrorMessage(ms: number): string {
 export function useWebSocket(options: UseWebSocketOptions): UseWebSocketReturn {
   const {
     url = DEFAULT_WS_URL,
-    plugin = "motion_detector",
+    plugin = "",
     apiKey = DEFAULT_WS_API_KEY,
 
     onResult,
