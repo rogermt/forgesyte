@@ -174,15 +174,76 @@ This means:
 
 ## Git Workflow
 
+### Creating a Feature Branch
+
 ```bash
-# Create feature branch
-git checkout -b feature-name
+# Create and switch to a new feature branch
+git checkout -b feature/description
+```
 
-# Commit changes
+### TDD Workflow (Required)
+
+For any feature or bug fix, follow Test-Driven Development:
+
+1. **Write failing tests first** - Define expected behavior
+2. **Run tests to verify they fail** - Confirm tests catch the issue
+3. **Implement code** - Write minimal code to make tests pass
+4. **Run tests to verify they pass** - Confirm implementation works
+5. **Run lint and type check** - Ensure code quality
+6. **Commit** - Only after all above pass
+
+```bash
+# Example TDD workflow
+cd web-ui
+
+# 1. Write failing test
+# 2. Run specific test to verify it fails
+npm run test -- --run src/App.tdd.test.tsx
+
+# 3. Implement code to fix the test
+
+# 4. Run test to verify it passes
+npm run test -- --run src/App.tdd.test.tsx
+
+# 5. Run lint and type check
+npm run lint
+npm run type-check
+
+# 6. Commit
 git add .
-git commit -m "feat: description"
+git commit -m "fix: description of what was fixed"
+```
 
-# Push and create PR
-git push origin feature-name
-gh pr create --base main --head feature-name --title "feat: description"
+### Committing and PR
+
+```bash
+# Stage and commit changes
+git add .
+git commit -m "type: description"
+
+# Push feature branch
+git push origin feature/description
+
+# Create PR using gh CLI
+gh pr create --base main --head feature/description --title "type: description"
+
+# After PR is reviewed and approved, merge locally and push
+git checkout main
+git pull origin main
+git merge feature/description
+git push origin main
+```
+
+### Commit Message Format
+
+```
+<type>: <subject>
+
+Types:
+- feat: New feature
+- fix: Bug fix
+- refactor: Code restructuring
+- test: Adding/updating tests
+- docs: Documentation changes
+- chore: Maintenance tasks
 ```
