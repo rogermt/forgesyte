@@ -544,4 +544,23 @@ describe("PluginSelector", () => {
       expect(mockOnChange).toHaveBeenLastCalledWith("object_detection");
     });
   });
+
+  describe("Auto-selection when no plugin selected", () => {
+    it("should auto-select first plugin when selectedPlugin is empty string", async () => {
+      const mockOnChange = vi.fn();
+      mockGetPlugins.mockResolvedValue(mockPlugins);
+
+      render(
+        <PluginSelector
+          selectedPlugin=""
+          onPluginChange={mockOnChange}
+          disabled={false}
+        />
+      );
+
+      await waitFor(() => {
+        expect(mockOnChange).toHaveBeenCalledWith("motion_detector");
+      });
+    });
+  });
 });

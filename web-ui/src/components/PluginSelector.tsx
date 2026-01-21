@@ -194,9 +194,9 @@ export function PluginSelector({
 
     const pluginExists = plugins.some((p) => p.name === selectedPlugin);
 
-    if (!pluginExists && selectedPlugin) {
-      // Parent's selectedPlugin doesn't exist in loaded plugins
-      // Update parent to use the first available plugin
+    if (!selectedPlugin || !pluginExists) {
+      // No plugin selected or selected plugin doesn't exist
+      // Auto-select the first available plugin
       console.warn(
         `[PluginSelector] Selected plugin "${selectedPlugin}" not found. ` +
           `Defaulting to "${plugins[0].name}".`
