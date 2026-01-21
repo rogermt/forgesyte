@@ -305,12 +305,16 @@ function App() {
 
           {viewMode === "upload" && (
             <div style={styles.panel}>
-              <p>Upload image for analysis</p>
+              {!selectedPlugin ? (
+                <p>Select a plugin first to upload an image</p>
+              ) : (
+                <p>Upload image for analysis</p>
+              )}
               <input
                 type="file"
                 accept="image/*"
                 onChange={handleFileUpload}
-                disabled={isUploading}
+                disabled={isUploading || !selectedPlugin}
               />
               {isUploading && <p>Analyzing...</p>}
             </div>

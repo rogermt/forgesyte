@@ -108,7 +108,7 @@ def get_plugin_service(request: Request) -> PluginManagementService:
 async def analyze_image(
     request: Request,
     file: Optional[UploadFile] = None,
-    plugin: str = Query(default="ocr", description="Vision plugin identifier"),
+    plugin: str = Query(..., description="Vision plugin identifier"),
     image_url: Optional[str] = Query(None, description="URL of image to analyze"),
     options: Optional[str] = Query(None, description="JSON string of plugin options"),
     auth: Dict[str, Any] = Depends(require_auth(["analyze"])),
@@ -139,6 +139,13 @@ async def analyze_image(
         HTTPException: 500 Internal Server Error if unexpected failure occurs.
     """
     try:
+        # Validate plugin is not empty
+        if not plugin or not plugin.strip():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Plugin name is required",
+            )
+
         # Read uploaded file if provided
         file_bytes = await file.read() if file else None
 

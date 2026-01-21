@@ -136,3 +136,49 @@ describe("App - TDD: Empty Plugin Default", () => {
     expect(screen.getByTestId("selected-plugin")).toHaveTextContent("object_detection");
   });
 });
+
+describe("App - TDD: Upload requires plugin selection", () => {
+  beforeEach(() => {
+    setWsMock({ connectionStatus: "connected", isConnected: true });
+  });
+
+  it("should disable file upload input when no plugin is selected", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    
+    // Switch to upload view
+    const uploadTab = screen.getByRole("button", { name: /upload/i });
+    await user.click(uploadTab);
+    
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+    expect(fileInput).toBeDisabled();
+  });
+
+  it("should show message prompting user to select plugin when none selected", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    
+    // Switch to upload view
+    const uploadTab = screen.getByRole("button", { name: /upload/i });
+    await user.click(uploadTab);
+    
+    expect(screen.getByText(/select a plugin/i)).toBeInTheDocument();
+  });
+
+  it("should enable file upload when a plugin is selected", async () => {
+    const user = userEvent.setup();
+    
+    render(<App />);
+    
+    // First select a plugin
+    const changeBtn = screen.getByTestId("change-plugin-btn");
+    await user.click(changeBtn);
+    
+    // Switch to upload view
+    const uploadTab = screen.getByRole("button", { name: /upload/i });
+    await user.click(uploadTab);
+    
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+    expect(fileInput).not.toBeDisabled();
+  });
+});
