@@ -241,6 +241,27 @@ class TestAnalyzeEndpointInputValidation:
         )
         assert response.status_code == 400
 
+    def test_analyze_empty_plugin_fails(self, client: TestClient) -> None:
+        """Test analyze with empty plugin string fails with 400."""
+        response = client.post(
+            "/v1/analyze",
+            params={"plugin": ""},
+            content=b"fake_image_data",
+            headers={"X-API-Key": "test-user-key"},
+        )
+        assert response.status_code == 400
+        assert "plugin" in response.json().get("detail", "").lower()
+
+    def test_analyze_requires_plugin_parameter(self, client: TestClient) -> None:
+        """Test analyze without plugin parameter fails with 422 (missing required)."""
+        response = client.post(
+            "/v1/analyze",
+            content=b"fake_image_data",
+            headers={"X-API-Key": "test-user-key"},
+        )
+        # FastAPI returns 422 for missing required query params
+        assert response.status_code == 422
+
 
 class TestServerInitialization:
     """Test server initialization and basic structure."""
