@@ -181,4 +181,28 @@ describe("App - TDD: Upload requires plugin selection", () => {
     const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
     expect(fileInput).not.toBeDisabled();
   });
+
+  it("should not call analyzeImage if no plugin is selected", async () => {
+    const { apiClient } = await import("./api/client");
+    const mockAnalyze = vi.mocked(apiClient.analyzeImage);
+    mockAnalyze.mockClear();
+
+    const user = userEvent.setup();
+    render(<App />);
+
+    // Switch to upload view
+    const uploadTab = screen.getByRole("button", { name: /upload/i });
+    await user.click(uploadTab);
+
+    // Force-enable the input to simulate edge case (e.g., race condition)
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+    fileInput.disabled = false;
+
+    // Upload a file without selecting a plugin
+    const file = new File(["test"], "test.png", { type: "image/png" });
+    await user.upload(fileInput, file);
+
+    // analyzeImage should NOT have been called
+    expect(mockAnalyze).not.toHaveBeenCalled();
+  });
 });
