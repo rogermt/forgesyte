@@ -417,7 +417,7 @@ def build_gemini_extension_manifest(
 
     logger.debug(
         "Building Gemini extension manifest",
-        extra={"server_url": server_url, "name": name},
+        extra={"server_url": server_url, "extension_name": name},
     )
 
     return {

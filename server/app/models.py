@@ -164,6 +164,8 @@ class AnalysisResult(BaseModel):
                   Optional; only relevant for text-based plugins.
         error: Error message if analysis failed.
                Optional; only set when analysis encounters an error.
+        extra: Plugin-specific results (e.g., YOLO detections, tracking data).
+               Optional; structure depends on plugin.
     """
 
     text: str = Field(..., description="Extracted or analyzed text content")
@@ -178,6 +180,9 @@ class AnalysisResult(BaseModel):
     )
     error: Optional[str] = Field(
         default=None, description="Error message if analysis failed"
+    )
+    extra: Optional[Dict[str, Any]] = Field(
+        default=None, description="Plugin-specific results (e.g., YOLO detections)"
     )
 
 
