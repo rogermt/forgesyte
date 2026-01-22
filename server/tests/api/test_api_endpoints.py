@@ -218,7 +218,7 @@ class TestAnalyzeEndpointInputValidation:
         response = client.post(
             "/v1/analyze",
             data=b"fake_image",
-            params={"options": "not valid json"},
+            params={"plugin": "ocr", "options": "not valid json"},
             headers={"X-API-Key": "test-user-key"},
         )
         # Should reject invalid JSON
@@ -229,6 +229,7 @@ class TestAnalyzeEndpointInputValidation:
         response = client.post(
             "/v1/analyze",
             content=b"not_valid_base64!!!",
+            params={"plugin": "ocr"},
             headers={"X-API-Key": "test-user-key"},
         )
         assert response.status_code == 400
@@ -237,6 +238,7 @@ class TestAnalyzeEndpointInputValidation:
         """Test analyze without image data fails."""
         response = client.post(
             "/v1/analyze",
+            params={"plugin": "ocr"},
             headers={"X-API-Key": "test-user-key"},
         )
         assert response.status_code == 400
