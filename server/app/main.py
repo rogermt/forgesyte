@@ -6,8 +6,11 @@ initialization and graceful plugin unloading.
 """
 
 import logging
+import logging.handlers
+import os
 import uuid
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import Dict, List, Optional
 
 import uvicorn
@@ -71,34 +74,63 @@ settings = AppSettings()
 
 
 def setup_logging() -> None:
-    """Configure JSON structured logging with support for extra fields."""
+    """Configure JSON structured logging with file output.
+
+    Logs to both console and file. File location:
+    - Kaggle: $KAGGLE_WORKING/forgesyte.log
+    - Local: ./forgesyte.log
+    """
+    # Determine log file path (prefer KAGGLE_WORKING, fallback to server dir)
+    working_dir = os.environ.get("KAGGLE_WORKING", os.getcwd())
+    log_dir = Path(working_dir)
+    log_file = log_dir / "forgesyte.log"
+
     try:
         from pythonjsonlogger import jsonlogger
 
         # Root logger config
         root_logger = logging.getLogger()
-        root_logger.setLevel(logging.INFO)
+        root_logger.setLevel(logging.DEBUG)  # Capture DEBUG level
 
         # Remove any existing handlers
         root_logger.handlers.clear()
 
+        # Format: timestamp, level, logger name, message, extra fields
+        log_format = "%(timestamp)s %(level)s %(name)s %(message)s"
+        json_formatter = jsonlogger.JsonFormatter(fmt=log_format, timestamp=True)
+
         # Console handler with JSON formatter
         console_handler = logging.StreamHandler()
-        json_formatter = jsonlogger.JsonFormatter(
-            fmt="%(timestamp)s %(level)s %(name)s %(message)s", timestamp=True
-        )
         console_handler.setFormatter(json_formatter)
         root_logger.addHandler(console_handler)
+
+        # File handler with JSON formatter (append mode)
+        file_handler = logging.handlers.RotatingFileHandler(
+            str(log_file), maxBytes=10_000_000, backupCount=5
+        )
+        file_handler.setFormatter(json_formatter)
+        root_logger.addHandler(file_handler)
+
+        print(f"📝 Logging to: {log_file}")
     except ImportError:
         # Fallback to basic config if pythonjsonlogger not installed
+        log_format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
         logging.basicConfig(
-            level=logging.INFO,
-            format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+            level=logging.DEBUG,
+            format=log_format,
+            handlers=[
+                logging.StreamHandler(),
+                logging.handlers.RotatingFileHandler(
+                    str(log_file), maxBytes=10_000_000, backupCount=5
+                ),
+            ],
         )
+        print(f"📝 Logging to: {log_file} (fallback mode)")
 
 
 setup_logging()
 logger = logging.getLogger(__name__)
+logger.info("🚀 ForgeSyte server starting...")
 
 # ---------------------------------------------------------------------------
 # Lifespan Management (Orchestration)
