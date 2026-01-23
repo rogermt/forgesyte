@@ -440,6 +440,74 @@ async def reload_all_plugins(
 
 
 # ============================================================================
+# Video Tracker Endpoints (Manifest & Tool Execution)
+# ============================================================================
+
+
+@router.get("/plugins/{plugin_id}/manifest")
+async def get_plugin_manifest(
+    plugin_id: str,
+    plugin_service: PluginManagementService = Depends(get_plugin_service),
+) -> Dict[str, Any]:
+    """Get plugin manifest including tool schemas.
+
+    The manifest describes what tools a plugin exposes, their input schemas,
+    and output schemas. This enables the web-ui to dynamically discover and
+    call tools without hardcoding plugin logic.
+
+    Args:
+        plugin_id: Plugin ID (e.g., "forgesyte-yolo-tracker")
+        plugin_service: Plugin management service (injected)
+
+    Returns:
+        Manifest dict:
+        {
+            "id": "forgesyte-yolo-tracker",
+            "name": "YOLO Football Tracker",
+            "version": "1.0.0",
+            "description": "...",
+            "tools": {
+                "player_detection": {
+                    "description": "...",
+                    "inputs": {...},
+                    "outputs": {...}
+                },
+                ...
+            }
+        }
+
+    Raises:
+        HTTPException(404): Plugin not found or has no manifest
+        HTTPException(500): Error reading manifest file
+
+    Example:
+        GET /v1/plugins/forgesyte-yolo-tracker/manifest
+        → 200 OK
+        {
+            "id": "forgesyte-yolo-tracker",
+            "name": "YOLO Football Tracker",
+            "tools": { ... }
+        }
+    """
+    try:
+        manifest = plugin_service.get_plugin_manifest(plugin_id)
+        if not manifest:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Plugin '{plugin_id}' not found or has no manifest",
+            )
+        return manifest
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting manifest for plugin '{plugin_id}': {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error reading manifest: {str(e)}",
+        ) from e
+
+
+# ============================================================================
 # Protocol Discovery Endpoints (MCP & Gemini)
 # ============================================================================
 

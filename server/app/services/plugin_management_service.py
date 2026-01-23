@@ -18,7 +18,10 @@ Example:
     success = await service.reload_plugin("ocr")
 """
 
+import json
 import logging
+import sys
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from ..protocols import PluginRegistry
@@ -202,4 +205,76 @@ class PluginManagementService:
                 "Error during reload all plugins",
                 extra={"error": str(e)},
             )
+            raise
+
+    def get_plugin_manifest(self, plugin_id: str) -> Optional[Dict[str, Any]]:
+        """Get manifest from a loaded plugin.
+
+        Reads the plugin's manifest.json file if available. This is a synchronous
+        operation that should be fast (usually <10ms) since manifests are small.
+
+        Args:
+            plugin_id: Plugin ID
+
+        Returns:
+            Manifest dict from manifest.json, or None if plugin not found
+
+        Raises:
+            Exception: If manifest file cannot be read
+        """
+        # Find plugin in registry
+        plugins_dict = self.registry.list()
+        if isinstance(plugins_dict, dict):
+            plugin = plugins_dict.get(plugin_id)
+        else:
+            plugin = next(
+                (p for p in plugins_dict if getattr(p, "name", None) == plugin_id),
+                None,
+            )
+
+        if not plugin:
+            return None
+
+        # Try to read manifest.json from plugin module
+        try:
+            # Get plugin module
+            plugin_module_name = plugin.__class__.__module__
+            plugin_module = sys.modules.get(plugin_module_name)
+            if not plugin_module or not hasattr(plugin_module, "__file__"):
+                logger.warning(
+                    f"Could not locate module for plugin '{plugin_id}': "
+                    f"{plugin_module_name}"
+                )
+                return None
+
+            # Find manifest.json relative to plugin module
+            module_file = plugin_module.__file__
+            if not module_file:
+                return None
+
+            plugin_dir = Path(module_file).parent
+            manifest_path = plugin_dir / "manifest.json"
+
+            if not manifest_path.exists():
+                logger.warning(
+                    f"No manifest.json found for plugin '{plugin_id}' "
+                    f"at {manifest_path}"
+                )
+                return None
+
+            with open(manifest_path, "r") as f:
+                manifest = json.load(f)
+
+            logger.debug(
+                f"Loaded manifest for plugin '{plugin_id}': "
+                f"{len(manifest.get('tools', {}))} tools"
+            )
+
+            return manifest
+
+        except json.JSONDecodeError as e:
+            logger.error(f"Invalid JSON in manifest for '{plugin_id}': {e}")
+            raise
+        except Exception as e:
+            logger.error(f"Error reading manifest for plugin '{plugin_id}': {e}")
             raise
