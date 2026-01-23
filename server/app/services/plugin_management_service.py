@@ -223,16 +223,8 @@ class PluginManagementService:
         Raises:
             Exception: If manifest file cannot be read
         """
-        # Find plugin in registry
-        plugins_dict = self.registry.list()
-        if isinstance(plugins_dict, dict):
-            plugin = plugins_dict.get(plugin_id)
-        else:
-            plugin = next(
-                (p for p in plugins_dict if getattr(p, "name", None) == plugin_id),
-                None,
-            )
-
+        # Find plugin in registry by ID
+        plugin = self.registry.get(plugin_id)
         if not plugin:
             return None
 
