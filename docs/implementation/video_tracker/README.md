@@ -151,21 +151,51 @@ RUN_MODEL_TESTS=1 pytest tests/integration/test_video_stream.py -v
 
 ---
 
+## ✅ Implementation Status (Jan 23, 2026)
+
+### Week 1: Backend ✅ Complete
+- [x] ManifestCacheService (manifest caching with TTL)
+- [x] Manifest endpoint (`GET /plugins/{id}/manifest`)
+- [x] Run tool endpoint (`POST /plugins/{id}/tools/{tool}/run`)
+- [x] 10 CPU endpoint tests passing
+- [x] All backend quality checks passing (ruff, black, mypy)
+
+### Week 2: Web-UI ✅ 100% Complete
+- [x] VideoTracker types (Detection, ToolResult, etc.)
+- [x] useManifest hook (manifest caching, discovery)
+- [x] useVideoProcessor hook (frame buffering, track persistence, FPS)
+- [x] useVideoExport hook (MediaRecorder for MP4 export)
+- [x] ToolSelector component (manifest-driven tool selection)
+- [x] ConfidenceSlider component (0.0-1.0 threshold)
+- [x] OverlayToggles component (show/hide detection layers) ✅
+- [x] ResultOverlay component (canvas rendering with bounding boxes)
+- [x] RecordButton component (start/stop recording) ✅
+- [x] VideoTracker page (main integration)
+- [x] 273 web-ui tests passing (+14 new tests)
+- [x] All web-ui quality checks passing (lint, type-check)
+
+### Week 3: Integration & GPU Testing 🔄 Ready
+- [ ] Full GPU tests (RUN_MODEL_TESTS=1 on Kaggle)
+- [ ] End-to-end: upload video → process → export
+- [ ] PR merge to main
+
 ## ✅ Definition of Done
 
-- [ ] All backend endpoints implemented + CPU tests pass
-- [ ] All web-ui components implemented + CPU tests pass
-- [ ] TypeScript: `npm run type-check` passes (no errors)
-- [ ] Linting: `npm run lint` and `uv run ruff check` pass
+- [x] All backend endpoints implemented + CPU tests pass
+- [x] All web-ui components implemented + CPU tests pass (273 tests)
+- [x] TypeScript: `npm run type-check` passes (no errors)
+- [x] Linting: `npm run lint` and `uv run ruff check` pass
 - [ ] Integration: Upload video → process frames → export video (works)
 - [ ] GPU tests: Real YOLO inference (RUN_MODEL_TESTS=1)
-- [ ] No hardcoded plugin/tool names in web-ui
-- [ ] Manifest discovery works (dynamic tool selection)
-- [ ] Frame buffer maintains last 10 frames
-- [ ] Confidence slider filters client-side
-- [ ] Track ID persistence across frames
-- [ ] Multi-layer overlay composition (players + ball + pitch + radar)
-- [ ] Video export as WebM/MP4
+- [x] No hardcoded plugin/tool names in web-ui
+- [x] Manifest discovery works (dynamic tool selection)
+- [x] Frame buffer maintains last 10 frames
+- [x] Confidence slider filters client-side
+- [x] Track ID persistence across frames
+- [x] Multi-layer overlay composition (players + ball + pitch + radar)
+- [x] Video export as WebM/MP4
+- [x] Layer visibility toggles (OverlayToggles component)
+- [x] Recording control (RecordButton component)
 
 ---
 
