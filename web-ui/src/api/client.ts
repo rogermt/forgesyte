@@ -188,7 +188,7 @@ export class ForgeSyteAPIClient {
     }
 
     async getPluginManifest(pluginId: string): Promise<PluginManifest> {
-        return this.fetch(`/plugins/${pluginId}/manifest`) as Promise<PluginManifest>;
+        return this.fetch(`/plugins/${pluginId}/manifest`) as unknown as Promise<PluginManifest>;
     }
 
     async runPluginTool(
@@ -199,7 +199,7 @@ export class ForgeSyteAPIClient {
         return this.fetch(`/plugins/${pluginId}/tools/${toolName}/run`, {
             method: "POST",
             body: JSON.stringify({ args }),
-        }) as Promise<ToolExecutionResponse>;
+        }) as unknown as Promise<ToolExecutionResponse>;
     }
 }
 

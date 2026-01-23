@@ -11,7 +11,7 @@
  */
 
 import { useEffect, useRef, useMemo } from "react";
-import type { Detection, TrackFrame, ToolResult } from "../types/video-tracker";
+import type { Detection } from "../types/video-tracker";
 
 // ============================================================================
 // Types
@@ -71,7 +71,6 @@ export function ResultOverlay({
   showLabels = true,
   showConfidence = true,
   fontSize = 12,
-  trackMap,
 }: ResultOverlayProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imageRef = useRef<HTMLImageElement | null>(null);

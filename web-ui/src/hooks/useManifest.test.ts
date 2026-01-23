@@ -3,7 +3,7 @@
  */
 
 import { renderHook, waitFor } from "@testing-library/react";
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { useManifest } from "./useManifest";
 import { apiClient } from "../api/client";
 
@@ -30,7 +30,7 @@ describe("useManifest", () => {
     });
 
     it("should load manifest on plugin ID change", async () => {
-        (apiClient.getPluginManifest as any).mockResolvedValue(mockManifest);
+        vi.mocked(apiClient.getPluginManifest).mockResolvedValue(mockManifest);
 
         const { result } = renderHook(() => useManifest("test-plugin"));
 
@@ -52,10 +52,10 @@ describe("useManifest", () => {
     });
 
     it("should handle errors gracefully", async () => {
-        const errorMessage = "Failed to fetch manifest";
-        (apiClient.getPluginManifest as any).mockRejectedValueOnce(
-            new Error(errorMessage)
-        );
+         const errorMessage = "Failed to fetch manifest";
+         vi.mocked(apiClient.getPluginManifest).mockRejectedValueOnce(
+             new Error(errorMessage)
+         );
 
         const { result } = renderHook(() => useManifest("test-plugin-error"));
 
@@ -77,7 +77,7 @@ describe("useManifest", () => {
             id: "plugin-2",
         };
 
-        (apiClient.getPluginManifest as any)
+        vi.mocked(apiClient.getPluginManifest)
             .mockResolvedValueOnce(manifest1)
             .mockResolvedValueOnce(manifest2);
 

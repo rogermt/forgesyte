@@ -69,7 +69,7 @@ describe("ConfidenceSlider", () => {
   it("processes out-of-range input on blur and corrects it", () => {
     const onConfidenceChange = vi.fn();
 
-    const { rerender } = render(
+    render(
       <ConfidenceSlider
         confidence={0.5}
         onConfidenceChange={onConfidenceChange}

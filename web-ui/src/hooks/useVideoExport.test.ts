@@ -10,9 +10,7 @@ import { useVideoExport } from "./useVideoExport";
 // Mocks
 // ============================================================================
 
-// Mock MediaRecorder - just track that it's called
-let mediaRecorderInstances: any[] = [];
-
+// Mock MediaRecorder
 global.MediaRecorder = vi.fn(() => ({
   start: vi.fn(),
   stop: vi.fn(),
@@ -21,9 +19,9 @@ global.MediaRecorder = vi.fn(() => ({
   ondataavailable: null,
   onerror: null,
   onstop: null,
-})) as any;
+})) as unknown as typeof MediaRecorder;
 
-(global.MediaRecorder as any).isTypeSupported = vi.fn((type: string) => {
+vi.mocked(global.MediaRecorder).isTypeSupported = vi.fn((type: string) => {
   return (
     type === "video/webm" || 
     type === "video/webm;codecs=vp9" || 
@@ -34,7 +32,7 @@ global.MediaRecorder = vi.fn(() => ({
 // Mock HTMLCanvasElement.captureStream
 HTMLCanvasElement.prototype.captureStream = vi.fn(() => ({
   getTracks: vi.fn(() => []),
-})) as any;
+})) as unknown as typeof HTMLCanvasElement.prototype.captureStream;
 
 // Mock URL methods
 global.URL.createObjectURL = vi.fn(() => "blob:mock-url");
@@ -55,7 +53,6 @@ describe("useVideoExport", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    mediaRecorderInstances = [];
   });
 
   it("initializes with correct state", () => {
