@@ -123,6 +123,73 @@ def app_with_plugins():
 
 
 @pytest.fixture
+def app_with_mock_yolo_plugin():
+    """Create app with mocked YOLO tracker plugin for GPU integration tests.
+
+    This fixture is specifically for tests that need YOLO plugin without
+    requiring real YOLO models to be installed. It injects a mock plugin
+    with realistic manifest and tool stubs.
+
+    Returns:
+        FastAPI app with mocked yolo-tracker plugin
+    """
+    from unittest.mock import MagicMock
+
+    from app.auth import init_auth_service
+    from app.main import app
+    from app.services import (
+        AnalysisService,
+        ImageAcquisitionService,
+        JobManagementService,
+        PluginManagementService,
+        VisionAnalysisService,
+    )
+    from app.tasks import init_task_processor
+    from app.websocket_manager import ws_manager
+
+    # Initialize auth service
+    init_auth_service()
+
+    # Create mock plugin registry with YOLO tracker
+    mock_registry = MockPluginRegistry()
+
+    # Create a mock YOLO plugin instance
+    mock_yolo_plugin = MagicMock()
+    mock_yolo_plugin.name = "yolo-tracker"
+
+    # Add realistic metadata for YOLO plugin
+    yolo_metadata = {
+        "name": "yolo-tracker",
+        "version": "1.0.0",
+        "description": "YOLO Football Tracker",
+    }
+    mock_registry.add_plugin("yolo-tracker", yolo_metadata, mock_yolo_plugin)
+
+    app.state.plugins = mock_registry
+
+    # Initialize task processor
+    init_task_processor(mock_registry)
+
+    # Initialize services
+    from app import tasks as tasks_module
+
+    # Vision analysis service for WebSocket
+    app.state.analysis_service = VisionAnalysisService(mock_registry, ws_manager)
+
+    # REST API services
+    image_acquisition = ImageAcquisitionService()
+    app.state.analysis_service_rest = AnalysisService(
+        tasks_module.task_processor, image_acquisition
+    )
+    app.state.job_service = JobManagementService(
+        tasks_module.job_store, tasks_module.task_processor
+    )
+    app.state.plugin_service = PluginManagementService(mock_registry)
+
+    return app
+
+
+@pytest.fixture
 async def client(app_with_plugins):
     """Create AsyncClient for testing API endpoints.
 
@@ -136,6 +203,27 @@ async def client(app_with_plugins):
 
     transport = ASGITransport(app=app_with_plugins)
     # Include auth header for integration tests
+    headers = {"X-API-Key": os.getenv("FORGESYTE_USER_KEY", "test-user-key")}
+    async with AsyncClient(
+        transport=transport, base_url="http://test", headers=headers
+    ) as async_client:
+        yield async_client
+
+
+@pytest.fixture
+async def client_with_mock_yolo(app_with_mock_yolo_plugin):
+    """Create AsyncClient with mocked YOLO plugin for GPU integration tests.
+
+    This fixture uses app_with_mock_yolo_plugin which has a mocked
+    yolo-tracker plugin suitable for testing video tracker endpoints
+    without requiring real YOLO models.
+
+    Returns:
+        AsyncClient configured with mocked YOLO plugin app
+    """
+    from httpx import ASGITransport, AsyncClient
+
+    transport = ASGITransport(app=app_with_mock_yolo_plugin)
     headers = {"X-API-Key": os.getenv("FORGESYTE_USER_KEY", "test-user-key")}
     async with AsyncClient(
         transport=transport, base_url="http://test", headers=headers

@@ -14,6 +14,7 @@ Endpoints are organized by domain:
 
 import json
 import logging
+import time
 from typing import Any, Dict, Optional
 
 from fastapi import (
@@ -35,7 +36,13 @@ from .mcp import (
     MCPAdapter,
     build_gemini_extension_manifest,
 )
-from .models import JobResponse, JobStatus, PluginMetadata
+from .models import (
+    JobResponse,
+    JobStatus,
+    PluginMetadata,
+    PluginToolRunRequest,
+    PluginToolRunResponse,
+)
 from .services.analysis_service import AnalysisService
 from .services.job_management_service import JobManagementService
 from .services.plugin_management_service import PluginManagementService
@@ -437,6 +444,181 @@ async def reload_all_plugins(
     logger.info("All plugins reloaded", extra={"result": result})
 
     return result
+
+
+# ============================================================================
+# Video Tracker Endpoints (Manifest & Tool Execution)
+# ============================================================================
+
+
+@router.get("/plugins/{plugin_id}/manifest")
+async def get_plugin_manifest(
+    plugin_id: str,
+    plugin_service: PluginManagementService = Depends(get_plugin_service),
+) -> Dict[str, Any]:
+    """Get plugin manifest including tool schemas.
+
+    The manifest describes what tools a plugin exposes, their input schemas,
+    and output schemas. This enables the web-ui to dynamically discover and
+    call tools without hardcoding plugin logic.
+
+    Args:
+        plugin_id: Plugin ID (e.g., "forgesyte-yolo-tracker")
+        plugin_service: Plugin management service (injected)
+
+    Returns:
+        Manifest dict:
+        {
+            "id": "forgesyte-yolo-tracker",
+            "name": "YOLO Football Tracker",
+            "version": "1.0.0",
+            "description": "...",
+            "tools": {
+                "player_detection": {
+                    "description": "...",
+                    "inputs": {...},
+                    "outputs": {...}
+                },
+                ...
+            }
+        }
+
+    Raises:
+        HTTPException(404): Plugin not found or has no manifest
+        HTTPException(500): Error reading manifest file
+
+    Example:
+        GET /v1/plugins/forgesyte-yolo-tracker/manifest
+        → 200 OK
+        {
+            "id": "forgesyte-yolo-tracker",
+            "name": "YOLO Football Tracker",
+            "tools": { ... }
+        }
+    """
+    try:
+        manifest = plugin_service.get_plugin_manifest(plugin_id)
+        if not manifest:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Plugin '{plugin_id}' not found or has no manifest",
+            )
+        return manifest
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting manifest for plugin '{plugin_id}': {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error reading manifest: {str(e)}",
+        ) from e
+
+
+@router.post(
+    "/plugins/{plugin_id}/tools/{tool_name}/run",
+    response_model=PluginToolRunResponse,
+)
+async def run_plugin_tool(
+    plugin_id: str,
+    tool_name: str,
+    request: PluginToolRunRequest,
+    plugin_service: PluginManagementService = Depends(get_plugin_service),
+) -> PluginToolRunResponse:
+    """Execute a plugin tool directly (synchronous).
+
+    Runs a specified tool from a plugin with the provided arguments.
+    This is a synchronous endpoint used for real-time frame processing.
+    For batch/video processing, use the async job endpoints instead.
+
+    Args:
+        plugin_id: Plugin ID (e.g., "forgesyte-yolo-tracker")
+        tool_name: Tool name (e.g., "player_detection")
+        request: Tool execution request with arguments
+        plugin_service: Plugin management service (injected)
+
+    Returns:
+        PluginToolRunResponse with:
+        - tool_name: Name of executed tool
+        - plugin_id: Plugin ID
+        - result: Tool output (dict, matches manifest output schema)
+        - processing_time_ms: Execution time
+
+    Raises:
+        HTTPException(400): Invalid arguments or plugin execution failed
+        HTTPException(404): Plugin or tool not found
+        HTTPException(500): Unexpected error
+
+    Example:
+        POST /v1/plugins/forgesyte-yolo-tracker/tools/player_detection/run
+        {
+            "args": {
+                "frame_base64": "iVBORw0KGgo...",
+                "device": "cpu",
+                "annotated": false
+            }
+        }
+        → 200 OK
+        {
+            "tool_name": "player_detection",
+            "plugin_id": "forgesyte-yolo-tracker",
+            "result": {"detections": [...]},
+            "processing_time_ms": 42
+        }
+    """
+    try:
+        # Record start time
+        start_time = time.time()
+
+        # Execute tool
+        logger.debug(
+            f"Executing tool '{tool_name}' on plugin '{plugin_id}' "
+            f"with {len(request.args)} args"
+        )
+
+        result = plugin_service.run_plugin_tool(
+            plugin_id=plugin_id, tool_name=tool_name, args=request.args
+        )
+
+        # Calculate processing time
+        processing_time_ms = int((time.time() - start_time) * 1000)
+
+        # Log successful execution
+        logger.info(
+            f"Tool execution successful: {plugin_id}/{tool_name} "
+            f"({processing_time_ms}ms)"
+        )
+
+        return PluginToolRunResponse(
+            tool_name=tool_name,
+            plugin_id=plugin_id,
+            result=result,
+            processing_time_ms=processing_time_ms,
+        )
+
+    except ValueError as e:
+        # Plugin/tool not found or validation error
+        logger.warning(f"Tool execution validation error: {e}")
+        raise HTTPException(status_code=400, detail=str(e)) from e
+
+    except TimeoutError as e:
+        # Tool execution timed out
+        logger.error(f"Tool execution timeout: {e}")
+        raise HTTPException(
+            status_code=408,
+            detail=f"Tool execution timed out: {str(e)}",
+        ) from e
+
+    except Exception as e:
+        # Unexpected error
+        logger.error(
+            f"Unexpected error executing tool '{tool_name}' "
+            f"on plugin '{plugin_id}': {e}",
+            exc_info=True,
+        )
+        raise HTTPException(
+            status_code=500,
+            detail=f"Tool execution failed: {str(e)}",
+        ) from e
 
 
 # ============================================================================

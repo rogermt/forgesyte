@@ -241,3 +241,55 @@ class WebSocketMessage(BaseModel):
         default_factory=datetime.utcnow,
         description="Message creation timestamp (ISO 8601)",
     )
+
+
+class PluginToolRunRequest(BaseModel):
+    """Request to run a plugin tool."""
+
+    args: Dict[str, Any] = Field(
+        ...,
+        description="Tool arguments (matches manifest input schema)",
+        example={"frame_base64": "iVBORw0KGgo...", "device": "cpu", "annotated": False},
+    )
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "args": {
+                    "frame_base64": "base64_encoded_image",
+                    "device": "cpu",
+                    "annotated": False,
+                }
+            }
+        }
+
+
+class PluginToolRunResponse(BaseModel):
+    """Response from running a plugin tool."""
+
+    tool_name: str = Field(..., description="Name of the executed tool")
+
+    plugin_id: str = Field(..., description="ID of the plugin")
+
+    result: Dict[str, Any] = Field(
+        ...,
+        description="Tool execution result (matches manifest output schema)",
+    )
+
+    processing_time_ms: int = Field(
+        ..., description="Time spent in tool execution (milliseconds)"
+    )
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "tool_name": "player_detection",
+                "plugin_id": "forgesyte-yolo-tracker",
+                "result": {
+                    "detections": [
+                        {"x1": 100, "y1": 200, "x2": 150, "y2": 350, "confidence": 0.92}
+                    ]
+                },
+                "processing_time_ms": 42,
+            }
+        }

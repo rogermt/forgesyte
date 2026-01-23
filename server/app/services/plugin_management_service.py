@@ -18,7 +18,11 @@ Example:
     success = await service.reload_plugin("ocr")
 """
 
+import asyncio
+import json
 import logging
+import sys
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from ..protocols import PluginRegistry
@@ -203,3 +207,175 @@ class PluginManagementService:
                 extra={"error": str(e)},
             )
             raise
+
+    def get_plugin_manifest(self, plugin_id: str) -> Optional[Dict[str, Any]]:
+        """Get manifest from a loaded plugin.
+
+        Reads the plugin's manifest.json file if available. This is a synchronous
+        operation that should be fast (usually <10ms) since manifests are small.
+
+        Args:
+            plugin_id: Plugin ID
+
+        Returns:
+            Manifest dict from manifest.json, or None if plugin not found
+
+        Raises:
+            Exception: If manifest file cannot be read
+        """
+        # Find plugin in registry by ID
+        plugin = self.registry.get(plugin_id)
+        if not plugin:
+            return None
+
+        # Try to read manifest.json from plugin module
+        try:
+            # Get plugin module
+            plugin_module_name = plugin.__class__.__module__
+            plugin_module = sys.modules.get(plugin_module_name)
+            if not plugin_module or not hasattr(plugin_module, "__file__"):
+                logger.warning(
+                    f"Could not locate module for plugin '{plugin_id}': "
+                    f"{plugin_module_name}"
+                )
+                return None
+
+            # Find manifest.json relative to plugin module
+            module_file = plugin_module.__file__
+            if not module_file:
+                return None
+
+            plugin_dir = Path(module_file).parent
+            manifest_path = plugin_dir / "manifest.json"
+
+            if not manifest_path.exists():
+                logger.warning(
+                    f"No manifest.json found for plugin '{plugin_id}' "
+                    f"at {manifest_path}"
+                )
+                return None
+
+            with open(manifest_path, "r") as f:
+                manifest = json.load(f)
+
+            logger.debug(
+                f"Loaded manifest for plugin '{plugin_id}': "
+                f"{len(manifest.get('tools', {}))} tools"
+            )
+
+            return manifest
+
+        except json.JSONDecodeError as e:
+            logger.error(f"Invalid JSON in manifest for '{plugin_id}': {e}")
+            raise
+        except Exception as e:
+            logger.error(f"Error reading manifest for plugin '{plugin_id}': {e}")
+            raise
+
+    def run_plugin_tool(
+        self,
+        plugin_id: str,
+        tool_name: str,
+        args: Dict[str, Any],
+    ) -> Dict[str, Any]:
+        """Execute a plugin tool with given arguments.
+
+        Finds the plugin, locates the tool function, validates arguments,
+        and executes the tool. Handles both sync and async tool functions.
+
+        Args:
+            plugin_id: Plugin ID
+            tool_name: Tool function name (must exist as method on plugin)
+            args: Tool arguments (dict, should match manifest input schema)
+
+        Returns:
+            Tool result dict (should match manifest output schema)
+
+        Raises:
+            ValueError: Plugin/tool not found, or validation error
+            TimeoutError: Tool execution exceeded timeout
+            Exception: Tool execution failed
+        """
+        # 1. Find plugin in registry
+        plugins_dict = self.registry.list()
+        if isinstance(plugins_dict, dict):
+            plugin = plugins_dict.get(plugin_id)
+        else:
+            plugin = next(
+                (p for p in plugins_dict if getattr(p, "name", None) == plugin_id),
+                None,
+            )
+
+        if not plugin:
+            available = (
+                list(plugins_dict.keys())
+                if isinstance(plugins_dict, dict)
+                else [getattr(p, "name", "unknown") for p in plugins_dict]
+            )
+            raise ValueError(
+                f"Plugin '{plugin_id}' not found. " f"Available: {available}"
+            )
+
+        logger.debug(f"Found plugin: {plugin}")
+
+        # 2. Validate tool exists
+        if not hasattr(plugin, tool_name) or not callable(getattr(plugin, tool_name)):
+            available_tools = [
+                attr
+                for attr in dir(plugin)
+                if not attr.startswith("_") and callable(getattr(plugin, attr))
+            ]
+            raise ValueError(
+                f"Tool '{tool_name}' not found in plugin '{plugin_id}'. "
+                f"Available: {available_tools}"
+            )
+
+        logger.debug(f"Found tool: {plugin}.{tool_name}")
+
+        # 3. Get tool function
+        tool_func = getattr(plugin, tool_name)
+
+        # 4. Execute tool (handle async/sync)
+        try:
+            if asyncio.iscoroutinefunction(tool_func):
+                # Async tool: run in event loop with timeout
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+
+                try:
+                    result = loop.run_until_complete(
+                        asyncio.wait_for(
+                            tool_func(**args),
+                            timeout=30.0,  # 30-second timeout per frame
+                        )
+                    )
+                finally:
+                    loop.close()
+            else:
+                # Sync tool: call directly
+                result = tool_func(**args)
+
+            result_keys = list(result.keys()) if isinstance(result, dict) else "unknown"
+            logger.debug(f"Tool returned result with keys: {result_keys}")
+
+            return result
+
+        except asyncio.TimeoutError as e:
+            raise TimeoutError(
+                f"Tool '{tool_name}' execution exceeded 30 second timeout"
+            ) from e
+
+        except TypeError as e:
+            # Argument mismatch
+            raise ValueError(
+                f"Invalid arguments for tool '{tool_name}': {e}. "
+                f"Check manifest input schema."
+            ) from e
+
+        except Exception as e:
+            # Tool execution error
+            logger.error(
+                f"Tool '{tool_name}' execution failed: {e}",
+                exc_info=True,
+            )
+            raise Exception(f"Tool execution error: {str(e)}") from e

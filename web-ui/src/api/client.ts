@@ -6,6 +6,11 @@
  * - VITE_API_KEY: Optional API authentication key
  */
 
+import type {
+    PluginManifest,
+    ToolExecutionResponse,
+} from "../types/video-tracker";
+
 const API_BASE =
     import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE || "/v1";
 const API_KEY = import.meta.env.VITE_API_KEY;
@@ -180,6 +185,21 @@ export class ForgeSyteAPIClient {
         }
 
         throw new Error("Job polling timed out");
+    }
+
+    async getPluginManifest(pluginId: string): Promise<PluginManifest> {
+        return this.fetch(`/plugins/${pluginId}/manifest`) as Promise<PluginManifest>;
+    }
+
+    async runPluginTool(
+        pluginId: string,
+        toolName: string,
+        args: Record<string, unknown>
+    ): Promise<ToolExecutionResponse> {
+        return this.fetch(`/plugins/${pluginId}/tools/${toolName}/run`, {
+            method: "POST",
+            body: JSON.stringify({ args }),
+        }) as Promise<ToolExecutionResponse>;
     }
 }
 
