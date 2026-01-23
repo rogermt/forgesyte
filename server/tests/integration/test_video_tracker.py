@@ -26,7 +26,7 @@ class TestManifestEndpoint:
 
     async def test_manifest_for_yolo_tracker(self, client):
         """Get manifest for YOLO tracker plugin"""
-        response = await client.get("/v1/plugins/forgesyte-yolo-tracker/manifest")
+        response = await client.get("/v1/plugins/yolo-tracker/manifest")
 
         assert response.status_code == 200
         manifest = response.json()
@@ -37,11 +37,11 @@ class TestManifestEndpoint:
         assert "version" in manifest
         assert "tools" in manifest
 
-        assert manifest["id"] == "forgesyte-yolo-tracker"
+        assert manifest["id"] == "yolo-tracker"
 
     async def test_manifest_contains_expected_tools(self, client):
         """Manifest should list all available tools"""
-        response = await client.get("/v1/plugins/forgesyte-yolo-tracker/manifest")
+        response = await client.get("/v1/plugins/yolo-tracker/manifest")
         manifest = response.json()
 
         expected_tools = [
@@ -61,7 +61,7 @@ class TestManifestEndpoint:
 
     async def test_manifest_tool_has_frame_base64_input(self, client):
         """Each tool should accept frame_base64"""
-        response = await client.get("/v1/plugins/forgesyte-yolo-tracker/manifest")
+        response = await client.get("/v1/plugins/yolo-tracker/manifest")
         manifest = response.json()
 
         for tool_name, tool in manifest["tools"].items():
@@ -92,7 +92,7 @@ class TestToolRunEndpoint:
         frame_base64 = base64.b64encode(img_bytes.getvalue()).decode()
 
         response = await client.post(
-            "/v1/plugins/forgesyte-yolo-tracker/tools/player_detection/run",
+            "/v1/plugins/yolo-tracker/tools/player_detection/run",
             json={"args": {"frame_base64": frame_base64, "device": "cpu"}},
         )
 
@@ -106,7 +106,7 @@ class TestToolRunEndpoint:
         assert "processing_time_ms" in data
 
         assert data["tool_name"] == "player_detection"
-        assert data["plugin_id"] == "forgesyte-yolo-tracker"
+        assert data["plugin_id"] == "yolo-tracker"
         assert isinstance(data["processing_time_ms"], int)
         assert data["processing_time_ms"] >= 0
 
@@ -126,7 +126,7 @@ class TestToolRunEndpoint:
         frame_base64 = base64.b64encode(img_bytes.getvalue()).decode()
 
         response = await client.post(
-            "/v1/plugins/forgesyte-yolo-tracker/tools/player_detection/run",
+            "/v1/plugins/yolo-tracker/tools/player_detection/run",
             json={
                 "args": {
                     "frame_base64": frame_base64,
@@ -160,7 +160,7 @@ class TestToolRunEndpoint:
         frame_base64 = base64.b64encode(img_bytes.getvalue()).decode()
 
         response = await client.post(
-            "/v1/plugins/forgesyte-yolo-tracker/tools/ball_detection/run",
+            "/v1/plugins/yolo-tracker/tools/ball_detection/run",
             json={"args": {"frame_base64": frame_base64, "device": "cpu"}},
         )
 
@@ -186,7 +186,7 @@ class TestToolRunEndpoint:
         frame_base64 = base64.b64encode(img_bytes.getvalue()).decode()
 
         response = await client.post(
-            "/v1/plugins/forgesyte-yolo-tracker/tools/pitch_detection/run",
+            "/v1/plugins/yolo-tracker/tools/pitch_detection/run",
             json={"args": {"frame_base64": frame_base64, "device": "cpu"}},
         )
 
@@ -211,7 +211,7 @@ class TestToolRunEndpoint:
         frame_base64 = base64.b64encode(img_bytes.getvalue()).decode()
 
         response = await client.post(
-            "/v1/plugins/forgesyte-yolo-tracker/tools/nonexistent_tool/run",
+            "/v1/plugins/yolo-tracker/tools/nonexistent_tool/run",
             json={"args": {"frame_base64": frame_base64}},
         )
 
@@ -247,9 +247,7 @@ class TestVideoTrackerEndToEnd:
     async def test_manifest_then_run_tool_workflow(self, client):
         """Discover tool from manifest, then execute it"""
         # Step 1: Get manifest
-        manifest_response = await client.get(
-            "/v1/plugins/forgesyte-yolo-tracker/manifest"
-        )
+        manifest_response = await client.get("/v1/plugins/yolo-tracker/manifest")
         assert manifest_response.status_code == 200
         manifest = manifest_response.json()
 
@@ -274,7 +272,7 @@ class TestVideoTrackerEndToEnd:
 
         # Step 4: Run tool
         run_response = await client.post(
-            f"/v1/plugins/forgesyte-yolo-tracker/tools/{tool_name}/run",
+            f"/v1/plugins/yolo-tracker/tools/{tool_name}/run",
             json={"args": args},
         )
 
@@ -283,5 +281,5 @@ class TestVideoTrackerEndToEnd:
 
         # Step 5: Verify result matches output schema
         assert result["tool_name"] == tool_name
-        assert result["plugin_id"] == "forgesyte-yolo-tracker"
+        assert result["plugin_id"] == "yolo-tracker"
         assert "result" in result
