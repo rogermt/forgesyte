@@ -1,236 +1,256 @@
 /**
  * useVideoProcessor Hook
- * Manages real-time video frame processing with:
- * - Frame buffering (last N frames)
- * - Track persistence (maintains track_id across frames)
- * - FPS calculation
- * - Error handling
+ *
+ * Generic frame-processing hook for video-based tools.
+ * - Extracts current frame from <video> as base64
+ * - Sends to /plugins/run endpoint
+ * - Maintains rolling buffer of results
+ * - One frame per tick (no parallel requests)
+ * - Plugin-agnostic (no YOLO assumptions)
  */
 
-import { useCallback, useRef, useState } from "react";
-import { apiClient } from "../api/client";
-import type {
-    Detection,
-    TrackFrame,
-    VideoProcessorConfig,
-    VideoProcessorState,
-} from "../types/video-tracker";
+import { useRef, useEffect, useCallback, useState } from "react";
 
-const FRAME_BUFFER_SIZE = 10;
-const TRACK_TIMEOUT_MS = 5000; // Tracks expire after 5 seconds of no detection
+// ============================================================================
+// Types
+// ============================================================================
 
-interface TrackState {
-    lastDetection: Detection;
-    lastSeenTime: number;
-    consecutiveFrames: number;
+export type FrameResult = Record<string, unknown>;
+
+export interface UseVideoProcessorArgs {
+  videoRef: React.RefObject<HTMLVideoElement>;
+  pluginId: string;
+  toolName: string;
+  fps: number;
+  device: string;
+  enabled: boolean;
+  bufferSize?: number; // default 5
 }
 
-export function useVideoProcessor(config: VideoProcessorConfig | null) {
-    const [state, setState] = useState<VideoProcessorState>({
-        isProcessing: false,
-        frameCount: 0,
-        fps: 0,
-        error: undefined,
-    });
+export interface UseVideoProcessorReturn {
+  latestResult: FrameResult | null;
+  buffer: FrameResult[];
+  processing: boolean;
+  error: string | null;
+}
 
-    const [frames, setFrames] = useState<TrackFrame[]>([]);
-    const [detections, setDetections] = useState<Detection[]>([]);
+// ============================================================================
+// Hook
+// ============================================================================
 
-    const frameBuffer = useRef<TrackFrame[]>([]);
-    const trackMap = useRef<Map<number, TrackState>>(new Map());
-    const lastFrameTime = useRef<number>(Date.now());
-    const frameCounterRef = useRef<number>(0);
-    const fpsIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+export function useVideoProcessor({
+  videoRef,
+  pluginId,
+  toolName,
+  fps,
+  device,
+  enabled,
+  bufferSize = 5,
+}: UseVideoProcessorArgs): UseVideoProcessorReturn {
+  // -------------------------------------------------------------------------
+  // State
+  // -------------------------------------------------------------------------
 
-    // Initialize FPS counter
-    const startFpsCounter = useCallback(() => {
-        fpsIntervalRef.current = setInterval(() => {
-            const now = Date.now();
-            const elapsed = (now - lastFrameTime.current) / 1000;
-            if (elapsed > 0) {
-                const fps = Math.round(frameCounterRef.current / elapsed);
-                setState((prev) => ({ ...prev, fps }));
-                frameCounterRef.current = 0;
-                lastFrameTime.current = now;
-            }
-        }, 1000);
-    }, []);
+  const [latestResult, setLatestResult] = useState<FrameResult | null>(null);
+  const [buffer, setBuffer] = useState<FrameResult[]>([]);
+  const [processing, setProcessing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-    const stopFpsCounter = useCallback(() => {
-        if (fpsIntervalRef.current) {
-            clearInterval(fpsIntervalRef.current);
-            fpsIntervalRef.current = null;
+  // -------------------------------------------------------------------------
+  // Refs (not re-render state)
+  // -------------------------------------------------------------------------
+
+  const requestInFlightRef = useRef(false);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+
+  // -------------------------------------------------------------------------
+  // Frame extraction utility
+  // -------------------------------------------------------------------------
+
+  const extractFrameAsBase64 = useCallback((): string | null => {
+    const video = videoRef.current;
+    if (!video) return null;
+
+    // Check if video has enough data to draw a frame
+    if (video.readyState < 2) return null;
+
+    // Create offscreen canvas if needed
+    if (!canvasRef.current) {
+      canvasRef.current = document.createElement("canvas");
+    }
+
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return null;
+
+    // Set canvas size to match video
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+
+    // Draw current frame
+    try {
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      return canvas.toDataURL("image/jpeg");
+    } catch (err) {
+      console.error("Failed to extract frame:", err);
+      return null;
+    }
+  }, [videoRef]);
+
+  // -------------------------------------------------------------------------
+  // Backend call
+  // -------------------------------------------------------------------------
+
+  const sendFrameToBackend = useCallback(
+    async (frameBase64: string): Promise<FrameResult | null> => {
+      try {
+        const response = await fetch(`/plugins/${pluginId}/tools/${toolName}/run`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            plugin_id: pluginId,
+            tool_name: toolName,
+            inputs: {
+              frame_base64: frameBase64,
+              device,
+              annotated: false,
+            },
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error(`Backend error: ${response.statusText}`);
         }
-    }, []);
 
-    // Process a single frame
-    const processFrame = useCallback(
-        async (frameBase64: string) => {
-            if (!config) {
-                setState((prev) => ({
-                    ...prev,
-                    error: "No config provided",
-                }));
-                return;
-            }
+        const result = (await response.json()) as FrameResult;
+        return result;
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Unknown error";
+        throw new Error(`Failed to process frame: ${message}`);
+      }
+    },
+    [pluginId, toolName, device]
+  );
 
-            setState((prev) => ({ ...prev, isProcessing: true, error: undefined }));
+  // -------------------------------------------------------------------------
+  // Retry logic
+  // -------------------------------------------------------------------------
 
-            try {
-                const args: Record<string, unknown> = {
-                    frame_base64: frameBase64,
-                    device: config.device,
-                };
+  const sendFrameWithRetry = useCallback(
+    async (frameBase64: string): Promise<FrameResult | null> => {
+      try {
+        return await sendFrameToBackend(frameBase64);
+      } catch (firstErr) {
+        setError(`Request failed: ${firstErr}`);
 
-                if (config.annotated !== undefined) {
-                    args.annotated = config.annotated;
-                }
+        // Retry once after 200ms
+        await new Promise((resolve) => setTimeout(resolve, 200));
 
-                const response = await apiClient.runPluginTool(
-                    config.pluginId,
-                    config.toolName,
-                    args
-                );
+        try {
+          const result = await sendFrameToBackend(frameBase64);
+          setError(null); // Clear error on success
+          return result;
+        } catch (retryErr) {
+          setError(
+            `Retry failed: ${retryErr instanceof Error ? retryErr.message : "Unknown error"}`
+          );
+          return null;
+        }
+      }
+    },
+    [sendFrameToBackend]
+  );
 
-                frameCounterRef.current++;
+  // -------------------------------------------------------------------------
+  // Main processing loop
+  // -------------------------------------------------------------------------
 
-                // Add to frame buffer
-                const trackFrame: TrackFrame = {
-                    frame_number: frameCounterRef.current,
-                    timestamp: Date.now(),
-                    tool_name: config.toolName,
-                    result: response.result,
-                    annotated_frame_base64: response.result
-                        .annotated_frame_base64 as string | undefined,
-                };
+  const processFrame = useCallback(async () => {
+    // Skip if already processing
+    if (requestInFlightRef.current) return;
 
-                frameBuffer.current.push(trackFrame);
-                if (frameBuffer.current.length > FRAME_BUFFER_SIZE) {
-                    frameBuffer.current.shift();
-                }
+    // Extract frame
+    const frameBase64 = extractFrameAsBase64();
+    if (!frameBase64) return;
 
-                // Update track persistence
-                const frameDetections: Detection[] =
-                    (response.result.detections as Detection[]) || [];
-                updateTracking(frameDetections);
+    // Mark as in-flight
+    requestInFlightRef.current = true;
+    setProcessing(true);
 
-                setFrames([...frameBuffer.current]);
-                setDetections(frameDetections);
+    try {
+      const result = await sendFrameWithRetry(frameBase64);
 
-                setState((prev) => ({
-                    ...prev,
-                    frameCount: frameCounterRef.current,
-                    isProcessing: false,
-                }));
-            } catch (err) {
-                const message =
-                    err instanceof Error ? err.message : "Frame processing failed";
-                setState((prev) => ({
-                    ...prev,
-                    isProcessing: false,
-                    error: message,
-                }));
-            }
-        },
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-        [config]
-    );
+      if (result) {
+        // Update latest result
+        setLatestResult(result);
 
-    // Update track persistence
-    const updateTracking = useCallback((frameDetections: Detection[]) => {
-        const now = Date.now();
-        const newTracks = new Map<number, TrackState>();
-
-        // Mark all existing tracks as potentially expired
-        const validTracks = new Set<number>();
-
-        // Assign tracks to detections (simple proximity matching)
-        frameDetections.forEach((detection) => {
-            let assignedTrackId: number | null = null;
-            let minDistance = Infinity;
-
-            // Find closest track
-            trackMap.current.forEach((trackState, trackId) => {
-                const lastDet = trackState.lastDetection;
-                const distance = Math.sqrt(
-                    (detection.x - lastDet.x) ** 2 +
-                    (detection.y - lastDet.y) ** 2
-                );
-
-                if (
-                    distance < minDistance &&
-                    distance < 50 &&
-                    now - trackState.lastSeenTime < TRACK_TIMEOUT_MS
-                ) {
-                    minDistance = distance;
-                    assignedTrackId = trackId;
-                }
-            });
-
-            // If no track assigned, create new one
-            if (assignedTrackId === null) {
-                assignedTrackId = Math.max(
-                    0,
-                    ...Array.from(trackMap.current.keys())
-                ) + 1;
-            }
-
-            validTracks.add(assignedTrackId);
-            newTracks.set(assignedTrackId, {
-                lastDetection: { ...detection, track_id: assignedTrackId },
-                lastSeenTime: now,
-                consecutiveFrames:
-                    (trackMap.current.get(assignedTrackId)?.consecutiveFrames || 0) +
-                    1,
-            });
+        // Update rolling buffer
+        setBuffer((prev) => {
+          const updated = [result, ...prev];
+          return updated.slice(0, bufferSize);
         });
+      }
+    } finally {
+      requestInFlightRef.current = false;
+      setProcessing(false);
+    }
+  }, [extractFrameAsBase64, sendFrameWithRetry, bufferSize]);
 
-        // Remove expired tracks
-        trackMap.current.forEach((_, trackId) => {
-            if (!validTracks.has(trackId)) {
-                trackMap.current.delete(trackId);
-            }
-        });
+  // -------------------------------------------------------------------------
+  // Interval management
+  // -------------------------------------------------------------------------
 
-        // Update with new tracks
-        newTracks.forEach((state, trackId) => {
-            trackMap.current.set(trackId, state);
-        });
-    }, []);
+  useEffect(() => {
+    // Clean up existing interval
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
 
-    // Start processing
-    const start = useCallback(() => {
-        frameBuffer.current = [];
-        trackMap.current.clear();
-        frameCounterRef.current = 0;
-        lastFrameTime.current = Date.now();
-        setState({ isProcessing: false, frameCount: 0, fps: 0, error: undefined });
-        startFpsCounter();
-    }, [startFpsCounter]);
+    if (!enabled) return;
 
-    // Stop processing
-    const stop = useCallback(() => {
-        stopFpsCounter();
-        frameBuffer.current = [];
-        trackMap.current.clear();
-    }, [stopFpsCounter]);
+    // Calculate interval (clamp fps to minimum 1)
+    const clampedFps = Math.max(1, fps);
+    const interval = Math.max(1, Math.floor(1000 / clampedFps));
 
-    // Clear buffers
-    const clear = useCallback(() => {
-        frameBuffer.current = [];
-        trackMap.current.clear();
-        setFrames([]);
-        setDetections([]);
-        setState({ isProcessing: false, frameCount: 0, fps: 0, error: undefined });
-    }, []);
+    // Start processing loop
+    intervalRef.current = setInterval(() => {
+      processFrame();
+    }, interval);
 
-    return {
-        state,
-        frames,
-        detections,
-        processFrame,
-        start,
-        stop,
-        clear,
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
     };
+  }, [enabled, fps, processFrame]);
+
+  // -------------------------------------------------------------------------
+  // Cleanup on unmount
+  // -------------------------------------------------------------------------
+
+  useEffect(() => {
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+      }
+    };
+  }, []);
+
+  // -------------------------------------------------------------------------
+  // Return
+  // -------------------------------------------------------------------------
+
+  return {
+    latestResult,
+    buffer,
+    processing,
+    error,
+  };
 }
+
+export default useVideoProcessor;
