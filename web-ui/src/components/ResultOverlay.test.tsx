@@ -26,7 +26,7 @@ const mockCanvasContext = {
 
 HTMLCanvasElement.prototype.getContext = vi.fn(
   () => mockCanvasContext
-) as any;
+) as typeof HTMLCanvasElement.prototype.getContext;
 
 // ============================================================================
 // Tests

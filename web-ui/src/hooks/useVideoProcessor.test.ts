@@ -51,7 +51,7 @@ describe("useVideoProcessor", () => {
     });
 
     it("should process a single frame", async () => {
-        (apiClient.runPluginTool as any).mockResolvedValue(mockResponse);
+        vi.mocked(apiClient.runPluginTool).mockResolvedValue(mockResponse);
 
         const { result } = renderHook(() => useVideoProcessor(mockConfig));
 
@@ -73,7 +73,7 @@ describe("useVideoProcessor", () => {
     });
 
     it("should maintain frame buffer up to max size", async () => {
-        (apiClient.runPluginTool as any).mockResolvedValue(mockResponse);
+        vi.mocked(apiClient.runPluginTool).mockResolvedValue(mockResponse);
 
         const { result } = renderHook(() => useVideoProcessor(mockConfig));
 
@@ -95,7 +95,7 @@ describe("useVideoProcessor", () => {
 
     it("should handle errors gracefully", async () => {
         const errorMessage = "API error";
-        (apiClient.runPluginTool as any).mockRejectedValueOnce(
+        vi.mocked(apiClient.runPluginTool).mockRejectedValueOnce(
             new Error(errorMessage)
         );
 
@@ -117,7 +117,7 @@ describe("useVideoProcessor", () => {
     });
 
     it("should return null config when config is null", async () => {
-        (apiClient.runPluginTool as any).mockResolvedValue(mockResponse);
+        vi.mocked(apiClient.runPluginTool).mockResolvedValue(mockResponse);
 
         const { result } = renderHook(() => useVideoProcessor(null));
 
@@ -129,7 +129,7 @@ describe("useVideoProcessor", () => {
     });
 
     it("should clear buffers on clear()", () => {
-        (apiClient.runPluginTool as any).mockResolvedValue(mockResponse);
+        vi.mocked(apiClient.runPluginTool).mockResolvedValue(mockResponse);
 
         const { result } = renderHook(() => useVideoProcessor(mockConfig));
 

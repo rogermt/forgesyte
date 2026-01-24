@@ -16,10 +16,9 @@
  * - [BP-5] Proper cleanup on unmount
  */
 
-import { useState, useCallback, useMemo, useRef, useEffect } from "react";
+import { useState, useCallback, useMemo, useRef } from "react";
 import { useManifest } from "../hooks/useManifest";
 import { useVideoProcessor } from "../hooks/useVideoProcessor";
-import { apiClient } from "../api/client";
 import ToolSelector from "./ToolSelector";
 import ConfidenceSlider from "./ConfidenceSlider";
 import ResultOverlay from "./ResultOverlay";
@@ -195,7 +194,7 @@ export function VideoTracker() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   // Load manifest when plugin changes
-  const { manifest } = useManifest(pluginId);
+  useManifest(pluginId);
 
   // Video processor for frame handling
   const processorConfig = useMemo<VideoProcessorConfig | null>(() => {

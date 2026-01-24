@@ -11,7 +11,6 @@ import { useCallback, useRef, useState } from "react";
 import { apiClient } from "../api/client";
 import type {
     Detection,
-    ToolExecutionResponse,
     TrackFrame,
     VideoProcessorConfig,
     VideoProcessorState,
@@ -41,7 +40,7 @@ export function useVideoProcessor(config: VideoProcessorConfig | null) {
     const trackMap = useRef<Map<number, TrackState>>(new Map());
     const lastFrameTime = useRef<number>(Date.now());
     const frameCounterRef = useRef<number>(0);
-    const fpsIntervalRef = useRef<NodeJS.Timeout | null>(null);
+    const fpsIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
     // Initialize FPS counter
     const startFpsCounter = useCallback(() => {
@@ -133,6 +132,7 @@ export function useVideoProcessor(config: VideoProcessorConfig | null) {
                 }));
             }
         },
+        // eslint-disable-next-line react-hooks/exhaustive-deps
         [config]
     );
 

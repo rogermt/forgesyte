@@ -29,7 +29,7 @@ export const RecordButton: React.FC<RecordButtonProps> = ({
 
       // Get audio from video element
       const audioContext = new AudioContext();
-      const audioSource = audioContext.createMediaElementAudioSource(
+      const audioSource = audioContext.createMediaElementSource(
         videoElement
       );
       const destinationNode = audioContext.createMediaStreamDestination();

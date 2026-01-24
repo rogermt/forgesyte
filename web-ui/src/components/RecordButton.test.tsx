@@ -1,6 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
 import { RecordButton } from './RecordButton';
 
 describe('RecordButton', () => {
@@ -8,11 +7,11 @@ describe('RecordButton', () => {
     // Mock basic browser APIs
     if (!global.MediaStream) {
       global.MediaStream = class {
-        constructor(_tracks: any[] = []) {}
+        constructor() {}
         getTracks() { return []; }
         getAudioTracks() { return []; }
         getVideoTracks() { return []; }
-      } as any;
+      } as unknown as typeof MediaStream;
     }
   });
 
