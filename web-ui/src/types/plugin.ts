@@ -1,6 +1,6 @@
 export interface ToolParameter {
   type: string;
-  default?: unknown;
+  default?: any;
   description?: string;
 }
 
@@ -30,6 +30,6 @@ export interface Detection {
 
 export interface ToolExecutionResponse {
   success: boolean;
-  result: unknown;
+  result: any;
   error?: string;
 }
