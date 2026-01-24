@@ -1,17 +1,14 @@
 /**
- * VideoTracker Component (Plugin-Agnostic Skeleton)
+ * VideoTracker Component (Layout Only)
  *
- * This is a generic UI shell for all frame-based tools.
- * It does NOT contain assumptions about:
- * - YOLO tracker
- * - detection schema
- * - class names
- * - bounding box formats
- * - pitch/radar formats
- * - plugin internals
+ * This component implements the VideoTracker layout:
+ * - Upload video file
+ * - Display video with canvas overlay
+ * - Playback controls (Play, Pause, FPS, Device)
+ * - Overlay toggles (Players, Tracking, Ball, Pitch, Radar)
  *
- * Props (pluginId, toolName) are routing parameters only,
- * used to call the backend API. They do NOT influence UI structure.
+ * Layout only — no backend calls, no processing, no plugin coupling.
+ * All controls are non-functional stubs.
  */
 
 import { useState } from "react";
@@ -60,60 +57,14 @@ const styles = {
     fontWeight: 600,
     color: "var(--text-primary)",
   },
-  mainGrid: {
-    display: "grid",
-    gridTemplateColumns: "350px 1fr",
-    gap: "20px",
-    alignItems: "start",
-  },
-  controlPanel: {
-    display: "flex",
-    flexDirection: "column" as const,
-    gap: "16px",
-    padding: "16px",
-    backgroundColor: "var(--bg-secondary)",
-    borderRadius: "8px",
-    border: "1px solid var(--border-light)",
-  },
-  controlSection: {
-    display: "flex",
-    flexDirection: "column" as const,
-    gap: "12px",
-  },
-  sectionTitle: {
-    fontSize: "13px",
-    fontWeight: 600,
-    color: "var(--text-secondary)",
-    textTransform: "uppercase" as const,
-    letterSpacing: "0.5px",
-    margin: 0,
-  },
-  videoContainer: {
-    position: "relative" as const,
-    backgroundColor: "black",
-    borderRadius: "8px",
-    overflow: "hidden",
-    border: "1px solid var(--border-light)",
-    aspectRatio: "16 / 9",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  uploadArea: {
-    display: "flex",
-    flexDirection: "column" as const,
-    gap: "12px",
-    padding: "16px",
-    border: "2px dashed var(--border-light)",
-    borderRadius: "8px",
-    textAlign: "center" as const,
-    cursor: "pointer",
-    transition: "all 0.2s",
-  },
-  uploadText: {
+  subtitle: {
     fontSize: "12px",
     color: "var(--text-secondary)",
-    margin: 0,
+  },
+  uploadRow: {
+    display: "flex",
+    gap: "12px",
+    alignItems: "center",
   },
   button: {
     padding: "10px 16px",
@@ -126,36 +77,86 @@ const styles = {
     cursor: "pointer",
     transition: "all 0.2s",
   },
-  buttonPrimary: {
-    backgroundColor: "var(--accent-cyan)",
-    color: "#000",
-    border: "none",
+  videoSection: {
+    display: "flex",
+    flexDirection: "column" as const,
+    gap: "12px",
   },
-  buttonDisabled: {
-    opacity: 0.5,
-    cursor: "not-allowed",
+  videoContainer: {
+    position: "relative" as const,
+    backgroundColor: "black",
+    borderRadius: "8px",
+    overflow: "hidden",
+    border: "1px solid var(--border-light)",
+    aspectRatio: "16 / 9",
+    width: "100%",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  video: {
+    width: "100%",
+    height: "100%",
+    display: "block",
+  },
+  canvas: {
+    position: "absolute" as const,
+    top: 0,
+    left: 0,
+    width: "100%",
+    height: "100%",
   },
   placeholderText: {
     color: "var(--text-muted)",
+    margin: 0,
   },
-  toggleGroup: {
+  controlsRow: {
     display: "flex",
-    flexDirection: "column" as const,
-    gap: "8px",
+    gap: "12px",
+    alignItems: "center",
+    flexWrap: "wrap" as const,
+  },
+  dropdown: {
+    padding: "8px 12px",
+    borderRadius: "6px",
+    fontSize: "13px",
+    border: "1px solid var(--border-light)",
+    backgroundColor: "var(--bg-tertiary)",
+    color: "var(--text-primary)",
+    cursor: "pointer",
+  },
+  divider: {
+    height: "1px",
+    backgroundColor: "var(--border-light)",
+  },
+  togglesRow: {
+    display: "flex",
+    gap: "20px",
+    alignItems: "center",
+    flexWrap: "wrap" as const,
   },
   toggleItem: {
     display: "flex",
     alignItems: "center",
-    gap: "8px",
-    padding: "8px",
-    borderRadius: "4px",
-    backgroundColor: "var(--bg-hover)",
+    gap: "6px",
   },
   toggleLabel: {
     fontSize: "13px",
     color: "var(--text-primary)",
+    userSelect: "none" as const,
+  },
+  fileNameLabel: {
+    fontSize: "12px",
+    color: "var(--text-secondary)",
   },
 } as const;
+
+// ============================================================================
+// Constants
+// ============================================================================
+
+const FPS_OPTIONS = [5, 10, 15, 24, 30, 45, 60];
+const OVERLAY_KEYS = ["players", "tracking", "ball", "pitch", "radar"] as const;
 
 // ============================================================================
 // Component
@@ -166,7 +167,6 @@ export function VideoTracker({ pluginId, toolName }: VideoTrackerProps) {
   // State (generic, not plugin-specific)
   // -------------------------------------------------------------------------
   const [videoFile, setVideoFile] = useState<File | null>(null);
-  const [running, setRunning] = useState(false);
   const [fps, setFps] = useState(30);
   const [device, setDevice] = useState("cpu");
   const [overlayToggles, setOverlayToggles] = useState<OverlayToggles>({
@@ -178,14 +178,24 @@ export function VideoTracker({ pluginId, toolName }: VideoTrackerProps) {
   });
 
   // -------------------------------------------------------------------------
-  // Handlers (placeholder)
+  // Handlers (non-functional stubs)
   // -------------------------------------------------------------------------
 
-  const handleToggle = (
-    key: keyof OverlayToggles,
-    value: boolean
-  ) => {
-    setOverlayToggles((prev) => ({ ...prev, [key]: value }));
+  const handleVideoUpload = () => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = "video/*";
+    input.onchange = (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (file && file.type.startsWith("video/")) {
+        setVideoFile(file);
+      }
+    };
+    input.click();
+  };
+
+  const handleToggle = (key: typeof OVERLAY_KEYS[number]) => {
+    setOverlayToggles((prev) => ({ ...prev, [key]: !prev[key] }));
   };
 
   // -------------------------------------------------------------------------
@@ -197,138 +207,99 @@ export function VideoTracker({ pluginId, toolName }: VideoTrackerProps) {
       {/* Header */}
       <div style={styles.header}>
         <h1 style={styles.title}>VideoTracker</h1>
-        <div style={{ fontSize: "12px", color: "var(--text-secondary)" }}>
+        <div style={styles.subtitle}>
           Plugin: <strong>{pluginId}</strong> | Tool: <strong>{toolName}</strong>
         </div>
       </div>
 
-      <div style={styles.mainGrid}>
-        {/* Control Panel */}
-        <div style={styles.controlPanel}>
-          {/* Video Upload Section */}
-          <div style={styles.controlSection}>
-            <h3 style={styles.sectionTitle}>Video</h3>
-            <div
-              style={styles.uploadArea}
-              onClick={() => {
-                const input = document.createElement("input");
-                input.type = "file";
-                input.accept = "video/*";
-                input.onchange = (e) => {
-                  const file = (e.target as HTMLInputElement).files?.[0];
-                  if (file && file.type.startsWith("video/")) {
-                    setVideoFile(file);
-                  }
-                };
-                input.click();
-              }}
-            >
-              <p style={styles.uploadText}>
-                {videoFile ? `📹 ${videoFile.name}` : "Click to upload video"}
-              </p>
-            </div>
-          </div>
+      {/* Upload Row */}
+      <div style={styles.uploadRow}>
+        <button
+          style={styles.button}
+          onClick={handleVideoUpload}
+        >
+          Upload Video
+        </button>
+        {videoFile && (
+          <span style={styles.fileNameLabel}>
+            📹 {videoFile.name}
+          </span>
+        )}
+      </div>
 
-          {/* FPS Control */}
-          <div style={styles.controlSection}>
-            <h3 style={styles.sectionTitle}>FPS</h3>
-            <input
-              type="range"
-              min="1"
-              max="60"
-              value={fps}
-              onChange={(e) => setFps(Number(e.target.value))}
-              style={{ width: "100%" }}
-            />
-            <span style={{ fontSize: "12px", color: "var(--text-secondary)" }}>
-              {fps} fps
-            </span>
-          </div>
-
-          {/* Device Selection */}
-          <div style={styles.controlSection}>
-            <h3 style={styles.sectionTitle}>Device</h3>
-            <select
-              value={device}
-              onChange={(e) => setDevice(e.target.value)}
-              style={{
-                ...styles.button,
-                padding: "8px 12px",
-              }}
-            >
-              <option value="cpu">CPU</option>
-              <option value="gpu">GPU</option>
-            </select>
-          </div>
-
-          {/* Overlay Toggles */}
-          <div style={styles.controlSection}>
-            <h3 style={styles.sectionTitle}>Overlays</h3>
-            <div style={styles.toggleGroup}>
-              {(Object.keys(overlayToggles) as Array<keyof OverlayToggles>).map(
-                (key) => (
-                  <div key={key} style={styles.toggleItem}>
-                    <input
-                      type="checkbox"
-                      checked={overlayToggles[key]}
-                      onChange={(e) => handleToggle(key, e.target.checked)}
-                      id={`toggle-${key}`}
-                    />
-                    <label
-                      htmlFor={`toggle-${key}`}
-                      style={styles.toggleLabel}
-                    >
-                      {key.charAt(0).toUpperCase() + key.slice(1)}
-                    </label>
-                  </div>
-                )
-              )}
-            </div>
-          </div>
-
-          {/* Placeholder Controls */}
-          <div style={styles.controlSection}>
-            <button
-              style={{
-                ...styles.button,
-                ...styles.buttonPrimary,
-                ...(running ? styles.buttonDisabled : {}),
-              }}
-              onClick={() => setRunning(!running)}
-              disabled={!videoFile || running}
-            >
-              {running ? "Processing..." : "Start"}
-            </button>
-          </div>
-        </div>
-
-        {/* Video Display Section */}
-        <div style={styles.controlSection}>
-          <h3 style={styles.sectionTitle}>Preview</h3>
-          <div style={styles.videoContainer}>
-            {videoFile ? (
+      {/* Video + Canvas Section */}
+      <div style={styles.videoSection}>
+        <div style={styles.videoContainer}>
+          {videoFile ? (
+            <>
               <video
-                style={{
-                  width: "100%",
-                  height: "100%",
-                }}
+                style={styles.video}
                 controls
               />
-            ) : (
-              <p style={styles.placeholderText}>No video selected</p>
-            )}
-          </div>
-
-          {/* Canvas Overlay (placeholder) */}
-          <canvas
-            style={{
-              display: "none",
-              position: "absolute",
-              top: 0,
-              left: 0,
-            }}
-          />
+              <canvas
+                style={styles.canvas}
+                width={0}
+                height={0}
+              />
+            </>
+          ) : (
+            <p style={styles.placeholderText}>No video selected</p>
+          )}
         </div>
+      </div>
+
+      {/* Playback Controls Row */}
+      <div style={styles.controlsRow}>
+        <button style={styles.button}>
+          ▶ Play
+        </button>
+        <button style={styles.button}>
+          ⏸ Pause
+        </button>
+
+        <select
+          value={fps}
+          onChange={(e) => setFps(Number(e.target.value))}
+          style={styles.dropdown}
+        >
+          {FPS_OPTIONS.map((val) => (
+            <option key={val} value={val}>
+              {val} FPS
+            </option>
+          ))}
+        </select>
+
+        <select
+          value={device}
+          onChange={(e) => setDevice(e.target.value)}
+          style={styles.dropdown}
+        >
+          <option value="cpu">CPU</option>
+          <option value="gpu">GPU</option>
+        </select>
+      </div>
+
+      {/* Divider */}
+      <div style={styles.divider} />
+
+      {/* Overlay Toggles Row */}
+      <div style={styles.togglesRow}>
+        {OVERLAY_KEYS.map((key) => (
+          <div key={key} style={styles.toggleItem}>
+            <input
+              type="checkbox"
+              checked={overlayToggles[key]}
+              onChange={() => handleToggle(key)}
+              id={`toggle-${key}`}
+            />
+            <label
+              htmlFor={`toggle-${key}`}
+              style={styles.toggleLabel}
+            >
+              {key.charAt(0).toUpperCase() + key.slice(1)} ✓
+            </label>
+          </div>
+        ))}
       </div>
     </div>
   );
