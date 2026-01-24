@@ -3,31 +3,6 @@
  * Types for real-time video frame processing with plugin tools
  */
 
-export interface ToolInput {
-    type: string;
-    description?: string;
-    default?: unknown;
-}
-
-export interface ToolOutput {
-    type: string;
-    description?: string;
-}
-
-export interface Tool {
-    description: string;
-    inputs: Record<string, ToolInput>;
-    outputs: Record<string, ToolOutput>;
-}
-
-export interface PluginManifest {
-    id: string;
-    name: string;
-    version: string;
-    description: string;
-    tools: Record<string, Tool>;
-}
-
 export interface Detection {
     x: number;
     y: number;
