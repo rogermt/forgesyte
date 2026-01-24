@@ -197,6 +197,21 @@ See `PLUGIN_DEVELOPMENT.md`.
 
 ---
 
+## Scope Guardrails
+
+The following features are **explicitly out of scope** for ForgeSyte and must not be implemented:
+
+- No export  
+- No record button  
+- No model selector  
+- No WebSocket selector  
+
+Any PR adding these features will be rejected.
+
+See `docs/design/video-tool-runner.md` for the canonical Video Tool Runner UI specification.
+
+---
+
 ## Branding
 
 See `BRANDING.md`.
