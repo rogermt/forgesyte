@@ -7,13 +7,14 @@
  * - Stable callbacks with useCallback.
  */
 
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { CameraPreview } from "./components/CameraPreview";
 import { PluginSelector } from "./components/PluginSelector";
 import { JobList } from "./components/JobList";
 import { ResultsPanel } from "./components/ResultsPanel";
 import { useWebSocket, FrameResult } from "./hooks/useWebSocket";
 import { apiClient, Job } from "./api/client";
+import type { PluginManifest } from "./types/plugin";
 
 const WS_BACKEND_URL = import.meta.env.VITE_WS_BACKEND_URL || "ws://localhost:8000";
 
@@ -26,6 +27,7 @@ function App() {
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
   const [uploadResult, setUploadResult] = useState<Job | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [manifest, setManifest] = useState<PluginManifest | null>(null);
 
   const {
     isConnected,
@@ -48,6 +50,28 @@ function App() {
     // Optional: tune UX (prevents flash; defaults already safe)
     reconnectErrorDisplayDelayMs: 800,
   });
+
+  useEffect(() => {
+    if (!selectedPlugin) {
+      setManifest(null);
+      return;
+    }
+
+    async function loadManifest() {
+      try {
+        const response = await fetch(`/plugins/${selectedPlugin}/manifest`);
+        if (!response.ok) throw new Error("Failed to load manifest");
+
+        const json = (await response.json()) as PluginManifest;
+        setManifest(json);
+      } catch (err) {
+        console.error("Manifest load failed:", err);
+        setManifest(null);
+      }
+    }
+
+    loadManifest();
+  }, [selectedPlugin]);
 
   const statusText = useMemo(() => {
     switch (connectionStatus) {
