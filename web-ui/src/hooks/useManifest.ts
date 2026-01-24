@@ -5,7 +5,7 @@
 
 import { useEffect, useState } from "react";
 import { apiClient } from "../api/client";
-import type { PluginManifest } from "../types/video-tracker";
+import type { PluginManifest } from "../types/plugin";
 
 const MANIFEST_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 

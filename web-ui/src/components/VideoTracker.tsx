@@ -201,7 +201,7 @@ export function VideoTracker({ pluginId, toolName }: VideoTrackerProps) {
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [videoSrc, setVideoSrc] = useState<string | null>(null);
   const [fps, setFps] = useState(30);
-  const [device, setDevice] = useState("cuda"); // API uses "cuda"
+  const [device, setDevice] = useState("cpu"); 
   const [running, setRunning] = useState(false);
   const [overlayToggles, setOverlayToggles] = useState<OverlayToggles>({
     players: true,

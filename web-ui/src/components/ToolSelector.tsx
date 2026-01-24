@@ -13,7 +13,7 @@
 
 import { useId, useMemo, useCallback } from "react";
 import { useManifest } from "../hooks/useManifest";
-import type { Tool } from "../types/video-tracker";
+import type { Tool } from "../types/plugin";
 
 // ============================================================================
 // Types

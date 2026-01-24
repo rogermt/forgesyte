@@ -188,7 +188,9 @@ Before Phase 1 begins, ensure:
     - Ball
     - Pitch lines
     - Radar in corner
-  - **Sign‑off:** With mocked data, you see boxes, IDs, ball, pitch, radar.
+  - **Sign‑off:** With mocked data, you see boxes, IDs, ball, pitch, ra
+  
+  dar.
 
 - **Task 5.2 — Wire backend detections → ResultOverlay**
   - **Repo:** `forgesyte`
