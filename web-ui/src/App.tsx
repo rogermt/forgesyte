@@ -12,8 +12,10 @@ import { CameraPreview } from "./components/CameraPreview";
 import { PluginSelector } from "./components/PluginSelector";
 import { JobList } from "./components/JobList";
 import { ResultsPanel } from "./components/ResultsPanel";
+import { VideoTracker } from "./components/VideoTracker";
 import { useWebSocket, FrameResult } from "./hooks/useWebSocket";
 import { apiClient, Job } from "./api/client";
+import { detectToolType } from "./utils/detectToolType";
 import type { PluginManifest } from "./types/plugin";
 
 const WS_BACKEND_URL = import.meta.env.VITE_WS_BACKEND_URL || "ws://localhost:8000";
@@ -23,6 +25,7 @@ type ViewMode = "stream" | "upload" | "jobs";
 function App() {
   const [viewMode, setViewMode] = useState<ViewMode>("stream");
   const [selectedPlugin, setSelectedPlugin] = useState<string>("");
+  const [selectedTool, setSelectedTool] = useState<string>("");
   const [streamEnabled, setStreamEnabled] = useState(false);
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
   const [uploadResult, setUploadResult] = useState<Job | null>(null);
@@ -328,20 +331,37 @@ function App() {
             </div>
           )}
 
-          {viewMode === "upload" && (
+          {viewMode === "upload" && manifest && selectedTool && (
+            <>
+              {detectToolType(manifest, selectedTool) === "frame" ? (
+                <VideoTracker
+                  pluginId={selectedPlugin}
+                  toolName={selectedTool}
+                />
+              ) : (
+                <div style={styles.panel}>
+                  <p>Upload image for analysis</p>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleFileUpload}
+                    disabled={isUploading || !selectedPlugin}
+                  />
+                  {isUploading && <p>Analyzing...</p>}
+                </div>
+              )}
+            </>
+          )}
+
+          {viewMode === "upload" && (!manifest || !selectedTool) && (
             <div style={styles.panel}>
               {!selectedPlugin ? (
-                <p>Select a plugin first to upload an image</p>
+                <p>Select a plugin first</p>
+              ) : !manifest ? (
+                <p>Loading manifest...</p>
               ) : (
-                <p>Upload image for analysis</p>
+                <p>Select a tool</p>
               )}
-              <input
-                type="file"
-                accept="image/*"
-                onChange={handleFileUpload}
-                disabled={isUploading || !selectedPlugin}
-              />
-              {isUploading && <p>Analyzing...</p>}
             </div>
           )}
 
