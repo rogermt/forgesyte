@@ -31,7 +31,7 @@ function mockVideo(readyState = 2) {
 }
 
 describe("useVideoProcessor", () => {
-  let fetchMock: any;
+  let fetchMock: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
     vi.useFakeTimers();
