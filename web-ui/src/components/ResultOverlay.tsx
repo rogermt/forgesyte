@@ -11,7 +11,7 @@
  */
 
 import { useEffect, useRef, useMemo } from "react";
-import type { Detection } from "../types/video-tracker";
+import type { Detection } from "../types/plugin";
 
 // ============================================================================
 // Types

@@ -9,7 +9,7 @@
 import type {
     PluginManifest,
     ToolExecutionResponse,
-} from "../types/video-tracker";
+} from "../types/plugin";
 
 const API_BASE =
     import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE || "/v1";

@@ -1,5 +1,5 @@
 /**
- * VideoTracker Component (Layout Only)
+ * VideoTracker Component
  *
  * This component implements the VideoTracker layout:
  * - Upload video file
@@ -7,11 +7,11 @@
  * - Playback controls (Play, Pause, FPS, Device)
  * - Overlay toggles (Players, Tracking, Ball, Pitch, Radar)
  *
- * Layout only — no backend calls, no processing, no plugin coupling.
- * All controls are non-functional stubs.
+ * Frame processing uses useVideoProcessor hook.
  */
 
-import { useState } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
+import { useVideoProcessor } from "../hooks/useVideoProcessor";
 
 // ============================================================================
 // Types
@@ -76,6 +76,11 @@ const styles = {
     color: "var(--text-primary)",
     cursor: "pointer",
     transition: "all 0.2s",
+  },
+  buttonActive: {
+    backgroundColor: "var(--accent-primary)",
+    color: "white",
+    borderColor: "var(--accent-primary)",
   },
   videoSection: {
     display: "flex",
@@ -149,6 +154,27 @@ const styles = {
     fontSize: "12px",
     color: "var(--text-secondary)",
   },
+  statusRow: {
+    display: "flex",
+    gap: "20px",
+    alignItems: "center",
+    fontSize: "12px",
+    color: "var(--text-secondary)",
+  },
+  statusItem: {
+    display: "flex",
+    alignItems: "center",
+    gap: "6px",
+  },
+  processingIndicator: {
+    width: "8px",
+    height: "8px",
+    borderRadius: "50%",
+    backgroundColor: "var(--accent-warning)",
+  },
+  processingIndicatorActive: {
+    backgroundColor: "var(--accent-success)",
+  },
 } as const;
 
 // ============================================================================
@@ -164,11 +190,19 @@ const OVERLAY_KEYS = ["players", "tracking", "ball", "pitch", "radar"] as const;
 
 export function VideoTracker({ pluginId, toolName }: VideoTrackerProps) {
   // -------------------------------------------------------------------------
-  // State (generic, not plugin-specific)
+  // Refs
+  // -------------------------------------------------------------------------
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  // -------------------------------------------------------------------------
+  // State
   // -------------------------------------------------------------------------
   const [videoFile, setVideoFile] = useState<File | null>(null);
+  const [videoSrc, setVideoSrc] = useState<string | null>(null);
   const [fps, setFps] = useState(30);
-  const [device, setDevice] = useState("cpu");
+  const [device, setDevice] = useState("cpu"); 
+  const [running, setRunning] = useState(false);
   const [overlayToggles, setOverlayToggles] = useState<OverlayToggles>({
     players: true,
     tracking: true,
@@ -178,21 +212,68 @@ export function VideoTracker({ pluginId, toolName }: VideoTrackerProps) {
   });
 
   // -------------------------------------------------------------------------
-  // Handlers (non-functional stubs)
+  // Video processing hook
+  // -------------------------------------------------------------------------
+  // Note: latestResult is available for future overlay rendering (Task 5.1)
+  const {
+    processing,
+    error,
+    lastRequestDuration,
+  } = useVideoProcessor({
+    videoRef,
+    pluginId,
+    toolName,
+    fps,
+    device,
+    enabled: running,
+  });
+
+  // -------------------------------------------------------------------------
+  // Effects
   // -------------------------------------------------------------------------
 
-  const handleVideoUpload = () => {
+  // Revoke blob URL on cleanup
+  useEffect(() => {
+    return () => {
+      if (videoSrc) {
+        URL.revokeObjectURL(videoSrc);
+      }
+    };
+  }, [videoSrc]);
+
+  // -------------------------------------------------------------------------
+  // Handlers
+  // -------------------------------------------------------------------------
+
+  const handleVideoUpload = useCallback(() => {
     const input = document.createElement("input");
     input.type = "file";
     input.accept = "video/*";
     input.onchange = (e) => {
       const file = (e.target as HTMLInputElement).files?.[0];
       if (file && file.type.startsWith("video/")) {
+        // Revoke previous URL if exists
+        if (videoSrc) {
+          URL.revokeObjectURL(videoSrc);
+        }
+        const newSrc = URL.createObjectURL(file);
         setVideoFile(file);
+        setVideoSrc(newSrc);
+        setRunning(false); // Stop processing on new video
       }
     };
     input.click();
-  };
+  }, [videoSrc]);
+
+  const handlePlay = useCallback(() => {
+    setRunning(true);
+    videoRef.current?.play();
+  }, []);
+
+  const handlePause = useCallback(() => {
+    setRunning(false);
+    videoRef.current?.pause();
+  }, []);
 
   const handleToggle = (key: typeof OVERLAY_KEYS[number]) => {
     setOverlayToggles((prev) => ({ ...prev, [key]: !prev[key] }));
@@ -227,16 +308,45 @@ export function VideoTracker({ pluginId, toolName }: VideoTrackerProps) {
         )}
       </div>
 
+      {/* Status Row */}
+      {videoFile && (
+        <div style={styles.statusRow}>
+          <div style={styles.statusItem}>
+            <div
+              style={{
+                ...styles.processingIndicator,
+                ...(processing ? styles.processingIndicatorActive : {}),
+              }}
+            />
+            <span>{processing ? "Processing..." : "Idle"}</span>
+          </div>
+          {lastRequestDuration !== null && (
+            <div style={styles.statusItem}>
+              <span>Last request: {lastRequestDuration.toFixed(0)}ms</span>
+            </div>
+          )}
+          {error && (
+            <div style={styles.statusItem}>
+              <span style={{ color: "var(--accent-danger)" }}>Error: {error}</span>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Video + Canvas Section */}
       <div style={styles.videoSection}>
         <div style={styles.videoContainer}>
-          {videoFile ? (
+          {videoFile && videoSrc ? (
             <>
               <video
+                ref={videoRef}
                 style={styles.video}
+                src={videoSrc}
                 controls
+                playsInline
               />
               <canvas
+                ref={canvasRef}
                 style={styles.canvas}
                 width={0}
                 height={0}
@@ -250,10 +360,18 @@ export function VideoTracker({ pluginId, toolName }: VideoTrackerProps) {
 
       {/* Playback Controls Row */}
       <div style={styles.controlsRow}>
-        <button style={styles.button}>
+        <button
+          style={{ ...styles.button, ...(running ? styles.buttonActive : {}) }}
+          onClick={handlePlay}
+          disabled={!videoFile}
+        >
           ▶ Play
         </button>
-        <button style={styles.button}>
+        <button
+          style={styles.button}
+          onClick={handlePause}
+          disabled={!videoFile}
+        >
           ⏸ Pause
         </button>
 
@@ -261,6 +379,7 @@ export function VideoTracker({ pluginId, toolName }: VideoTrackerProps) {
           value={fps}
           onChange={(e) => setFps(Number(e.target.value))}
           style={styles.dropdown}
+          disabled={!videoFile}
         >
           {FPS_OPTIONS.map((val) => (
             <option key={val} value={val}>
@@ -273,9 +392,10 @@ export function VideoTracker({ pluginId, toolName }: VideoTrackerProps) {
           value={device}
           onChange={(e) => setDevice(e.target.value)}
           style={styles.dropdown}
+          disabled={!videoFile}
         >
+          <option value="cuda">GPU</option>
           <option value="cpu">CPU</option>
-          <option value="gpu">GPU</option>
         </select>
       </div>
 
@@ -291,6 +411,7 @@ export function VideoTracker({ pluginId, toolName }: VideoTrackerProps) {
               checked={overlayToggles[key]}
               onChange={() => handleToggle(key)}
               id={`toggle-${key}`}
+              disabled={!videoFile}
             />
             <label
               htmlFor={`toggle-${key}`}
@@ -306,3 +427,4 @@ export function VideoTracker({ pluginId, toolName }: VideoTrackerProps) {
 }
 
 export default VideoTracker;
+
