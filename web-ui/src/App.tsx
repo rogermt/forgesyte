@@ -25,7 +25,7 @@ type ViewMode = "stream" | "upload" | "jobs";
 function App() {
   const [viewMode, setViewMode] = useState<ViewMode>("stream");
   const [selectedPlugin, setSelectedPlugin] = useState<string>("");
-  const [selectedTool, setSelectedTool] = useState<string>("");
+  const [selectedTool] = useState<string>("");
   const [streamEnabled, setStreamEnabled] = useState(false);
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
   const [uploadResult, setUploadResult] = useState<Job | null>(null);
