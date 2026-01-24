@@ -1,32 +1,37 @@
-You’re right to be angry—that feeling of “I gave you the map and you still drove into a ditch” is real.
+Implementation plan for a frame-based video tracking tool runner UI that processes video files frame-by-frame using YOLO tracking plugins.
 
-Let’s do what should’ve been done from the start: a **phased plan**, broken into **small, reviewable tasks**, each with **clear sign‑off criteria**. No “Week 4”, no vague blobs—just concrete steps you can approve one by one.
+**UI code uses `web-ui/src/` (with hyphen)** - All references updated accordingly.
 
-I’ll assume the current reality is:
+## Verification Requirement
 
-- `forgesyte` = monorepo (Python server + React UI)  
-- `forgesyte-plugins` = plugin repo (YOLO tracker etc.)  
-- The Video Tool Runner does **not** exist in working form.
+Before Phase 1 begins, ensure:
+- `docs/video-tool-runner.md` exists
+- The ASCII diagram matches the approved version exactly
+
+**Current Reality:**
+- `forgesyte` = monorepo (Python server + React UI)
+- `forgesyte-plugins` = plugin repo (YOLO tracker etc.)
+- The Video Tool Runner does **not** exist in working form
 
 ---
 
 ### Phase 0 — Ground truth & guardrails
 
-**Goal:** Make sure no one can “interpret” the spec again.
+**Goal:** Make sure no one can "interpret" the spec again.
 
 - **Task 0.1 — Lock the UI diagram into the repo**
   - **Repo:** `forgesyte`
   - Add `docs/video-tool-runner.md` with the ASCII diagram you pasted and a short description.
   - **Sign‑off:** File exists, diagram matches exactly, no mention of export/record/extra features.
 
-- **Task 0.2 — Add “scope guard” note**
+- **Task 0.2 — Add "scope guard" note**
   - **Repo:** `forgesyte`
-  - In that doc, add a short “Out of scope” section:
+  - In that doc, add a short "Out of scope" section:
     - No export
     - No record button
     - No model selector
     - No WS selector
-  - **Sign‑off:** You read it and agree “yes, this is the only scope”.
+  - **Sign‑off:** You read it and agree "yes, this is the only scope".
 
 ---
 
@@ -48,17 +53,17 @@ I’ll assume the current reality is:
   - Script (Python or Node) that:
     - Loads the manifest
     - Asserts `frame_base64` exists for the chosen tool
-  - **Sign‑off:** Running the script prints “OK” or exits with error if broken.
+  - **Sign‑off:** Running the script prints "OK" or exits with error if broken.
 
 ---
 
-### Phase 2 — App.tsx: manifest + tool type only
+### Phase 2 — App.tsx: manifest + tool type detection
 
-**Goal:** App.tsx knows which tool is frame‑based and routes to a placeholder VideoTracker.
+**Goal:** App.tsx knows which tool is frame‑based and routes to VideoTracker.
 
 - **Task 2.1 — Add `PluginManifest` type**
   - **Repo:** `forgesyte`
-  - File: `webui/src/types/plugin.ts` (or similar)
+  - File: `web-ui/src/types/plugin.ts` (or similar)
   - Define:
     ```ts
     export interface PluginManifest {
@@ -73,7 +78,7 @@ I’ll assume the current reality is:
 
 - **Task 2.2 — Manifest state + loader in App.tsx**
   - **Repo:** `forgesyte`
-  - File: `webui/src/App.tsx`
+  - File: `web-ui/src/App.tsx`
   - Add:
     - `const [manifest, setManifest] = useState<PluginManifest | null>(null);`
     - `useEffect` that fetches `/plugins/{selectedPlugin}/manifest`, sets `manifest` or `null` on error.
@@ -82,9 +87,9 @@ I’ll assume the current reality is:
     - `try/catch`
     - `setManifest(null)` on failure
 
-- **Task 2.3 — `detectToolType` utility**
+- **Task 2.3 — `detectToolType` implementation**
   - **Repo:** `forgesyte`
-  - File: `webui/src/utils/detectToolType.ts`
+  - File: `web-ui/src/utils/detectToolType.ts`
   - Logic:
     ```ts
     if ("stream_id" in inputs) return "stream";
@@ -95,9 +100,9 @@ I’ll assume the current reality is:
 
 - **Task 2.4 — Route to `<VideoTracker>` placeholder**
   - **Repo:** `forgesyte`
-  - File: `webui/src/App.tsx`
+  - File: `web-ui/src/App.tsx`
   - If `toolType === "frame"`, render `<VideoTracker pluginId={selectedPlugin} toolName={selectedTool} />`.
-  - For now, VideoTracker can just render “VideoTracker placeholder”.
+  - For now, VideoTracker can just render "VideoTracker placeholder".
   - **Sign‑off:** Selecting the YOLO tool shows the placeholder component.
 
 ---
@@ -108,7 +113,7 @@ I’ll assume the current reality is:
 
 - **Task 3.1 — Create `VideoTracker.tsx`**
   - **Repo:** `forgesyte`
-  - File: `webui/src/components/VideoTracker.tsx`
+  - File: `web-ui/src/components/VideoTracker.tsx`
   - Props:
     ```ts
     interface VideoTrackerProps {
@@ -134,7 +139,7 @@ I’ll assume the current reality is:
     - Controls row:
       - [Play] [Pause] [FPS ▼] [Device ▼]
       - [Players ✓] [Tracking ✓] [Ball ✓] [Pitch ✓] [Radar ✓]
-  - **Sign‑off:** Visually matches your ASCII diagram (even if controls don’t do anything yet).
+  - **Sign‑off:** Visually matches your ASCII diagram (even if controls don't do anything yet).
 
 ---
 
@@ -144,7 +149,7 @@ I’ll assume the current reality is:
 
 - **Task 4.1 — `useVideoProcessor` hook**
   - **Repo:** `forgesyte`
-  - File: `webui/src/hooks/useVideoProcessor.ts`
+  - File: `web-ui/src/hooks/useVideoProcessor.ts`
   - Responsibilities:
     - Given `<video>` and current settings:
       - Extract current frame as base64
@@ -171,7 +176,7 @@ I’ll assume the current reality is:
 
 - **Task 5.1 — `ResultOverlay` module**
   - **Repo:** `forgesyte`
-  - File: `webui/src/components/ResultOverlay.ts`
+  - File: `web-ui/src/components/ResultOverlay.ts`
   - Given:
     - `canvas`
     - `frameWidth`, `frameHeight`
@@ -206,11 +211,11 @@ I’ll assume the current reality is:
 
 - **Task 6.3 — Overlay toggles**
   - Each toggle hides/shows its layer.
-  - **Sign‑off:** Toggling “Players” hides/shows boxes, etc.
+  - **Sign‑off:** Toggling "Players" hides/shows boxes, etc.
 
 ---
 
-### Phase 7 — Hard “no drift” check
+### Phase 7 — Hard "no drift" check
 
 **Goal:** Ensure no one sneaks in extra features.
 
@@ -225,3 +230,67 @@ I’ll assume the current reality is:
   - **Sign‑off:** You literally grep the repo and confirm.
 
 ---
+
+## API Contract
+
+### POST /plugins/run
+
+**Request**
+```json
+{
+  "plugin_id": "forgesyte_yolo_tracker",
+  "tool_name": "track_objects",
+  "inputs": {
+    "frame_base64": "data:image/jpeg;base64,...",
+    "device": "cuda",
+    "annotated": false
+  }
+}
+```
+
+**Response (success)**
+```json
+{
+  "success": true,
+  "result": {
+    "detections": [],
+    "pitch": {},
+    "radar": {}
+  }
+}
+```
+
+**Response (error)**
+```json
+{
+  "success": false,
+  "error": "Error message",
+  "error_code": "VALIDATION_ERROR"
+}
+```
+
+---
+
+## Performance Strategy
+
+- Use requestAnimationFrame for playback loop
+- Throttle based on FPS selector
+- Only one in-flight backend request at a time
+- Convert frames to base64 on-demand
+- Clear detection buffer on seek
+- Keep only last N frames for tracking fade
+- Retry transient backend errors gracefully
+
+---
+
+## Test Coverage Requirements
+
+- Unit tests required:
+  - detectToolType
+  - useVideoProcessor
+  - ResultOverlay
+- Integration tests required:
+  - Video playback flow
+  - API integration
+- Coverage target: 80%
+
