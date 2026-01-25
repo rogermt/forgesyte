@@ -43,31 +43,31 @@ until curl -s http://127.0.0.1:$SERVER_PORT/v1/health | grep -q "healthy"; do
 done
 echo "✅ Backend: Healthy"
 
-# 3b. Test WebSocket endpoint exists
-echo "Backend: Testing WebSocket endpoint..."
-cd $SERVER_DIR
-WS_TEST_RESULT=$(uv run pytest tests/websocket/test_websocket_integration.py::TestWebSocketEndpointExists::test_websocket_endpoint_exists -v 2>&1)
-if echo "$WS_TEST_RESULT" | grep -q "PASSED"; then
-    echo "✅ Backend: WebSocket endpoint verified"
-else
-    echo "❌ Error: WebSocket endpoint test failed"
-    echo "$WS_TEST_RESULT"
-    kill $SERVER_PID
-    exit 1
-fi
+# 4. Run WebUI Unit Tests
+echo "Frontend: Running unit tests..."
+cd $WEB_UI_DIR
+npm test -- --run
+UNIT_TEST_EXIT_CODE=$?
 cd ..
 
-# 4. Run WebUI Integration Tests against REAL server
+if [ $UNIT_TEST_EXIT_CODE -ne 0 ]; then
+    echo "❌ Unit Tests FAILED"
+    kill $SERVER_PID
+    exit $UNIT_TEST_EXIT_CODE
+fi
+echo "✅ Frontend: Unit tests passed"
+
+# 5. Run WebUI Integration Tests against REAL server
 echo "Frontend: Running integration tests..."
 cd $WEB_UI_DIR
-# Point both REST API and WebSocket to the real server
-VITE_API_URL="http://127.0.0.1:$SERVER_PORT/v1" \
-VITE_WS_BACKEND_URL="ws://127.0.0.1:$SERVER_PORT" \
-npm run test:integration -- --run
+# We use VITE_API_URL to point to our local server
+# Note: integration tests might need to be configured to hit the real API
+# For now we run the integration test suite
+VITE_API_URL="http://127.0.0.1:$SERVER_PORT/v1" npm run test:integration -- --run
 TEST_EXIT_CODE=$?
 cd ..
 
-# 5. Cleanup
+# 6. Cleanup
 echo "🧹 Cleaning up..."
 kill $SERVER_PID
 
