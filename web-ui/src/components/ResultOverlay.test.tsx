@@ -419,9 +419,6 @@ describe("ResultOverlay", () => {
 
     const mockRadarBase64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
 
-    // Create a ref to track radar loading
-    const radarRef = { current: null as HTMLImageElement | null };
-    
     const { rerender } = render(
       <ResultOverlay
         width={640}
