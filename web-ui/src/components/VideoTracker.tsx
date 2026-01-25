@@ -12,7 +12,8 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useVideoProcessor } from "../hooks/useVideoProcessor";
-import { ResultOverlay } from "./ResultOverlay";
+import { drawDetections } from "./ResultOverlay";
+import type { Detection } from "../types/plugin";
 
 // ============================================================================
 // Types
@@ -252,13 +253,21 @@ export function VideoTracker({ pluginId, toolName }: VideoTrackerProps) {
     canvasRef.current.width = videoRef.current.videoWidth;
     canvasRef.current.height = videoRef.current.videoHeight;
 
-    ResultOverlay({
+    // Extract detections array from the result
+    // The API returns { detections: Detection[] } or Detection[] directly
+    const detections = Array.isArray(latestResult)
+      ? latestResult
+      : (latestResult as Record<string, unknown>).detections as Detection[];
+
+    if (!detections || detections.length === 0) return;
+
+    drawDetections({
       canvas: canvasRef.current,
-      frameWidth: videoRef.current.videoWidth,
-      frameHeight: videoRef.current.videoHeight,
-      detections: latestResult,
-      buffer,
-      overlayToggles,
+      detections,
+      width: videoRef.current.videoWidth,
+      height: videoRef.current.videoHeight,
+      showLabels: overlayToggles.players,
+      showConfidence: overlayToggles.tracking,
     });
   }, [latestResult, buffer, overlayToggles]);
 
