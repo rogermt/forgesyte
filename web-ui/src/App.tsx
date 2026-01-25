@@ -69,20 +69,20 @@ function App() {
       setManifestError(null);
 
       try {
-        const response = await fetch(`/plugins/${selectedPlugin}/manifest`);
-        
-        if (!response.ok) {
-          const errorText = await response.text();
-          throw new Error(`Failed to load manifest (HTTP ${response.status}): ${errorText}`);
-        }
-
-        const json = (await response.json()) as PluginManifest;
-        setManifest(json);
+        // Use API client for consistent error handling
+        const manifestData = await apiClient.getPluginManifest(selectedPlugin);
+        setManifest(manifestData);
         setManifestError(null);
+        console.log("[App] Manifest loaded successfully for plugin:", selectedPlugin);
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : "Unknown error loading manifest";
         console.error("Manifest load failed:", errorMessage);
-        setManifestError(errorMessage);
+        // Check if it's a JSON parse error (HTML response)
+        if (errorMessage.includes("<!DOCTYPE") || errorMessage.includes("Unexpected token")) {
+          setManifestError("Server returned HTML instead of JSON. Check that the server is running and the plugin exists.");
+        } else {
+          setManifestError(errorMessage);
+        }
         setManifest(null);
       } finally {
         setManifestLoading(false);
