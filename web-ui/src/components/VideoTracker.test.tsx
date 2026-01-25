@@ -11,6 +11,7 @@
  * - No plugin coupling
  * - ResultOverlay wiring
  * - FPS selector integration
+ * - Device selector integration (Task 6.2)
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
@@ -135,20 +136,25 @@ describe("VideoTracker (Layout Only)", () => {
   });
 
   // =========================================================================
-  // Device Dropdown
+  // Device Dropdown (Task 6.2)
   // =========================================================================
 
   it("renders Device dropdown with CPU/GPU options", () => {
     render(<VideoTracker {...defaultProps} />);
-    const deviceSelect = screen.getByDisplayValue("CPU") as HTMLSelectElement;
+    const deviceSelect = screen.getByLabelText("Device") as HTMLSelectElement;
     const values = Array.from(deviceSelect.options).map((opt) => opt.value);
     expect(values).toContain("cpu");
-    expect(values).toContain("gpu");
+    expect(values).toContain("cuda");
   });
 
   it("Device defaults to CPU", () => {
     render(<VideoTracker {...defaultProps} />);
     expect(screen.getByDisplayValue("CPU")).toHaveValue("cpu");
+  });
+
+  it("Device dropdown has aria-label for accessibility", () => {
+    render(<VideoTracker {...defaultProps} />);
+    expect(screen.getByLabelText("Device")).toBeInTheDocument();
   });
 
   // =========================================================================
@@ -267,7 +273,7 @@ describe("FPS selector integration", () => {
     );
 
     // Click Play to start processing
-    fireEvent.click(screen.getByText(/▶ Play/));
+    fireEvent.click(screen.getByRole("button", { name: /Play/ }));
 
     // Should still be called with fps: 30 and enabled: true
     expect(mockUseVideoProcessor).toHaveBeenCalledWith(
@@ -298,7 +304,7 @@ describe("FPS selector integration", () => {
   it("does not create duplicate calls when FPS changes repeatedly", () => {
     render(<VideoTracker pluginId="p" toolName="t" />);
 
-    fireEvent.click(screen.getByText(/▶ Play/));
+    fireEvent.click(screen.getByRole("button", { name: /Play/ }));
 
     // Clear mock calls to focus on FPS changes
     mockUseVideoProcessor.mockClear();
@@ -331,7 +337,7 @@ describe("FPS selector integration", () => {
     expect(initialCall.fps).toBe(30);
 
     // Click Play
-    fireEvent.click(screen.getByText(/▶ Play/));
+    fireEvent.click(screen.getByRole("button", { name: /Play/ }));
     const playCall = mockUseVideoProcessor.mock.calls[mockUseVideoProcessor.mock.calls.length - 1][0] as Record<string, unknown>;
     expect(playCall.enabled).toBe(true);
     expect(playCall.fps).toBe(30);
@@ -345,10 +351,119 @@ describe("FPS selector integration", () => {
     expect(fpsChangeCall.fps).toBe(10);
 
     // Click Pause
-    fireEvent.click(screen.getByText(/⏸ Pause/));
+    fireEvent.click(screen.getByRole("button", { name: /Pause/ }));
     const pauseCall = mockUseVideoProcessor.mock.calls[mockUseVideoProcessor.mock.calls.length - 1][0] as Record<string, unknown>;
     expect(pauseCall.enabled).toBe(false);
     expect(pauseCall.fps).toBe(10);
+  });
+});
+
+// ============================================================================
+// Task 6.2: Device Selector Integration Tests
+// ============================================================================
+
+describe("Device selector integration", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    mockUseVideoProcessor.mockClear();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+
+  it("passes device to useVideoProcessor hook", () => {
+    render(<VideoTracker pluginId="p" toolName="t" />);
+
+    // Initial render with default device = cpu
+    expect(mockUseVideoProcessor).toHaveBeenCalledWith(
+      expect.objectContaining({ device: "cpu" })
+    );
+
+    // Click Play to start processing
+    fireEvent.click(screen.getByRole("button", { name: /Play/ }));
+
+    // Should still be called with device: cpu and enabled: true
+    expect(mockUseVideoProcessor).toHaveBeenCalledWith(
+      expect.objectContaining({ device: "cpu", enabled: true })
+    );
+
+    // Change device to cuda
+    fireEvent.change(screen.getByLabelText("Device"), {
+      target: { value: "cuda" },
+    });
+
+    // Hook should be called with device: cuda
+    expect(mockUseVideoProcessor).toHaveBeenCalledWith(
+      expect.objectContaining({ device: "cuda" })
+    );
+
+    // Change device back to cpu
+    fireEvent.change(screen.getByLabelText("Device"), {
+      target: { value: "cpu" },
+    });
+
+    // Hook should be called with device: cpu
+    expect(mockUseVideoProcessor).toHaveBeenCalledWith(
+      expect.objectContaining({ device: "cpu" })
+    );
+  });
+
+  it("does not create duplicate calls when device changes repeatedly", () => {
+    render(<VideoTracker pluginId="p" toolName="t" />);
+
+    fireEvent.click(screen.getByRole("button", { name: /Play/ }));
+
+    // Clear mock calls to focus on device changes
+    mockUseVideoProcessor.mockClear();
+
+    // Change device multiple times rapidly
+    fireEvent.change(screen.getByLabelText("Device"), {
+      target: { value: "cuda" },
+    });
+    fireEvent.change(screen.getByLabelText("Device"), {
+      target: { value: "cpu" },
+    });
+    fireEvent.change(screen.getByLabelText("Device"), {
+      target: { value: "cuda" },
+    });
+
+    // Should only have 3 calls (one per device change), not accumulated
+    expect(mockUseVideoProcessor).toHaveBeenCalledTimes(3);
+
+    // Verify the last call was with device: cuda
+    const lastCall = mockUseVideoProcessor.mock.calls[mockUseVideoProcessor.mock.calls.length - 1][0] as Record<string, unknown>;
+    expect(lastCall.device).toBe("cuda");
+  });
+
+  it("passes correct enabled state with device", () => {
+    render(<VideoTracker pluginId="p" toolName="t" />);
+
+    // Initially not running, so enabled should be false
+    const initialCall = mockUseVideoProcessor.mock.calls[0][0] as Record<string, unknown>;
+    expect(initialCall.enabled).toBe(false);
+    expect(initialCall.device).toBe("cpu");
+
+    // Click Play
+    fireEvent.click(screen.getByRole("button", { name: /Play/ }));
+    const playCall = mockUseVideoProcessor.mock.calls[mockUseVideoProcessor.mock.calls.length - 1][0] as Record<string, unknown>;
+    expect(playCall.enabled).toBe(true);
+    expect(playCall.device).toBe("cpu");
+
+    // Change device to cuda while running
+    fireEvent.change(screen.getByLabelText("Device"), {
+      target: { value: "cuda" },
+    });
+    const deviceChangeCall = mockUseVideoProcessor.mock.calls[mockUseVideoProcessor.mock.calls.length - 1][0] as Record<string, unknown>;
+    expect(deviceChangeCall.enabled).toBe(true);
+    expect(deviceChangeCall.device).toBe("cuda");
+
+    // Click Pause
+    fireEvent.click(screen.getByRole("button", { name: /Pause/ }));
+    const pauseCall = mockUseVideoProcessor.mock.calls[mockUseVideoProcessor.mock.calls.length - 1][0] as Record<string, unknown>;
+    expect(pauseCall.enabled).toBe(false);
+    expect(pauseCall.device).toBe("cuda");
   });
 });
 

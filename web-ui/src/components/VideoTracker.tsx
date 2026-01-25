@@ -203,7 +203,7 @@ export function VideoTracker({ pluginId, toolName }: VideoTrackerProps) {
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [videoSrc, setVideoSrc] = useState<string | null>(null);
   const [fps, setFps] = useState(30);
-  const [device, setDevice] = useState("cpu"); 
+  const [device, setDevice] = useState<"cpu" | "cuda">("cpu");
   const [running, setRunning] = useState(false);
   const [overlayToggles, setOverlayToggles] = useState<OverlayToggles>({
     players: true,
@@ -333,7 +333,7 @@ export function VideoTracker({ pluginId, toolName }: VideoTrackerProps) {
         </button>
         {videoFile && (
           <span style={styles.fileNameLabel}>
-            📹 {videoFile.name}
+            {videoFile.name}
           </span>
         )}
       </div>
@@ -392,13 +392,13 @@ export function VideoTracker({ pluginId, toolName }: VideoTrackerProps) {
           style={{ ...styles.button, ...(running ? styles.buttonActive : {}) }}
           onClick={handlePlay}
         >
-          ▶ Play
+          Play
         </button>
         <button
           style={styles.button}
           onClick={handlePause}
         >
-          ⏸ Pause
+          Pause
         </button>
 
         <select
@@ -415,13 +415,14 @@ export function VideoTracker({ pluginId, toolName }: VideoTrackerProps) {
         </select>
 
         <select
+          aria-label="Device"
           value={device}
-          onChange={(e) => setDevice(e.target.value)}
+          onChange={(e) => setDevice(e.target.value as "cpu" | "cuda")}
           style={styles.dropdown}
           disabled={!videoFile}
         >
-          <option value="gpu">GPU</option>
           <option value="cpu">CPU</option>
+          <option value="cuda">GPU</option>
         </select>
       </div>
 
@@ -443,7 +444,7 @@ export function VideoTracker({ pluginId, toolName }: VideoTrackerProps) {
               htmlFor={`toggle-${key}`}
               style={styles.toggleLabel}
             >
-              {key.charAt(0).toUpperCase() + key.slice(1)} ✓
+              {key.charAt(0).toUpperCase() + key.slice(1)}
             </label>
           </div>
         ))}
