@@ -1,6 +1,6 @@
 export interface ToolParameter {
   type: string;
-  default?: any;
+  default?: unknown;
   description?: string;
 }
 
@@ -28,8 +28,10 @@ export interface Detection {
   track_id?: number;
 }
 
+export type PluginResult = unknown;
+
 export interface ToolExecutionResponse {
   success: boolean;
-  result: any;
+  result: PluginResult;
   error?: string;
 }

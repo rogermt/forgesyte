@@ -12,6 +12,7 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useVideoProcessor } from "../hooks/useVideoProcessor";
+import { ResultOverlay } from "./ResultOverlay";
 
 // ============================================================================
 // Types
@@ -214,8 +215,9 @@ export function VideoTracker({ pluginId, toolName }: VideoTrackerProps) {
   // -------------------------------------------------------------------------
   // Video processing hook
   // -------------------------------------------------------------------------
-  // Note: latestResult is available for future overlay rendering (Task 5.1)
   const {
+    latestResult,
+    buffer,
     processing,
     error,
     lastRequestDuration,
@@ -240,6 +242,25 @@ export function VideoTracker({ pluginId, toolName }: VideoTrackerProps) {
       }
     };
   }, [videoSrc]);
+
+  // Draw overlay when latestResult changes
+  useEffect(() => {
+    if (!canvasRef.current || !videoRef.current) return;
+    if (!latestResult) return;
+
+    // Ensure canvas matches video resolution
+    canvasRef.current.width = videoRef.current.videoWidth;
+    canvasRef.current.height = videoRef.current.videoHeight;
+
+    ResultOverlay({
+      canvas: canvasRef.current,
+      frameWidth: videoRef.current.videoWidth,
+      frameHeight: videoRef.current.videoHeight,
+      detections: latestResult,
+      buffer,
+      overlayToggles,
+    });
+  }, [latestResult, buffer, overlayToggles]);
 
   // -------------------------------------------------------------------------
   // Handlers
@@ -348,8 +369,6 @@ export function VideoTracker({ pluginId, toolName }: VideoTrackerProps) {
               <canvas
                 ref={canvasRef}
                 style={styles.canvas}
-                width={0}
-                height={0}
               />
             </>
           ) : (
@@ -363,14 +382,12 @@ export function VideoTracker({ pluginId, toolName }: VideoTrackerProps) {
         <button
           style={{ ...styles.button, ...(running ? styles.buttonActive : {}) }}
           onClick={handlePlay}
-          disabled={!videoFile}
         >
           ▶ Play
         </button>
         <button
           style={styles.button}
           onClick={handlePause}
-          disabled={!videoFile}
         >
           ⏸ Pause
         </button>
@@ -394,7 +411,7 @@ export function VideoTracker({ pluginId, toolName }: VideoTrackerProps) {
           style={styles.dropdown}
           disabled={!videoFile}
         >
-          <option value="cuda">GPU</option>
+          <option value="gpu">GPU</option>
           <option value="cpu">CPU</option>
         </select>
       </div>
