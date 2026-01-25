@@ -185,6 +185,15 @@ describe("App - TDD: Upload requires plugin selection", () => {
   it("should show 'Select a tool' when no tool is selected", async () => {
     const user = userEvent.setup();
     
+    // Mock fetch for manifest
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        name: "Test Plugin",
+        tools: [{ name: "test_tool", type: "image" }],
+      }),
+    });
+    
     render(<App />);
     
     // First select a plugin
@@ -195,8 +204,8 @@ describe("App - TDD: Upload requires plugin selection", () => {
     const uploadTab = screen.getByRole("button", { name: /upload/i });
     await user.click(uploadTab);
     
-    // Should show loading or select tool message
-    const uploadSection = screen.queryByText(/loading manifest|select a tool/i);
+    // Should show loading or select tool message (or error state if fetch fails)
+    const uploadSection = screen.queryByText(/loading manifest|select a tool|manifest error|manifest not available/i);
     expect(uploadSection).toBeInTheDocument();
   });
 

@@ -31,6 +31,8 @@ function App() {
   const [uploadResult, setUploadResult] = useState<Job | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [manifest, setManifest] = useState<PluginManifest | null>(null);
+  const [manifestError, setManifestError] = useState<string | null>(null);
+  const [manifestLoading, setManifestLoading] = useState(false);
 
   const {
     isConnected,
@@ -57,19 +59,33 @@ function App() {
   useEffect(() => {
     if (!selectedPlugin) {
       setManifest(null);
+      setManifestError(null);
+      setManifestLoading(false);
       return;
     }
 
     async function loadManifest() {
+      setManifestLoading(true);
+      setManifestError(null);
+
       try {
         const response = await fetch(`/plugins/${selectedPlugin}/manifest`);
-        if (!response.ok) throw new Error("Failed to load manifest");
+        
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`Failed to load manifest (HTTP ${response.status}): ${errorText}`);
+        }
 
         const json = (await response.json()) as PluginManifest;
         setManifest(json);
+        setManifestError(null);
       } catch (err) {
-        console.error("Manifest load failed:", err);
+        const errorMessage = err instanceof Error ? err.message : "Unknown error loading manifest";
+        console.error("Manifest load failed:", errorMessage);
+        setManifestError(errorMessage);
         setManifest(null);
+      } finally {
+        setManifestLoading(false);
       }
     }
 
@@ -357,11 +373,24 @@ function App() {
             <div style={styles.panel}>
               {!selectedPlugin ? (
                 <p>Select a plugin first</p>
-              ) : !manifest ? (
+              ) : manifestError ? (
+                <div style={styles.errorBox}>
+                  <strong>Manifest Error:</strong>
+                  <br />
+                  {manifestError}
+                  <br />
+                  <br />
+                  <small>
+                    Check that the plugin is loaded and the server is running.
+                  </small>
+                </div>
+              ) : manifestLoading ? (
                 <p>Loading manifest...</p>
-              ) : (
+              ) : !manifest ? (
+                <p>Manifest not available</p>
+              ) : !selectedTool ? (
                 <p>Select a tool</p>
-              )}
+              ) : null}
             </div>
           )}
 
