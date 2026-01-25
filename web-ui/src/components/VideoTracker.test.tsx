@@ -467,3 +467,153 @@ describe("Device selector integration", () => {
   });
 });
 
+// ============================================================================
+// Task 6.3: Overlay Toggles Integration Tests
+// ============================================================================
+
+describe("Overlay toggles integration", () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("toggles players layer on/off", () => {
+    render(<VideoTracker pluginId="p" toolName="t" />);
+
+    // Initial state: players toggle should be checked
+    const playersToggle = screen.getByLabelText(/players/i);
+    expect(playersToggle).toBeChecked();
+
+    // Click to toggle players off
+    fireEvent.click(playersToggle);
+
+    // Should now be unchecked
+    expect(playersToggle).not.toBeChecked();
+  });
+
+  it("toggles tracking layer on/off", () => {
+    render(<VideoTracker pluginId="p" toolName="t" />);
+
+    // Initial state: tracking toggle should be checked
+    const trackingToggle = screen.getByLabelText(/tracking/i);
+    expect(trackingToggle).toBeChecked();
+
+    // Click to toggle tracking off
+    fireEvent.click(trackingToggle);
+
+    // Should now be unchecked
+    expect(trackingToggle).not.toBeChecked();
+  });
+
+  it("toggles ball layer on/off", () => {
+    render(<VideoTracker pluginId="p" toolName="t" />);
+
+    // Initial state: ball toggle should be checked
+    const ballToggle = screen.getByLabelText(/ball/i);
+    expect(ballToggle).toBeChecked();
+
+    // Click to toggle ball off
+    fireEvent.click(ballToggle);
+
+    // Should now be unchecked
+    expect(ballToggle).not.toBeChecked();
+  });
+
+  it("toggles pitch layer on/off", () => {
+    render(<VideoTracker pluginId="p" toolName="t" />);
+
+    // Initial state: pitch toggle should be checked
+    const pitchToggle = screen.getByLabelText(/pitch/i);
+    expect(pitchToggle).toBeChecked();
+
+    // Click to toggle pitch off
+    fireEvent.click(pitchToggle);
+
+    // Should now be unchecked
+    expect(pitchToggle).not.toBeChecked();
+  });
+
+  it("toggles radar layer on/off", () => {
+    render(<VideoTracker pluginId="p" toolName="t" />);
+
+    // Initial state: radar toggle should be checked
+    const radarToggle = screen.getByLabelText(/radar/i);
+    expect(radarToggle).toBeChecked();
+
+    // Click to toggle radar off
+    fireEvent.click(radarToggle);
+
+    // Should now be unchecked
+    expect(radarToggle).not.toBeChecked();
+  });
+
+  it("all toggles are independent (toggling one does not affect others)", () => {
+    render(<VideoTracker pluginId="p" toolName="t" />);
+
+    // Get all toggle checkboxes
+    const playersToggle = screen.getByLabelText(/players/i);
+    const trackingToggle = screen.getByLabelText(/tracking/i);
+    const ballToggle = screen.getByLabelText(/ball/i);
+    const pitchToggle = screen.getByLabelText(/pitch/i);
+    const radarToggle = screen.getByLabelText(/radar/i);
+
+    // Toggle players off
+    fireEvent.click(playersToggle);
+    expect(playersToggle).not.toBeChecked();
+    expect(trackingToggle).toBeChecked();
+    expect(ballToggle).toBeChecked();
+    expect(pitchToggle).toBeChecked();
+    expect(radarToggle).toBeChecked();
+
+    // Toggle tracking off
+    fireEvent.click(trackingToggle);
+    expect(playersToggle).not.toBeChecked();
+    expect(trackingToggle).not.toBeChecked();
+    expect(ballToggle).toBeChecked();
+    expect(pitchToggle).toBeChecked();
+    expect(radarToggle).toBeChecked();
+
+    // Toggle ball off
+    fireEvent.click(ballToggle);
+    expect(playersToggle).not.toBeChecked();
+    expect(trackingToggle).not.toBeChecked();
+    expect(ballToggle).not.toBeChecked();
+    expect(pitchToggle).toBeChecked();
+    expect(radarToggle).toBeChecked();
+
+    // Toggle pitch off
+    fireEvent.click(pitchToggle);
+    expect(playersToggle).not.toBeChecked();
+    expect(trackingToggle).not.toBeChecked();
+    expect(ballToggle).not.toBeChecked();
+    expect(pitchToggle).not.toBeChecked();
+    expect(radarToggle).toBeChecked();
+
+    // Toggle radar off
+    fireEvent.click(radarToggle);
+    expect(playersToggle).not.toBeChecked();
+    expect(trackingToggle).not.toBeChecked();
+    expect(ballToggle).not.toBeChecked();
+    expect(pitchToggle).not.toBeChecked();
+    expect(radarToggle).not.toBeChecked();
+  });
+
+  it("can re-enable a toggle after disabling it", () => {
+    render(<VideoTracker pluginId="p" toolName="t" />);
+
+    const playersToggle = screen.getByLabelText(/players/i);
+
+    // Toggle off
+    fireEvent.click(playersToggle);
+    expect(playersToggle).not.toBeChecked();
+
+    // Toggle back on
+    fireEvent.click(playersToggle);
+    expect(playersToggle).toBeChecked();
+  });
+});
+

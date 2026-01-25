@@ -17,6 +17,14 @@ import type { Detection } from "../types/plugin";
 // Types
 // ============================================================================
 
+export interface OverlayToggles {
+  players: boolean;
+  tracking: boolean;
+  ball: boolean;
+  pitch: boolean;
+  radar: boolean;
+}
+
 export interface ResultOverlayProps {
   /** Canvas dimensions */
   width: number;
@@ -27,6 +35,8 @@ export interface ResultOverlayProps {
   annotatedFrame?: string;
   /** Radar overlay (base64) */
   radarOverlay?: string;
+  /** Pitch lines data */
+  pitchLines?: Array<{ x1: number; y1: number; x2: number; y2: number }>;
   /** Color scheme for bounding boxes */
   colors?: {
     default: string;
@@ -35,10 +45,8 @@ export interface ResultOverlayProps {
     ball: string;
     referee: string;
   };
-  /** Whether to show detection labels */
-  showLabels?: boolean;
-  /** Whether to show confidence scores */
-  showConfidence?: boolean;
+  /** Overlay toggles for controlling visibility of each layer */
+  overlayToggles?: Partial<OverlayToggles>;
   /** Font size for labels */
   fontSize?: number;
   /** Track persistence map for drawing tracks */
@@ -64,12 +72,12 @@ const DEFAULT_COLORS = {
 export interface DrawDetectionsParams {
   canvas: HTMLCanvasElement;
   detections: Detection[];
-  showLabels?: boolean;
-  showConfidence?: boolean;
+  overlayToggles?: Partial<OverlayToggles>;
   fontSize?: number;
   colors?: typeof DEFAULT_COLORS;
   annotatedFrame?: string;
   radarOverlay?: string;
+  pitchLines?: Array<{ x1: number; y1: number; x2: number; y2: number }>;
   width?: number;
   height?: number;
 }
@@ -77,12 +85,18 @@ export interface DrawDetectionsParams {
 export function drawDetections({
   canvas,
   detections,
-  showLabels = true,
-  showConfidence = true,
+  overlayToggles = {
+    players: true,
+    tracking: true,
+    ball: true,
+    pitch: true,
+    radar: true,
+  },
   fontSize = 12,
   colors = DEFAULT_COLORS,
   annotatedFrame,
   radarOverlay,
+  pitchLines,
   width,
   height,
 }: DrawDetectionsParams): void {
@@ -96,8 +110,8 @@ export function drawDetections({
   ctx.fillStyle = "rgba(0, 0, 0, 0)";
   ctx.clearRect(0, 0, canvasWidth, canvasHeight);
 
-  // Handle annotated frame if provided
-  if (annotatedFrame) {
+  // Handle annotated frame if provided (for pitch overlay)
+  if (annotatedFrame && overlayToggles.pitch !== false) {
     const img = new Image();
     img.src = `data:image/png;base64,${annotatedFrame}`;
     if (img.complete) {
@@ -105,72 +119,103 @@ export function drawDetections({
     }
   }
 
+  // Draw pitch lines if provided and pitch toggle is enabled
+  if (pitchLines && overlayToggles.pitch !== false) {
+    ctx.strokeStyle = colors.default;
+    ctx.lineWidth = 2;
+    pitchLines.forEach((line) => {
+      ctx.beginPath();
+      ctx.moveTo(line.x1, line.y1);
+      ctx.lineTo(line.x2, line.y2);
+      ctx.stroke();
+    });
+  }
+
   // Draw detections
   detections.forEach((detection) => {
     // Determine color based on class
     let boxColor = colors.default;
+    let isBall = false;
     if (detection.class === "team_1") boxColor = colors.team1;
     else if (detection.class === "team_2") boxColor = colors.team2;
-    else if (detection.class === "ball") boxColor = colors.ball;
-    else if (detection.class === "referee") boxColor = colors.referee;
+    else if (detection.class === "ball") {
+      boxColor = colors.ball;
+      isBall = true;
+    } else if (detection.class === "referee") boxColor = colors.referee;
 
-    // Draw bounding box
-    ctx.strokeStyle = boxColor;
-    ctx.lineWidth = 2;
-    ctx.strokeRect(detection.x, detection.y, detection.width, detection.height);
+    // Draw bounding box (players layer)
+    if (!isBall && overlayToggles.players !== false) {
+      ctx.strokeStyle = boxColor;
+      ctx.lineWidth = 2;
+      ctx.strokeRect(detection.x, detection.y, detection.width, detection.height);
 
-    // Draw filled corner markers
-    const cornerSize = 4;
-    ctx.fillStyle = boxColor;
-    ctx.fillRect(detection.x, detection.y, cornerSize, cornerSize);
-    ctx.fillRect(
-      detection.x + detection.width - cornerSize,
-      detection.y,
-      cornerSize,
-      cornerSize
-    );
-    ctx.fillRect(
-      detection.x,
-      detection.y + detection.height - cornerSize,
-      cornerSize,
-      cornerSize
-    );
-    ctx.fillRect(
-      detection.x + detection.width - cornerSize,
-      detection.y + detection.height - cornerSize,
-      cornerSize,
-      cornerSize
-    );
-
-    // Draw label
-    if (showLabels && detection.class) {
-      const label = detection.class.replace(/_/g, " ");
-      const confidence = showConfidence
-        ? ` (${(detection.confidence * 100).toFixed(0)}%)`
-        : "";
-      const text = `${label}${confidence}`;
-
-      ctx.font = `bold ${fontSize}px monospace`;
+      // Draw filled corner markers
+      const cornerSize = 4;
       ctx.fillStyle = boxColor;
-      const metrics = ctx.measureText(text);
-      const textHeight = fontSize + 4;
-
-      // Semi-transparent background
-      ctx.fillStyle = `rgba(0, 0, 0, 0.7)`;
+      ctx.fillRect(detection.x, detection.y, cornerSize, cornerSize);
+      ctx.fillRect(
+        detection.x + detection.width - cornerSize,
+        detection.y,
+        cornerSize,
+        cornerSize
+      );
       ctx.fillRect(
         detection.x,
-        detection.y - textHeight,
-        metrics.width + 8,
-        textHeight
+        detection.y + detection.height - cornerSize,
+        cornerSize,
+        cornerSize
+      );
+      ctx.fillRect(
+        detection.x + detection.width - cornerSize,
+        detection.y + detection.height - cornerSize,
+        cornerSize,
+        cornerSize
       );
 
-      // Text
-      ctx.fillStyle = boxColor;
-      ctx.fillText(text, detection.x + 4, detection.y - 6);
+      // Draw label
+      if (detection.class) {
+        const label = detection.class.replace(/_/g, " ");
+        const text = label;
+
+        ctx.font = `bold ${fontSize}px monospace`;
+        ctx.fillStyle = boxColor;
+        const metrics = ctx.measureText(text);
+        const textHeight = fontSize + 4;
+
+        // Semi-transparent background
+        ctx.fillStyle = `rgba(0, 0, 0, 0.7)`;
+        ctx.fillRect(
+          detection.x,
+          detection.y - textHeight,
+          metrics.width + 8,
+          textHeight
+        );
+
+        // Text
+        ctx.fillStyle = boxColor;
+        ctx.fillText(text, detection.x + 4, detection.y - 6);
+      }
     }
 
-    // Draw track ID if available
-    if (detection.track_id !== undefined) {
+    // Draw ball marker (ball layer)
+    if (isBall && overlayToggles.ball !== false) {
+      const centerX = detection.x + detection.width / 2;
+      const centerY = detection.y + detection.height / 2;
+      const radius = Math.max(detection.width, detection.height) / 2;
+
+      ctx.strokeStyle = colors.ball;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+      ctx.stroke();
+
+      // Fill with semi-transparent color
+      ctx.fillStyle = "rgba(255, 215, 0, 0.3)";
+      ctx.fill();
+    }
+
+    // Draw track ID if available (tracking layer)
+    if (detection.track_id !== undefined && overlayToggles.tracking !== false) {
       const trackText = `ID:${detection.track_id}`;
       ctx.font = `bold ${fontSize - 2}px monospace`;
       ctx.fillStyle = colors.default;
@@ -192,8 +237,8 @@ export function drawDetections({
     }
   });
 
-  // Draw radar overlay if provided
-  if (radarOverlay) {
+  // Draw radar overlay if provided (radar layer)
+  if (radarOverlay && overlayToggles.radar !== false) {
     const radar = new Image();
     radar.src = `data:image/png;base64,${radarOverlay}`;
     if (radar.complete) {
@@ -222,9 +267,9 @@ export function ResultOverlay({
   detections,
   annotatedFrame,
   radarOverlay,
+  pitchLines,
   colors = DEFAULT_COLORS,
-  showLabels = true,
-  showConfidence = true,
+  overlayToggles,
   fontSize = 12,
 }: ResultOverlayProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -310,6 +355,16 @@ export function ResultOverlay({
     const canvas = canvasRef.current;
     if (!canvas) return;
 
+    // Get effective overlayToggles with defaults
+    const toggles: OverlayToggles = {
+      players: true,
+      tracking: true,
+      ball: true,
+      pitch: true,
+      radar: true,
+      ...overlayToggles,
+    };
+
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
@@ -317,77 +372,108 @@ export function ResultOverlay({
     ctx.fillStyle = "rgba(0, 0, 0, 0)";
     ctx.clearRect(0, 0, width, height);
 
-    // Draw annotated frame if available
-    if (imageRef.current && imageRef.current.complete) {
+    // Handle annotated frame if provided (for pitch overlay)
+    if (annotatedFrame && toggles.pitch !== false && imageRef.current && imageRef.current.complete) {
       ctx.drawImage(imageRef.current, 0, 0, width, height);
+    }
+
+    // Draw pitch lines if provided and pitch toggle is enabled
+    if (pitchLines && toggles.pitch !== false) {
+      ctx.strokeStyle = colors.default;
+      ctx.lineWidth = 2;
+      pitchLines.forEach((line) => {
+        ctx.beginPath();
+        ctx.moveTo(line.x1, line.y1);
+        ctx.lineTo(line.x2, line.y2);
+        ctx.stroke();
+      });
     }
 
     // Draw detections
     detections.forEach((detection) => {
       // Determine color based on class
       let boxColor = colors.default;
+      let isBall = false;
       if (detection.class === "team_1") boxColor = colors.team1;
       else if (detection.class === "team_2") boxColor = colors.team2;
-      else if (detection.class === "ball") boxColor = colors.ball;
-      else if (detection.class === "referee") boxColor = colors.referee;
+      else if (detection.class === "ball") {
+        boxColor = colors.ball;
+        isBall = true;
+      } else if (detection.class === "referee") boxColor = colors.referee;
 
-      // Draw bounding box
-      ctx.strokeStyle = boxColor;
-      ctx.lineWidth = 2;
-      ctx.strokeRect(detection.x, detection.y, detection.width, detection.height);
+      // Draw bounding box (players layer)
+      if (!isBall && toggles.players !== false) {
+        ctx.strokeStyle = boxColor;
+        ctx.lineWidth = 2;
+        ctx.strokeRect(detection.x, detection.y, detection.width, detection.height);
 
-      // Draw filled corner markers
-      const cornerSize = 4;
-      ctx.fillStyle = boxColor;
-      ctx.fillRect(detection.x, detection.y, cornerSize, cornerSize);
-      ctx.fillRect(
-        detection.x + detection.width - cornerSize,
-        detection.y,
-        cornerSize,
-        cornerSize
-      );
-      ctx.fillRect(
-        detection.x,
-        detection.y + detection.height - cornerSize,
-        cornerSize,
-        cornerSize
-      );
-      ctx.fillRect(
-        detection.x + detection.width - cornerSize,
-        detection.y + detection.height - cornerSize,
-        cornerSize,
-        cornerSize
-      );
-
-      // Draw label
-      if (showLabels && detection.class) {
-        const label = detection.class.replace(/_/g, " ");
-        const confidence = showConfidence
-          ? ` (${(detection.confidence * 100).toFixed(0)}%)`
-          : "";
-        const text = `${label}${confidence}`;
-
-        ctx.font = `bold ${fontSize}px monospace`;
+        // Draw filled corner markers
+        const cornerSize = 4;
         ctx.fillStyle = boxColor;
-        const metrics = ctx.measureText(text);
-        const textHeight = fontSize + 4;
-
-        // Semi-transparent background
-        ctx.fillStyle = `rgba(0, 0, 0, 0.7)`;
+        ctx.fillRect(detection.x, detection.y, cornerSize, cornerSize);
+        ctx.fillRect(
+          detection.x + detection.width - cornerSize,
+          detection.y,
+          cornerSize,
+          cornerSize
+        );
         ctx.fillRect(
           detection.x,
-          detection.y - textHeight,
-          metrics.width + 8,
-          textHeight
+          detection.y + detection.height - cornerSize,
+          cornerSize,
+          cornerSize
+        );
+        ctx.fillRect(
+          detection.x + detection.width - cornerSize,
+          detection.y + detection.height - cornerSize,
+          cornerSize,
+          cornerSize
         );
 
-        // Text
-        ctx.fillStyle = boxColor;
-        ctx.fillText(text, detection.x + 4, detection.y - 6);
+        // Draw label
+        if (detection.class) {
+          const label = detection.class.replace(/_/g, " ");
+          const text = label;
+
+          ctx.font = `bold ${fontSize}px monospace`;
+          ctx.fillStyle = boxColor;
+          const metrics = ctx.measureText(text);
+          const textHeight = fontSize + 4;
+
+          // Semi-transparent background
+          ctx.fillStyle = `rgba(0, 0, 0, 0.7)`;
+          ctx.fillRect(
+            detection.x,
+            detection.y - textHeight,
+            metrics.width + 8,
+            textHeight
+          );
+
+          // Text
+          ctx.fillStyle = boxColor;
+          ctx.fillText(text, detection.x + 4, detection.y - 6);
+        }
       }
 
-      // Draw track ID if available
-      if (detection.track_id !== undefined) {
+      // Draw ball marker (ball layer)
+      if (isBall && toggles.ball !== false) {
+        const centerX = detection.x + detection.width / 2;
+        const centerY = detection.y + detection.height / 2;
+        const radius = Math.max(detection.width, detection.height) / 2;
+
+        ctx.strokeStyle = colors.ball;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+        ctx.stroke();
+
+        // Fill with semi-transparent color
+        ctx.fillStyle = "rgba(255, 215, 0, 0.3)";
+        ctx.fill();
+      }
+
+      // Draw track ID if available (tracking layer)
+      if (detection.track_id !== undefined && toggles.tracking !== false) {
         const trackText = `ID:${detection.track_id}`;
         ctx.font = `bold ${fontSize - 2}px monospace`;
         ctx.fillStyle = colors.default;
@@ -409,8 +495,8 @@ export function ResultOverlay({
       }
     });
 
-    // Draw radar overlay if available
-    if (radarRef.current && radarRef.current.complete) {
+    // Draw radar overlay if provided (radar layer)
+    if (radarOverlay && toggles.radar !== false && radarRef.current && radarRef.current.complete) {
       // Position radar at bottom-right
       const radarSize = Math.min(width / 3, height / 3);
       const radarX = width - radarSize - 10;
@@ -429,7 +515,7 @@ export function ResultOverlay({
       ctx.lineWidth = 2;
       ctx.strokeRect(radarX, radarY, radarSize, radarSize);
     }
-  }, [detections, width, height, colors, showLabels, showConfidence, fontSize]);
+  }, [detections, width, height, colors, overlayToggles, fontSize, annotatedFrame, radarOverlay, pitchLines]);
 
   // -------------------------------------------------------------------------
   // Render
