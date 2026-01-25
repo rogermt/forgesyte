@@ -10,11 +10,25 @@
  * - Webcam button hidden
  * - No plugin coupling
  * - ResultOverlay wiring
+ * - FPS selector integration
  */
 
-import { describe, it, expect } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { render, screen, fireEvent } from "@testing-library/react";
 import { VideoTracker } from "./VideoTracker";
+
+// Mock useVideoProcessor - must be at top level for hoisting
+const mockUseVideoProcessor = vi.fn().mockReturnValue({
+  latestResult: null,
+  buffer: [],
+  processing: false,
+  error: null,
+  lastRequestDuration: null,
+});
+
+vi.mock("../hooks/useVideoProcessor", () => ({
+  useVideoProcessor: (...args: unknown[]) => mockUseVideoProcessor(...args),
+}));
 
 describe("VideoTracker (Layout Only)", () => {
   const defaultProps = {
@@ -228,3 +242,113 @@ describe("VideoTracker - ResultOverlay Integration", () => {
     expect(screen.getByText(/Radar/)).toBeTruthy();
   });
 });
+
+// ============================================================================
+// Task 6.1: FPS Selector Integration Tests
+// ============================================================================
+
+describe("FPS selector integration", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    mockUseVideoProcessor.mockClear();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+
+  it("passes fps to useVideoProcessor hook", () => {
+    render(<VideoTracker pluginId="p" toolName="t" />);
+
+    // Initial render with default FPS = 30
+    expect(mockUseVideoProcessor).toHaveBeenCalledWith(
+      expect.objectContaining({ fps: 30 })
+    );
+
+    // Click Play to start processing
+    fireEvent.click(screen.getByText(/▶ Play/));
+
+    // Should still be called with fps: 30 and enabled: true
+    expect(mockUseVideoProcessor).toHaveBeenCalledWith(
+      expect.objectContaining({ fps: 30, enabled: true })
+    );
+
+    // Change FPS to 5
+    fireEvent.change(screen.getByDisplayValue("30 FPS"), {
+      target: { value: "5" },
+    });
+
+    // Hook should be called with fps: 5
+    expect(mockUseVideoProcessor).toHaveBeenCalledWith(
+      expect.objectContaining({ fps: 5 })
+    );
+
+    // Change FPS to 60
+    fireEvent.change(screen.getByDisplayValue("5 FPS"), {
+      target: { value: "60" },
+    });
+
+    // Hook should be called with fps: 60
+    expect(mockUseVideoProcessor).toHaveBeenCalledWith(
+      expect.objectContaining({ fps: 60 })
+    );
+  });
+
+  it("does not create duplicate calls when FPS changes repeatedly", () => {
+    render(<VideoTracker pluginId="p" toolName="t" />);
+
+    fireEvent.click(screen.getByText(/▶ Play/));
+
+    // Clear mock calls to focus on FPS changes
+    mockUseVideoProcessor.mockClear();
+
+    // Change FPS multiple times rapidly
+    fireEvent.change(screen.getByDisplayValue("30 FPS"), {
+      target: { value: "10" },
+    });
+    fireEvent.change(screen.getByDisplayValue("10 FPS"), {
+      target: { value: "30" },
+    });
+    fireEvent.change(screen.getByDisplayValue("30 FPS"), {
+      target: { value: "60" },
+    });
+
+    // Should only have 3 calls (one per FPS change), not accumulated
+    expect(mockUseVideoProcessor).toHaveBeenCalledTimes(3);
+
+    // Verify the last call was with fps: 60
+    const lastCall = mockUseVideoProcessor.mock.calls[mockUseVideoProcessor.mock.calls.length - 1][0] as Record<string, unknown>;
+    expect(lastCall.fps).toBe(60);
+  });
+
+  it("passes correct enabled state with FPS", () => {
+    render(<VideoTracker pluginId="p" toolName="t" />);
+
+    // Initially not running, so enabled should be false
+    const initialCall = mockUseVideoProcessor.mock.calls[0][0] as Record<string, unknown>;
+    expect(initialCall.enabled).toBe(false);
+    expect(initialCall.fps).toBe(30);
+
+    // Click Play
+    fireEvent.click(screen.getByText(/▶ Play/));
+    const playCall = mockUseVideoProcessor.mock.calls[mockUseVideoProcessor.mock.calls.length - 1][0] as Record<string, unknown>;
+    expect(playCall.enabled).toBe(true);
+    expect(playCall.fps).toBe(30);
+
+    // Change FPS to 10 while running
+    fireEvent.change(screen.getByDisplayValue("30 FPS"), {
+      target: { value: "10" },
+    });
+    const fpsChangeCall = mockUseVideoProcessor.mock.calls[mockUseVideoProcessor.mock.calls.length - 1][0] as Record<string, unknown>;
+    expect(fpsChangeCall.enabled).toBe(true);
+    expect(fpsChangeCall.fps).toBe(10);
+
+    // Click Pause
+    fireEvent.click(screen.getByText(/⏸ Pause/));
+    const pauseCall = mockUseVideoProcessor.mock.calls[mockUseVideoProcessor.mock.calls.length - 1][0] as Record<string, unknown>;
+    expect(pauseCall.enabled).toBe(false);
+    expect(pauseCall.fps).toBe(10);
+  });
+});
+
