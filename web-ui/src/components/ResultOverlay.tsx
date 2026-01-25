@@ -55,7 +55,162 @@ const DEFAULT_COLORS = {
   team2: "#FF1493",     // Magenta (Team B)
   ball: "#FFD700",      // Gold
   referee: "#FF6347",   // Tomato
-} as const;
+};
+
+// ============================================================================
+// Utility Function: Draw detections on a canvas
+// ============================================================================
+
+export interface DrawDetectionsParams {
+  canvas: HTMLCanvasElement;
+  detections: Detection[];
+  showLabels?: boolean;
+  showConfidence?: boolean;
+  fontSize?: number;
+  colors?: typeof DEFAULT_COLORS;
+  annotatedFrame?: string;
+  radarOverlay?: string;
+  width?: number;
+  height?: number;
+}
+
+export function drawDetections({
+  canvas,
+  detections,
+  showLabels = true,
+  showConfidence = true,
+  fontSize = 12,
+  colors = DEFAULT_COLORS,
+  annotatedFrame,
+  radarOverlay,
+  width,
+  height,
+}: DrawDetectionsParams): void {
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return;
+
+  const canvasWidth = width || canvas.width;
+  const canvasHeight = height || canvas.height;
+
+  // Clear canvas
+  ctx.fillStyle = "rgba(0, 0, 0, 0)";
+  ctx.clearRect(0, 0, canvasWidth, canvasHeight);
+
+  // Handle annotated frame if provided
+  if (annotatedFrame) {
+    const img = new Image();
+    img.src = `data:image/png;base64,${annotatedFrame}`;
+    if (img.complete) {
+      ctx.drawImage(img, 0, 0, canvasWidth, canvasHeight);
+    }
+  }
+
+  // Draw detections
+  detections.forEach((detection) => {
+    // Determine color based on class
+    let boxColor = colors.default;
+    if (detection.class === "team_1") boxColor = colors.team1;
+    else if (detection.class === "team_2") boxColor = colors.team2;
+    else if (detection.class === "ball") boxColor = colors.ball;
+    else if (detection.class === "referee") boxColor = colors.referee;
+
+    // Draw bounding box
+    ctx.strokeStyle = boxColor;
+    ctx.lineWidth = 2;
+    ctx.strokeRect(detection.x, detection.y, detection.width, detection.height);
+
+    // Draw filled corner markers
+    const cornerSize = 4;
+    ctx.fillStyle = boxColor;
+    ctx.fillRect(detection.x, detection.y, cornerSize, cornerSize);
+    ctx.fillRect(
+      detection.x + detection.width - cornerSize,
+      detection.y,
+      cornerSize,
+      cornerSize
+    );
+    ctx.fillRect(
+      detection.x,
+      detection.y + detection.height - cornerSize,
+      cornerSize,
+      cornerSize
+    );
+    ctx.fillRect(
+      detection.x + detection.width - cornerSize,
+      detection.y + detection.height - cornerSize,
+      cornerSize,
+      cornerSize
+    );
+
+    // Draw label
+    if (showLabels && detection.class) {
+      const label = detection.class.replace(/_/g, " ");
+      const confidence = showConfidence
+        ? ` (${(detection.confidence * 100).toFixed(0)}%)`
+        : "";
+      const text = `${label}${confidence}`;
+
+      ctx.font = `bold ${fontSize}px monospace`;
+      ctx.fillStyle = boxColor;
+      const metrics = ctx.measureText(text);
+      const textHeight = fontSize + 4;
+
+      // Semi-transparent background
+      ctx.fillStyle = `rgba(0, 0, 0, 0.7)`;
+      ctx.fillRect(
+        detection.x,
+        detection.y - textHeight,
+        metrics.width + 8,
+        textHeight
+      );
+
+      // Text
+      ctx.fillStyle = boxColor;
+      ctx.fillText(text, detection.x + 4, detection.y - 6);
+    }
+
+    // Draw track ID if available
+    if (detection.track_id !== undefined) {
+      const trackText = `ID:${detection.track_id}`;
+      ctx.font = `bold ${fontSize - 2}px monospace`;
+      ctx.fillStyle = colors.default;
+      const metrics = ctx.measureText(trackText);
+      const textHeight = fontSize - 2 + 4;
+
+      // Semi-transparent background
+      ctx.fillStyle = `rgba(0, 0, 0, 0.7)`;
+      ctx.fillRect(
+        detection.x,
+        detection.y + detection.height,
+        metrics.width + 8,
+        textHeight
+      );
+
+      // Text
+      ctx.fillStyle = colors.default;
+      ctx.fillText(trackText, detection.x + 4, detection.y + detection.height + fontSize - 4);
+    }
+  });
+
+  // Draw radar overlay if provided
+  if (radarOverlay) {
+    const radar = new Image();
+    radar.src = `data:image/png;base64,${radarOverlay}`;
+    if (radar.complete) {
+      // Position radar at bottom-right
+      const radarSize = Math.min(canvasWidth / 3, canvasHeight / 3);
+      const radarX = canvasWidth - radarSize - 10;
+      const radarY = canvasHeight - radarSize - 10;
+
+      ctx.drawImage(radar, radarX, radarY, radarSize, radarSize);
+
+      // Draw radar border
+      ctx.strokeStyle = colors.default;
+      ctx.lineWidth = 2;
+      ctx.strokeRect(radarX, radarY, radarSize, radarSize);
+    }
+  }
+}
 
 // ============================================================================
 // Component
