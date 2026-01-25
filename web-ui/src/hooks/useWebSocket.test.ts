@@ -101,9 +101,9 @@ describe("useWebSocket", () => {
     const getLatestMock = () => mockInstances[mockInstances.length - 1];
 
     describe("connection", () => {
-        it("should initialize in disconnected state", () => {
+        it("should initialize in connecting state when plugin provided", () => {
             const { result } = renderHook(() =>
-                useWebSocket({ url: "ws://localhost:8000/v1/stream" })
+                useWebSocket({ url: "ws://localhost:8000/v1/stream", plugin: "test" })
             );
 
             expect(result.current.isConnected).toBe(false);
@@ -112,7 +112,7 @@ describe("useWebSocket", () => {
 
         it("should connect to WebSocket URL", async () => {
             renderHook(() =>
-                useWebSocket({ url: "ws://localhost:8000/v1/stream" })
+                useWebSocket({ url: "ws://localhost:8000/v1/stream", plugin: "test" })
             );
 
             const mockWs = getLatestMock();
@@ -146,6 +146,7 @@ describe("useWebSocket", () => {
             renderHook(() =>
                 useWebSocket({
                     url: "ws://localhost:8000/v1/stream",
+                    plugin: "test",
                     apiKey: "secret-key",
                 })
             );
@@ -159,7 +160,7 @@ describe("useWebSocket", () => {
 
         it("should update state when connected", async () => {
             const { result } = renderHook(() =>
-                useWebSocket({ url: "ws://localhost:8000/v1/stream" })
+                useWebSocket({ url: "ws://localhost:8000/v1/stream", plugin: "test" })
             );
 
             const mockWs = getLatestMock();
@@ -177,7 +178,7 @@ describe("useWebSocket", () => {
     describe("frame sending", () => {
         it("should send frame when connected", async () => {
             const { result } = renderHook(() =>
-                useWebSocket({ url: "ws://localhost:8000/v1/stream" })
+                useWebSocket({ url: "ws://localhost:8000/v1/stream", plugin: "test" })
             );
 
             const mockWs = getLatestMock();
@@ -200,7 +201,7 @@ describe("useWebSocket", () => {
 
         it("should not send frame when disconnected", () => {
             const { result } = renderHook(() =>
-                useWebSocket({ url: "ws://localhost:8000/v1/stream" })
+                useWebSocket({ url: "ws://localhost:8000/v1/stream", plugin: "test" })
             );
 
             const mockWs = getLatestMock();
@@ -215,7 +216,7 @@ describe("useWebSocket", () => {
     describe("plugin switching", () => {
         it("should switch plugin when connected", async () => {
             const { result } = renderHook(() =>
-                useWebSocket({ url: "ws://localhost:8000/v1/stream" })
+                useWebSocket({ url: "ws://localhost:8000/v1/stream", plugin: "test" })
             );
 
             const mockWs = getLatestMock();
@@ -238,7 +239,7 @@ describe("useWebSocket", () => {
 
         it("should not switch plugin when disconnected", () => {
             const { result } = renderHook(() =>
-                useWebSocket({ url: "ws://localhost:8000/v1/stream" })
+                useWebSocket({ url: "ws://localhost:8000/v1/stream", plugin: "test" })
             );
 
             const mockWs = getLatestMock();
@@ -256,6 +257,7 @@ describe("useWebSocket", () => {
             const { result } = renderHook(() =>
                 useWebSocket({
                     url: "ws://localhost:8000/v1/stream",
+                    plugin: "test",
                     onResult,
                 })
             );
@@ -286,6 +288,7 @@ describe("useWebSocket", () => {
             const { result } = renderHook(() =>
                 useWebSocket({
                     url: "ws://localhost:8000/v1/stream",
+                    plugin: "test",
                     onError,
                 })
             );
@@ -313,6 +316,7 @@ describe("useWebSocket", () => {
             renderHook(() =>
                 useWebSocket({
                     url: "ws://localhost:8000/v1/stream",
+                    plugin: "test",
                     onConnect,
                 })
             );
@@ -344,7 +348,7 @@ describe("useWebSocket", () => {
     describe("stats tracking", () => {
         it("should track frame processing stats", async () => {
             const { result } = renderHook(() =>
-                useWebSocket({ url: "ws://localhost:8000/v1/stream" })
+                useWebSocket({ url: "ws://localhost:8000/v1/stream", plugin: "test" })
             );
 
             const mockWs = getLatestMock();
@@ -374,7 +378,7 @@ describe("useWebSocket", () => {
     describe("disconnection", () => {
         it("should handle clean disconnect", async () => {
             const { result } = renderHook(() =>
-                useWebSocket({ url: "ws://localhost:8000/v1/stream" })
+                useWebSocket({ url: "ws://localhost:8000/v1/stream", plugin: "test" })
             );
 
             const mockWs = getLatestMock();
@@ -391,7 +395,7 @@ describe("useWebSocket", () => {
 
         it("should update state on disconnect", async () => {
             const { result } = renderHook(() =>
-                useWebSocket({ url: "ws://localhost:8000/v1/stream" })
+                useWebSocket({ url: "ws://localhost:8000/v1/stream", plugin: "test" })
             );
 
             const mockWs = getLatestMock();
@@ -419,6 +423,7 @@ describe("useWebSocket", () => {
             const { result } = renderHook(() =>
                 useWebSocket({
                     url: "ws://localhost:8000/v1/stream",
+                    plugin: "test",
                     reconnectBaseDelayMs: 100,
                     maxReconnectAttempts: 3,
                 })
@@ -449,7 +454,7 @@ describe("useWebSocket", () => {
 
         it("should reconnect on explicit reconnect call", async () => {
             const { result } = renderHook(() =>
-                useWebSocket({ url: "ws://localhost:8000/v1/stream" })
+                useWebSocket({ url: "ws://localhost:8000/v1/stream", plugin: "test" })
             );
 
             const mockWs = getLatestMock();
@@ -470,7 +475,7 @@ describe("useWebSocket", () => {
     describe("error state management", () => {
         it("should clear error state when transitioning from error to successful connection", () => {
             const { result } = renderHook(() =>
-                useWebSocket({ url: "ws://localhost:8000/v1/stream" })
+                useWebSocket({ url: "ws://localhost:8000/v1/stream", plugin: "test" })
             );
 
             const mockWs = getLatestMock();
@@ -488,6 +493,128 @@ describe("useWebSocket", () => {
             // After successful connection, error should be cleared
             expect(result.current.isConnected).toBe(true);
             expect(result.current.error).toBeNull();
+        });
+    });
+
+    describe("empty plugin handling (issue #95)", () => {
+        it("should not connect when plugin is empty string", () => {
+            renderHook(() =>
+                useWebSocket({ url: "ws://localhost:8000/v1/stream", plugin: "" })
+            );
+
+            // WebSocket should NOT have been created
+            expect(global.WebSocket).not.toHaveBeenCalled();
+        });
+
+        it("should not connect when plugin is undefined", () => {
+            renderHook(() =>
+                useWebSocket({ url: "ws://localhost:8000/v1/stream", plugin: undefined })
+            );
+
+            // WebSocket should NOT have been created
+            expect(global.WebSocket).not.toHaveBeenCalled();
+        });
+
+        it("should not connect when plugin is whitespace only", () => {
+            renderHook(() =>
+                useWebSocket({ url: "ws://localhost:8000/v1/stream", plugin: "   " })
+            );
+
+            // WebSocket should NOT have been created
+            expect(global.WebSocket).not.toHaveBeenCalled();
+        });
+
+        it("should stay in idle state when plugin is empty", () => {
+            const { result } = renderHook(() =>
+                useWebSocket({ url: "ws://localhost:8000/v1/stream", plugin: "" })
+            );
+
+            expect(result.current.connectionStatus).toBe("idle");
+            expect(result.current.isConnected).toBe(false);
+            expect(result.current.isConnecting).toBe(false);
+            expect(result.current.error).toBeNull();
+        });
+
+        it("should connect when plugin becomes available on rerender", () => {
+            const { rerender } = renderHook(
+                ({ plugin }) => useWebSocket({ url: "ws://localhost:8000/v1/stream", plugin }),
+                { initialProps: { plugin: "" } }
+            );
+
+            // Initially no connection
+            expect(global.WebSocket).not.toHaveBeenCalled();
+
+            // Rerender with valid plugin
+            rerender({ plugin: "motion_detector" });
+
+            // Now should connect
+            expect(global.WebSocket).toHaveBeenCalledWith(
+                expect.stringContaining("motion_detector")
+            );
+        });
+    });
+
+    describe("processing_time_ms validation (P1)", () => {
+        it("should not corrupt stats when processing_time_ms is missing", async () => {
+            const { result } = renderHook(() =>
+                useWebSocket({ url: "ws://localhost:8000/v1/stream", plugin: "test" })
+            );
+
+            const mockWs = getLatestMock();
+            act(() => {
+                mockWs.simulateOpen();
+            });
+
+            await waitFor(() => {
+                expect(result.current.isConnected).toBe(true);
+            });
+
+            act(() => {
+                mockWs.simulateMessage({
+                    type: "result",
+                    payload: {
+                        frame_id: "f1",
+                        plugin: "test",
+                        result: {},
+                        // processing_time_ms intentionally missing
+                    },
+                });
+            });
+
+            // Stats should remain finite (not NaN) - uses 0 as fallback
+            expect(Number.isFinite(result.current.stats.avgProcessingTime)).toBe(true);
+            expect(result.current.stats.avgProcessingTime).toBe(0);
+        });
+
+        it("should not corrupt stats when processing_time_ms is not a number", async () => {
+            const { result } = renderHook(() =>
+                useWebSocket({ url: "ws://localhost:8000/v1/stream", plugin: "test" })
+            );
+
+            const mockWs = getLatestMock();
+            act(() => {
+                mockWs.simulateOpen();
+            });
+
+            await waitFor(() => {
+                expect(result.current.isConnected).toBe(true);
+            });
+
+            act(() => {
+                mockWs.simulateMessage({
+                    type: "result",
+                    payload: {
+                        frame_id: "f1",
+                        plugin: "test",
+                        result: {},
+                        processing_time_ms: "invalid",
+                    },
+                });
+            });
+
+            // Stats should remain finite (not NaN) - uses 0 as fallback
+            expect(Number.isFinite(result.current.stats.avgProcessingTime)).toBe(true);
+            expect(result.current.stats.avgProcessingTime).toBe(0);
         });
     });
 });
