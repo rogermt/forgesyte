@@ -71,6 +71,7 @@ vi.mock("./api/client", () => ({
   apiClient: {
     analyzeImage: vi.fn(),
     pollJob: vi.fn(),
+    getPluginManifest: vi.fn(),
   },
 }));
 

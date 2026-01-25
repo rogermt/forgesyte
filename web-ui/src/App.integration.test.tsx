@@ -23,6 +23,7 @@ vi.mock("./api/client", () => ({
                 },
             ])
         ),
+        getPluginManifest: vi.fn(),
     },
 }));
 
