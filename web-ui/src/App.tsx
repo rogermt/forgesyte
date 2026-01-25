@@ -7,6 +7,8 @@
  * - Stable callbacks with useCallback.
  */
 
+// New feature branch commit demonstration
+
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { CameraPreview } from "./components/CameraPreview";
 import { PluginSelector } from "./components/PluginSelector";
