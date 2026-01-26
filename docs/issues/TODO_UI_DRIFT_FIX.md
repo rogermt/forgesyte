@@ -50,27 +50,22 @@ GitHub Issue: `docs/issues/UI_DRIFT_TOOL_SELECTION.md`
 
 ---
 
-## Fix Status: ✅ IMPLEMENTED
+## Fix Status: 🔴 REOPENED - No Behavioral Change
 
-**Issue #102** - UI tool selection wiring fix has been successfully implemented.
+**Issue #102** - UI tool selection wiring fix needs to be reopened.
 
-### Changes Made
+### Current Status
+The code changes were made but there is no observable behavioral change in the application. The fixes may have been applied incorrectly or there's a deeper issue.
 
-**1. `web-ui/src/App.tsx`:**
-- ✅ Added `setSelectedTool` to useState declaration
-- ✅ Added `handleToolChange` callback
-- ✅ Added `ToolSelector` component to sidebar panel
-- ✅ Added validation in `handleFileUpload` for `!selectedTool`
-- ✅ Disabled upload input when `!selectedTool`
+### Problem Description
+- Tests pass but the actual behavior hasn't changed
+- ToolSelector might not be wiring up correctly
+- Upload validation might not be working as expected
 
-**2. `web-ui/src/hooks/useVideoProcessor.ts`:**
-- ✅ Added guard at start of `processFrame` for empty `pluginId` or `toolName`
-- ✅ Logs error for debugging when guard triggers
-
-### Verification
-- All tests pass ✅
-- ToolSelector renders correctly in sidebar ✅
-- File upload properly validates tool selection ✅
-- No undefined errors when processing frames ✅
+### Next Steps
+1. Investigate why the behavioral changes aren't visible
+2. Verify ToolSelector is receiving and emitting events correctly
+3. Check if upload validation is actually blocking without tool selection
+4. Manual testing required to confirm fix
 
 

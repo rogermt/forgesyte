@@ -57,27 +57,21 @@ The `useVideoProcessor` hook is making a fetch call to the wrong endpoint:
 
 ---
 
-## Fix Status: ✅ IMPLEMENTED
+## Fix Status: 🔴 REOPENED - No Behavioral Change
 
-**Issue #101** - VideoTracker endpoint fix has been successfully implemented.
+**Issue #101** - VideoTracker endpoint fix needs to be reopened.
 
-### Changes Made
+### Current Status
+The code changes were made but there is no observable behavioral change in the application. The fixes may have been applied incorrectly or there's a deeper issue.
 
-**1. `web-ui/src/hooks/useVideoProcessor.ts`:**
-- ✅ Fixed endpoint from `/plugins/run` to `/v1/plugins/${pluginId}/tools/${toolName}/run`
-- ✅ Added guard for empty `pluginId` or `toolName`
-- ✅ Added proper error handling for failed requests
-- ✅ Added retry logic (1 retry after 200ms delay)
+### Problem Description
+- Tests pass but the actual behavior hasn't changed
+- VideoTracker may still not be working correctly
+- Tool selection may not be working as expected
 
-**2. `web-ui/src/App.tsx`:**
-- ✅ Added `setSelectedTool` to useState
-- ✅ Added `handleToolChange` callback
-- ✅ Added `ToolSelector` component to sidebar
-- ✅ Added validation in `handleFileUpload` for `!selectedTool`
-- ✅ Disabled upload input when `!selectedTool`
-
-### Verification
-- All tests pass ✅
-- VideoTracker component works correctly ✅
-- No silent failures or hanging states ✅
+### Next Steps
+1. Investigate why the behavioral changes aren't visible
+2. Verify the endpoint fix is actually being called
+3. Add more detailed logging to trace execution
+4. Manual testing required to confirm fix
 
