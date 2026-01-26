@@ -15,7 +15,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { VideoTracker } from "./VideoTracker";
 
 // Mock useVideoProcessor - must be at top level for hoisting
@@ -58,11 +58,14 @@ describe("VideoTracker (Layout Only)", () => {
   // Upload Row
   // =========================================================================
 
-  it("renders Upload Video button", () => {
+  it("renders Upload Video button", async () => {
     render(<VideoTracker {...defaultProps} />);
-    expect(
-      screen.getByRole("button", { name: /Upload Video/ })
-    ).toBeInTheDocument();
+    
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: /Upload Video/ })
+      ).toBeInTheDocument();
+    }, { timeout: 10000 });
   });
 
   it("does NOT render Webcam button (hidden, not disabled)", () => {

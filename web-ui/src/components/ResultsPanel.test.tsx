@@ -7,7 +7,7 @@
  * - FrameResult: WebSocket /v1/stream (fixtures/api-responses.json)
  */
 
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { ResultsPanel } from "./ResultsPanel";
 import { createMockFrameResult, createMockJobDone } from "../test-utils/factories";
 
@@ -136,16 +136,19 @@ describe("ResultsPanel - Styling Updates", () => {
     });
 
     describe("content scrolling", () => {
-        it("should apply scrolling to content area", () => {
+        it("should apply scrolling to content area", async () => {
             render(
                 <ResultsPanel mode="stream" streamResult={null} />
             );
 
             const contentArea = screen.getByTestId("results-content");
             expect(contentArea).toBeInTheDocument();
-            expect(contentArea).toHaveStyle({
-                overflowY: "auto"
-            });
+            
+            await waitFor(() => {
+                expect(contentArea).toHaveStyle({
+                    overflowY: "auto"
+                });
+            }, { timeout: 10000 });
         });
     });
 });

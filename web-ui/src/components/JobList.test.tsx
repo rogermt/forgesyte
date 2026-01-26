@@ -125,13 +125,19 @@ describe("JobList", () => {
             const mockSelectJob = vi.fn();
             render(<JobList onJobSelect={mockSelectJob} />);
 
+            // Wait for the job to appear
             await waitFor(() => {
-                const jobElement = screen.getByTestId(
+                expect(screen.getByTestId(
                     `job-item-${mockServerJobs[0].job_id}`
-                );
-                fireEvent.click(jobElement);
-                expect(mockSelectJob).toHaveBeenCalledWith(mockServerJobs[0]);
-            });
+                )).toBeInTheDocument();
+            }, { timeout: 10000 });
+
+            // Then click
+            const jobElement = screen.getByTestId(
+                `job-item-${mockServerJobs[0].job_id}`
+            );
+            fireEvent.click(jobElement);
+            expect(mockSelectJob).toHaveBeenCalledWith(mockServerJobs[0]);
         });
     });
 

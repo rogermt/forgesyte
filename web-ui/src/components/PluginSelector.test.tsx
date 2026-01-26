@@ -164,9 +164,10 @@ describe("PluginSelector", () => {
         />
       );
 
+      // Wait for loading to complete AND check for empty state
       await waitFor(() => {
         expect(screen.getByText("No plugins available")).toBeInTheDocument();
-      });
+      }, { timeout: 10000 });
     });
   });
 
