@@ -44,4 +44,33 @@ GitHub Issue: `docs/issues/UI_DRIFT_TOOL_SELECTION.md`
 ### Step 2: Fix useVideoProcessor.ts ✅ COMPLETED
 - [x] 2.1: Add guard at start of processFrame
 
+### Step 3: Verification ✅ COMPLETED
+- [x] 3.1: Run existing tests to ensure no regressions
+- [x] 3.2: Manual verification of the fix
+
+---
+
+## Fix Status: ✅ IMPLEMENTED
+
+**Issue #102** - UI tool selection wiring fix has been successfully implemented.
+
+### Changes Made
+
+**1. `web-ui/src/App.tsx`:**
+- ✅ Added `setSelectedTool` to useState declaration
+- ✅ Added `handleToolChange` callback
+- ✅ Added `ToolSelector` component to sidebar panel
+- ✅ Added validation in `handleFileUpload` for `!selectedTool`
+- ✅ Disabled upload input when `!selectedTool`
+
+**2. `web-ui/src/hooks/useVideoProcessor.ts`:**
+- ✅ Added guard at start of `processFrame` for empty `pluginId` or `toolName`
+- ✅ Logs error for debugging when guard triggers
+
+### Verification
+- All tests pass ✅
+- ToolSelector renders correctly in sidebar ✅
+- File upload properly validates tool selection ✅
+- No undefined errors when processing frames ✅
+
 
