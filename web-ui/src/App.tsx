@@ -37,6 +37,12 @@ function App() {
   const [manifestError, setManifestError] = useState<string | null>(null);
   const [manifestLoading, setManifestLoading] = useState(false);
 
+  // Compute tool list from manifest
+  const toolList = useMemo(() => {
+    if (!manifest) return [];
+    return Object.keys(manifest.tools);
+  }, [manifest]);
+
   const {
     isConnected,
     connectionStatus,
@@ -151,6 +157,14 @@ function App() {
   const handleToolChange = useCallback((toolName: string) => {
     setSelectedTool(toolName);
   }, []);
+
+  // Auto-select first tool when manifest loads and no tool is selected
+  useEffect(() => {
+    if (manifest && !selectedTool && toolList.length > 0) {
+      // Auto-select the first tool from the manifest
+      setSelectedTool(toolList[0]);
+    }
+  }, [manifest, selectedTool, toolList]);
 
   const handleFileUpload = useCallback(
     async (event: React.ChangeEvent<HTMLInputElement>) => {
