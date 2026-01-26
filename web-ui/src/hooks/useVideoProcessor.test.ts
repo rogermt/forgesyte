@@ -101,7 +101,7 @@ describe("useVideoProcessor", () => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           args: {
-            frame_base64: "data:image/jpeg;base64,mock",
+            frame_base64: "mock", // Raw base64 without data URL prefix
             device: "cuda",
             annotated: false,
           },
@@ -327,6 +327,62 @@ describe("useVideoProcessor", () => {
 
     expect(result.current.lastTickTime).not.toBeNull();
     expect(result.current.lastRequestDuration).not.toBeNull();
+  });
+});
+
+describe("useVideoProcessor - Base64 Format Guardrail", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.spyOn(window, "fetch").mockImplementation(
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ result: {} }),
+      })
+    );
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+
+  it("sends raw base64 without data URL prefix to backend", async () => {
+    const videoRef = { current: mockVideo() };
+
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ result: {} }),
+    });
+    vi.spyOn(window, "fetch").mockImplementation(fetchMock);
+
+    renderHook(() =>
+      useVideoProcessor({
+        videoRef,
+        pluginId: "yolo-tracker",
+        toolName: "player_detection",
+        fps: 30,
+        device: "cpu",
+        enabled: true,
+      })
+    );
+
+    await act(async () => {
+      vi.advanceTimersByTime(100);
+      await Promise.resolve();
+      vi.advanceTimersByTime(200);
+    });
+
+    // Get the actual call and verify raw base64 (no data: prefix)
+    const lastCall = fetchMock.mock.calls[fetchMock.mock.calls.length - 1];
+    const body = JSON.parse(lastCall[1].body);
+    const frameBase64 = body.args.frame_base64;
+
+    // Guardrail: MUST NOT contain data URL prefix
+    expect(frameBase64.startsWith("data:")).toBe(false);
+    expect(frameBase64.includes("base64,")).toBe(false);
+
+    // Guardrail: MUST equal raw base64 content only
+    expect(frameBase64).toBe("mock");
   });
 });
 
@@ -585,4 +641,3 @@ describe("useVideoProcessor - Endpoint Correctness", () => {
     expect(result.current.error).toBeNull();
   });
 });
-
