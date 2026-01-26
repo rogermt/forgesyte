@@ -355,7 +355,7 @@ describe("useVideoProcessor - Endpoint Correctness", () => {
     });
     vi.spyOn(window, "fetch").mockImplementation(fetchMock);
 
-    const { result } = renderHook(() =>
+    renderHook(() =>
       useVideoProcessor({
         videoRef,
         pluginId: "forgesyte-yolo-tracker",
