@@ -1,0 +1,80 @@
+name: Test Integrity
+
+on:
+  pull_request:
+
+jobs:
+  test-integrity:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fetch main
+        run: git fetch origin main
+
+      # ---------------------------------------------------------
+      # 1. Detect test changes
+      # ---------------------------------------------------------
+      - name: Detect test changes
+        id: detect
+        run: |
+          changed=$(git diff --name-only origin/main...HEAD | grep -E '\.test\.tsx$|server/tests|plugins/.*/tests' || true)
+          echo "changed=$changed" >> $GITHUB_OUTPUT
+
+      # ---------------------------------------------------------
+      # 2. Require TEST CHANGE JUSTIFICATION if tests changed
+      # ---------------------------------------------------------
+      - name: Require TEST CHANGE JUSTIFICATION
+        if: ${{ steps.detect.outputs.changed != '' }}
+        run: |
+          body="${{ github.event.pull_request.body }}"
+          if ! grep -qi "TEST CHANGE JUSTIFICATION" <<< "$body"; then
+            echo "❌ Tests changed but no TEST CHANGE JUSTIFICATION found in PR body."
+            exit 1
+          fi
+
+      # ---------------------------------------------------------
+      # 3. Compute baseline metrics (main branch)
+      # ---------------------------------------------------------
+      - name: Compute baseline metrics
+        run: |
+          echo "BASELINE_TEST_FILES=$(git ls-tree -r origin/main --name-only | grep -E '\.test\.tsx$|server/tests|plugins/.*/tests' | wc -l)" >> $GITHUB_ENV
+          echo "BASELINE_ASSERTIONS=$(git grep -E 'expect|assert' origin/main | wc -l)" >> $GITHUB_ENV
+
+      # ---------------------------------------------------------
+      # 4. Compute PR metrics
+      # ---------------------------------------------------------
+      - name: Compute PR metrics
+        run: |
+          echo "PR_TEST_FILES=$(git ls-tree -r HEAD --name-only | grep -E '\.test\.tsx$|server/tests|plugins/.*/tests' | wc -l)" >> $GITHUB_ENV
+          echo "PR_ASSERTIONS=$(git grep -E 'expect|assert' | wc -l)" >> $GITHUB_ENV
+
+      # ---------------------------------------------------------
+      # 5. Test Integrity Dashboard (visible in PR)
+      # ---------------------------------------------------------
+      - name: Test Integrity Dashboard
+        run: |
+          echo "### 🧪 Test Integrity Dashboard" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Baseline test files:** $BASELINE_TEST_FILES" >> $GITHUB_STEP_SUMMARY
+          echo "**PR test files:** $PR_TEST_FILES" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Baseline assertions:** $BASELINE_ASSERTIONS" >> $GITHUB_STEP_SUMMARY
+          echo "**PR assertions:** $PR_ASSERTIONS" >> $GITHUB_STEP_SUMMARY
+
+      # ---------------------------------------------------------
+      # 6. Fail if tests were deleted or assertions decreased
+      # ---------------------------------------------------------
+      - name: Enforce test integrity
+        run: |
+          if [ "$PR_TEST_FILES" -lt "$BASELINE_TEST_FILES" ]; then
+            echo "❌ Test file count decreased"
+            exit 1
+          fi
+
+          if [ "$PR_ASSERTIONS" -lt "$BASELINE_ASSERTIONS" ]; then
+            echo "❌ Assertion count decreased"
+            exit 1
+          fi
+

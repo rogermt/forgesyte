@@ -4,17 +4,38 @@ repos:
     hooks:
       - id: black
         exclude: ^original_vision_mcp/
-  
+
   - repo: https://github.com/charliermarsh/ruff-pre-commit
     rev: v0.9.1
     hooks:
       - id: ruff
         args: [--fix, --exit-non-zero-on-fix]
         exclude: ^original_vision_mcp/
-  
+
   - repo: https://github.com/pre-commit/mirrors-mypy
     rev: v1.14.0
     hooks:
       - id: mypy
         additional_dependencies: [types-requests, types-Pillow, tenacity]
         exclude: ^original_vision_mcp/
+
+  - repo: local
+    hooks:
+      - id: prevent-test-changes-without-justification
+        name: Prevent test changes without TEST-CHANGE justification
+        entry: bash
+        args:
+          - -c
+          - |
+            changed=$(git diff --cached --name-only | grep -E "\.test\.tsx$|server/tests|plugins/.*/tests" || true);
+            if [[ -n "$changed" ]]; then
+              if ! git log -1 --pretty=%B | grep -q "TEST-CHANGE"; then
+                echo "❌ Test files modified:";
+                echo "$changed";
+                echo "❌ Commit message must include TEST-CHANGE to explain why tests changed.";
+                exit 1;
+              fi
+            fi
+        language: system
+        pass_filenames: false
+

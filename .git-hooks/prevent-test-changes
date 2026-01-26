@@ -1,0 +1,12 @@
+#!/bin/bash
+# Pre-commit hook to prevent test changes without justification
+
+changed=$(git diff --cached --name-only | grep -E '\.test\.tsx$' | grep -E 'server/tests' || true)
+if [[ -n "$changed" ]]; then
+    if ! git log -1 --pretty=%B | grep -q "TEST-CHANGE"; then
+        echo "❌ Test files modified: $changed"
+        echo "❌ Commit message must include TEST-CHANGE to explain why tests changed."
+        exit 1
+    fi
+fi
+

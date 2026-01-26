@@ -9,8 +9,7 @@ import { ForgeSyteAPIClient } from "./client";
 const createMockResponse = (
     data: unknown,
     ok = true,
-    status = 200,
-    statusText = "OK"
+    status = 200
 ) => ({
     ok,
     status,
