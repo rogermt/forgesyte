@@ -1,0 +1,5 @@
+# Roger is the sole owner of all test files
+/web-ui/src/**/*.test.tsx   @Roger
+/server/tests/**            @Roger
+/plugins/**/tests/**        @Roger
+

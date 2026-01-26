@@ -1,0 +1,72 @@
+name: Test Integrity
+
+on:
+  pull_request:
+
+jobs:
+  test-integrity:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fetch main
+        run: git fetch origin main
+
+      - name: Detect test changes
+        id: detect
+        run: |
+          changed=$(git diff --name-only origin/main...HEAD | grep -E '\.test\.tsx$|server/tests' || true)
+          echo "changed=$changed" >> $GITHUB_OUTPUT
+
+      - name: Require TEST CHANGE JUSTIFICATION if tests changed
+        if: ${{ steps.detect.outputs.changed != '' }}
+        run: |
+          body="${{ github.event.pull_request.body }}"
+          if ! grep -qi "TEST CHANGE JUSTIFICATION" <<< "$body"; then
+            echo "❌ Tests changed but no TEST CHANGE JUSTIFICATION found in PR body."
+            exit 1
+          fi
+
+      - name: Compute baseline test metrics
+        run: |
+          echo "BASELINE_TEST_FILES=$(git ls-tree -r origin/main --name-only | grep -E '\.test\.tsx$|server/tests' | wc -l)" >> $GITHUB_ENV
+          echo "BASELINE_TEST_LOC=$(git show origin/main: | wc -l)" >> $GITHUB_ENV
+          echo "BASELINE_ASSERTIONS=$(git grep -E 'expect|assert' origin/main | wc -l)" >> $GITHUB_ENV
+
+      - name: Compute PR test metrics
+        run: |
+          echo "PR_TEST_FILES=$(git ls-tree -r HEAD --name-only | grep -E '\.test\.tsx$|server/tests' | wc -l)" >> $GITHUB_ENV
+          echo "PR_TEST_LOC=$(git grep -E '\.test\.tsx$|server/tests' -n | wc -l)" >> $GITHUB_ENV
+          echo "PR_ASSERTIONS=$(git grep -E 'expect|assert' | wc -l)" >> $GITHUB_ENV
+
+      - name: Test Integrity Dashboard
+        run: |
+          echo "### 🧪 Test Integrity Dashboard" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Baseline test files:** $BASELINE_TEST_FILES" >> $GITHUB_STEP_SUMMARY
+          echo "**PR test files:** $PR_TEST_FILES" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Baseline test LOC (approx):** $BASELINE_TEST_LOC" >> $GITHUB_STEP_SUMMARY
+          echo "**PR test LOC (approx):** $PR_TEST_LOC" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Baseline assertions:** $BASELINE_ASSERTIONS" >> $GITHUB_STEP_SUMMARY
+          echo "**PR assertions:** $PR_ASSERTIONS" >> $GITHUB_STEP_SUMMARY
+
+      - name: Fail if tests shrank or assertions decreased
+        run: |
+          if [ "$PR_TEST_FILES" -lt "$BASELINE_TEST_FILES" ]; then
+            echo "❌ Test file count decreased"
+            exit 1
+          fi
+
+          if [ "$PR_TEST_LOC" -lt "$BASELINE_TEST_LOC" ]; then
+            echo "❌ Test LOC decreased"
+            exit 1
+          fi
+
+          if [ "$PR_ASSERTIONS" -lt "$BASELINE_ASSERTIONS" ]; then
+            echo "❌ Assertion count decreased"
+            exit 1
+          fi
+
