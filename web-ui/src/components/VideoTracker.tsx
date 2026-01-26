@@ -12,7 +12,7 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useVideoProcessor } from "../hooks/useVideoProcessor";
-import { drawDetections } from "./ResultOverlay";
+import { drawDetections, type OverlayToggles } from "./ResultOverlay";
 import type { Detection } from "../types/plugin";
 
 // ============================================================================
@@ -22,14 +22,6 @@ import type { Detection } from "../types/plugin";
 export interface VideoTrackerProps {
   pluginId: string;   // routing only
   toolName: string;   // routing only
-}
-
-export interface OverlayToggles {
-  players: boolean;
-  tracking: boolean;
-  ball: boolean;
-  pitch: boolean;
-  radar: boolean;
 }
 
 // ============================================================================
@@ -261,13 +253,17 @@ export function VideoTracker({ pluginId, toolName }: VideoTrackerProps) {
 
     if (!detections || detections.length === 0) return;
 
+    // Extract pitch lines from the result if available
+    const pitchLines = (latestResult as Record<string, unknown>)?.pitch as Array<{ x1: number; y1: number; x2: number; y2: number }> | undefined;
+
+    // Call drawDetections function to draw on the canvas
     drawDetections({
       canvas: canvasRef.current,
       detections,
       width: videoRef.current.videoWidth,
       height: videoRef.current.videoHeight,
-      showLabels: overlayToggles.players,
-      showConfidence: overlayToggles.tracking,
+      overlayToggles,
+      pitchLines,
     });
   }, [latestResult, buffer, overlayToggles]);
 

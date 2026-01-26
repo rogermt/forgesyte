@@ -2,8 +2,8 @@
  * Tests for ToolSelector component
  */
 
-import { describe, it, expect, vi } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { ToolSelector } from "./ToolSelector";
 import * as useManifestModule from "../hooks/useManifest";
 
@@ -196,7 +196,7 @@ describe("ToolSelector", () => {
     expect(screen.getByDisplayValue("detect_players")).toBeInTheDocument();
   });
 
-  it("calls onToolChange when tool selection changes", () => {
+  it("calls onToolChange when tool selection changes", async () => {
     const onToolChange = vi.fn();
 
     mockUseManifest.mockReturnValue({
@@ -215,6 +215,13 @@ describe("ToolSelector", () => {
     );
 
     const select = screen.getByRole("combobox");
+    
+    // Wait for the select to be available
+    await waitFor(() => {
+      expect(select).toBeInTheDocument();
+    }, { timeout: 10000 });
+
+    // Then change the selection
     fireEvent.change(select, { target: { value: "detect_ball" } });
 
     expect(onToolChange).toHaveBeenCalledWith("detect_ball");

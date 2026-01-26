@@ -164,9 +164,10 @@ describe("PluginSelector", () => {
         />
       );
 
+      // Wait for loading to complete AND check for empty state
       await waitFor(() => {
         expect(screen.getByText("No plugins available")).toBeInTheDocument();
-      });
+      }, { timeout: 10000 });
     });
   });
 
@@ -185,6 +186,12 @@ describe("PluginSelector", () => {
         />
       );
 
+      // Wait for loading to complete first
+      await waitFor(() => {
+        expect(screen.queryByText("Loading plugins...")).not.toBeInTheDocument();
+      });
+
+      // Then verify the select and all options are present
       await waitFor(() => {
         const select = screen.getByRole("combobox");
         expect(select).toBeInTheDocument();

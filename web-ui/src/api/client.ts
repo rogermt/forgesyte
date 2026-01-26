@@ -69,10 +69,25 @@ export class ForgeSyteAPIClient {
             headers,
         });
 
+        // Check content type to detect HTML error pages (e.g., 404)
+        const contentType = response.headers.get("content-type");
+        const isJson = contentType && contentType.includes("application/json");
+
         if (!response.ok) {
-            throw new Error(
-                `API error: ${response.status} ${response.statusText}`
-            );
+            if (isJson) {
+                const errorData = await response.json();
+                throw new Error(errorData.detail || `API error: ${response.status} ${response.statusText}`);
+            } else {
+                const errorText = await response.text();
+                const truncatedError = errorText.substring(0, 200);
+                throw new Error(`Server returned non-JSON response (HTTP ${response.status}): ${truncatedError}`);
+            }
+        }
+
+        if (!isJson) {
+            const errorText = await response.text();
+            const truncatedError = errorText.substring(0, 200);
+            throw new Error(`Server returned non-JSON response: ${truncatedError}`);
         }
 
         return response.json();

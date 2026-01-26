@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, vi } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { ConfidenceSlider } from "./ConfidenceSlider";
 
 // ============================================================================
@@ -50,7 +50,7 @@ describe("ConfidenceSlider", () => {
     expect(onConfidenceChange).toHaveBeenCalledWith(0.75);
   });
 
-  it("calls onConfidenceChange when input changes", () => {
+  it("calls onConfidenceChange when input changes", async () => {
     const onConfidenceChange = vi.fn();
 
     render(
@@ -61,9 +61,14 @@ describe("ConfidenceSlider", () => {
     );
 
     const input = screen.getByRole("spinbutton");
-    fireEvent.change(input, { target: { value: "0.6" } });
-
-    expect(onConfidenceChange).toHaveBeenCalledWith(0.6);
+    
+    // Clear and type the new value
+    fireEvent.input(input, { target: { value: "0.6" } });
+    
+    // Wait for the change to be processed
+    await waitFor(() => {
+      expect(onConfidenceChange).toHaveBeenCalledWith(0.6);
+    }, { timeout: 10000 });
   });
 
   it("processes out-of-range input on blur and corrects it", () => {

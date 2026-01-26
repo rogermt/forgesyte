@@ -71,14 +71,15 @@ describe("useVideoProcessor", () => {
     const videoRef = { current: mockVideo() };
 
     fetchMock.mockResolvedValue({
+      ok: true,
       json: async () => ({ success: true, result: { detections: [] } }),
     });
 
     renderHook(() =>
       useVideoProcessor({
         videoRef,
-        pluginId: "plugin",
-        toolName: "tool",
+        pluginId: "yolo-tracker",
+        toolName: "track",
         fps: 30,
         device: "cuda",
         enabled: true,
@@ -92,15 +93,14 @@ describe("useVideoProcessor", () => {
       vi.advanceTimersByTime(200);
     });
 
+    // Should call correct endpoint with correct payload
     expect(fetchMock).toHaveBeenCalledWith(
-      "/plugins/run",
+      "/v1/plugins/yolo-tracker/tools/track/run",
       expect.objectContaining({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          plugin_id: "plugin",
-          tool_name: "tool",
-          inputs: {
+          args: {
             frame_base64: "data:image/jpeg;base64,mock",
             device: "cuda",
             annotated: false,
@@ -115,6 +115,7 @@ describe("useVideoProcessor", () => {
     const mockResult = { detections: [{ id: 1 }] };
 
     fetchMock.mockResolvedValue({
+      ok: true,
       json: async () => ({ success: true, result: mockResult }),
     });
 
@@ -143,6 +144,7 @@ describe("useVideoProcessor", () => {
     const videoRef = { current: mockVideo() };
 
     fetchMock.mockResolvedValue({
+      ok: true,
       json: async () => ({ success: true, result: { x: 1 } }),
     });
 
@@ -174,6 +176,8 @@ describe("useVideoProcessor", () => {
     const videoRef = { current: mockVideo() };
 
     fetchMock.mockResolvedValue({
+      ok: false,
+      status: 400,
       json: async () => ({ success: false, error: "Backend error" }),
     });
 
@@ -231,6 +235,7 @@ describe("useVideoProcessor", () => {
     // Complete request
     await act(async () => {
       resolveFetch!({
+        ok: true,
         json: async () => ({ success: true, result: {} }),
       } as Response);
       await Promise.resolve();
@@ -246,6 +251,7 @@ describe("useVideoProcessor", () => {
     fetchMock
       .mockRejectedValueOnce(new Error("Network error"))
       .mockResolvedValueOnce({
+        ok: true,
         json: async () => ({ success: true, result: {} }),
       });
 
@@ -298,6 +304,7 @@ describe("useVideoProcessor", () => {
     const videoRef = { current: mockVideo() };
 
     fetchMock.mockResolvedValue({
+      ok: true,
       json: async () => ({ success: true, result: {} }),
     });
 
@@ -320,6 +327,262 @@ describe("useVideoProcessor", () => {
 
     expect(result.current.lastTickTime).not.toBeNull();
     expect(result.current.lastRequestDuration).not.toBeNull();
+  });
+});
+
+describe("useVideoProcessor - Endpoint Correctness", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.spyOn(window, "fetch").mockImplementation(
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ result: {} }),
+      })
+    );
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+
+  it("calls the correct backend endpoint based on pluginId and toolName", async () => {
+    const videoRef = { current: mockVideo() };
+
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ result: {} }),
+    });
+    vi.spyOn(window, "fetch").mockImplementation(fetchMock);
+
+    const { result } = renderHook(() =>
+      useVideoProcessor({
+        videoRef,
+        pluginId: "forgesyte-yolo-tracker",
+        toolName: "player_detection",
+        fps: 30,
+        device: "cpu",
+        enabled: true,
+      })
+    );
+
+    await act(async () => {
+      vi.advanceTimersByTime(100);
+      await Promise.resolve();
+      vi.advanceTimersByTime(200);
+    });
+
+    // Verify the correct endpoint is called
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/v1/plugins/forgesyte-yolo-tracker/tools/player_detection/run",
+      expect.objectContaining({
+        method: "POST",
+      })
+    );
+  });
+
+  it("matches the manifest tool definition structure", async () => {
+    const videoRef = { current: mockVideo() };
+
+    // Simulate a manifest with tool definitions
+    const manifest = {
+      id: "forgesyte-yolo-tracker",
+      name: "YOLO Football Tracker",
+      tools: [
+        {
+          name: "player_detection",
+          description: "Detect players in video frames",
+          inputs: {
+            type: "object",
+            properties: {
+              frame_base64: { type: "string" },
+              device: { type: "string" },
+              annotated: { type: "boolean" },
+            },
+          },
+          outputs: {
+            type: "object",
+            properties: {
+              detections: { type: "array" },
+            },
+          },
+        },
+      ],
+    };
+
+    // Verify tool exists in manifest
+    const tool = manifest.tools.find((t) => t.name === "player_detection");
+    expect(tool).toBeDefined();
+    expect(tool?.inputs.properties).toHaveProperty("frame_base64");
+    expect(tool?.inputs.properties).toHaveProperty("device");
+    expect(tool?.inputs.properties).toHaveProperty("annotated");
+
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ result: { detections: [] } }),
+    });
+    vi.spyOn(window, "fetch").mockImplementation(fetchMock);
+
+    renderHook(() =>
+      useVideoProcessor({
+        videoRef,
+        pluginId: "forgesyte-yolo-tracker",
+        toolName: "player_detection",
+        fps: 30,
+        device: "cpu",
+        enabled: true,
+      })
+    );
+
+    await act(async () => {
+      vi.advanceTimersByTime(100);
+      await Promise.resolve();
+      vi.advanceTimersByTime(200);
+    });
+
+    // Verify the payload matches the manifest input schema
+    const lastCall = fetchMock.mock.calls[fetchMock.mock.calls.length - 1];
+    const body = JSON.parse(lastCall[1].body);
+
+    expect(body.args).toHaveProperty("frame_base64");
+    expect(body.args).toHaveProperty("device");
+    expect(body.args).toHaveProperty("annotated");
+  });
+
+  it("handles HTTP 404 for missing plugin/tool", async () => {
+    const videoRef = { current: mockVideo() };
+
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 404,
+      json: async () => ({
+        detail: "Plugin 'unknown-plugin' not found or has no tools",
+      }),
+    });
+    vi.spyOn(window, "fetch").mockImplementation(fetchMock);
+
+    const { result } = renderHook(() =>
+      useVideoProcessor({
+        videoRef,
+        pluginId: "unknown-plugin",
+        toolName: "unknown-tool",
+        fps: 30,
+        device: "cpu",
+        enabled: true,
+      })
+    );
+
+    await act(async () => {
+      vi.advanceTimersByTime(100);
+      await Promise.resolve();
+      vi.advanceTimersByTime(200);
+    });
+
+    expect(result.current.error).toContain("unknown-plugin");
+  });
+
+  it("handles HTTP 400 for invalid arguments", async () => {
+    const videoRef = { current: mockVideo() };
+
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 400,
+      json: async () => ({
+        detail: "Invalid arguments for tool 'track': missing required field 'frame_base64'",
+      }),
+    });
+    vi.spyOn(window, "fetch").mockImplementation(fetchMock);
+
+    const { result } = renderHook(() =>
+      useVideoProcessor({
+        videoRef,
+        pluginId: "yolo-tracker",
+        toolName: "track",
+        fps: 30,
+        device: "cpu",
+        enabled: true,
+      })
+    );
+
+    await act(async () => {
+      vi.advanceTimersByTime(100);
+      await Promise.resolve();
+      vi.advanceTimersByTime(200);
+    });
+
+    expect(result.current.error).toContain("Invalid arguments");
+  });
+
+  it("handles HTTP 500 for server errors", async () => {
+    const videoRef = { current: mockVideo() };
+
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 500,
+      json: async () => ({
+        detail: "Internal server error during tool execution",
+      }),
+    });
+    vi.spyOn(window, "fetch").mockImplementation(fetchMock);
+
+    const { result } = renderHook(() =>
+      useVideoProcessor({
+        videoRef,
+        pluginId: "yolo-tracker",
+        toolName: "track",
+        fps: 30,
+        device: "cpu",
+        enabled: true,
+      })
+    );
+
+    await act(async () => {
+      vi.advanceTimersByTime(100);
+      await Promise.resolve();
+      vi.advanceTimersByTime(200);
+    });
+
+    // The error should contain the server error message
+    expect(result.current.error).toContain("Internal server error");
+    expect(result.current.error).toContain("tool execution");
+  });
+
+  it("handles successful API response with different result structures", async () => {
+    const videoRef = { current: mockVideo() };
+
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        tool_name: "track",
+        plugin_id: "yolo-tracker",
+        result: { players: [], ball: null },
+        processing_time_ms: 42,
+      }),
+    });
+    vi.spyOn(window, "fetch").mockImplementation(fetchMock);
+
+    const { result } = renderHook(() =>
+      useVideoProcessor({
+        videoRef,
+        pluginId: "yolo-tracker",
+        toolName: "track",
+        fps: 30,
+        device: "cpu",
+        enabled: true,
+      })
+    );
+
+    await act(async () => {
+      vi.advanceTimersByTime(100);
+      await Promise.resolve();
+      vi.advanceTimersByTime(200);
+    });
+
+    expect(result.current.latestResult).toEqual({
+      players: [],
+      ball: null,
+    });
+    expect(result.current.error).toBeNull();
   });
 });
 

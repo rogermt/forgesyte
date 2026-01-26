@@ -7,9 +7,12 @@
  * - Stable callbacks with useCallback.
  */
 
+// New feature branch commit demonstration
+
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { CameraPreview } from "./components/CameraPreview";
 import { PluginSelector } from "./components/PluginSelector";
+import { ToolSelector } from "./components/ToolSelector";
 import { JobList } from "./components/JobList";
 import { ResultsPanel } from "./components/ResultsPanel";
 import { VideoTracker } from "./components/VideoTracker";
@@ -25,12 +28,14 @@ type ViewMode = "stream" | "upload" | "jobs";
 function App() {
   const [viewMode, setViewMode] = useState<ViewMode>("stream");
   const [selectedPlugin, setSelectedPlugin] = useState<string>("");
-  const [selectedTool] = useState<string>("");
+  const [selectedTool, setSelectedTool] = useState<string>("");
   const [streamEnabled, setStreamEnabled] = useState(false);
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
   const [uploadResult, setUploadResult] = useState<Job | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [manifest, setManifest] = useState<PluginManifest | null>(null);
+  const [manifestError, setManifestError] = useState<string | null>(null);
+  const [manifestLoading, setManifestLoading] = useState(false);
 
   const {
     isConnected,
@@ -57,19 +62,33 @@ function App() {
   useEffect(() => {
     if (!selectedPlugin) {
       setManifest(null);
+      setManifestError(null);
+      setManifestLoading(false);
       return;
     }
 
     async function loadManifest() {
-      try {
-        const response = await fetch(`/plugins/${selectedPlugin}/manifest`);
-        if (!response.ok) throw new Error("Failed to load manifest");
+      setManifestLoading(true);
+      setManifestError(null);
 
-        const json = (await response.json()) as PluginManifest;
-        setManifest(json);
+      try {
+        // Use API client for consistent error handling
+        const manifestData = await apiClient.getPluginManifest(selectedPlugin);
+        setManifest(manifestData);
+        setManifestError(null);
+        console.log("[App] Manifest loaded successfully for plugin:", selectedPlugin);
       } catch (err) {
-        console.error("Manifest load failed:", err);
+        const errorMessage = err instanceof Error ? err.message : "Unknown error loading manifest";
+        console.error("Manifest load failed:", errorMessage);
+        // Check if it's a JSON parse error (HTML response)
+        if (errorMessage.includes("<!DOCTYPE") || errorMessage.includes("Unexpected token")) {
+          setManifestError("Server returned HTML instead of JSON. Check that the server is running and the plugin exists.");
+        } else {
+          setManifestError(errorMessage);
+        }
         setManifest(null);
+      } finally {
+        setManifestLoading(false);
       }
     }
 
@@ -129,11 +148,16 @@ function App() {
     [isConnected, switchPlugin]
   );
 
+  const handleToolChange = useCallback((toolName: string) => {
+    setSelectedTool(toolName);
+  }, []);
+
   const handleFileUpload = useCallback(
     async (event: React.ChangeEvent<HTMLInputElement>) => {
       const file = event.target.files?.[0];
       if (!file) return;
       if (!selectedPlugin) return;
+      if (!selectedTool) return;
 
       setIsUploading(true);
       try {
@@ -147,7 +171,7 @@ function App() {
         setIsUploading(false);
       }
     },
-    [selectedPlugin]
+    [selectedPlugin, selectedTool]
   );
 
   const styles: Record<string, React.CSSProperties> = {
@@ -280,6 +304,15 @@ function App() {
             />
           </div>
 
+          <div style={styles.panel}>
+            <ToolSelector
+              pluginId={selectedPlugin}
+              selectedTool={selectedTool}
+              onToolChange={handleToolChange}
+              disabled={streamEnabled}
+            />
+          </div>
+
 
           {viewMode === "jobs" && (
             <div style={styles.panel}>
@@ -345,7 +378,7 @@ function App() {
                     type="file"
                     accept="image/*"
                     onChange={handleFileUpload}
-                    disabled={isUploading || !selectedPlugin}
+                    disabled={isUploading || !selectedPlugin || !selectedTool}
                   />
                   {isUploading && <p>Analyzing...</p>}
                 </div>
@@ -357,11 +390,24 @@ function App() {
             <div style={styles.panel}>
               {!selectedPlugin ? (
                 <p>Select a plugin first</p>
-              ) : !manifest ? (
+              ) : manifestError ? (
+                <div style={styles.errorBox}>
+                  <strong>Manifest Error:</strong>
+                  <br />
+                  {manifestError}
+                  <br />
+                  <br />
+                  <small>
+                    Check that the plugin is loaded and the server is running.
+                  </small>
+                </div>
+              ) : manifestLoading ? (
                 <p>Loading manifest...</p>
-              ) : (
+              ) : !manifest ? (
+                <p>Manifest not available</p>
+              ) : !selectedTool ? (
                 <p>Select a tool</p>
-              )}
+              ) : null}
             </div>
           )}
 

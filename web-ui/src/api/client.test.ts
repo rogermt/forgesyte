@@ -5,13 +5,30 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { ForgeSyteAPIClient } from "./client";
 
+// Helper function to create mock fetch responses with proper headers
+const createMockResponse = (
+    data: unknown,
+    ok = true,
+    status = 200,
+    statusText = "OK"
+) => ({
+    ok,
+    status,
+    statusText: ok ? "OK" : "Error",
+    headers: {
+        get: (name: string) =>
+            name === "content-type" ? "application/json" : null,
+    },
+    json: async () => data,
+});
+
 describe("ForgeSyteAPIClient", () => {
     let client: ForgeSyteAPIClient;
     let fetchMock: ReturnType<typeof vi.fn>;
 
     beforeEach(() => {
         fetchMock = vi.fn();
-        (global as unknown as { fetch: ReturnType<typeof vi.fn> }).fetch = fetchMock;
+        (window as unknown as { fetch: ReturnType<typeof vi.fn> }).fetch = fetchMock;
         client = new ForgeSyteAPIClient("http://localhost:3000/v1");
     });
 
@@ -28,10 +45,9 @@ describe("ForgeSyteAPIClient", () => {
                 },
             ];
 
-            fetchMock.mockResolvedValueOnce({
-                ok: true,
-                json: async () => ({ plugins: mockPlugins }),
-            });
+            fetchMock.mockResolvedValueOnce(
+                createMockResponse({ plugins: mockPlugins })
+            );
 
             const plugins = await client.getPlugins();
 
@@ -43,14 +59,12 @@ describe("ForgeSyteAPIClient", () => {
         });
 
         it("should handle API errors", async () => {
-            fetchMock.mockResolvedValueOnce({
-                ok: false,
-                status: 500,
-                statusText: "Internal Server Error",
-            });
+            fetchMock.mockResolvedValueOnce(
+                createMockResponse({ detail: "Internal Server Error" }, false, 500)
+            );
 
             await expect(client.getPlugins()).rejects.toThrow(
-                /API error: 500/
+                "Internal Server Error"
             );
         });
     });
@@ -67,10 +81,9 @@ describe("ForgeSyteAPIClient", () => {
                 },
             ];
 
-            fetchMock.mockResolvedValueOnce({
-                ok: true,
-                json: async () => ({ jobs: mockJobs }),
-            });
+            fetchMock.mockResolvedValueOnce(
+                createMockResponse({ jobs: mockJobs })
+            );
 
             const jobs = await client.listJobs();
 
@@ -82,10 +95,9 @@ describe("ForgeSyteAPIClient", () => {
         });
 
         it("should include pagination parameters", async () => {
-            fetchMock.mockResolvedValueOnce({
-                ok: true,
-                json: async () => ({ jobs: [] }),
-            });
+            fetchMock.mockResolvedValueOnce(
+                createMockResponse({ jobs: [] })
+            );
 
             await client.listJobs(20, 10);
 
@@ -95,10 +107,9 @@ describe("ForgeSyteAPIClient", () => {
         });
 
         it("should include status filter when provided", async () => {
-            fetchMock.mockResolvedValueOnce({
-                ok: true,
-                json: async () => ({ jobs: [] }),
-            });
+            fetchMock.mockResolvedValueOnce(
+                createMockResponse({ jobs: [] })
+            );
 
             await client.listJobs(10, 0, "done");
 
@@ -118,10 +129,9 @@ describe("ForgeSyteAPIClient", () => {
                 updated_at: "2026-01-09T21:00:30Z",
             };
 
-            fetchMock.mockResolvedValueOnce({
-                ok: true,
-                json: async () => ({ job: mockJob }),
-            });
+            fetchMock.mockResolvedValueOnce(
+                createMockResponse({ job: mockJob })
+            );
 
             const job = await client.getJob("job-123");
 
@@ -141,10 +151,9 @@ describe("ForgeSyteAPIClient", () => {
                 updated_at: "2026-01-09T21:00:30Z",
             };
 
-            fetchMock.mockResolvedValueOnce({
-                ok: true,
-                json: async () => mockJob,
-            });
+            fetchMock.mockResolvedValueOnce(
+                createMockResponse(mockJob)
+            );
 
             const job = await client.getJob("job-123");
 
@@ -214,10 +223,9 @@ describe("ForgeSyteAPIClient", () => {
 
     describe("cancelJob", () => {
         it("should send DELETE request to cancel job", async () => {
-            fetchMock.mockResolvedValueOnce({
-                ok: true,
-                json: async () => ({ status: "cancelled", job_id: "job-123" }),
-            });
+            fetchMock.mockResolvedValueOnce(
+                createMockResponse({ status: "cancelled", job_id: "job-123" })
+            );
 
             const result = await client.cancelJob("job-123");
 
@@ -239,10 +247,9 @@ describe("ForgeSyteAPIClient", () => {
                 version: "0.1.0",
             };
 
-            fetchMock.mockResolvedValueOnce({
-                ok: true,
-                json: async () => mockHealth,
-            });
+            fetchMock.mockResolvedValueOnce(
+                createMockResponse(mockHealth)
+            );
 
             const health = await client.getHealth();
 
@@ -271,14 +278,12 @@ describe("ForgeSyteAPIClient", () => {
             };
 
             fetchMock
-                .mockResolvedValueOnce({
-                    ok: true,
-                    json: async () => ({ job: pendingJob }),
-                })
-                .mockResolvedValueOnce({
-                    ok: true,
-                    json: async () => ({ job: completeJob }),
-                });
+                .mockResolvedValueOnce(
+                    createMockResponse({ job: pendingJob })
+                )
+                .mockResolvedValueOnce(
+                    createMockResponse({ job: completeJob })
+                );
 
             const result = await client.pollJob("job-1", 10, 5000);
 
@@ -295,10 +300,9 @@ describe("ForgeSyteAPIClient", () => {
                 updated_at: "2026-01-09T21:00:10Z",
             };
 
-            fetchMock.mockResolvedValue({
-                ok: true,
-                json: async () => ({ job: pendingJob }),
-            });
+            fetchMock.mockResolvedValue(
+                createMockResponse({ job: pendingJob })
+            );
 
             await expect(
                 client.pollJob("job-1", 10, 100)
@@ -313,10 +317,9 @@ describe("ForgeSyteAPIClient", () => {
                 "secret-key"
             );
 
-            fetchMock.mockResolvedValueOnce({
-                ok: true,
-                json: async () => ({ plugins: [] }),
-            });
+            fetchMock.mockResolvedValueOnce(
+                createMockResponse({ plugins: [] })
+            );
 
             await clientWithKey.getPlugins();
 
@@ -326,10 +329,9 @@ describe("ForgeSyteAPIClient", () => {
         });
 
         it("should not include X-API-Key header when not provided", async () => {
-            fetchMock.mockResolvedValueOnce({
-                ok: true,
-                json: async () => ({ plugins: [] }),
-            });
+            fetchMock.mockResolvedValueOnce(
+                createMockResponse({ plugins: [] })
+            );
 
             await client.getPlugins();
 
@@ -339,3 +341,4 @@ describe("ForgeSyteAPIClient", () => {
         });
     });
 });
+

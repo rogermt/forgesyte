@@ -395,6 +395,11 @@ export function useWebSocket(options: UseWebSocketOptions): UseWebSocketReturn {
   const connectRef = useRef<() => void>(() => {});
 
   const connect = useCallback(() => {
+    // P0 fix: Don't connect if plugin is empty - stay idle (issue #95)
+    if (!cfg.plugin?.trim()) {
+      return;
+    }
+
     if (
       wsRef.current &&
       (wsRef.current.readyState === WebSocket.OPEN ||
@@ -476,8 +481,17 @@ export function useWebSocket(options: UseWebSocketOptions): UseWebSocketReturn {
         case "result": {
           const result = msg.payload as unknown as FrameResult;
 
-          processingTimesRef.current.push(result.processing_time_ms);
-          processingSumRef.current += result.processing_time_ms;
+          // P1 fix: Validate processing_time_ms to prevent NaN stats
+          const processingTime = result.processing_time_ms;
+          if (typeof processingTime !== "number" || !Number.isFinite(processingTime)) {
+            // Invalid processing time - still dispatch result but use 0 for stats
+            dispatch({ type: "RESULT", result, avgProcessingTime: 0 });
+            onResultRef.current?.(result);
+            return;
+          }
+
+          processingTimesRef.current.push(processingTime);
+          processingSumRef.current += processingTime;
 
           if (processingTimesRef.current.length > PROCESSING_WINDOW_SIZE) {
             const removed = processingTimesRef.current.shift()!;
@@ -592,6 +606,13 @@ export function useWebSocket(options: UseWebSocketOptions): UseWebSocketReturn {
   useEffect(() => {
     connectRef.current = connect;
   }, [connect]);
+
+  // P0 fix: Trigger connection when plugin becomes available (issue #95)
+  useEffect(() => {
+    if (cfg.plugin?.trim()) {
+      connectRef.current();
+    }
+  }, [cfg.plugin]);
 
   useEffect(() => {
     connectRef.current();

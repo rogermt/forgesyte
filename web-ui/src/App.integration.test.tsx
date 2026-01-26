@@ -2,6 +2,7 @@
  * Integration tests for App.tsx WebSocket streaming
  */
 
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import { render, screen, waitFor, act } from "@testing-library/react";
 import App from "./App";
 import * as useWebSocketModule from "./hooks/useWebSocket";
@@ -23,6 +24,7 @@ vi.mock("./api/client", () => ({
                 },
             ])
         ),
+        getPluginManifest: vi.fn(() => Promise.resolve(null)),
     },
 }));
 
@@ -237,4 +239,3 @@ describe("App - WebSocket Streaming Integration", () => {
     });
 });
 
-import { vi } from "vitest";

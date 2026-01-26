@@ -59,6 +59,12 @@ export function useVideoProcessor({
 
   const processFrame = async () => {
     if (requestInFlight.current) return;
+    
+    // Guard against empty pluginId or toolName
+    if (!pluginId || !toolName) {
+      console.error("Frame processing aborted: pluginId or toolName missing");
+      return;
+    }
 
     const frameBase64 = extractFrame();
     if (!frameBase64) return;
@@ -67,10 +73,12 @@ export function useVideoProcessor({
     setProcessing(true);
     setLastTickTime(Date.now());
 
+    // Build the correct endpoint URL
+    const endpoint = `/v1/plugins/${pluginId}/tools/${toolName}/run`;
+    
+    // Payload structure matching the API spec in server/app/api.py
     const payload = {
-      plugin_id: pluginId,
-      tool_name: toolName,
-      inputs: {
+      args: {
         frame_base64: frameBase64,
         device,
         annotated: false,
@@ -79,12 +87,13 @@ export function useVideoProcessor({
 
     const attempt = async (): Promise<Response | null> => {
       try {
-        return await fetch("/plugins/run", {
+        return await fetch(endpoint, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
         });
-      } catch {
+      } catch (err) {
+        console.error("Frame processing fetch error:", err);
         return null;
       }
     };
@@ -93,6 +102,7 @@ export function useVideoProcessor({
     let response = await attempt();
 
     if (!response) {
+      // Retry once after 200ms delay
       await new Promise((r) => setTimeout(r, 200));
       response = await attempt();
     }
@@ -101,7 +111,7 @@ export function useVideoProcessor({
     setLastRequestDuration(duration);
 
     if (!response) {
-      setError("Failed to process frame");
+      setError("Failed to connect to video processing service");
       requestInFlight.current = false;
       setProcessing(false);
       return;
@@ -109,18 +119,23 @@ export function useVideoProcessor({
 
     try {
       const json = await response.json();
-      if (json.success) {
-        setLatestResult(json.result);
+      
+      // Handle different response formats
+      if (response.ok && json.success !== false) {
+        // Success - extract result based on API response structure
+        const result = json.result || json;
+        setLatestResult(result);
         setBuffer((prev) => {
-          const next = [...prev, json.result];
+          const next = [...prev, result];
           return next.length > bufferSize ? next.slice(-bufferSize) : next;
         });
         setError(null);
       } else {
-        setError(json.error || "Unknown backend error");
+        // API returned an error
+        setError(json.detail || json.error || `HTTP ${response.status}: Request failed`);
       }
     } catch {
-      setError("Invalid JSON response");
+      setError("Invalid response from video processing service");
     }
 
     requestInFlight.current = false;
