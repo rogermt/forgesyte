@@ -222,11 +222,11 @@ class TestPluginManagementService:
         assert result == {"data": "test"}
         mock_registry.get.assert_called_once_with("plugin1")
 
-    @pytest.mark.asyncio
-    async def test_run_plugin_tool_success_async(self, service, mock_registry):
-        """Test successful async tool execution."""
+    def test_run_plugin_tool_success_async(self, service, mock_registry):
+        """Test successful async tool execution via run_plugin_tool."""
 
         # Create a mock async plugin method
+        # Note: run_plugin_tool handles the event loop internally
         async def async_tool(**kwargs):
             return {"async_result": "success"}
 
