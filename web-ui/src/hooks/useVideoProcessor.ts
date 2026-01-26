@@ -59,6 +59,12 @@ export function useVideoProcessor({
 
   const processFrame = async () => {
     if (requestInFlight.current) return;
+    
+    // Guard against empty pluginId or toolName
+    if (!pluginId || !toolName) {
+      console.error("Frame processing aborted: pluginId or toolName missing");
+      return;
+    }
 
     const frameBase64 = extractFrame();
     if (!frameBase64) return;

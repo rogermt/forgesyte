@@ -12,6 +12,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { CameraPreview } from "./components/CameraPreview";
 import { PluginSelector } from "./components/PluginSelector";
+import { ToolSelector } from "./components/ToolSelector";
 import { JobList } from "./components/JobList";
 import { ResultsPanel } from "./components/ResultsPanel";
 import { VideoTracker } from "./components/VideoTracker";
@@ -27,7 +28,7 @@ type ViewMode = "stream" | "upload" | "jobs";
 function App() {
   const [viewMode, setViewMode] = useState<ViewMode>("stream");
   const [selectedPlugin, setSelectedPlugin] = useState<string>("");
-  const [selectedTool] = useState<string>("");
+  const [selectedTool, setSelectedTool] = useState<string>("");
   const [streamEnabled, setStreamEnabled] = useState(false);
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
   const [uploadResult, setUploadResult] = useState<Job | null>(null);
@@ -147,11 +148,16 @@ function App() {
     [isConnected, switchPlugin]
   );
 
+  const handleToolChange = useCallback((toolName: string) => {
+    setSelectedTool(toolName);
+  }, []);
+
   const handleFileUpload = useCallback(
     async (event: React.ChangeEvent<HTMLInputElement>) => {
       const file = event.target.files?.[0];
       if (!file) return;
       if (!selectedPlugin) return;
+      if (!selectedTool) return;
 
       setIsUploading(true);
       try {
@@ -165,7 +171,7 @@ function App() {
         setIsUploading(false);
       }
     },
-    [selectedPlugin]
+    [selectedPlugin, selectedTool]
   );
 
   const styles: Record<string, React.CSSProperties> = {
@@ -298,6 +304,15 @@ function App() {
             />
           </div>
 
+          <div style={styles.panel}>
+            <ToolSelector
+              pluginId={selectedPlugin}
+              selectedTool={selectedTool}
+              onToolChange={handleToolChange}
+              disabled={streamEnabled}
+            />
+          </div>
+
 
           {viewMode === "jobs" && (
             <div style={styles.panel}>
@@ -363,7 +378,7 @@ function App() {
                     type="file"
                     accept="image/*"
                     onChange={handleFileUpload}
-                    disabled={isUploading || !selectedPlugin}
+                    disabled={isUploading || !selectedPlugin || !selectedTool}
                   />
                   {isUploading && <p>Analyzing...</p>}
                 </div>

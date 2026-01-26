@@ -1,0 +1,179 @@
+<parameter name="content">"""TDD Tests for Plugin Tool Methods.
+
+These tests verify that the Plugin class has the tool methods that can be
+called via getattr(plugin, tool_name)(**args) by the PluginManagementService.
+
+Tests follow the TDD pattern:
+1. Write test first (describes expected behavior)
+2. Run test (should fail before fix, pass after fix)
+3. Implement fix to make test pass
+"""
+
+import pytest
+
+
+class TestPluginToolMethods:
+    """Test that Plugin class has tool methods for tool execution."""
+
+    @pytest.fixture
+    def plugin(self):
+        """Create a Plugin instance for testing."""
+        from forgesyte_yolo_tracker.plugin import Plugin
+        return Plugin()
+
+    def test_plugin_has_player_detection_method(self, plugin):
+        """Plugin should have player_detection method for tool execution."""
+        assert hasattr(plugin, "player_detection"), (
+            "Plugin class must have 'player_detection' method "
+            "so PluginManagementService can call it via getattr(plugin, 'player_detection')"
+        )
+        assert callable(getattr(plugin, "player_detection")), (
+            "player_detection must be callable"
+        )
+
+    def test_plugin_has_player_tracking_method(self, plugin):
+        """Plugin should have player_tracking method for tool execution."""
+        assert hasattr(plugin, "player_tracking"), (
+            "Plugin class must have 'player_tracking' method "
+            "so PluginManagementService can call it via getattr(plugin, 'player_tracking')"
+        )
+        assert callable(getattr(plugin, "player_tracking")), (
+            "player_tracking must be callable"
+        )
+
+    def test_plugin_has_ball_detection_method(self, plugin):
+        """Plugin should have ball_detection method for tool execution."""
+        assert hasattr(plugin, "ball_detection"), (
+            "Plugin class must have 'ball_detection' method "
+            "so PluginManagementService can call it via getattr(plugin, 'ball_detection')"
+        )
+        assert callable(getattr(plugin, "ball_detection")), (
+            "ball_detection must be callable"
+        )
+
+    def test_plugin_has_pitch_detection_method(self, plugin):
+        """Plugin should have pitch_detection method for tool execution."""
+        assert hasattr(plugin, "pitch_detection"), (
+            "Plugin class must have 'pitch_detection' method "
+            "so PluginManagementService can call it via getattr(plugin, 'pitch_detection')"
+        )
+        assert callable(getattr(plugin, "pitch_detection")), (
+            "pitch_detection must be callable"
+        )
+
+    def test_plugin_has_radar_method(self, plugin):
+        """Plugin should have radar method for tool execution."""
+        assert hasattr(plugin, "radar"), (
+            "Plugin class must have 'radar' method "
+            "so PluginManagementService can call it via getattr(plugin, 'radar')"
+        )
+        assert callable(getattr(plugin, "radar")), (
+            "radar must be callable"
+        )
+
+    def test_all_manifest_tools_are_methods(self, plugin):
+        """All tools listed in manifest should be callable methods on Plugin class."""
+        expected_tools = [
+            "player_detection",
+            "player_tracking",
+            "ball_detection",
+            "pitch_detection",
+            "radar",
+        ]
+        
+        for tool_name in expected_tools:
+            assert hasattr(plugin, tool_name), (
+                f"Plugin must have '{tool_name}' method for tool execution"
+            )
+            attr = getattr(plugin, tool_name)
+            assert callable(attr), (
+                f"Plugin.{tool_name} must be callable"
+            )
+
+    def test_plugin_lookup_finds_tool_via_getattr(self, plugin):
+        """Simulate how PluginManagementService finds and calls tools.
+        
+        This test mimics the pattern used in PluginManagementService.run_plugin_tool():
+        
+            tool_func = getattr(plugin, tool_name)
+            result = tool_func(**args)
+        """
+        # Simulate the lookup pattern from run_plugin_tool
+        tool_name = "player_detection"
+        
+        # This is how run_plugin_tool finds the tool
+        tool_func = getattr(plugin, tool_name)
+        
+        # Verify it's callable
+        assert callable(tool_func), f"{tool_name} must be callable"
+        
+        # Verify we can check it's callable (as run_plugin_tool does)
+        assert callable(getattr(plugin, tool_name)), (
+            f"run_plugin_tool checks callable(getattr(plugin, '{tool_name}'))"
+        )
+
+
+class TestPluginToolExecution:
+    """Test that tool methods can be executed with proper arguments."""
+
+    @pytest.fixture
+    def plugin(self):
+        """Create a Plugin instance for testing."""
+        from forgesyte_yolo_tracker.plugin import Plugin
+        return Plugin()
+
+    def test_player_tracking_accepts_required_args(self, plugin):
+        """player_tracking should accept frame_base64, device, annotated args."""
+        import inspect
+        sig = inspect.signature(plugin.player_tracking)
+        params = list(sig.parameters.keys())
+        
+        assert "self" in params, "Method should have self parameter"
+        assert "frame_base64" in params, "Should accept frame_base64"
+        assert "device" in params, "Should accept device"
+        assert "annotated" in params, "Should accept annotated"
+
+    def test_player_detection_accepts_required_args(self, plugin):
+        """player_detection should accept frame_base64, device, annotated args."""
+        import inspect
+        sig = inspect.signature(plugin.player_detection)
+        params = list(sig.parameters.keys())
+        
+        assert "self" in params, "Method should have self parameter"
+        assert "frame_base64" in params, "Should accept frame_base64"
+        assert "device" in params, "Should accept device"
+        assert "annotated" in params, "Should accept annotated"
+
+    def test_ball_detection_accepts_required_args(self, plugin):
+        """ball_detection should accept frame_base64, device, annotated args."""
+        import inspect
+        sig = inspect.signature(plugin.ball_detection)
+        params = list(sig.parameters.keys())
+        
+        assert "self" in params, "Method should have self parameter"
+        assert "frame_base64" in params, "Should accept frame_base64"
+        assert "device" in params, "Should accept device"
+        assert "annotated" in params, "Should accept annotated"
+
+    def test_pitch_detection_accepts_required_args(self, plugin):
+        """pitch_detection should accept frame_base64, device, annotated args."""
+        import inspect
+        sig = inspect.signature(plugin.pitch_detection)
+        params = list(sig.parameters.keys())
+        
+        assert "self" in params, "Method should have self parameter"
+        assert "frame_base64" in params, "Should accept frame_base64"
+        assert "device" in params, "Should accept device"
+        assert "annotated" in params, "Should accept annotated"
+
+    def test_radar_accepts_required_args(self, plugin):
+        """radar should accept frame_base64, device, annotated args."""
+        import inspect
+        sig = inspect.signature(plugin.radar)
+        params = list(sig.parameters.keys())
+        
+        assert "self" in params, "Method should have self parameter"
+        assert "frame_base64" in params, "Should accept frame_base64"
+        assert "device" in params, "Should accept device"
+        assert "annotated" in params, "Should accept annotated"
+</parameter>
