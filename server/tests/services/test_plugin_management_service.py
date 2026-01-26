@@ -142,3 +142,103 @@ class TestPluginManagementService:
 
         with pytest.raises(Exception, match="Reload All Error"):
             await service.reload_all_plugins()
+
+    def test_run_plugin_tool_success_sync(self, service, mock_registry):
+        """Test successful sync tool execution via registry.get()."""
+        # Create a mock plugin with a callable tool method
+        mock_plugin = Mock()
+        mock_plugin.test_tool.return_value = {"result": "success"}
+
+        # registry.get() returns the plugin instance
+        mock_registry.get.return_value = mock_plugin
+
+        # Execute the tool
+        result = service.run_plugin_tool(
+            plugin_id="test-plugin",
+            tool_name="test_tool",
+            args={"arg1": "value1"},
+        )
+
+        assert result == {"result": "success"}
+        mock_registry.get.assert_called_once_with("test-plugin")
+        mock_plugin.test_tool.assert_called_once_with(arg1="value1")
+
+    def test_run_plugin_tool_plugin_not_found(self, service, mock_registry):
+        """Test ValueError when plugin not found."""
+        # registry.get() returns None when plugin not found
+        mock_registry.get.return_value = None
+        mock_registry.list.return_value = {"other-plugin": {}}
+
+        with pytest.raises(ValueError) as exc_info:
+            service.run_plugin_tool(
+                plugin_id="nonexistent",
+                tool_name="some_tool",
+                args={},
+            )
+
+        assert "Plugin 'nonexistent' not found" in str(exc_info.value)
+        assert "other-plugin" in str(exc_info.value)
+        mock_registry.get.assert_called_once_with("nonexistent")
+
+    def test_run_plugin_tool_tool_not_found(self, service, mock_registry):
+        """Test ValueError when tool not found on plugin."""
+        mock_plugin = Mock(spec=["metadata"])  # No test_tool method
+        mock_plugin.metadata.return_value = {"name": "test-plugin"}
+        mock_registry.get.return_value = mock_plugin
+
+        with pytest.raises(ValueError) as exc_info:
+            service.run_plugin_tool(
+                plugin_id="test-plugin",
+                tool_name="nonexistent_tool",
+                args={},
+            )
+
+        assert "Tool 'nonexistent_tool' not found" in str(exc_info.value)
+
+    def test_run_plugin_tool_get_returns_instance_not_metadata(
+        self, service, mock_registry
+    ):
+        """Verify registry.get() returns PluginInterface instance, not metadata dict."""
+        # Create a mock plugin instance with callable methods
+        mock_plugin = Mock()
+        mock_plugin.some_method.return_value = {"data": "test"}
+        mock_plugin.metadata.return_value = {"name": "plugin1", "version": "1.0"}
+
+        # Simulate the difference between registry.get() and registry.list()
+        # registry.get() -> returns plugin instance (has callable methods)
+        # registry.list() -> returns metadata dict (no callable methods)
+        mock_registry.get.return_value = mock_plugin
+        mock_registry.list.return_value = {
+            "plugin1": {"name": "plugin1", "version": "1.0"}
+        }
+
+        # This should work because registry.get() returns the instance
+        result = service.run_plugin_tool(
+            plugin_id="plugin1",
+            tool_name="some_method",
+            args={},
+        )
+
+        assert result == {"data": "test"}
+        mock_registry.get.assert_called_once_with("plugin1")
+
+    @pytest.mark.asyncio
+    async def test_run_plugin_tool_success_async(self, service, mock_registry):
+        """Test successful async tool execution."""
+
+        # Create a mock async plugin method
+        async def async_tool(**kwargs):
+            return {"async_result": "success"}
+
+        mock_plugin = Mock()
+        mock_plugin.async_tool = async_tool
+
+        mock_registry.get.return_value = mock_plugin
+
+        result = service.run_plugin_tool(
+            plugin_id="async-plugin",
+            tool_name="async_tool",
+            args={"param": "value"},
+        )
+
+        assert result == {"async_result": "success"}

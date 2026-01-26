@@ -297,24 +297,16 @@ class PluginManagementService:
             Exception: Tool execution failed
         """
         # 1. Find plugin in registry
-        plugins_dict = self.registry.list()
-        if isinstance(plugins_dict, dict):
-            plugin = plugins_dict.get(plugin_id)
-        else:
-            plugin = next(
-                (p for p in plugins_dict if getattr(p, "name", None) == plugin_id),
-                None,
-            )
+        plugin = self.registry.get(plugin_id)
 
         if not plugin:
+            plugins_dict = self.registry.list()
             available = (
                 list(plugins_dict.keys())
                 if isinstance(plugins_dict, dict)
                 else [getattr(p, "name", "unknown") for p in plugins_dict]
             )
-            raise ValueError(
-                f"Plugin '{plugin_id}' not found. " f"Available: {available}"
-            )
+            raise ValueError(f"Plugin '{plugin_id}' not found. Available: {available}")
 
         logger.debug(f"Found plugin: {plugin}")
 
