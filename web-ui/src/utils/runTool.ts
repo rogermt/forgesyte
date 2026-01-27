@@ -38,11 +38,11 @@ export interface RetryOptions {
  * Wrapper that adds structured logging to async functions
  * Logs start, success, and error events with timing information
  */
-export function withLogging<T extends (...args: any[]) => Promise<any>>(
+export function withLogging<T extends (...args: unknown[]) => Promise<unknown>>(
   fn: T,
   context: LoggingContext
 ): T {
-  return (async (...args: any[]) => {
+  return (async (...args: unknown[]) => {
     const start = performance.now();
     console.debug("🔧 runTool:start", context);
 
@@ -77,19 +77,19 @@ export async function withRetry<T>(
   let attempt = 0;
   let delay = baseDelayMs;
 
-  while (true) {
-    attempt += 1;
-
+  for (; attempt < maxRetries + 1; attempt++) {
     try {
       return await fn();
     } catch (err) {
-      if (attempt > maxRetries) {
+      if (attempt >= maxRetries) {
         throw err;
       }
       await new Promise((r) => setTimeout(r, delay));
       delay = Math.min(delay * backoffMultiplier, maxDelayMs);
     }
   }
+  
+  throw new Error("Unexpected state in retry loop");
 }
 
 /**
@@ -116,7 +116,7 @@ export async function runTool({
 
     // Execute with retry for network/JSON errors only
     const { resp, json } = await withRetry(
-      async (): Promise<{ resp: Response; json: any }> => {
+      async (): Promise<{ resp: Response; json: Record<string, unknown> }> => {
         const res = await fetch(endpoint, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -124,7 +124,7 @@ export async function runTool({
         });
 
         // Get response data
-        const data = await res.json().catch(async () => {
+        const data = await res.json().catch(async (): Promise<Record<string, unknown>> => {
           // If JSON parsing fails, get the raw text for debugging
           const text = await res.text().catch(() => "unknown");
           console.log("runTool:error-response", { pluginId, toolName, status: res.status, text });
@@ -150,13 +150,13 @@ export async function runTool({
     const durationMs = performance.now() - start;
     console.debug("🔧 runTool:success", { pluginId, toolName, durationMs });
     return { result: json.result || json, success: true };
-  } catch (error: any) {
+  } catch (error) {
     const durationMs = performance.now() - start;
     console.error("🔧 runTool:error", { pluginId, toolName, durationMs, error });
     return {
       result: null,
       success: false,
-      error: error?.message ?? String(error),
+      error: error instanceof Error ? error.message : String(error),
     };
   }
 }
