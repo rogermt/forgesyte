@@ -1,5 +1,5 @@
 // web-ui/src/hooks/useVideoProcessor.ts
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import type {
   FrameResult,
@@ -27,35 +27,42 @@ export function useVideoProcessor({
 
   const intervalRef = useRef<number | null>(null);
   const requestInFlight = useRef(false);
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const mountedRef = useRef(true);
 
-  // Extract current frame as base64
-  const extractFrame = (): string | null => {
+  // Extract current frame as base64 - reuse canvas
+  const extractFrame = useCallback((): string | null => {
     const video = videoRef.current;
     if (!video || video.readyState < 2) return null;
 
-    const canvas = document.createElement("canvas");
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
+    // Reuse or create canvas
+    if (!canvasRef.current) {
+      canvasRef.current = document.createElement("canvas");
+    }
+    const canvas = canvasRef.current;
+
+    // Only resize if dimensions changed
+    if (canvas.width !== video.videoWidth || canvas.height !== video.videoHeight) {
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+    }
 
     const ctx = canvas.getContext("2d");
     if (!ctx) return null;
 
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-    // Get data URL and strip the prefix to get raw base64
-    // The backend expects raw base64, not data:image/jpeg;base64,...
-    const dataUrl = canvas.toDataURL("image/jpeg");
+    const dataUrl = canvas.toDataURL("image/jpeg", 0.8); // Quality 0.8 for smaller payloads
     const rawBase64 = dataUrl.split(",", 2)[1];
 
     return rawBase64;
-  };
+  }, [videoRef]);
 
-  const processFrame = async () => {
+  const processFrame = useCallback(async () => {
     if (requestInFlight.current) return;
-    
-    // Guard against empty pluginId or toolName
+
     if (!pluginId || !toolName) {
-      console.error("Frame processing aborted: pluginId or toolName missing");
       return;
     }
 
@@ -63,13 +70,14 @@ export function useVideoProcessor({
     if (!frameBase64) return;
 
     requestInFlight.current = true;
-    setProcessing(true);
-    setLastTickTime(Date.now());
 
-    // Build the correct endpoint URL
+    if (mountedRef.current) {
+      setProcessing(true);
+      setLastTickTime(Date.now());
+    }
+
     const endpoint = `/v1/plugins/${pluginId}/tools/${toolName}/run`;
-    
-    // Payload structure matching the API spec in server/app/api.py
+
     const payload = {
       args: {
         frame_base64: frameBase64,
@@ -78,14 +86,21 @@ export function useVideoProcessor({
       },
     };
 
+    // Create new AbortController for this request
+    abortControllerRef.current = new AbortController();
+
     const attempt = async (): Promise<Response | null> => {
       try {
         return await fetch(endpoint, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
+          signal: abortControllerRef.current?.signal,
         });
       } catch (err) {
+        if (err instanceof Error && err.name === "AbortError") {
+          return null; // Request was cancelled, don't log as error
+        }
         console.error("Frame processing fetch error:", err);
         return null;
       }
@@ -94,17 +109,26 @@ export function useVideoProcessor({
     const start = performance.now();
     let response = await attempt();
 
-    if (!response) {
+    if (!response && mountedRef.current && !abortControllerRef.current?.signal.aborted) {
       // Retry once after 200ms delay
       await new Promise((r) => setTimeout(r, 200));
       response = await attempt();
     }
 
     const duration = performance.now() - start;
+
+    // Guard all state updates with mounted check
+    if (!mountedRef.current) {
+      requestInFlight.current = false;
+      return;
+    }
+
     setLastRequestDuration(duration);
 
     if (!response) {
-      setError("Failed to connect to video processing service");
+      if (!abortControllerRef.current?.signal.aborted) {
+        setError("Failed to connect to video processing service");
+      }
       requestInFlight.current = false;
       setProcessing(false);
       return;
@@ -112,10 +136,13 @@ export function useVideoProcessor({
 
     try {
       const json = await response.json();
-      
-      // Handle different response formats
+
+      if (!mountedRef.current) {
+        requestInFlight.current = false;
+        return;
+      }
+
       if (response.ok && json.success !== false) {
-        // Success - extract result based on API response structure
         const result = json.result || json;
         setLatestResult(result);
         setBuffer((prev) => {
@@ -124,21 +151,38 @@ export function useVideoProcessor({
         });
         setError(null);
       } else {
-        // API returned an error
         setError(json.detail || json.error || `HTTP ${response.status}: Request failed`);
       }
     } catch {
-      setError("Invalid response from video processing service");
+      if (mountedRef.current) {
+        setError("Invalid response from video processing service");
+      }
     }
 
     requestInFlight.current = false;
-    setProcessing(false);
-  };
+    if (mountedRef.current) {
+      setProcessing(false);
+    }
+  }, [pluginId, toolName, device, bufferSize, extractFrame]);
+
+  useEffect(() => {
+    mountedRef.current = true;
+
+    return () => {
+      mountedRef.current = false;
+      // Cancel any in-flight request on unmount
+      abortControllerRef.current?.abort();
+    };
+  }, []);
 
   useEffect(() => {
     if (!enabled) {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-      intervalRef.current = null;
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+      // Cancel in-flight request when disabled
+      abortControllerRef.current?.abort();
       return;
     }
 
@@ -146,10 +190,12 @@ export function useVideoProcessor({
     intervalRef.current = window.setInterval(processFrame, interval);
 
     return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [enabled, fps, device, pluginId, toolName]);
+  }, [enabled, fps, processFrame, bufferSize]);
 
   return {
     latestResult,
