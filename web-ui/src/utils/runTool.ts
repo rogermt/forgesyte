@@ -140,8 +140,8 @@ export async function runTool({
     );
 
     // HTTP errors don't retry (business logic errors)
-    if (!resp.ok || json.success === false) {
-      const error = json.detail || json.error || `HTTP ${resp.status}`;
+    if (!resp.ok || (json.success as boolean) === false) {
+      const error = (json.detail as string) || (json.error as string) || `HTTP ${resp.status}`;
       const durationMs = performance.now() - start;
       console.debug("🔧 runTool:success", { pluginId, toolName, durationMs });
       return { result: null, success: false, error };
@@ -149,7 +149,7 @@ export async function runTool({
 
     const durationMs = performance.now() - start;
     console.debug("🔧 runTool:success", { pluginId, toolName, durationMs });
-    return { result: json.result || json, success: true };
+    return { result: (json.result as Record<string, unknown>) || json, success: true };
   } catch (error) {
     const durationMs = performance.now() - start;
     console.error("🔧 runTool:error", { pluginId, toolName, durationMs, error });
