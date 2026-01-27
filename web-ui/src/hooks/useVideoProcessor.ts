@@ -54,7 +54,13 @@ export function useVideoProcessor({
     if (!ctx) return null;
 
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-    return canvas.toDataURL("image/jpeg");
+
+    // Get data URL and strip the prefix to get raw base64
+    // The backend expects raw base64, not data:image/jpeg;base64,...
+    const dataUrl = canvas.toDataURL("image/jpeg");
+    const rawBase64 = dataUrl.split(",", 2)[1];
+
+    return rawBase64;
   };
 
   const processFrame = async () => {
@@ -167,4 +173,3 @@ export function useVideoProcessor({
     lastRequestDuration,
   };
 }
-
