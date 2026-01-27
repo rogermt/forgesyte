@@ -1,26 +1,13 @@
 // web-ui/src/hooks/useVideoProcessor.ts
 import { useEffect, useRef, useState } from "react";
 
-export type FrameResult = Record<string, unknown>;
+import type {
+  FrameResult,
+  UseVideoProcessorArgs,
+  UseVideoProcessorReturn,
+} from "./useVideoProcessor.types";
 
-interface UseVideoProcessorArgs {
-  videoRef: React.RefObject<HTMLVideoElement>;
-  pluginId: string;
-  toolName: string;
-  fps: number;
-  device: string;
-  enabled: boolean;
-  bufferSize?: number; // default = 5
-}
-
-interface UseVideoProcessorReturn {
-  latestResult: FrameResult | null;
-  buffer: FrameResult[];
-  processing: boolean;
-  error: string | null;
-  lastTickTime: number | null;
-  lastRequestDuration: number | null;
-}
+export type { FrameResult };
 
 export function useVideoProcessor({
   videoRef,
