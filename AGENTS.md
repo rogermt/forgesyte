@@ -113,6 +113,11 @@ npm run type-check
 # Lint
 npm run lint
 
+# Run both lint AND type-check (matches CI workflow)
+cd web-ui && npm run lint && npm run type-check
+# or simply:
+npm run check
+
 # Build for production
 npm run build
 
