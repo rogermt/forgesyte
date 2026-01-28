@@ -3,11 +3,13 @@
 Loads plugins exclusively via Python entry points (pip installable).
 """
 
+import json
 import logging
 from importlib.metadata import entry_points
 from typing import Dict, Optional
 
 from app.plugins.base import BasePlugin
+from app.plugins.schemas import ToolSchema
 
 logger = logging.getLogger(__name__)
 
@@ -136,14 +138,15 @@ class PluginRegistry:
     def register(self, plugin: BasePlugin) -> None:
         """Register a plugin after enforcing the BasePlugin contract.
 
-        Validates plugin structure and enforces type identity before registration.
+        Validates plugin structure, enforces type identity, and validates tool schemas.
 
         Args:
             plugin: BasePlugin instance to register.
 
         Raises:
             TypeError: If plugin doesn't subclass BasePlugin.
-            ValueError: If plugin structure is invalid or duplicate name.
+            ValueError: If plugin structure invalid, duplicate name, or schemas
+                malformed.
         """
         # Must subclass BasePlugin
         if not isinstance(plugin, BasePlugin):
@@ -162,11 +165,32 @@ class PluginRegistry:
         if not isinstance(plugin.tools, dict):
             raise ValueError(f"Plugin '{plugin.name}' must define 'tools' as a dict")
 
-        for tool_name, handler in plugin.tools.items():
-            if not callable(handler):
+        # Validate tool metadata and schemas
+        for tool_name, tool_meta in plugin.tools.items():
+            # BasePlugin already validated structure, but validate schemas here
+            if not isinstance(tool_meta, dict):
                 raise ValueError(
-                    f"Tool '{tool_name}' in plugin '{plugin.name}' must be callable"
+                    f"Tool '{tool_name}' in plugin '{plugin.name}' must be a dict"
                 )
+
+            # Pydantic schema validation
+            try:
+                ToolSchema(**tool_meta)
+            except Exception as e:
+                raise ValueError(
+                    f"Invalid schema for tool '{tool_name}' in plugin "
+                    f"'{plugin.name}': {e}"
+                ) from e
+
+            # Ensure schemas are JSON-serializable (exclude handler)
+            try:
+                schema_meta = {k: v for k, v in tool_meta.items() if k != "handler"}
+                json.dumps(schema_meta)
+            except Exception as e:
+                raise ValueError(
+                    f"Schema for tool '{tool_name}' in plugin '{plugin.name}' "
+                    f"is not JSON-serializable: {e}"
+                ) from e
 
         # Validate run_tool exists
         if not hasattr(plugin, "run_tool") or not callable(plugin.run_tool):
