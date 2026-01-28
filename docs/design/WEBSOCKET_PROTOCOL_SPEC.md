@@ -1,404 +1,311 @@
-# ForgeSyte WebSocket Protocol Specification
-
-**Reverse-engineered from:** `server/app/main.py` and `web-ui/src/hooks/useWebSocket.ts`
-
-**Status:** Implementation Complete (with bug fixes)
-
----
-
-## Overview
-
-The WebSocket protocol enables real-time streaming of video frames from the Web UI to the backend server for live analysis using vision plugins.
-
-**Protocol:** WebSocket (`ws://` or `wss://`)  
-**Endpoint:** `/v1/stream`  
-**Backend Port:** 8000 (default)  
-**Frontend Port:** 3000 (dev server)
+# **ForgeSyte WebSocket Protocol Specification (Updated for BasePlugin + Tools)**  
+**Last Updated:** 2026‑01‑28  
+**Status:** Fully aligned with new plugin architecture  
+**Version:** 2.0.0  
 
 ---
 
-## Connection Details
+# 🧭 Overview
 
-### Endpoint
+The WebSocket protocol enables **real‑time frame streaming** from the Web‑UI to the backend for live tool execution.
+
+This is used for:
+
+- YOLO player detection  
+- YOLO ball detection  
+- Motion detection  
+- Future real‑time plugins  
+
+The WebSocket layer is now **tool‑based**, not `analyze()`‑based.
+
+---
+
+# 🔌 Endpoint
 
 ```
-ws://localhost:8000/v1/stream?plugin={plugin_name}&api_key={optional_key}
+ws://localhost:8000/v1/stream?plugin=<plugin>&tool=<tool>&api_key=<optional>
 ```
 
 ### Query Parameters
 
-| Parameter | Type | Required | Default | Description |
-|-----------|------|----------|---------|-------------|
-| `plugin` | string | Yes | `motion_detector` | Plugin name for analysis |
-| `api_key` | string | No | None | Optional API authentication key |
+| Parameter | Required | Description |
+|----------|----------|-------------|
+| `plugin` | Yes | Plugin name (e.g., `yolo-tracker`) |
+| `tool` | Yes | Tool name (e.g., `player_detection`) |
+| `api_key` | No | Optional API key |
 
-### Connection Flow
+### Why plugin + tool?
 
-1. **Client initiates connection** to `ws://localhost:8000/v1/stream?plugin=motion_detector`
-2. **Server accepts connection** and generates unique `client_id`
-3. **Server sends "connected" message** with client_id and plugin metadata
-4. **Client receives "connected"** and sets `isConnected = true`
-5. **Connection stays open** - client sends frames, server responds with results
-
-### Connection Lifecycle
+Because all real‑time analysis is now routed through:
 
 ```
-Client                                    Server
-  |                                        |
-  |-------- WebSocket Connect ------------>|
-  |                                        |
-  |<------- "connected" message -----------|  (payload: client_id, plugin)
-  |                                        |
-  |                                        | (awaiting messages)
-  |-------- "frame" message ------------->|
-  |                                        |
-  |<------- "result" message --------------|  (payload: frame_id, plugin, result)
-  |                                        |
-  |-------- "switch_plugin" message ----->|
-  |                                        |
-  |<------- "plugin_switched" message ----|  (payload: plugin)
-  |                                        |
-  |-------- Close ----------------------->|
-  |                                        |
+plugin.run_tool(tool_name, args)
+```
+
+This matches the REST endpoint:
+
+```
+POST /v1/plugins/<plugin>/tools/<tool>/run
 ```
 
 ---
 
-## Message Protocol
+# 🔄 Connection Lifecycle
 
-All messages are JSON-encoded with the following structure:
+```
+Client                                      Server
+  |                                           |
+  |------ WebSocket Connect ----------------->|
+  |                                           |
+  |<----- connected (plugin, tool) -----------|
+  |                                           |
+  |------ frame (frame_id, image, args) ----->|
+  |                                           |
+  |<----- result (frame_id, result) ----------|
+  |                                           |
+  |------ switch (plugin, tool) ------------->|
+  |                                           |
+  |<----- switched (plugin, tool) ------------|
+  |                                           |
+  |------ close ----------------------------->|
+```
 
-### Generic Message Format
+---
 
-```typescript
+# 📡 Message Protocol
+
+All messages are JSON.
+
+## Generic Format
+
+```json
 {
-    "type": string,
-    "payload": object,
-    "timestamp"?: string  // ISO 8601 format
+  "type": "string",
+  "payload": {},
+  "timestamp": "ISO-8601"
 }
 ```
 
 ---
 
-## Message Types
+# 📥 Client → Server Messages
 
-### 1. Connected (Server → Client)
+## 1. `frame`
 
-**Sent immediately after connection is accepted.**
+Send a frame for analysis.
 
 ```json
 {
-    "type": "connected",
-    "payload": {
-        "client_id": "550e8400-e29b-41d4-a716-446655440000",
-        "plugin": "motion_detector"
-    },
-    "timestamp": "2026-01-12T18:20:04.509000+00:00"
+  "type": "frame",
+  "frame_id": "uuid",
+  "image_base64": "<base64>",
+  "args": {
+    "threshold": 0.5
+  }
 }
 ```
 
-**Payload Fields:**
-- `client_id` (string): Unique identifier for this WebSocket connection
-- `plugin` (string): Name of the currently active plugin
+### Notes
+
+- `args` must match the tool’s `input_schema`
+- Server calls:
+
+```
+plugin.run_tool(tool, args)
+```
 
 ---
 
-### 2. Frame (Client → Server)
+## 2. `switch`
 
-**Sent to submit a video frame for analysis.**
+Switch plugin or tool mid‑stream.
 
 ```json
 {
-    "type": "frame",
-    "frame_id": "frame-uuid-12345",
-    "image_data": "base64_encoded_jpeg_or_png_data",
-    "options": {
-        "threshold": 0.5
+  "type": "switch",
+  "plugin": "yolo-tracker",
+  "tool": "ball_detection"
+}
+```
+
+Server validates:
+
+- plugin exists  
+- tool exists  
+- tool has valid schema  
+
+---
+
+## 3. `ping`
+
+Keep‑alive.
+
+```json
+{
+  "type": "ping"
+}
+```
+
+---
+
+# 📤 Server → Client Messages
+
+## 1. `connected`
+
+Sent immediately after connection.
+
+```json
+{
+  "type": "connected",
+  "payload": {
+    "client_id": "uuid",
+    "plugin": "yolo-tracker",
+    "tool": "player_detection",
+    "tool_schema": {
+      "input_schema": {...},
+      "output_schema": {...}
     }
+  }
 }
 ```
 
-**Fields:**
-- `type` (string): Always `"frame"`
-- `frame_id` (string): Unique identifier for this frame (UUID)
-- `image_data` (string): Base64-encoded image data (PNG, JPEG, etc.)
-- `options` (object, optional): Plugin-specific analysis options
-
-**Server Response:**
-- Processes frame asynchronously
-- Responds with `"result"` message when complete
-- On error, responds with `"error"` message
-
 ---
 
-### 3. Result (Server → Client)
+## 2. `result`
 
-**Sent when frame analysis is complete.**
+Sent when a frame has been processed.
 
 ```json
 {
-    "type": "result",
-    "payload": {
-        "frame_id": "frame-uuid-12345",
-        "plugin": "motion_detector",
-        "result": {
-            "motion_detected": true,
-            "motion_score": 0.87,
-            "regions": [
-                {"x": 100, "y": 150, "width": 200, "height": 200, "confidence": 0.92}
-            ]
-        },
-        "processing_time_ms": 45.2
+  "type": "result",
+  "payload": {
+    "frame_id": "uuid",
+    "plugin": "yolo-tracker",
+    "tool": "player_detection",
+    "result": {
+      "detections": [...]
     },
-    "timestamp": "2026-01-12T18:20:04.650000+00:00"
+    "processing_time_ms": 42.1
+  }
 }
 ```
 
-**Payload Fields:**
-- `frame_id` (string): Matches the original frame request
-- `plugin` (string): Which plugin processed this frame
-- `result` (object): Plugin-specific analysis results
-- `processing_time_ms` (number): Time taken to analyze frame (milliseconds)
-
 ---
 
-### 4. Error (Server → Client)
-
-**Sent when an error occurs.**
+## 3. `error`
 
 ```json
 {
-    "type": "error",
-    "payload": {
-        "error": "Plugin 'invalid_plugin' not found",
-        "frame_id": "frame-uuid-12345"
-    },
-    "timestamp": "2026-01-12T18:20:04.700000+00:00"
+  "type": "error",
+  "payload": {
+    "error": "Tool 'xyz' not found",
+    "frame_id": "uuid"
+  }
 }
 ```
 
-**Payload Fields:**
-- `error` (string): Error message
-- `frame_id` (string, optional): Frame ID if error is frame-specific, null otherwise
-
 ---
 
-### 5. Switch Plugin (Client → Server)
-
-**Request to switch analysis plugin mid-stream.**
+## 4. `switched`
 
 ```json
 {
-    "type": "switch_plugin",
-    "plugin": "object_detection"
+  "type": "switched",
+  "payload": {
+    "plugin": "yolo-tracker",
+    "tool": "ball_detection",
+    "tool_schema": {...}
+  }
 }
 ```
 
-**Server Response:**
-- If plugin exists: Sends `"plugin_switched"` message
-- If plugin not found: Sends `"error"` message
-
 ---
 
-### 6. Plugin Switched (Server → Client)
-
-**Confirms plugin switch.**
+## 5. `pong`
 
 ```json
 {
-    "type": "plugin_switched",
-    "payload": {
-        "plugin": "object_detection"
-    },
-    "timestamp": "2026-01-12T18:20:04.750000+00:00"
+  "type": "pong"
 }
 ```
 
 ---
 
-### 7. Ping (Client → Server)
+# 🧠 Server Behavior (Updated)
 
-**Keep-alive ping to prevent connection timeout.**
+### Server now:
 
-```json
-{
-    "type": "ping"
-}
-```
+- Validates plugin exists  
+- Validates tool exists  
+- Validates input schema  
+- Calls `plugin.run_tool(tool, args)`  
+- Returns JSON result  
+- Never returns raw 500s  
+- Always wraps errors in JSON  
 
-**Server Response:** Sends `"pong"` message
+### Server files involved:
 
----
-
-### 8. Pong (Server → Client)
-
-**Response to ping message.**
-
-```json
-{
-    "type": "pong"
-}
-```
+- `websocket_manager.py`  
+- `services/vision_analysis.py`  
+- `plugin_loader.py`  
+- `BasePlugin` contract  
 
 ---
 
-## Implementation Details
+# 🧩 Client Behavior (Updated)
 
-### Server (FastAPI)
+The Web‑UI uses:
 
-**Location:** `server/app/main.py` (lines 216-317)
+- `useWebSocket()`  
+- `runTool()`  
+- `uiPluginManager`  
+- Dynamic plugin + tool selection  
 
-**Key Features:**
-- Uses `@app.websocket("/v1/stream")` decorator
-- Delegates to `VisionAnalysisService` for frame processing
-- Thread-safe connection management via `ConnectionManager`
-- Structured logging with `logging` module
-- Graceful error handling and cleanup
+### Web‑UI responsibilities:
 
-**Dependencies:**
-- `WebSocket` from FastAPI
-- `ConnectionManager` from `websocket_manager.py`
-- `VisionAnalysisService` from `services/vision_analysis.py`
-
-### Client (React/TypeScript)
-
-**Location:** `web-ui/src/hooks/useWebSocket.ts`
-
-**Hook Interface:**
-```typescript
-useWebSocket(options: UseWebSocketOptions): UseWebSocketReturn
-```
-
-**Options:**
-```typescript
-{
-    url: string;              // Full WebSocket URL (e.g., "ws://localhost:8000/v1/stream")
-    plugin?: string;          // Plugin name (default: "motion_detector")
-    apiKey?: string;          // Optional API key
-    onResult?: (result: FrameResult) => void;
-    onError?: (error: string) => void;
-    onConnect?: (clientId: string, metadata: object) => void;
-    reconnectInterval?: number;        // Default: 3000ms
-    maxReconnectAttempts?: number;     // Default: 5
-}
-```
-
-**Return Value:**
-```typescript
-{
-    isConnected: boolean;
-    isConnecting: boolean;
-    error: string | null;
-    sendFrame: (imageData: string, frameId?: string, options?: object) => void;
-    switchPlugin: (pluginName: string) => void;
-    disconnect: () => void;
-    reconnect: () => void;
-    latestResult: FrameResult | null;
-    stats: { framesProcessed: number; avgProcessingTime: number };
-}
-```
+- Send frames  
+- Handle results  
+- Handle errors  
+- Switch tools  
+- Render results generically  
 
 ---
 
-## Error Handling
+# 🧪 Testing
 
-### Connection Errors
+### Unit tests
 
-If WebSocket fails to connect:
-- Client attempts reconnection up to `maxReconnectAttempts` times
-- Waits `reconnectInterval` ms between attempts (default: 3000ms)
-- After max retries exhausted: Sets error message with URL and diagnostic info
+- Connection lifecycle  
+- Plugin/tool switching  
+- Error handling  
+- Frame routing  
 
-**Error Message Format:**
-```
-Max reconnection attempts reached (5). Unable to connect to ws://localhost:8000/v1/stream. Ensure backend server is running on port 8000.
-```
+### Integration tests
 
-### Frame Processing Errors
-
-If server encounters error during frame analysis:
-- Sends `"error"` message with description
-- Connection remains open
-- Client can continue sending frames
-
-### Connection Cleanup
-
-- **Server:** Disconnects client, removes from subscriptions (in `websocket_manager.py`)
-- **Client:** Stops reconnection attempts after max retries
+- Real plugin execution  
+- Real tool invocation  
+- Schema validation  
 
 ---
 
-## Configuration
+# 🚀 Future Enhancements
 
-### Environment Variables (Frontend)
-
-```bash
-# .env or passed at runtime
-VITE_WS_BACKEND_URL=ws://localhost:8000    # WebSocket backend URL
-VITE_API_URL=http://localhost:8000/v1     # REST API URL
-VITE_API_KEY=optional_api_key              # Optional API authentication
-```
-
-### Environment Variables (Backend)
-
-```bash
-# .env or passed at runtime
-# Plugins are loaded via pip entry-points (forgesyte.plugins group)
-# No directory configuration needed - install plugins with: pip install forgesyte-plugin-name
-```
+- Frame batching  
+- Compression  
+- Adaptive frame rate  
+- Multi‑plugin multiplexing  
+- Server‑side throttling  
 
 ---
 
-## Testing
+# 🎯 Summary
 
-### Unit Tests
-- **Location:** `server/tests/websocket/test_websocket_manager.py`
-- **Coverage:** 97% (45 tests)
-- **What's Tested:** Connection lifecycle, subscriptions, message sending, concurrency
+This updated WebSocket protocol:
 
-### Integration Tests
-- **Location:** `server/tests/websocket/test_websocket_integration.py`
-- **Coverage:** 8 tests
-- **What's Tested:** Actual endpoint connectivity, message protocol, error conditions
+- Matches the BasePlugin + tools architecture  
+- Matches the REST `/run` endpoint  
+- Supports dynamic plugin + tool switching  
+- Powers real‑time YOLO + OCR + future plugins  
+- Eliminates all hardcoded plugin assumptions  
+- Keeps UI fully plugin‑agnostic  
 
-### E2E Tests
-- **Location:** `./e2e.test.sh`
-- **What's Tested:** 
-  - REST API health check
-  - WebSocket endpoint verification
-  - Frontend integration with real backend
-
----
-
-## Known Issues & Fixes
-
-### Issue #17: "Max reconnection attempts reached"
-
-**Root Cause:** `useWebSocket` effect dependency array included `connect` and `disconnect`, causing infinite reconnections.
-
-**Fix:** Changed effect dependency to empty array `[]` so connection only established on mount.
-
-**Commit:** (Fixed in this session)
-
----
-
-## Future Enhancements
-
-- [ ] Implement message batching for high-frequency frame streaming
-- [ ] Add compression for large image data
-- [ ] Implement automatic heartbeat/keep-alive mechanism
-- [ ] Add frame queue management on client side
-- [ ] Support for multiple simultaneous plugins
-- [ ] Implement server-side frame rate limiting
-- [ ] Add connection statistics/metrics endpoint
-
----
-
-## References
-
-- **FastAPI WebSocket Docs:** https://fastapi.tiangolo.com/advanced/testing-websockets/
-- **WebSocket API (MDN):** https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
-- **Related Files:**
-  - `server/app/websocket_manager.py` - Connection management
-  - `server/app/services/vision_analysis.py` - Frame processing logic
-  - `web-ui/src/components/CameraPreview.tsx` - UI integration

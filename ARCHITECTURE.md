@@ -1,15 +1,17 @@
-# ForgeSyte Architecture
+# 🚀 **ForgeSyte Architecture (Updated for Plugin Contract + Tool Runner)**
 
 ForgeSyte is composed of four major subsystems:
 
 1. **FastAPI Core**  
-2. **Plugin Manager**  
+2. **Plugin Manager (Entry‑Point Based)**  
 3. **Job Manager**  
 4. **Optional React UI**
 
+This document describes the high‑level architecture and the new plugin contract introduced in 2025–2026.
+
 ---
 
-## High‑Level Architecture
+# 🏛️ High‑Level Architecture
 
 ```text
                             +-----------------------+
@@ -23,7 +25,9 @@ ForgeSyte is composed of four major subsystems:
                         |          ForgeSyte Core           |
                         |          (FastAPI + uv)           |
                         +-----------------------------------+
-                        |  /v1/analyze    /v1/jobs          |
+                        |  /v1/plugins/.../run              |
+                        |  /v1/analyze (legacy)             |
+                        |  /v1/jobs                         |
                         |  /v1/mcp-manifest                 |
                         +----------------+------------------+
                                          |
@@ -36,12 +40,14 @@ ForgeSyte is composed of four major subsystems:
                                          v
                          +------------------------------+
                          |        Plugin Manager        |
-                         |   (dynamic discovery)        |
+                         |  (entry-point discovery)     |
+                         |  (BasePlugin contract)       |
                          +------------------------------+
                                          |
                                          v
                          +------------------------------+
                          |   Python Vision Plugins      |
+                         |  (YOLO, OCR, Motion, etc.)   |
                          +------------------------------+
 
 Optional:
@@ -53,176 +59,171 @@ Optional:
 
 ---
 
-## Data Flow
+# 🔄 Data Flow (Updated)
 
-1. Gemini‑CLI or the UI sends an image → `/v1/analyze`  
-2. Job Manager queues the task  
-3. Plugin Manager loads the correct plugin  
-4. Plugin performs analysis  
-5. Job Manager stores result  
-6. Client polls `/v1/jobs/<id>` or receives WS updates  
+1. Client (Gemini‑CLI or UI) calls:  
+   ```
+   POST /v1/plugins/<plugin>/tools/<tool>/run
+   ```
+2. Plugin Manager resolves plugin + tool  
+3. Plugin executes tool via `run_tool()`  
+4. Job Manager handles async execution (if needed)  
+5. Result returned as JSON  
+6. UI or CLI consumes result  
+
+Legacy `/v1/analyze` still works for OCR‑style plugins but is being phased out.
 
 ---
 
-## Server Architecture
+# 🧩 Server Architecture
 
-### MCP Module Structure
+## MCP Module Structure
 
 All Model Context Protocol (MCP) logic is consolidated in `server/app/mcp/`:
 
 ```
 server/app/mcp/
-├── __init__.py          # Public API exports
-├── adapter.py           # MCP adapter for tools/resources
-├── handlers.py          # Request/response handlers
-├── jsonrpc.py          # JSON-RPC protocol implementation
-├── routes.py           # MCP HTTP endpoints
-└── transport.py        # HTTP transport layer
+├── __init__.py
+├── adapter.py        # MCP adapter for plugin tools
+├── handlers.py       # Request/response handlers
+├── jsonrpc.py        # JSON-RPC protocol implementation
+├── routes.py         # MCP HTTP endpoints
+└── transport.py      # HTTP transport layer
 ```
 
-**Architecture Decision**: Grouping all MCP-related code into a dedicated package reduces coupling and makes the codebase easier to navigate. The `__init__.py` exposes only the necessary public API.
+### Key Update  
+The MCP adapter now reflects the **plugin tool model**, not the old `analyze()` model.
 
-### Server Core Modules
+---
+
+## Server Core Modules
 
 ```
 server/app/
 ├── mcp/                 # MCP protocol implementation
-├── plugins/             # Plugin manager and registry
-├── __init__.py
-├── api.py              # REST API endpoints (/v1/*)
-├── auth.py             # Authentication & authorization (API key-based)
-├── main.py             # FastAPI app initialization
-├── models.py           # Pydantic schemas
-├── plugin_loader.py    # Dynamic plugin discovery
-├── tasks.py            # Job/task management
+├── plugins/             # Plugin system (BasePlugin + registry)
+├── api.py               # REST API endpoints (/v1/plugins/.../run)
+├── auth.py              # Authentication & authorization
+├── main.py              # FastAPI app initialization
+├── models.py            # Pydantic schemas
+├── plugin_loader.py     # Entry-point plugin discovery
+├── tasks.py             # Job/task management
 └── websocket_manager.py # WebSocket connections & streaming
 ```
 
----
-
-## MCP Integration
-
-ForgeSyte exposes:
-
-```
-/v1/mcp-manifest
-```
-
-This describes:
-
-- Available tools  
-- Input/output schemas  
-- Plugin metadata  
+### Key Update  
+`plugin_loader.py` now loads plugins via entry points and enforces the `BasePlugin` contract.
 
 ---
 
-## Plugin System Architecture
+# 🔌 Plugin System Architecture (Updated)
 
-### Plugin Interface Contract
+## Plugin Contract (New)
 
-Plugins implement the `PluginInterface` protocol (structural typing):
+All plugins must now subclass `BasePlugin`:
 
 ```python
-class PluginInterface(Protocol):
-    def metadata(self) -> PluginMetadata: ...
-    def analyze(self, image: bytes, options: dict) -> dict: ...
-    def on_load(self) -> None: ...
-    def on_unload(self) -> None: ...
-    async def analyze_async(self, image: bytes, options: dict) -> dict: ...  # Optional
+class BasePlugin(ABC):
+    name: str
+    tools: Dict[str, Callable]
+
+    @abstractmethod
+    def run_tool(self, tool_name: str, args: dict) -> Any:
+        ...
 ```
 
-**Key Patterns**:
-- **Loose Coupling**: Protocol-based (structural typing) allows plugins to exist without inheriting from a base class
-- **BasePlugin Optional**: Convenience base class providing `validate_image()` and thread pool management
-- **Discovery-Based Registry**: Plugins auto-discovered from filesystem; no manual registration
-- **Threading Model**: `BasePlugin` wraps sync `analyze()` in `ThreadPoolExecutor` for async execution
+### Why this change?
+
+- Ensures consistent behavior across all plugins  
+- Enables dynamic tool discovery  
+- Enables MCP auto‑generation  
+- Prevents malformed plugins from loading  
+- Eliminates hardcoded plugin assumptions  
+
+### Plugin Lifecycle
+
+1. Plugin discovered via entry points  
+2. Plugin instantiated  
+3. Contract validated  
+4. Optional `validate()` hook executed  
+5. Tools registered in the registry  
+
+### Tool Execution
+
+All tools are invoked through:
+
+```
+POST /v1/plugins/<plugin>/tools/<tool>/run
+```
+
+This replaces the old `analyze()`‑only model.
 
 ---
 
-## Authentication & Authorization
+# 🔐 Authentication & Authorization
 
-### Authentication
+No changes here — the system still uses:
 
-- **Method**: API key-based using SHA256 hashing
-- **Storage**: Hashed keys in environment variables (format: `fgy_live_<hash>`)
-- **Implementation**: `server/app/auth.py`
-- **Development Mode**: Anonymous access if no keys configured
-
-### Authorization (RBAC)
-
-- **Pattern**: Role-based with explicit permissions
-- **Permissions**: `analyze`, `stream`, `plugins`, `admin`
-- **Enforcement**: FastAPI `Security` dependency (`require_auth`)
-- **Response Codes**: 
-  - 401 Unauthorized (no auth provided)
-  - 403 Forbidden (insufficient permissions)
+- API key authentication  
+- SHA256 hashed keys  
+- RBAC permissions (`analyze`, `stream`, `plugins`, `admin`)  
 
 ---
 
-## WebSocket & Streaming
+# 📡 WebSocket & Streaming
 
-### Connection Flow
+Unchanged, but now supports:
 
-1. Client connects to `/ws/<client_id>`
-2. Subscribes to topics: `job_<id>`, `plugin_<name>`
-3. Receives async results as they arrive
-4. Results correlated by `frame_id`
-
-### Message Types
-
-- **subscribe**: Topic-based filtering
-- **send_frame**: Stream image frames
-- **frame_result**: Async result arrival
-- **job_update**: Job status changes
-- **error**: Error notifications
-
-**Performance**: Results arrive out-of-order; clients use `frame_id` for correlation.
+- Streaming frames to any plugin tool  
+- Receiving tool results asynchronously  
+- Correlating results via `frame_id`  
 
 ---
 
-## Test Organization
-
-### Server Tests
-
-Tests organized by module to mirror `server/app/` structure:
+# 🧪 Test Organization (Updated)
 
 ```
 server/tests/
-├── api/          # REST endpoints tests
+├── api/          # /v1/plugins/.../run tests
 ├── mcp/          # MCP protocol tests
-├── plugins/      # Plugin system tests
+├── plugins/      # Plugin contract + loader tests
 ├── auth/         # Authentication tests
 ├── tasks/        # Job/task manager tests
-├── websocket/    # WebSocket connection tests
-└── conftest.py   # Shared fixtures
+├── websocket/    # WebSocket tests
+└── conftest.py
 ```
 
-### Web UI Tests
-
-React component tests use Vitest (`.test.tsx` files in `src/`).
-Python validation scripts in `web-ui/scripts/` for build config checks.
+### Key Update  
+Integration tests now execute **real plugins**, not mocks.
 
 ---
 
-## Data Flow
-
-1. Client sends image → `/v1/analyze`  
-2. Job Manager queues the task  
-3. Plugin Manager loads the correct plugin  
-4. Plugin performs analysis (sync or async)
-5. Job Manager stores result  
-6. Client polls `/v1/jobs/<id>` or receives WS updates  
-
----
-
-## Key Architectural Decisions
+# 🧠 Key Architectural Decisions (Updated)
 
 | Decision | Rationale | Location |
 |----------|-----------|----------|
-| MCP code in dedicated `mcp/` package | Reduces coupling, improves navigation | `server/app/mcp/` |
-| Protocol-based plugin interface | Loose coupling, no inheritance required | `server/app/plugin_loader.py` |
-| API key-based auth with SHA256 | Simple, effective, stateless | `server/app/auth.py` |
-| RBAC with explicit permissions | Fine-grained access control | `server/app/auth.py` |
-| WebSocket streaming with frame IDs | Supports out-of-order results | `server/app/websocket_manager.py` |
-| Tests organized by module | Prevents flat test directory as codebase grows | `server/tests/`, `web-ui/src/` |
+| BasePlugin contract | Ensures consistent plugin behavior | `server/app/plugins/base.py` |
+| Entry‑point plugin loading | True dynamic plugin ecosystem | `server/app/plugin_loader.py` |
+| Tool‑based execution model | Supports multiple tools per plugin | `/v1/plugins/.../tools/.../run` |
+| Unified tool runner (frontend) | Consistent error handling + retries | `web-ui/src/utils/runTool.ts` |
+| MCP auto‑generation | Tools exposed dynamically | `server/app/mcp/adapter.py` |
+| JSON‑only error responses | Prevents “Invalid JSON from tool” | Global exception handler |
+
+---
+
+# 🎯 Summary
+
+ForgeSyte has evolved from a single‑purpose OCR pipeline into a **general‑purpose vision plugin platform**.  
+The new architecture:
+
+- Enforces a stable plugin contract  
+- Supports multiple tools per plugin  
+- Uses entry‑point discovery  
+- Provides consistent REST + MCP interfaces  
+- Enables real integration testing  
+- Powers both CLI and UI clients  
+
+This document reflects the architecture as of 2026.
+
+---
 

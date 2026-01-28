@@ -1,10 +1,11 @@
-# Contributing to ForgeSyte
 
-Thank you for contributing to ForgeSyte. This project values clarity, modularity, and reproducibility. Contributions that strengthen those qualities are especially welcome.
+# **Contributing to ForgeSyte**  
+Thank you for contributing to ForgeSyte. This project values clarity, modularity, and reproducibility.  
+Contributions that strengthen those qualities are especially welcome.
 
 ---
 
-## Development Environment
+# Development Environment
 
 ### Backend (uv)
 
@@ -24,7 +25,7 @@ npm run dev
 
 ---
 
-## Branching Strategy
+# Branching Strategy
 
 - `main` — stable  
 - `develop` — active development  
@@ -32,22 +33,24 @@ npm run dev
 
 ---
 
-## Code Style
+# Code Style
 
 ### Python
 - Use `uvx ruff format` for formatting  
 - Use type hints  
-- Keep plugin contracts explicit  
+- Keep plugin contracts explicit (`BasePlugin`)  
+- Prefer small, composable modules  
 
 ### React/TypeScript
 - Use Prettier  
 - Prefer explicit types  
+- Keep UI logic thin; push complexity into hooks/utilities  
 
 ---
 
-## Testing Strategy
+# Testing Strategy
 
-### Running Tests
+## Running Tests
 
 Backend:
 
@@ -63,115 +66,102 @@ cd web-ui
 npm test
 ```
 
-### Mock Data and API Contracts
+---
 
-This project follows **schema-driven mock data practices** to ensure test mocks always match real API responses.
+# Schema‑Driven Mocking (Web UI)
 
-**Key Principle**: Never hand-write mock objects. Use factory functions or golden fixtures instead.
+ForgeSyte uses **schema‑driven mock data** to ensure UI tests always match real API responses.
 
-**Files**:
-- **Golden Fixtures**: `fixtures/api-responses.json` — Real API response examples
-- **TypeScript Factories**: `web-ui/src/test-utils/factories.ts` — Type-safe mock generators
-- **Sync Script**: `scripts/sync-fixtures.sh` — Automated fixture update tool
+### Key Principle  
+**Never hand‑write mock objects.**  
+Use factory functions or golden fixtures.
 
-### Using Mock Factories in Web UI Tests
+### Files
+- `fixtures/api-responses.json` — Real API response examples  
+- `web-ui/src/test-utils/factories.ts` — Type-safe mock generators  
+- `scripts/sync-fixtures.sh` — Auto‑updates fixtures from a running server  
 
-```typescript
-// ✅ CORRECT: Use factory functions
-import { createMockJob } from '../../test-utils/factories';
+### Example
 
-it('should display job', () => {
-  const mockJob = createMockJob({ status: 'done' });
-  // Test with generated mock
-});
+```ts
+// Correct
+const job = createMockJob({ status: 'done' });
 
-// ❌ INCORRECT: Hand-written mocks
-const mockJob = { id: '123', status: 'processing' };
+// Incorrect
+const job = { id: '123', status: 'processing' };
 ```
 
-### Golden Fixtures
+---
 
-Fixtures in `fixtures/api-responses.json` serve as the source of truth for API response shapes:
+# Golden Fixtures
+
+Fixtures in `fixtures/api-responses.json` are the **source of truth** for API response shapes.
+
+Example test:
 
 ```python
-# test_api_contracts.py
-import json
-from pathlib import Path
-
-fixtures_path = Path(__file__).parent.parent / 'fixtures' / 'api-responses.json'
-with open(fixtures_path) as f:
-    FIXTURES = json.load(f)
-
 def test_jobs_endpoint(client):
-    """Verify real API response matches fixture"""
     response = client.get('/v1/jobs?limit=10')
     expected = FIXTURES['jobs_list']
     assert response.json() == expected
 ```
 
-### Synchronizing Fixtures When API Changes
+---
 
-When API endpoints change, update fixtures automatically:
+# Syncing Fixtures
+
+When API endpoints change:
 
 ```bash
-# Ensure server dependencies are installed
 cd server
 uv sync
-
-# Run from project root
 ./scripts/sync-fixtures.sh
 ```
 
 This script:
-1. Starts a local test server
-2. Calls all real API endpoints
-3. Captures responses to `fixtures/api-responses.json`
-4. Validates JSON structure
-5. Creates a backup of previous fixtures
 
-The updated fixtures are committed and used across all tests.
-
-### Integration Tests
-
-Integration tests verify that real API responses match documented contracts:
-
-```python
-# server/tests/integration/test_api_contracts.py
-@pytest.mark.integration
-async def test_jobs_endpoint_response_shape(client):
-    """Verify /v1/jobs returns documented schema"""
-    response = await client.get("/v1/jobs?limit=10")
-    data = response.json()
-    
-    # Assert schema matches JobResponse model
-    assert "jobs" in data
-    assert "count" in data
-    for job in data["jobs"]:
-        assert "job_id" in job  # Not "id"
-        assert job["status"] in ["queued", "running", "done", "error", "not_found"]
-        assert "created_at" in job
-        assert "completed_at" in job
-```
-
-### Checklist for Adding Tests
-
-When adding new tests, ensure:
-
-- [ ] Use mock factories instead of hand-written mocks
-- [ ] Mock field names match API response exactly
-- [ ] Mock enum values match server enums (not guesses)
-- [ ] Integration tests verify API contracts
-- [ ] Update fixtures if API changes: `./scripts/sync-fixtures.sh`
-- [ ] All tests pass: `npm test` and `pytest`
-- [ ] Coverage maintained at 80%+
-
-### Related Documentation
-
-See `AGENTS.md` for detailed mock best practices and testing patterns.
+1. Starts a local test server  
+2. Calls all real API endpoints  
+3. Updates `fixtures/api-responses.json`  
+4. Validates JSON structure  
+5. Creates a backup  
 
 ---
 
-## Pull Requests
+# Integration Tests
+
+Integration tests verify that **real plugins** and **real endpoints** behave as documented.
+
+Example:
+
+```python
+@pytest.mark.integration
+async def test_jobs_endpoint_response_shape(client):
+    response = await client.get("/v1/jobs?limit=10")
+    data = response.json()
+
+    assert "jobs" in data
+    assert "count" in data
+    for job in data["jobs"]:
+        assert "job_id" in job
+        assert job["status"] in ["queued", "running", "done", "error", "not_found"]
+```
+
+---
+
+# Checklist for Adding Tests
+
+- [ ] Use mock factories, not hand-written mocks  
+- [ ] Field names match API exactly  
+- [ ] Enum values match server enums  
+- [ ] Integration tests verify API contracts  
+- [ ] Update fixtures if API changes  
+- [ ] All tests pass (`npm test`, `pytest`)  
+- [ ] Coverage ≥ 80%  
+
+---
+
+# Pull Requests
 
 Include:
 
@@ -179,16 +169,52 @@ Include:
 - Why  
 - How to test  
 - Any breaking changes  
+- Screenshots (if UI)  
 
 ---
 
-## Adding Plugins
+# Adding Plugins (Updated for BasePlugin)
 
 See `PLUGIN_DEVELOPMENT.md`.
 
 Plugins must:
 
-- Implement `Plugin` class  
-- Provide `metadata()`  
-- Provide `analyze()`  
+- Subclass `BasePlugin`  
+- Define a unique `name`  
+- Define a `tools` dictionary mapping tool names → callables  
+- Implement `run_tool(self, tool_name, args)`  
+- Optionally implement `validate()` for model loading or environment checks  
 - Avoid heavy dependencies unless necessary  
+- Provide JSON‑serializable outputs  
+
+### Example Plugin Skeleton
+
+```python
+from app.plugins.base import BasePlugin
+
+class Plugin(BasePlugin):
+    name = "example-plugin"
+
+    def __init__(self):
+        self.tools = {
+            "detect": self.detect,
+            "classify": self.classify,
+        }
+        super().__init__()
+
+    def run_tool(self, tool_name, args):
+        return self.tools[tool_name](**args)
+
+    def detect(self, image_base64: str):
+        ...
+
+    def classify(self, image_base64: str):
+        ...
+```
+
+### Tool Execution Endpoint
+
+```
+POST /v1/plugins/<plugin>/tools/<tool>/run
+```
+
