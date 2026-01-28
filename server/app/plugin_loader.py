@@ -132,5 +132,21 @@ class PluginRegistry:
         return dict(self._plugins)
 
 
-# Backward compatibility alias
-PluginManager = PluginRegistry
+# Backward compatibility with deprecation
+class PluginManager(PluginRegistry):
+    """Deprecated: Use PluginRegistry instead.
+
+    This class exists only for backward compatibility.
+    It will be removed in a future release.
+    """
+
+    def __init__(self) -> None:
+        """Initialize PluginManager with deprecation warning."""
+        import warnings
+
+        warnings.warn(
+            "PluginManager is deprecated. Use PluginRegistry instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        super().__init__()
