@@ -3,11 +3,13 @@
 Loads plugins exclusively via Python entry points (pip installable).
 """
 
+import json
 import logging
 from importlib.metadata import entry_points
 from typing import Dict, Optional
 
 from app.plugins.base import BasePlugin
+from app.plugins.schemas import ToolSchema
 
 logger = logging.getLogger(__name__)
 
@@ -73,8 +75,10 @@ class PluginRegistry:
                 if hasattr(plugin, "validate") and callable(plugin.validate):
                     plugin.validate()
 
+                # Register plugin (enforces contract and checks for duplicates)
+                self.register(plugin)
+
                 seen_names[plugin.name] = ep.name
-                self._plugins[plugin.name] = plugin
                 loaded[plugin.name] = f"entrypoint:{ep.name}"
                 logger.info(
                     "Entrypoint plugin loaded successfully",
@@ -131,6 +135,96 @@ class PluginRegistry:
         """
         return dict(self._plugins)
 
+    def register(self, plugin: BasePlugin) -> None:
+        """Register a plugin after enforcing the BasePlugin contract.
 
-# Backward compatibility alias
-PluginManager = PluginRegistry
+        Validates plugin structure, enforces type identity, and validates tool schemas.
+
+        Args:
+            plugin: BasePlugin instance to register.
+
+        Raises:
+            TypeError: If plugin doesn't subclass BasePlugin.
+            ValueError: If plugin structure invalid, duplicate name, or schemas
+                malformed.
+        """
+        # Must subclass BasePlugin
+        if not isinstance(plugin, BasePlugin):
+            raise TypeError(
+                f"Plugin '{plugin.__class__.__name__}' must subclass BasePlugin"
+            )
+
+        # Validate name
+        if not isinstance(plugin.name, str) or not plugin.name.strip():
+            raise ValueError(
+                f"Plugin '{plugin.__class__.__name__}' must define "
+                "a non-empty string 'name'"
+            )
+
+        # Validate tools dict
+        if not isinstance(plugin.tools, dict):
+            raise ValueError(f"Plugin '{plugin.name}' must define 'tools' as a dict")
+
+        # Validate tool metadata and schemas
+        for tool_name, tool_meta in plugin.tools.items():
+            # BasePlugin already validated structure, but validate schemas here
+            if not isinstance(tool_meta, dict):
+                raise ValueError(
+                    f"Tool '{tool_name}' in plugin '{plugin.name}' must be a dict"
+                )
+
+            # Pydantic schema validation
+            try:
+                ToolSchema(**tool_meta)
+            except Exception as e:
+                raise ValueError(
+                    f"Invalid schema for tool '{tool_name}' in plugin "
+                    f"'{plugin.name}': {e}"
+                ) from e
+
+            # Ensure schemas are JSON-serializable (exclude handler)
+            try:
+                schema_meta = {k: v for k, v in tool_meta.items() if k != "handler"}
+                json.dumps(schema_meta)
+            except Exception as e:
+                raise ValueError(
+                    f"Schema for tool '{tool_name}' in plugin '{plugin.name}' "
+                    f"is not JSON-serializable: {e}"
+                ) from e
+
+        # Validate run_tool exists
+        if not hasattr(plugin, "run_tool") or not callable(plugin.run_tool):
+            raise ValueError(
+                f"Plugin '{plugin.name}' must implement run_tool(tool_name, args)"
+            )
+
+        # Enforce unique names
+        if plugin.name in self._plugins:
+            raise ValueError(f"Duplicate plugin name: '{plugin.name}'")
+
+        # Register
+        self._plugins[plugin.name] = plugin
+        logger.info(
+            "Plugin registered successfully",
+            extra={"plugin_name": plugin.name},
+        )
+
+
+# Backward compatibility with deprecation
+class PluginManager(PluginRegistry):
+    """Deprecated: Use PluginRegistry instead.
+
+    This class exists only for backward compatibility.
+    It will be removed in a future release.
+    """
+
+    def __init__(self) -> None:
+        """Initialize PluginManager with deprecation warning."""
+        import warnings
+
+        warnings.warn(
+            "PluginManager is deprecated. Use PluginRegistry instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        super().__init__()
