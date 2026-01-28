@@ -7,16 +7,27 @@ def test_valid_plugin_loads():
     class GoodPlugin(BasePlugin):
         name = "good"
 
+        def echo_handler(self, **args):
+            return args
+
         def __init__(self):
-            self.tools = {"echo": lambda x: x}
+            self.tools = {
+                "echo": {
+                    "description": "Echo tool",
+                    "input_schema": {"type": "object", "properties": {}},
+                    "output_schema": {"type": "object"},
+                    "handler": self.echo_handler,
+                }
+            }
             super().__init__()
 
         def run_tool(self, tool_name, args):
-            return self.tools[tool_name](**args)
+            if tool_name == "echo":
+                return args
 
     plugin = GoodPlugin()
     assert plugin.name == "good"
-    assert callable(plugin.tools["echo"])
+    assert isinstance(plugin.tools["echo"], dict)
 
 
 def test_missing_name_raises():
@@ -52,7 +63,7 @@ def test_non_callable_tool_raises():
         name = "bad"
 
         def __init__(self):
-            self.tools = {"not_callable": 123}
+            self.tools = {"not_dict": 123}
             super().__init__()
 
         def run_tool(self, tool_name, args):

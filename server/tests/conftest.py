@@ -81,7 +81,7 @@ def app_with_plugins():
     """
     from app.auth import init_auth_service
     from app.main import app
-    from app.plugin_loader import PluginManager
+    from app.plugin_loader import PluginRegistry
     from app.services import (
         AnalysisService,
         ImageAcquisitionService,
@@ -96,7 +96,7 @@ def app_with_plugins():
     init_auth_service()
 
     # Load plugins via entry-points
-    plugin_manager = PluginManager()
+    plugin_manager = PluginRegistry()
     plugin_manager.load_plugins()
     app.state.plugins = plugin_manager
 

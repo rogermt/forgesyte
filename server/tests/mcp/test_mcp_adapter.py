@@ -14,7 +14,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from app.mcp import MCPAdapter, MCPServerInfo, MCPToolSchema  # noqa: E402
 from app.models import MCPManifest, MCPTool  # noqa: E402
-from app.plugin_loader import PluginManager  # noqa: E402
+from app.plugin_loader import PluginRegistry  # noqa: E402
 
 
 class MockPlugin:
@@ -136,7 +136,7 @@ class TestMCPAdapter:
     @pytest.fixture
     def mock_plugin_manager(self):
         """Create mock plugin manager."""
-        manager = Mock(spec=PluginManager)
+        manager = Mock(spec=PluginRegistry)
         return manager
 
     @pytest.fixture
@@ -381,7 +381,7 @@ class TestMCPAdapterValidation:
     @pytest.fixture
     def mock_plugin_manager(self):
         """Create mock plugin manager."""
-        manager = Mock(spec=PluginManager)
+        manager = Mock(spec=PluginRegistry)
         return manager
 
     @pytest.fixture

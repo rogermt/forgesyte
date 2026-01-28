@@ -13,7 +13,7 @@ from fastapi.testclient import TestClient
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from app.main import app  # noqa: E402
-from app.plugin_loader import PluginManager  # noqa: E402
+from app.plugin_loader import PluginRegistry  # noqa: E402
 
 
 def test_server_branding_updated():
@@ -36,7 +36,7 @@ def test_root_endpoint_updated():
 
 def test_plugin_manager_entrypoint_only():
     """Test that plugin manager loads via entry-points only."""
-    pm = PluginManager()
+    pm = PluginRegistry()
 
     # Try to load plugins (should not raise an exception)
     result = pm.load_plugins()

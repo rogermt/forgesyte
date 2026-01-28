@@ -29,7 +29,7 @@ class TestContentLengthCorrectness:
             from fastapi.testclient import TestClient
 
             from app.mcp.routes import router
-            from app.plugin_loader import PluginManager
+            from app.plugin_loader import PluginRegistry
 
             app = FastAPI()
             app.include_router(router)
@@ -42,7 +42,7 @@ class TestContentLengthCorrectness:
                         "blocks": [{"id": i, "t": "block" * 100} for i in range(100)],
                     }
 
-            pm = PluginManager()
+            pm = PluginRegistry()
             monkeypatch.setattr(pm, "get", lambda name: LargePlugin())
             monkeypatch.setattr(pm, "list", lambda: {"ocr": {}})
             app.state.plugins = pm
@@ -85,7 +85,7 @@ class TestContentLengthCorrectness:
             from fastapi.testclient import TestClient
 
             from app.mcp.routes import router
-            from app.plugin_loader import PluginManager
+            from app.plugin_loader import PluginRegistry
 
             app = FastAPI()
             app.include_router(router)
@@ -97,7 +97,7 @@ class TestContentLengthCorrectness:
                         "confidence": 0.99,
                     }
 
-            pm = PluginManager()
+            pm = PluginRegistry()
             monkeypatch.setattr(pm, "get", lambda name: UnicodePlugin())
             monkeypatch.setattr(pm, "list", lambda: {"ocr": {}})
             app.state.plugins = pm
@@ -136,7 +136,7 @@ class TestContentLengthCorrectness:
         from fastapi import FastAPI
 
         from app.mcp.routes import router
-        from app.plugin_loader import PluginManager
+        from app.plugin_loader import PluginRegistry
 
         app = FastAPI()
         app.include_router(router)
@@ -148,7 +148,7 @@ class TestContentLengthCorrectness:
                     "blocks": [{"x": i, "data": "日本語" * 100} for i in range(50)],
                 }
 
-        pm = PluginManager()
+        pm = PluginRegistry()
         monkeypatch.setattr(pm, "get", lambda name: BigPlugin())
         monkeypatch.setattr(pm, "list", lambda: {"ocr": {}})
         app.state.plugins = pm

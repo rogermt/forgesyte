@@ -381,7 +381,7 @@ class TestToolsCallHandler:
             from fastapi.testclient import TestClient
 
             from app.mcp.routes import router
-            from app.plugin_loader import PluginManager
+            from app.plugin_loader import PluginRegistry
 
             app = FastAPI()
             app.include_router(router)
@@ -396,7 +396,7 @@ class TestToolsCallHandler:
                         ],
                     }
 
-            plugin_manager = PluginManager()
+            plugin_manager = PluginRegistry()
             monkeypatch.setattr(plugin_manager, "get", lambda name: LargePlugin())
             monkeypatch.setattr(plugin_manager, "list", lambda: {"ocr": {}})
             app.state.plugins = plugin_manager

@@ -38,12 +38,22 @@ def test_loader_accepts_valid_plugin(monkeypatch):
     class GoodPlugin(BasePlugin):
         name = "good"
 
+        def echo_handler(self, **args):
+            return args
+
         def __init__(self):
-            self.tools = {"echo": lambda x: x}
+            self.tools = {
+                "echo": {
+                    "description": "Echo tool",
+                    "input_schema": {"type": "object", "properties": {}},
+                    "output_schema": {"type": "object"},
+                    "handler": self.echo_handler,
+                }
+            }
             super().__init__()
 
         def run_tool(self, tool_name, args):
-            return self.tools[tool_name](**args)
+            return args
 
     def fake_eps(group):
         if group != "forgesyte.plugins":

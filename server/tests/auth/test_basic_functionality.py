@@ -13,7 +13,7 @@ from fastapi.testclient import TestClient
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from app.main import app  # noqa: E402
-from app.plugin_loader import PluginManager  # noqa: E402
+from app.plugin_loader import PluginRegistry  # noqa: E402
 
 
 def test_app_imports_successfully():
@@ -67,7 +67,7 @@ def test_plugins_endpoint_exists():
 
 def test_plugin_manager_initialization():
     """Test that plugin manager can be initialized."""
-    pm = PluginManager()
+    pm = PluginRegistry()
     assert pm is not None
     assert hasattr(pm, "load_plugins")
 

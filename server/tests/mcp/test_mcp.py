@@ -19,7 +19,7 @@ from app.mcp import (  # noqa: E402
     build_gemini_extension_manifest,
 )
 from app.models import MCPManifest  # noqa: E402
-from app.plugin_loader import PluginManager  # noqa: E402
+from app.plugin_loader import PluginRegistry  # noqa: E402
 
 
 class MockPlugin:
@@ -56,7 +56,7 @@ class TestMCPProtocolValidation:
     @pytest.fixture
     def mock_plugin_manager(self):
         """Create mock plugin manager."""
-        manager = Mock(spec=PluginManager)
+        manager = Mock(spec=PluginRegistry)
         return manager
 
     @pytest.fixture
@@ -205,7 +205,7 @@ class TestMCPAdapterToolInvocation:
     @pytest.fixture
     def mock_plugin_manager(self):
         """Create mock plugin manager."""
-        manager = Mock(spec=PluginManager)
+        manager = Mock(spec=PluginRegistry)
         return manager
 
     @pytest.fixture
@@ -381,7 +381,7 @@ class TestMCPAdapterEdgeCases:
     @pytest.fixture
     def mock_plugin_manager(self):
         """Create mock plugin manager."""
-        manager = Mock(spec=PluginManager)
+        manager = Mock(spec=PluginRegistry)
         return manager
 
     @pytest.fixture
