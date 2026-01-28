@@ -73,8 +73,10 @@ class PluginRegistry:
                 if hasattr(plugin, "validate") and callable(plugin.validate):
                     plugin.validate()
 
+                # Register plugin (enforces contract and checks for duplicates)
+                self.register(plugin)
+
                 seen_names[plugin.name] = ep.name
-                self._plugins[plugin.name] = plugin
                 loaded[plugin.name] = f"entrypoint:{ep.name}"
                 logger.info(
                     "Entrypoint plugin loaded successfully",
@@ -131,6 +133,74 @@ class PluginRegistry:
         """
         return dict(self._plugins)
 
+    def register(self, plugin: BasePlugin) -> None:
+        """Register a plugin after enforcing the BasePlugin contract.
 
-# Backward compatibility alias
-PluginManager = PluginRegistry
+        Validates plugin structure and enforces type identity before registration.
+
+        Args:
+            plugin: BasePlugin instance to register.
+
+        Raises:
+            TypeError: If plugin doesn't subclass BasePlugin.
+            ValueError: If plugin structure is invalid or duplicate name.
+        """
+        # Must subclass BasePlugin
+        if not isinstance(plugin, BasePlugin):
+            raise TypeError(
+                f"Plugin '{plugin.__class__.__name__}' must subclass BasePlugin"
+            )
+
+        # Validate name
+        if not isinstance(plugin.name, str) or not plugin.name.strip():
+            raise ValueError(
+                f"Plugin '{plugin.__class__.__name__}' must define "
+                "a non-empty string 'name'"
+            )
+
+        # Validate tools dict
+        if not isinstance(plugin.tools, dict):
+            raise ValueError(f"Plugin '{plugin.name}' must define 'tools' as a dict")
+
+        for tool_name, handler in plugin.tools.items():
+            if not callable(handler):
+                raise ValueError(
+                    f"Tool '{tool_name}' in plugin '{plugin.name}' must be callable"
+                )
+
+        # Validate run_tool exists
+        if not hasattr(plugin, "run_tool") or not callable(plugin.run_tool):
+            raise ValueError(
+                f"Plugin '{plugin.name}' must implement run_tool(tool_name, args)"
+            )
+
+        # Enforce unique names
+        if plugin.name in self._plugins:
+            raise ValueError(f"Duplicate plugin name: '{plugin.name}'")
+
+        # Register
+        self._plugins[plugin.name] = plugin
+        logger.info(
+            "Plugin registered successfully",
+            extra={"plugin_name": plugin.name},
+        )
+
+
+# Backward compatibility with deprecation
+class PluginManager(PluginRegistry):
+    """Deprecated: Use PluginRegistry instead.
+
+    This class exists only for backward compatibility.
+    It will be removed in a future release.
+    """
+
+    def __init__(self) -> None:
+        """Initialize PluginManager with deprecation warning."""
+        import warnings
+
+        warnings.warn(
+            "PluginManager is deprecated. Use PluginRegistry instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        super().__init__()

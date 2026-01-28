@@ -16,6 +16,13 @@ interface CacheEntry {
 
 const manifestCache = new Map<string, CacheEntry>();
 
+/**
+ * Clear the manifest cache (exported for testing purposes)
+ */
+export function clearManifestCache(): void {
+    manifestCache.clear();
+}
+
 export function useManifest(pluginId: string | null) {
     const [manifest, setManifest] = useState<PluginManifest | null>(null);
     const [loading, setLoading] = useState(false);
