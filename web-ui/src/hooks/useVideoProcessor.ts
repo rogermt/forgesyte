@@ -1,10 +1,12 @@
 // web-ui/src/hooks/useVideoProcessor.ts
 import { useEffect, useRef, useState } from "react";
-
+import { runTool } from "../utils/runTool";
 import type {
   FrameResult,
   UseVideoProcessorArgs,
   UseVideoProcessorReturn,
+  ProcessFrameLogEntry,
+  ProcessFrameMetrics,
 } from "./useVideoProcessor.types";
 
 export type { FrameResult };
@@ -24,6 +26,17 @@ export function useVideoProcessor({
   const [error, setError] = useState<string | null>(null);
   const [lastTickTime, setLastTickTime] = useState<number | null>(null);
   const [lastRequestDuration, setLastRequestDuration] = useState<number | null>(null);
+
+  // Metrics and logging state
+  const [metrics, setMetrics] = useState<ProcessFrameMetrics>({
+    totalFrames: 0,
+    successfulFrames: 0,
+    failedFrames: 0,
+    averageDurationMs: 0,
+    lastError: undefined,
+  });
+
+  const [logs, setLogs] = useState<ProcessFrameLogEntry[]>([]);
 
   const intervalRef = useRef<number | null>(null);
   const requestInFlight = useRef(false);
@@ -52,10 +65,13 @@ export function useVideoProcessor({
 
   const processFrame = async () => {
     if (requestInFlight.current) return;
-    
+
     // Guard against empty pluginId or toolName
     if (!pluginId || !toolName) {
-      console.error("Frame processing aborted: pluginId or toolName missing");
+      console.error("Frame processing aborted: pluginId or toolName missing", {
+        pluginId,
+        toolName,
+      });
       return;
     }
 
@@ -64,71 +80,66 @@ export function useVideoProcessor({
 
     requestInFlight.current = true;
     setProcessing(true);
+
+    const frameStartTime = performance.now();
     setLastTickTime(Date.now());
 
-    // Build the correct endpoint URL
-    const endpoint = `/v1/plugins/${pluginId}/tools/${toolName}/run`;
-    
-    // Payload structure matching the API spec in server/app/api.py
-    const payload = {
+    // Use unified runTool with logging and retry
+    const { result, success, error: runToolError } = await runTool({
+      pluginId,
+      toolName,
       args: {
         frame_base64: frameBase64,
         device,
         annotated: false,
       },
-    };
+    });
 
-    const attempt = async (): Promise<Response | null> => {
-      try {
-        return await fetch(endpoint, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
-      } catch (err) {
-        console.error("Frame processing fetch error:", err);
-        return null;
-      }
-    };
+    const durationMs = performance.now() - frameStartTime;
+    setLastRequestDuration(durationMs);
 
-    const start = performance.now();
-    let response = await attempt();
+    // Update metrics
+    setMetrics((prev) => {
+      const totalFrames = prev.totalFrames + 1;
+      const successfulFrames = prev.successfulFrames + (success ? 1 : 0);
+      const failedFrames = prev.failedFrames + (!success ? 1 : 0);
+      const averageDurationMs =
+        totalFrames === 1
+          ? durationMs
+          : (prev.averageDurationMs * prev.totalFrames + durationMs) / totalFrames;
 
-    if (!response) {
-      // Retry once after 200ms delay
-      await new Promise((r) => setTimeout(r, 200));
-      response = await attempt();
-    }
+      return {
+        totalFrames,
+        successfulFrames,
+        failedFrames,
+        averageDurationMs,
+        lastError: success ? prev.lastError : runToolError ?? prev.lastError,
+      };
+    });
 
-    const duration = performance.now() - start;
-    setLastRequestDuration(duration);
+    // Add log entry
+    setLogs((prev) => [
+      ...prev,
+      {
+        timestamp: Date.now(),
+        pluginId,
+        toolName,
+        durationMs,
+        success,
+        error: runToolError,
+        retryCount: 0, // Retry handled internally by runTool
+      },
+    ]);
 
-    if (!response) {
-      setError("Failed to connect to video processing service");
-      requestInFlight.current = false;
-      setProcessing(false);
-      return;
-    }
-
-    try {
-      const json = await response.json();
-      
-      // Handle different response formats
-      if (response.ok && json.success !== false) {
-        // Success - extract result based on API response structure
-        const result = json.result || json;
-        setLatestResult(result);
-        setBuffer((prev) => {
-          const next = [...prev, result];
-          return next.length > bufferSize ? next.slice(-bufferSize) : next;
-        });
-        setError(null);
-      } else {
-        // API returned an error
-        setError(json.detail || json.error || `HTTP ${response.status}: Request failed`);
-      }
-    } catch {
-      setError("Invalid response from video processing service");
+    if (success && result) {
+      setLatestResult(result);
+      setBuffer((prev) => {
+        const next = [...prev, result];
+        return next.length > bufferSize ? next.slice(-bufferSize) : next;
+      });
+      setError(null);
+    } else if (!success) {
+      setError(runToolError ?? "Frame processing failed");
     }
 
     requestInFlight.current = false;
@@ -158,5 +169,8 @@ export function useVideoProcessor({
     error,
     lastTickTime,
     lastRequestDuration,
+    metrics,
+    logs,
   };
 }
+
