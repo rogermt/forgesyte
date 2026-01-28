@@ -72,7 +72,7 @@ class MCPTransport:
 
         Args:
             protocol_handlers: Optional MCPProtocolHandlers instance.
-                If None, creates default handlers with default PluginManager.
+                If None, creates default handlers with default PluginRegistry.
         """
         self._method_handlers: Dict[str, Any] = {}
         self._protocol_handlers = protocol_handlers
@@ -82,11 +82,11 @@ class MCPTransport:
         """Register standard JSON-RPC method handlers."""
         # Import here to avoid circular imports
         if self._protocol_handlers is None:
-            # Create default handlers with lazy-loaded PluginManager
-            from ..plugin_loader import PluginManager
+            # Create default handlers with lazy-loaded PluginRegistry
+            from ..plugin_loader import PluginRegistry
             from .handlers import MCPProtocolHandlers
 
-            plugin_manager = PluginManager()
+            plugin_manager = PluginRegistry()
             self._protocol_handlers = MCPProtocolHandlers(plugin_manager)
 
         # Register core protocol handlers

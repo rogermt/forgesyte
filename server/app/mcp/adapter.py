@@ -20,7 +20,7 @@ from typing import Any, Dict, List, Optional
 from pydantic import BaseModel, Field, ValidationError
 
 from ..models import MCPManifest, MCPTool, PluginMetadata
-from ..plugin_loader import PluginManager
+from ..plugin_loader import PluginRegistry
 
 logger = logging.getLogger(__name__)
 
@@ -82,7 +82,7 @@ class MCPAdapter:
     discovery by MCP clients. Includes caching and manifest generation.
 
     Attributes:
-        plugin_manager: PluginManager instance for plugin discovery
+        plugin_manager: PluginRegistry instance for plugin discovery
         base_url: Base URL for invoking tools via HTTP
         _manifest_cache: Cached manifest dictionary
         _manifest_cache_time: Timestamp of cached manifest
@@ -91,19 +91,19 @@ class MCPAdapter:
 
     def __init__(
         self,
-        plugin_manager: Optional[PluginManager] = None,
+        plugin_manager: Optional[PluginRegistry] = None,
         base_url: str = "",
     ) -> None:
         """Initialize the MCP adapter.
 
         Args:
-            plugin_manager: PluginManager instance for plugin discovery.
+            plugin_manager: PluginRegistry instance for plugin discovery.
                            If None, adapter will return empty tool list.
             base_url: Base URL for invoke endpoints. Trailing slashes are
                      automatically removed.
 
         Raises:
-            TypeError: If plugin_manager is not PluginManager or None
+            TypeError: If plugin_manager is not PluginRegistry or None
         """
         self.plugin_manager = plugin_manager
         self.base_url = base_url.rstrip("/") if base_url else ""

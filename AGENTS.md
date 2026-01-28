@@ -257,16 +257,21 @@ If a hook fails:
 3. **Rerun the hook** - `uv run pre-commit run --all-files`
 4. **For test changes**, include `TEST-CHANGE:` in your commit message body explaining why tests were added/modified
 
-Example commit message with test justification:
+Example commit message with test justification (hook requires `TEST-CHANGE` in subject or body):
 
 ```
-feat(plugins): Add schema validation
+TEST-CHANGE: Add schema validation for plugin tools
 
 Implements strict validation of plugin tool schemas.
 
-TEST-CHANGE: Added test_plugin_schema.py to validate schema structure,
+Added test_plugin_schema.py to validate schema structure,
 required for Web-UI dynamic form generation and MCP manifest creation.
 ```
+
+**Format required:**
+- Include string `TEST-CHANGE` somewhere in `git log -1 --pretty=%B` output
+- Best practice: Start subject with `TEST-CHANGE:` for clarity
+- Hook checks: `git log -1 --pretty=%B | grep -q "TEST-CHANGE"`
 
 **Why this matters:**
 - Bypassing hooks defeats their purpose

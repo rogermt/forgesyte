@@ -6,7 +6,7 @@ Loads plugins exclusively via Python entry points (pip installable).
 import json
 import logging
 from importlib.metadata import entry_points
-from typing import Dict, Optional
+from typing import Any, Dict, Optional
 
 from app.plugins.base import BasePlugin
 from app.plugins.schemas import ToolSchema
@@ -209,22 +209,76 @@ class PluginRegistry:
             extra={"plugin_name": plugin.name},
         )
 
+    def reload_plugin(self, name: str) -> bool:
+        """Reload a specific plugin to refresh code and state.
 
-# Backward compatibility with deprecation
-class PluginManager(PluginRegistry):
-    """Deprecated: Use PluginRegistry instead.
+        Args:
+            name: Plugin identifier
 
-    This class exists only for backward compatibility.
-    It will be removed in a future release.
-    """
+        Returns:
+            True if reload succeeded, False if reload failed or plugin not found
 
-    def __init__(self) -> None:
-        """Initialize PluginManager with deprecation warning."""
-        import warnings
+        Raises:
+            RuntimeError: If reload encounters unexpected errors
+        """
+        plugin = self._plugins.get(name)
+        if not plugin:
+            logger.warning("Plugin not found for reload", extra={"plugin_name": name})
+            return False
 
-        warnings.warn(
-            "PluginManager is deprecated. Use PluginRegistry instead.",
-            DeprecationWarning,
-            stacklevel=2,
+        try:
+            # Call optional reload hook if available
+            if hasattr(plugin, "on_reload") and callable(plugin.on_reload):
+                plugin.on_reload()
+            logger.info("Plugin reloaded successfully", extra={"plugin_name": name})
+            return True
+        except Exception as e:
+            logger.error(
+                "Failed to reload plugin",
+                extra={"plugin_name": name, "error": str(e)},
+            )
+            raise RuntimeError(f"Failed to reload plugin '{name}': {e}") from e
+
+    def reload_all(self) -> Dict[str, Any]:
+        """Reload all plugins to refresh code and state.
+
+        Returns:
+            Dictionary with reload operation results:
+                - success: Boolean indicating overall success
+                - reloaded: List of successfully reloaded plugin names
+                - failed: List of plugins that failed to reload
+                - total: Total number of plugins
+                - errors: Optional dict mapping failed plugin names to error messages
+        """
+        reloaded: list = []
+        failed: list = []
+        errors: Dict[str, str] = {}
+
+        for plugin_name in list(self._plugins.keys()):
+            try:
+                if self.reload_plugin(plugin_name):
+                    reloaded.append(plugin_name)
+                else:
+                    failed.append(plugin_name)
+            except Exception as e:
+                failed.append(plugin_name)
+                errors[plugin_name] = str(e)
+
+        success = len(failed) == 0
+        logger.info(
+            "Plugin reload complete",
+            extra={
+                "success": success,
+                "reloaded": len(reloaded),
+                "failed": len(failed),
+                "total": len(self._plugins),
+            },
         )
-        super().__init__()
+
+        return {
+            "success": success,
+            "reloaded": reloaded,
+            "failed": failed,
+            "total": len(self._plugins),
+            "errors": errors if errors else None,
+        }

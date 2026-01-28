@@ -18,9 +18,8 @@ from typing import Any, Callable, Optional
 
 from .exceptions import PluginExecutionError
 from .models import JobStatus
-from .plugin_loader import PluginManager
+from .plugin_loader import PluginRegistry
 from .protocols import JobStore as JobStoreProtocol
-from .protocols import PluginRegistry
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -524,13 +523,13 @@ job_store = JobStore()
 task_processor: Optional[TaskProcessor] = None
 
 
-def init_task_processor(plugin_manager: PluginManager) -> TaskProcessor:
+def init_task_processor(plugin_manager: PluginRegistry) -> TaskProcessor:
     """Initialize the module-level task processor.
 
     Called during application startup to set up the global task processor.
 
     Args:
-        plugin_manager: PluginManager instance for plugin access
+        plugin_manager: PluginRegistry instance for plugin access
 
     Returns:
         TaskProcessor instance

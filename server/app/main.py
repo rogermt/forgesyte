@@ -30,7 +30,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from .api import router as api_router
 from .auth import init_auth_service
 from .mcp import router as mcp_router
-from .plugin_loader import PluginManager
+from .plugin_loader import PluginRegistry
 from .services import (
     AnalysisService,
     ImageAcquisitionService,
@@ -164,7 +164,7 @@ async def lifespan(app: FastAPI):
 
     # Plugin Manager Initialization (entry-point plugins only)
     logger.info("Initializing plugin manager for entry-point plugins")
-    plugin_manager = PluginManager()
+    plugin_manager = PluginRegistry()
 
     # Dynamic Plugin Loading
     try:
@@ -217,7 +217,7 @@ async def lifespan(app: FastAPI):
 
     # Shutdown: Graceful cleanup
     logger.info("Shutting down ForgeSyte...")
-    for name, plugin in plugin_manager.plugins.items():
+    for name, plugin in plugin_manager.list().items():
         try:
             if plugin and hasattr(plugin, "on_unload"):
                 plugin.on_unload()
@@ -248,6 +248,25 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# ---------------------------------------------------------------------------
+# Factories
+# ---------------------------------------------------------------------------
+
+
+def create_plugin_management_service() -> PluginManagementService:
+    """Factory for PluginManagementService wired to canonical PluginRegistry.
+
+    Returns:
+        PluginManagementService: Service wired to a new PluginRegistry instance
+
+    Raises:
+        RuntimeError: If plugin loading fails unexpectedly
+    """
+    registry = PluginRegistry()
+    registry.load_plugins()
+    return PluginManagementService(registry=registry)
+
 
 # ---------------------------------------------------------------------------
 # Dependency Injection
@@ -308,7 +327,7 @@ async def root() -> Dict[str, str]:
 @app.websocket("/v1/stream")
 async def websocket_stream(
     websocket: WebSocket,
-    plugin: str = Query(default="motion_detector", description="Plugin to use"),
+    plugin: str = Query("default", description="Initial plugin to use"),
     api_key: Optional[str] = Query(None, description="API key for authentication"),
     service: VisionAnalysisService = Depends(get_analysis_service),
 ) -> None:
