@@ -45,11 +45,11 @@ This epic addresses all five critical areas:
 
 ### Milestone 1 — Plugin Contract & Loader
 
-- [ ] Introduce BasePlugin abstract class
-- [ ] Enforce plugin contract (name, tools, run_tool)
-- [ ] Rewrite plugin loader to use entry points only
-- [ ] Validate plugin schemas on load
-- [ ] Reject invalid plugins with explicit errors
+- [x] Introduce BasePlugin abstract class
+- [x] Enforce plugin contract (name, tools, run_tool)
+- [x] Rewrite plugin loader to use entry points only
+- [x] Validate plugin schemas on load
+- [x] Reject invalid plugins with explicit errors
 - [ ] Remove hardcoded plugin references (ocr_plugin, motion_detector)
 - [ ] Add CI guardrail: all plugins must subclass BasePlugin
 

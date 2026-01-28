@@ -239,6 +239,46 @@ git merge feature/description
 git push origin main
 ```
 
+### Pre-Commit Hook Safety (IMPORTANT)
+
+**NEVER use `--no-verify` to bypass hooks.**
+
+Pre-commit hooks enforce quality standards:
+
+- **black**: Code formatting
+- **ruff**: Linting
+- **mypy**: Type checking
+- **prevent-test-changes-without-justification**: Ensures test changes are documented
+
+If a hook fails:
+
+1. **Read the error message** - It explains what's wrong
+2. **Fix the issue** - Don't bypass it
+3. **Rerun the hook** - `uv run pre-commit run --all-files`
+4. **For test changes**, include `TEST-CHANGE:` in your commit message body explaining why tests were added/modified
+
+Example commit message with test justification (hook requires `TEST-CHANGE` in subject or body):
+
+```
+TEST-CHANGE: Add schema validation for plugin tools
+
+Implements strict validation of plugin tool schemas.
+
+Added test_plugin_schema.py to validate schema structure,
+required for Web-UI dynamic form generation and MCP manifest creation.
+```
+
+**Format required:**
+- Include string `TEST-CHANGE` somewhere in `git log -1 --pretty=%B` output
+- Best practice: Start subject with `TEST-CHANGE:` for clarity
+- Hook checks: `git log -1 --pretty=%B | grep -q "TEST-CHANGE"`
+
+**Why this matters:**
+- Bypassing hooks defeats their purpose
+- Hooks prevent bad commits from reaching main
+- Safety checks protect code quality and stability
+- If you bypass a hook, the same issue will fail CI/CD anyway
+
 ### Commit Message Format
 
 ```

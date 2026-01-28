@@ -18,7 +18,7 @@ from typing import Any, Dict, Optional
 import httpx
 from pydantic import BaseModel
 
-from ..plugin_loader import PluginManager
+from ..plugin_loader import PluginRegistry
 from ..tasks import job_store
 from .adapter import (
     MCP_SERVER_NAME,
@@ -36,13 +36,13 @@ class MCPProtocolHandlers:
 
     def __init__(
         self,
-        plugin_manager: PluginManager,
+        plugin_manager: PluginRegistry,
         mcp_adapter: Optional[MCPAdapter] = None,
     ) -> None:
         """Initialize protocol handlers.
 
         Args:
-            plugin_manager: PluginManager instance for tool discovery
+            plugin_manager: PluginRegistry instance for tool discovery
             mcp_adapter: Optional MCPAdapter for manifest generation
         """
         self.plugin_manager = plugin_manager

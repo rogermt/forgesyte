@@ -90,6 +90,30 @@ class PluginRegistry(Protocol):
         """
         ...
 
+    def load_plugins(self) -> Dict[str, Dict[str, str]]:
+        """Load all plugins from entry points.
+
+        Returns:
+            Dictionary with 'loaded' (successful) and 'errors' (failed) keys.
+            Each contains plugin names mapped to sources or error messages.
+
+        Raises:
+            Exception: If loading encounters unexpected errors
+        """
+        ...
+
+    def register(self, plugin: VisionPlugin) -> None:
+        """Register a plugin after enforcing contract.
+
+        Args:
+            plugin: VisionPlugin instance to register.
+
+        Raises:
+            TypeError: If plugin doesn't satisfy VisionPlugin protocol.
+            ValueError: If plugin structure invalid or duplicate name.
+        """
+        ...
+
     def reload_plugin(self, name: str) -> bool:
         """Reload a specific plugin to refresh code and state.
 

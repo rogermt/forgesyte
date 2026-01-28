@@ -26,14 +26,12 @@ class AnalyzeRequest(BaseModel):
     """Request to analyze an image using a vision plugin.
 
     Attributes:
-        plugin: Plugin identifier for analysis (e.g., "ocr_plugin", "motion_detector")
         options: Plugin-specific configuration options as key-value pairs
         image_url: HTTP(S) URL to fetch and analyze
     """
 
     plugin: str = Field(
         default="default",
-        description="Plugin identifier (e.g., ocr_plugin, motion_detector)",
     )
     options: Optional[Dict[str, Any]] = Field(
         default=None, description="Plugin-specific analysis options"
@@ -81,7 +79,6 @@ class PluginMetadata(BaseModel):
     Attributes:
         name: Plugin identifier (required, non-empty string).
               Use lowercase with underscores or hyphens.
-              Examples: "ocr_plugin", "motion-detector"
         description: Human-readable plugin description (required, non-empty)
         version: Semantic version string (default: "1.0.0")
                  Supports: "1.0.0", "2.1", "1.0.0-alpha", "1.0.0+build.123"
@@ -284,7 +281,6 @@ class PluginToolRunResponse(BaseModel):
         json_schema_extra = {
             "example": {
                 "tool_name": "player_detection",
-                "plugin_id": "forgesyte-yolo-tracker",
                 "result": {
                     "detections": [
                         {"x1": 100, "y1": 200, "x2": 150, "y2": 350, "confidence": 0.92}

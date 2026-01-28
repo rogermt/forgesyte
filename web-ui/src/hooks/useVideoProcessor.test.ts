@@ -641,3 +641,195 @@ describe("useVideoProcessor - Endpoint Correctness", () => {
     expect(result.current.error).toBeNull();
   });
 });
+
+describe("useVideoProcessor - Metrics & Logging", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.spyOn(window, "fetch").mockImplementation(
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ success: true, result: { detections: [] } }),
+      })
+    );
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+
+  it("tracks metrics on successful frame processing", async () => {
+    const videoRef = { current: mockVideo() };
+
+    const { result } = renderHook(() =>
+      useVideoProcessor({
+        videoRef,
+        pluginId: "forgesyte-yolo-tracker",
+        toolName: "player_detection",
+        fps: 30,
+        device: "cpu",
+        enabled: true,
+      })
+    );
+
+    await act(async () => {
+      vi.advanceTimersByTime(100);
+      await Promise.resolve();
+      vi.advanceTimersByTime(200);
+    });
+
+    expect(result.current.metrics).toBeDefined();
+    expect(result.current.metrics.totalFrames).toBe(1);
+    expect(result.current.metrics.successfulFrames).toBe(1);
+    expect(result.current.metrics.failedFrames).toBe(0);
+    expect(result.current.metrics.averageDurationMs).toBeGreaterThan(0);
+  });
+
+  it("tracks metrics on failed frame processing", async () => {
+    const videoRef = { current: mockVideo() };
+
+    vi.spyOn(window, "fetch").mockResolvedValue({
+      ok: false,
+      status: 500,
+      json: async () => ({ success: false, error: "Server error" }),
+    });
+
+    const { result } = renderHook(() =>
+      useVideoProcessor({
+        videoRef,
+        pluginId: "forgesyte-yolo-tracker",
+        toolName: "player_detection",
+        fps: 30,
+        device: "cpu",
+        enabled: true,
+      })
+    );
+
+    await act(async () => {
+      vi.advanceTimersByTime(100);
+      await Promise.resolve();
+      vi.advanceTimersByTime(200);
+    });
+
+    expect(result.current.metrics.totalFrames).toBe(1);
+    expect(result.current.metrics.successfulFrames).toBe(0);
+    expect(result.current.metrics.failedFrames).toBe(1);
+    expect(result.current.metrics.lastError).toContain("Server error");
+  });
+
+  it("accumulates metrics across multiple frames", async () => {
+    const videoRef = { current: mockVideo() };
+
+    const { result } = renderHook(() =>
+      useVideoProcessor({
+        videoRef,
+        pluginId: "forgesyte-yolo-tracker",
+        toolName: "player_detection",
+        fps: 30,
+        device: "cpu",
+        enabled: true,
+      })
+    );
+
+    // Process 3 frames
+    for (let i = 0; i < 3; i++) {
+      await act(async () => {
+        vi.advanceTimersByTime(100);
+        await Promise.resolve();
+        vi.advanceTimersByTime(200);
+      });
+    }
+
+    expect(result.current.metrics.totalFrames).toBe(3);
+    expect(result.current.metrics.successfulFrames).toBe(3);
+    expect(result.current.metrics.averageDurationMs).toBeGreaterThan(0);
+  });
+
+  it("logs each frame processing attempt", async () => {
+    const videoRef = { current: mockVideo() };
+
+    const { result } = renderHook(() =>
+      useVideoProcessor({
+        videoRef,
+        pluginId: "forgesyte-yolo-tracker",
+        toolName: "player_detection",
+        fps: 30,
+        device: "cpu",
+        enabled: true,
+      })
+    );
+
+    await act(async () => {
+      vi.advanceTimersByTime(100);
+      await Promise.resolve();
+      vi.advanceTimersByTime(200);
+    });
+
+    expect(result.current.logs).toBeDefined();
+    expect(result.current.logs.length).toBe(1);
+    expect(result.current.logs[0]).toMatchObject({
+      pluginId: "forgesyte-yolo-tracker",
+      toolName: "player_detection",
+      success: true,
+      durationMs: expect.any(Number),
+    });
+  });
+
+  it("logs contain error information on failure", async () => {
+    const videoRef = { current: mockVideo() };
+
+    vi.spyOn(window, "fetch").mockResolvedValue({
+      ok: false,
+      status: 400,
+      json: async () => ({ success: false, error: "Bad request" }),
+    });
+
+    const { result } = renderHook(() =>
+      useVideoProcessor({
+        videoRef,
+        pluginId: "forgesyte-yolo-tracker",
+        toolName: "player_detection",
+        fps: 30,
+        device: "cpu",
+        enabled: true,
+      })
+    );
+
+    await act(async () => {
+      vi.advanceTimersByTime(100);
+      await Promise.resolve();
+      vi.advanceTimersByTime(200);
+    });
+
+    expect(result.current.logs.length).toBe(1);
+    expect(result.current.logs[0].success).toBe(false);
+    expect(result.current.logs[0].error).toContain("Bad request");
+  });
+
+  it("maintains rolling log buffer", async () => {
+    const videoRef = { current: mockVideo() };
+
+    const { result } = renderHook(() =>
+      useVideoProcessor({
+        videoRef,
+        pluginId: "forgesyte-yolo-tracker",
+        toolName: "player_detection",
+        fps: 30,
+        device: "cpu",
+        enabled: true,
+      })
+    );
+
+    // Process more frames than default log buffer
+    for (let i = 0; i < 10; i++) {
+      await act(async () => {
+        vi.advanceTimersByTime(100);
+        await Promise.resolve();
+        vi.advanceTimersByTime(200);
+      });
+    }
+
+    // Logs should be accumulated (no size limit by default)
+    expect(result.current.logs.length).toBe(10);
+  });
+});

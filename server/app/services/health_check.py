@@ -167,7 +167,6 @@ class HealthCheckService:
             {
                 "status": "healthy" | "degraded",
                 "plugins": {
-                    "ocr_plugin": {"status": "healthy", "version": "1.0.0"},
                     ...
                 }
             }

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any, Callable, Dict
+from typing import Any, Dict
 
 
 class BasePlugin(ABC):
@@ -11,7 +11,12 @@ class BasePlugin(ABC):
     Every plugin MUST:
     - Subclass BasePlugin
     - Define `name` (unique plugin identifier)
-    - Define `tools` (mapping of tool_name → callable)
+    - Define `tools` (mapping of tool_name → metadata dict)
+      where each tool has:
+        - handler: callable
+        - description: str
+        - input_schema: dict
+        - output_schema: dict
     - Implement `run_tool(tool_name, args)`
     - Optionally implement `validate()` for startup checks
     """
@@ -19,8 +24,8 @@ class BasePlugin(ABC):
     # Required plugin identifier
     name: str
 
-    # Mapping of tool_name → callable
-    tools: Dict[str, Callable[..., Any]]
+    # Mapping of tool_name → metadata dict
+    tools: Dict[str, Dict[str, Any]]
 
     def __init__(self) -> None:
         # Validate plugin structure immediately on instantiation
@@ -46,10 +51,38 @@ class BasePlugin(ABC):
                 f"{self.__class__.__name__} must define a dict attribute `tools`"
             )
 
-        for tool_name, handler in self.tools.items():
+        for tool_name, meta in self.tools.items():
+            if not isinstance(meta, dict):
+                raise ValueError(
+                    f"Tool '{tool_name}' in plugin '{self.name}' "
+                    "must be a dict of metadata"
+                )
+
+            handler = meta.get("handler")
             if not callable(handler):
                 raise ValueError(
-                    f"Tool '{tool_name}' in plugin '{self.name}' must be callable"
+                    f"Tool '{tool_name}' in plugin '{self.name}' "
+                    "must define a callable 'handler'"
+                )
+
+            if "description" not in meta or not isinstance(meta["description"], str):
+                raise ValueError(
+                    f"Tool '{tool_name}' in plugin '{self.name}' "
+                    "must define a string 'description'"
+                )
+
+            if "input_schema" not in meta or not isinstance(meta["input_schema"], dict):
+                raise ValueError(
+                    f"Tool '{tool_name}' in plugin '{self.name}' "
+                    "must define a dict 'input_schema'"
+                )
+
+            if "output_schema" not in meta or not isinstance(
+                meta["output_schema"], dict
+            ):
+                raise ValueError(
+                    f"Tool '{tool_name}' in plugin '{self.name}' "
+                    "must define a dict 'output_schema'"
                 )
 
     # ----------------------------------------------------------------------

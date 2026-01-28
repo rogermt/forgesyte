@@ -129,7 +129,6 @@ async def analyze_image(
     Args:
         request: FastAPI request context with body and app state.
         file: Optional file upload containing image data.
-        plugin: Vision plugin identifier (e.g., "ocr", "motion_detector").
                 Defaults to "ocr".
         image_url: Optional HTTP(S) URL to fetch image from.
         options: Optional JSON string with plugin-specific configuration.
@@ -463,13 +462,11 @@ async def get_plugin_manifest(
     call tools without hardcoding plugin logic.
 
     Args:
-        plugin_id: Plugin ID (e.g., "forgesyte-yolo-tracker")
         plugin_service: Plugin management service (injected)
 
     Returns:
         Manifest dict:
         {
-            "id": "forgesyte-yolo-tracker",
             "name": "YOLO Football Tracker",
             "version": "1.0.0",
             "description": "...",
@@ -488,10 +485,8 @@ async def get_plugin_manifest(
         HTTPException(500): Error reading manifest file
 
     Example:
-        GET /v1/plugins/forgesyte-yolo-tracker/manifest
         → 200 OK
         {
-            "id": "forgesyte-yolo-tracker",
             "name": "YOLO Football Tracker",
             "tools": { ... }
         }
@@ -531,7 +526,6 @@ async def run_plugin_tool(
     For batch/video processing, use the async job endpoints instead.
 
     Args:
-        plugin_id: Plugin ID (e.g., "forgesyte-yolo-tracker")
         tool_name: Tool name (e.g., "player_detection")
         request: Tool execution request with arguments
         plugin_service: Plugin management service (injected)
@@ -549,7 +543,6 @@ async def run_plugin_tool(
         HTTPException(500): Unexpected error
 
     Example:
-        POST /v1/plugins/forgesyte-yolo-tracker/tools/player_detection/run
         {
             "args": {
                 "frame_base64": "iVBORw0KGgo...",
@@ -560,7 +553,6 @@ async def run_plugin_tool(
         → 200 OK
         {
             "tool_name": "player_detection",
-            "plugin_id": "forgesyte-yolo-tracker",
             "result": {"detections": [...]},
             "processing_time_ms": 42
         }

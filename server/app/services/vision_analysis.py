@@ -11,7 +11,6 @@ Example:
     from ..protocols import PluginRegistry, WebSocketProvider
 
     service = VisionAnalysisService(plugin_registry, ws_provider)
-    await service.handle_frame(client_id, "ocr_plugin", frame_data)
 """
 
 import base64
