@@ -264,6 +264,17 @@ export function PluginSelector({
         <p style={styles.error}>
           <strong>Unable to load plugins:</strong> {displayError}
         </p>
+        <div style={styles.infoBox}>
+          <div style={styles.infoHeader}>
+            <strong>Troubleshooting:</strong>
+          </div>
+          <ul style={{ margin: "0 0 0 20px", padding: 0, fontSize: "12px" }}>
+            <li>Ensure the server is running and accessible</li>
+            <li>Verify plugins are installed on the server</li>
+            <li>Check your network connection</li>
+            <li>Clear browser cache and refresh</li>
+          </ul>
+        </div>
         <button
           onClick={() => window.location.reload()}
           style={{
