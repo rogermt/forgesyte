@@ -353,7 +353,7 @@ async def list_plugins(
     logger.debug("Plugins listed", extra={"count": len(plugins)})
 
     return {
-        "plugins": [PluginMetadata(**meta) for meta in plugins],
+        "plugins": [plugin.metadata() for plugin in plugins],
         "count": len(plugins),
     }
 
@@ -375,15 +375,15 @@ async def get_plugin_info(
     Raises:
         HTTPException: 404 Not Found if plugin does not exist.
     """
-    plugin_info = await service.get_plugin_info(name)
-    if not plugin_info:
+    plugin = await service.get_plugin_info(name)
+    if not plugin:
         logger.warning("Plugin not found", extra={"plugin": name})
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Plugin '{name}' not found",
         )
 
-    return PluginMetadata(**plugin_info)
+    return plugin.metadata()
 
 
 @router.post("/plugins/{name}/reload")
