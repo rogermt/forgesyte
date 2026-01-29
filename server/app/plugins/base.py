@@ -101,6 +101,30 @@ class BasePlugin(ABC):
                 )
 
             handler = meta.get("handler")
+
+            # Resolve string handler to bound method
+            if isinstance(handler, str):
+                resolved_handler = getattr(self, handler, None)
+                if resolved_handler is None:
+                    logger.error(
+                        "Plugin handler method not found",
+                        extra={
+                            "plugin_name": self.name,
+                            "plugin_class": self.__class__.__name__,
+                            "tool_name": tool_name,
+                            "handler_name": handler,
+                            "available_methods": [
+                                m for m in dir(self) if not m.startswith("_")
+                            ],
+                        },
+                    )
+                    raise ValueError(
+                        f"Tool '{tool_name}' in plugin '{self.name}' "
+                        f"references non-existent method '{handler}'"
+                    )
+                handler = resolved_handler
+
+            # Final callable check
             if not callable(handler):
                 logger.error(
                     "Plugin handler validation failed",
