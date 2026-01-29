@@ -54,7 +54,7 @@ class PluginManagementService:
         self.registry = registry
         logger.debug("PluginManagementService initialized")
 
-    async def list_plugins(self) -> List[Dict[str, Any]]:
+    async def list_plugins(self) -> List[Any]:
         """List all available vision plugins with metadata.
 
         Retrieves metadata for all loaded plugins including:
@@ -64,7 +64,7 @@ class PluginManagementService:
         - Configuration options
 
         Returns:
-            List of plugin metadata dictionaries, each containing:
+            List of Plugin instances, each with a metadata() method to get:
                 - name: Plugin identifier
                 - version: Semantic version
                 - description: Human-readable description
@@ -89,7 +89,7 @@ class PluginManagementService:
             logger.exception("Failed to list plugins", extra={"error": str(e)})
             raise
 
-    async def get_plugin_info(self, name: str) -> Optional[Dict[str, Any]]:
+    async def get_plugin_info(self, name: str) -> Optional[Any]:
         """Get detailed information about a specific plugin.
 
         Retrieves comprehensive metadata for a single plugin:
@@ -102,8 +102,9 @@ class PluginManagementService:
             name: Plugin identifier
 
         Returns:
-            Plugin metadata dictionary if found, None if not found
-            Contains: name, version, description, capabilities, etc.
+            Plugin instance if found, None if not found.
+            Call plugin.metadata() to get PluginMetadata with details:
+                - name, version, description, capabilities, etc.
 
         Raises:
             RuntimeError: If plugin registry is unavailable
@@ -111,15 +112,8 @@ class PluginManagementService:
         try:
             plugin = self.registry.get(name)
             if plugin:
-                # Plugin may be a loaded instance with metadata() method
-                if hasattr(plugin, "metadata") and callable(plugin.metadata):
-                    metadata = plugin.metadata()
-                    logger.debug("Retrieved plugin info", extra={"plugin": name})
-                    return metadata  # type: ignore[return-value]
-                else:
-                    # Or may be a dict if from list()
-                    logger.debug("Retrieved plugin info", extra={"plugin": name})
-                    return plugin  # type: ignore[return-value]
+                logger.debug("Retrieved plugin info", extra={"plugin": name})
+                return plugin
             else:
                 logger.debug("Plugin not found", extra={"plugin": name})
                 return None
