@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import logging
 from abc import ABC, abstractmethod
 from typing import Any, Dict
+
+logger = logging.getLogger(__name__)
 
 
 class BasePlugin(ABC):
@@ -60,6 +63,25 @@ class BasePlugin(ABC):
 
             handler = meta.get("handler")
             if not callable(handler):
+                logger.error(
+                    "Plugin handler validation failed",
+                    extra={
+                        "plugin_name": self.name,
+                        "plugin_class": self.__class__.__name__,
+                        "plugin_module": self.__class__.__module__,
+                        "tool_name": tool_name,
+                        "handler_value": handler,
+                        "handler_type": str(type(handler)),
+                        "handler_is_string": isinstance(handler, str),
+                        "handler_is_method": (
+                            hasattr(handler, "__self__") if handler else False
+                        ),
+                        "tool_metadata_keys": list(meta.keys()),
+                        "plugin_methods": [
+                            m for m in dir(self) if not m.startswith("_")
+                        ],
+                    },
+                )
                 raise ValueError(
                     f"Tool '{tool_name}' in plugin '{self.name}' "
                     "must define a callable 'handler'"
