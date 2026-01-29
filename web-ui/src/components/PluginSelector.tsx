@@ -254,11 +254,15 @@ export function PluginSelector({
   // Render: Error State
   // -------------------------------------------------------------------------
   if (error) {
+    const displayError = error.includes("non-JSON") 
+      ? "Server unavailable. Please ensure the server is running and try again."
+      : error;
+    
     return (
       <div style={styles.container}>
         <h3 style={styles.heading}>Select Plugin</h3>
         <p style={styles.error}>
-          <strong>Error:</strong> {error}
+          <strong>Unable to load plugins:</strong> {displayError}
         </p>
         <button
           onClick={() => window.location.reload()}

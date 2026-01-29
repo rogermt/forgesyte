@@ -78,16 +78,21 @@ export class ForgeSyteAPIClient {
                 const errorData = await response.json();
                 throw new Error(errorData.detail || `API error: ${response.status} ${response.statusText}`);
             } else {
-                const errorText = await response.text();
-                const truncatedError = errorText.substring(0, 200);
-                throw new Error(`Server returned non-JSON response (HTTP ${response.status}): ${truncatedError}`);
+                // Server returned non-JSON (e.g., HTML error page, tunnel redirect)
+                // Don't include raw HTML in error message
+                if (response.status === 511) {
+                    throw new Error("Server unavailable. Please ensure the server is running and try again.");
+                } else if (response.status >= 500) {
+                    throw new Error(`Server error (HTTP ${response.status}). Please try again later.`);
+                } else {
+                    throw new Error(`Server returned non-JSON response (HTTP ${response.status}).`);
+                }
             }
         }
 
         if (!isJson) {
-            const errorText = await response.text();
-            const truncatedError = errorText.substring(0, 200);
-            throw new Error(`Server returned non-JSON response: ${truncatedError}`);
+            // Success response but not JSON - likely an error from tunnel/proxy
+            throw new Error("Server unavailable. Please ensure the server is running and try again.");
         }
 
         return response.json();
