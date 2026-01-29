@@ -43,14 +43,24 @@ This epic addresses all five critical areas:
 
 ---
 
+### Milestone 1 — Plugin Contract & Loader
+
+- [x] Introduce BasePlugin abstract class
+- [x] Enforce plugin contract (name, tools, run_tool)
+- [x] Rewrite plugin loader to use entry points only
+- [x] Validate plugin schemas on load
+- [x] Reject invalid plugins with explicit errors
+- [x] Remove hardcoded plugin references (ocr_plugin, motion_detector)
+- [x] Add CI guardrail: all plugins must subclass BasePlugin
+
 # ⭐ **Milestone 1.5 — YOLO Tracker Operational Baseline**  
 *(New milestone inserted between M1 and M2)*
 
 ### **1. Plugin Load & Environment Alignment**
-- [ ] Uninstall stale CPU wheel of `forgesyte-yolo-tracker`  
-- [ ] Reinstall plugin in editable mode (`pip install -e`) for CPU  
-- [ ] Confirm GPU + CPU environments load the same plugin path  
-- [ ] Add plugin‑path diagnostic script (prints active plugin file)  
+- [x] Uninstall stale CPU wheel of `forgesyte-yolo-tracker`  
+- [x] Reinstall plugin in editable mode (`pip install -e`) for CPU  
+- [x] Confirm GPU + CPU environments load the same plugin path  
+- [x] Add plugin‑path diagnostic script (prints active plugin file)  
 - [ ] Confirm plugin loads via entrypoints without errors  
 
 ### **2. BasePlugin Contract Migration**
@@ -79,18 +89,28 @@ This epic addresses all five critical areas:
 - [ ] Run each tool (player, ball, pitch, radar)  
 - [ ] Visualise results  
 - [ ] Validate schema compliance  
-- [ ] Confirm `/run` endpoint returns JSON with real inference  
+- [ ] Confirm `/run` endpoint returns JSON with real inference 
 
----
+### **6. JSON Output Compliance**
+- [ ] Ensure all tool outputs are JSON‑serializable  
+- [ ] Convert numpy arrays → lists  
+- [ ] Convert torch tensors → lists  
+- [ ] Convert bounding boxes → dicts  
+- [ ] Remove non‑serializable objects  
+- [ ] Validate output against `output_schema`  
+- [ ] Add logging for tool output before serialization  
+- [ ] Add guardrail test: tool must return valid JSON  
 
-## **Milestone 2 — Real Integration Tests**
-- [ ] Add plugin discovery tests (entry points → registry)  
-- [ ] Add real tool invocation tests (no mocks)  
-- [ ] Add error‑path tests (missing plugin, missing tool, invalid args)  
-- [ ] Add registry behaviour tests  
-- [ ] Add `/run` endpoint tests with real plugin execution  
-- [ ] Ensure `/run` endpoint always returns JSON  
-- [ ] Add CI guardrail: no mocks for `run_plugin_tool` in integration tests  
+
+### Milestone 2 — Real Integration Tests
+
+- [ ] Add plugin discovery tests (entry points → registry)
+- [ ] Add real tool invocation tests (no mocks)
+- [ ] Add error-path tests (missing plugin, missing tool, invalid args)
+- [ ] Add registry behavior tests
+- [ ] Add /run endpoint tests with real plugin execution
+- [ ] Ensure /run endpoint always returns JSON
+- [ ] Add CI guardrail: no mocks for run_plugin_tool in integration tests
 
 
 ### Milestone 3 — Unified Tool Execution (Frontend + Backend)
