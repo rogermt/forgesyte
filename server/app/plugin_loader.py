@@ -111,11 +111,11 @@ class PluginRegistry:
                     # If instantiation failed, plugin won't exist, but we have the class
                     if "plugin" in locals() and plugin:
                         diagnostic_extra["plugin_instance_type"] = type(plugin).__name__
-                        diagnostic_extra["plugin_instance_has_name"] = hasattr(
-                            plugin, "name"
+                        diagnostic_extra["plugin_instance_has_name"] = str(
+                            hasattr(plugin, "name")
                         )
-                        diagnostic_extra["plugin_instance_has_tools"] = hasattr(
-                            plugin, "tools"
+                        diagnostic_extra["plugin_instance_has_tools"] = str(
+                            hasattr(plugin, "tools")
                         )
                         if hasattr(plugin, "name"):
                             diagnostic_extra["plugin_name_value"] = str(plugin.name)
@@ -127,14 +127,17 @@ class PluginRegistry:
                             diagnostic_extra["plugin_tools_type"] = str(
                                 type(plugin.tools)
                             )
-                        diagnostic_extra["plugin_instance_dict"] = list(
-                            plugin.__dict__.keys()
+                        diagnostic_extra["plugin_instance_dict"] = str(
+                            list(plugin.__dict__.keys())
                         )
-                        diagnostic_extra["plugin_instance_methods"] = [
-                            m
-                            for m in dir(plugin)
-                            if not m.startswith("_") and callable(getattr(plugin, m))
-                        ]
+                        diagnostic_extra["plugin_instance_methods"] = str(
+                            [
+                                m
+                                for m in dir(plugin)
+                                if not m.startswith("_")
+                                and callable(getattr(plugin, m))
+                            ]
+                        )
                 except Exception as diag_error:
                     diagnostic_extra["diagnostic_error"] = str(diag_error)
 
