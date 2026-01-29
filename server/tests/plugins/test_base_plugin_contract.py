@@ -67,7 +67,7 @@ def test_non_callable_handler_rejected():
         def __init__(self):
             self.tools = {
                 "detect": {
-                    "handler": "not_callable",
+                    "handler": "missing_method",
                     "description": "Detect things",
                     "input_schema": {},
                     "output_schema": {},
@@ -78,7 +78,7 @@ def test_non_callable_handler_rejected():
         def run_tool(self, tool_name: str, args: dict):
             pass
 
-    with pytest.raises(ValueError, match="handler"):
+    with pytest.raises(ValueError, match="non-existent method"):
         BadPlugin()
 
 
