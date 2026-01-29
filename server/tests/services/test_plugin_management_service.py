@@ -56,8 +56,10 @@ class TestPluginManagementService:
 
         result = await service.get_plugin_info("plugin1")
 
-        assert result["name"] == "plugin1"
-        mock_plugin.metadata.assert_called_once()
+        # Service returns the plugin instance, not the metadata
+        assert result is mock_plugin
+        # Caller would call metadata() to get the dict
+        assert result.metadata() == {"name": "plugin1", "version": "1.0"}
 
     @pytest.mark.asyncio
     async def test_get_plugin_info_found_dict(self, service, mock_registry):
