@@ -90,9 +90,57 @@ class PluginRegistry:
 
             except Exception as e:
                 errors[ep.name] = str(e)
+
+                # Inspect the loaded class/instance for diagnostics
+                diagnostic_extra = {
+                    "entrypoint_name": ep.name,
+                    "error": str(e),
+                    "error_type": type(e).__name__,
+                    "traceback_lines": str(e),
+                }
+
+                try:
+                    # Try to get details about what was loaded
+                    diagnostic_extra["plugin_class_name"] = (
+                        plugin_class.__name__ if plugin_class else "unknown"
+                    )
+                    diagnostic_extra["plugin_module"] = (
+                        plugin_class.__module__ if plugin_class else "unknown"
+                    )
+
+                    # If instantiation failed, plugin won't exist, but we have the class
+                    if "plugin" in locals() and plugin:
+                        diagnostic_extra["plugin_instance_type"] = type(plugin).__name__
+                        diagnostic_extra["plugin_instance_has_name"] = hasattr(
+                            plugin, "name"
+                        )
+                        diagnostic_extra["plugin_instance_has_tools"] = hasattr(
+                            plugin, "tools"
+                        )
+                        if hasattr(plugin, "name"):
+                            diagnostic_extra["plugin_name_value"] = str(plugin.name)
+                            diagnostic_extra["plugin_name_type"] = str(
+                                type(plugin.name)
+                            )
+                        if hasattr(plugin, "tools"):
+                            diagnostic_extra["plugin_tools_value"] = str(plugin.tools)
+                            diagnostic_extra["plugin_tools_type"] = str(
+                                type(plugin.tools)
+                            )
+                        diagnostic_extra["plugin_instance_dict"] = list(
+                            plugin.__dict__.keys()
+                        )
+                        diagnostic_extra["plugin_instance_methods"] = [
+                            m
+                            for m in dir(plugin)
+                            if not m.startswith("_") and callable(getattr(plugin, m))
+                        ]
+                except Exception as diag_error:
+                    diagnostic_extra["diagnostic_error"] = str(diag_error)
+
                 logger.error(
                     "Failed to load entrypoint plugin",
-                    extra={"plugin_name": ep.name, "error": str(e)},
+                    extra=diagnostic_extra,
                 )
 
         return loaded, errors
