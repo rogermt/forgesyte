@@ -47,11 +47,11 @@ This epic addresses all five critical areas:
 *(New milestone inserted between M1 and M2)*
 
 ### **1. Plugin Load & Environment Alignment**
-- [ ] Uninstall stale CPU wheel of `forgesyte-yolo-tracker`  
-- [ ] Reinstall plugin in editable mode (`pip install -e`) for CPU  
-- [ ] Confirm GPU + CPU environments load the same plugin path  
-- [ ] Add plugin‑path diagnostic script (prints active plugin file)  
-- [ ] Confirm plugin loads via entrypoints without errors  
+- [x] Uninstall stale CPU wheel of `forgesyte-yolo-tracker`  
+- [x] Reinstall plugin in editable mode (`pip install -e`) for CPU  
+- [x] Confirm GPU + CPU environments load the same plugin path  
+- [x] Add plugin‑path diagnostic script (prints active plugin file)  
+- [x] Confirm plugin loads via entrypoints without errors  
 
 ### **2. BasePlugin Contract Migration**
 - [ ] Confirm handler string resolution works (`"handler": "player_detection"`)  
@@ -80,6 +80,27 @@ This epic addresses all five critical areas:
 - [ ] Visualise results  
 - [ ] Validate schema compliance  
 - [ ] Confirm `/run` endpoint returns JSON with real inference  
+
+### **6. JSON Output Compliance**
+- [ ] Ensure all tool outputs are JSON‑serializable  
+- [ ] Convert numpy arrays → lists  
+- [ ] Convert torch tensors → lists  
+- [ ] Convert bounding boxes → dicts  
+- [ ] Remove non‑serializable objects  
+- [ ] Validate output against `output_schema`  
+- [ ] Add logging for tool output before serialization  
+- [ ] Add guardrail test: tool must return valid JSON 
+
+### **7. — OCR Plugin Migration**
+- [x] Remove legacy `app.plugins` imports  
+- [x] Rewrite OCR plugin to subclass `BasePlugin`  
+- [x] Add correct entrypoint: `forgesyte.plugins`  
+- [x] Add `tools` dict with string handler names  
+- [x] Add `OCRInput` + `OCROutput` schemas  
+- [x] Add `OCREngine` wrapper  
+- [x] Ensure plugin loads via entrypoints  
+- [x] Ensure plugin passes contract validation  
+- [ ] Ensure `/run` endpoint returns valid JSON  
 
 ---
 
