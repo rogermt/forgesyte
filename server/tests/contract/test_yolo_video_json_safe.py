@@ -2,8 +2,9 @@
 
 import json
 import os
-import pytest
 from importlib.metadata import entry_points
+
+import pytest
 
 RUN_MODEL_TESTS = os.getenv("RUN_MODEL_TESTS", "0") == "1"
 
@@ -74,11 +75,7 @@ def test_yolo_video_tool_returns_json_safe_output():
     output_dict = (
         output.model_dump()
         if hasattr(output, "model_dump")
-        else output.dict()
-        if hasattr(output, "dict")
-        else output
+        else output.dict() if hasattr(output, "dict") else output
     )
 
-    assert is_json_safe(output_dict), (
-        "YOLO video tool returned non-JSON-safe output"
-    )
+    assert is_json_safe(output_dict), "YOLO video tool returned non-JSON-safe output"
