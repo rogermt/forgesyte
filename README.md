@@ -197,6 +197,35 @@ See `PLUGIN_DEVELOPMENT.md`.
 
 ---
 
+## Contract Tests (JSON-Safe Output Validation)
+
+ForgeSyte enforces that all plugin tools return JSON-serializable output. This prevents numpy arrays, tensors, or custom objects from leaking into API responses.
+
+### Running Contract Tests
+
+**CPU (CI environment):**
+```bash
+cd server
+uv run pytest tests/contract/ -v
+```
+
+**GPU (Kaggle with YOLO models):**
+```bash
+cd server
+RUN_MODEL_TESTS=1 uv run pytest tests/contract/ -v
+```
+
+### What Contract Tests Verify
+
+- **All plugins loaded** via `entry_points(group="forgesyte.plugins")`
+- **All tools callable** via `plugin.run_tool(tool_name, args)`
+- **All outputs JSON-safe** — can be serialized via `json.dumps()`
+- **No numpy/torch leaks** — arrays and tensors rejected
+
+See `server/tests/contract/` for implementation details.
+
+---
+
 ## Scope Guardrails
 
 The following features are **explicitly out of scope** for ForgeSyte and must not be implemented:
