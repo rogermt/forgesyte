@@ -46,6 +46,13 @@ uv run pytest -k "test_list" -v
 
 # Run tests with a specific marker
 uv run pytest -m asyncio -v
+
+# Run contract tests (JSON-safe output validation)
+# CPU (CI): Tests OCR plugin only
+uv run pytest tests/contract/ -v
+
+# GPU (Kaggle): Tests all plugins including YOLO
+RUN_MODEL_TESTS=1 uv run pytest tests/contract/ -v
 ```
 
 ### Linting and Formatting
