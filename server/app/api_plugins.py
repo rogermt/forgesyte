@@ -2,7 +2,6 @@
 
 Provides:
 - GET /v1/plugins/{plugin_id}/manifest - retrieve plugin manifest
-- POST /v1/plugins/{plugin_id}/tools/{tool_name}/run - execute plugin tool
 
 Uses dependency injection for PluginManagementService and ManifestCacheService.
 """
