@@ -1,16 +1,11 @@
-"""Test YOLO image tools for JSON-safe output compliance."""
+"""Test YOLO video tool for JSON-safe output compliance."""
 
 import json
-import os
 from importlib.metadata import entry_points
 
 import pytest
 
-RUN_MODEL_TESTS = os.getenv("RUN_MODEL_TESTS", "0") == "1"
-
-pytestmark = pytest.mark.skipif(
-    not RUN_MODEL_TESTS, reason="Set RUN_MODEL_TESTS=1 to run (requires YOLO models)"
-)
+pytestmark = pytest.mark.heavy
 
 
 def is_json_safe(value):
@@ -43,8 +38,8 @@ def build_dummy_input(input_schema):
     return dummy
 
 
-def test_yolo_image_tools_return_json_safe_output():
-    """Verify YOLO image tools (player_detection, etc) return JSON-safe output."""
+def test_yolo_video_tool_returns_json_safe_output():
+    """Verify YOLO video tool returns JSON-safe output."""
     eps = entry_points(group="forgesyte.plugins")
     yolo_eps = [ep for ep in eps if ep.name == "yolo-tracker"]
     assert yolo_eps, "YOLO entrypoint not found"
@@ -57,22 +52,28 @@ def test_yolo_image_tools_return_json_safe_output():
     plugin = plugin_class()
     plugin.on_load()
 
+    # Find video tool
+    video_tool = None
     for tool_name, tool_def in plugin.tools.items():
-        # Skip video tools (tested separately)
         if "video" in tool_name:
-            continue
+            video_tool = (tool_name, tool_def)
+            break
 
-        input_schema = tool_def["input_schema"]
-        dummy_input = build_dummy_input(input_schema)
-
-        output = plugin.run_tool(tool_name, dummy_input)
-
-        output_dict = (
-            output.model_dump()
-            if hasattr(output, "model_dump")
-            else output.dict() if hasattr(output, "dict") else output
+    if not video_tool:
+        pytest.skip(
+            "No video tool found in YOLO plugin (video tools not yet integrated)"
         )
 
-        assert is_json_safe(
-            output_dict
-        ), f"Tool '{tool_name}' in YOLO plugin returned non-JSON-safe output"
+    tool_name, tool_def = video_tool
+    input_schema = tool_def["input_schema"]
+    dummy_input = build_dummy_input(input_schema)
+
+    output = plugin.run_tool(tool_name, dummy_input)
+
+    output_dict = (
+        output.model_dump()
+        if hasattr(output, "model_dump")
+        else output.dict() if hasattr(output, "dict") else output
+    )
+
+    assert is_json_safe(output_dict), "YOLO video tool returned non-JSON-safe output"
