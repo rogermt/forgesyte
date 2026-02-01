@@ -51,7 +51,7 @@ async def get_manifest(
     Manifest is cached with 60-second TTL to reduce disk I/O.
 
     Args:
-        plugin_id: Plugin identifier (e.g., "yolo-tracker", "ocr")
+        plugin_id: Plugin identifier
         plugin_service: PluginManagementService dependency
         cache: ManifestCacheService dependency (60s TTL)
 
