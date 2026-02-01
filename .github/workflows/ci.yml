@@ -1,0 +1,394 @@
+name: ForgeSyte CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+  workflow_dispatch:
+
+jobs:
+  # ---------------------------------------------------------
+  # Lint (server) + mypy
+  # ---------------------------------------------------------
+  lint:
+    name: Lint & Type Check (server)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v2
+
+      - name: Run pre-commit hooks
+        uses: pre-commit/action@v3.0.0
+
+      - name: Run mypy type checking
+        run: |
+          cd server
+          PYTHONPATH=. uv run mypy app/ --no-site-packages
+        continue-on-error: true
+
+  # ---------------------------------------------------------
+  # Server tests (matrix)
+  # ---------------------------------------------------------
+  test:
+    name: Server Tests
+    runs-on: ubuntu-latest
+    needs: lint
+
+    strategy:
+      matrix:
+        python-version: ["3.8", "3.9", "3.10", "3.11"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v2
+
+      - name: Install dependencies
+        run: |
+          cd server
+          uv sync
+
+      - name: Run pytest with coverage
+        run: |
+          cd server
+          uv run pytest \
+            --cov=app \
+            --cov-report=term-missing
+
+      - name: Display coverage summary
+        run: |
+          cd server
+          uv run coverage report --fail-under=80
+
+  # ---------------------------------------------------------
+  # Web-UI lint, type-check, tests
+  # ---------------------------------------------------------
+  web-ui:
+    name: Web-UI Lint & Tests
+    runs-on: ubuntu-latest
+    needs: lint
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: web-ui/package.json
+
+      - name: Install dependencies
+        run: |
+          cd web-ui
+          npm install
+
+      - name: Run lint
+        run: |
+          cd web-ui
+          npm run lint
+
+      - name: Run type-check
+        run: |
+          cd web-ui
+          npm run type-check
+
+      - name: Run tests
+        run: |
+          cd web-ui
+          npm test -- --run
+
+  # ---------------------------------------------------------
+  # E2E tests (depends on server tests + web-ui)
+  # ---------------------------------------------------------
+  e2e:
+    name: E2E Tests
+    runs-on: ubuntu-latest
+    needs: [test, web-ui]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v2
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: |
+          cd server && uv sync
+          cd ../web-ui && npm install
+
+      - name: Run E2E tests
+        run: ./e2e.test.sh
+
+  # ---------------------------------------------------------
+  # Test Integrity (PR-only semantics, but lives in same workflow)
+  # ---------------------------------------------------------
+  test-integrity:
+    name: Test Integrity
+    runs-on: ubuntu-latest
+    needs: [test, web-ui]
+
+    if: ${{ github.event_name == 'pull_request' }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fetch main
+        run: git fetch origin main
+
+      - name: Detect test changes
+        id: detect
+        run: |
+          changed=$(git diff --name-only origin/main...HEAD | grep -E '\.test\.tsx$|server/tests|plugins/.*/tests' || true)
+          echo "changed=$changed" >> $GITHUB_OUTPUT
+
+      - name: Require TEST CHANGE JUSTIFICATION
+        if: ${{ steps.detect.outputs.changed != '' }}
+        run: |
+          body="${{ github.event.pull_request.body }}"
+          if ! grep -qi "TEST CHANGE JUSTIFICATION" <<< "$body"; then
+            echo "❌ Tests changed but no TEST CHANGE JUSTIFICATION found in PR body."
+            exit 1
+          fi
+
+      - name: Compute baseline metrics
+        run: |
+          echo "BASELINE_TEST_FILES=$(git ls-tree -r origin/main --name-only | grep -E '\.test\.tsx$|server/tests|plugins/.*/tests' | wc -l)" >> $GITHUB_ENV
+          echo "BASELINE_ASSERTIONS=$(git grep -E 'expect|assert' origin/main | wc -l)" >> $GITHUB_ENV
+
+      - name: Compute PR metrics
+        run: |
+          echo "PR_TEST_FILES=$(git ls-tree -r HEAD --name-only | grep -E '\.test\.tsx$|server/tests|plugins/.*/tests' | wc -l)" >> $GITHUB_ENV
+          echo "PR_ASSERTIONS=$(git grep -E 'expect|assert' | wc -l)" >> $GITHUB_ENV
+
+      - name: Test Integrity Dashboard
+        run: |
+          echo "### 🧪 Test Integrity Dashboard" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Baseline test files:** $BASELINE_TEST_FILES" >> $GITHUB_STEP_SUMMARY
+          echo "**PR test files:** $PR_TEST_FILES" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Baseline assertions:** $BASELINE_ASSERTIONS" >> $GITHUB_STEP_SUMMARY
+          echo "**PR assertions:** $PR_ASSERTIONS" >> $GITHUB_STEP_SUMMARY
+
+      - name: Enforce test integrity
+        run: |
+          if [ "$PR_TEST_FILES" -lt "$BASELINE_TEST_FILES" ]; then
+            echo "❌ Test file count decreased"
+            exit 1
+          fi
+
+          if [ "$PR_ASSERTIONS" -lt "$BASELINE_ASSERTIONS" ]; then
+            echo "❌ Assertion count decreased"
+            exit 1
+          fi
+
+  # ---------------------------------------------------------
+  # Full Server Health (runtime: plugins, analyze, jobs, websocket)
+  # ---------------------------------------------------------
+  server-health:
+    name: Server Health
+    runs-on: ubuntu-latest
+    needs: test
+
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v2
+
+      - name: Cache uv
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/uv
+          key: uv-${{ runner.os }}-${{ matrix.python-version }}
+          restore-keys: |
+            uv-${{ runner.os }}-
+
+      - name: Install server dependencies
+        run: |
+          cd server
+          uv sync
+
+      - name: Install jq + websocat
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y jq websocat
+
+      - name: Start ForgeSyte server
+        run: |
+          cd server
+          uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 &
+          sleep 5
+
+      # /v1/plugins manifest validation
+      - name: Validate /v1/plugins manifest list
+        id: plugins
+        run: |
+          echo "Fetching plugin list..."
+          PLUGINS=$(curl -s http://localhost:8000/v1/plugins | jq -r '.plugins[].name')
+          echo "plugins=$PLUGINS" >> $GITHUB_OUTPUT
+
+          if [ -z "$PLUGINS" ]; then
+            echo "::error::No plugins returned by /v1/plugins"
+            exit 1
+          fi
+
+      - name: Validate each plugin manifest
+        run: |
+          FAILED=0
+          for plugin in ${{ steps.plugins.outputs.plugins }}; do
+            echo "Checking manifest for plugin: $plugin"
+
+            STATUS=$(curl -s -o /tmp/manifest.json -w "%{http_code}" \
+              http://localhost:8000/v1/plugins/$plugin/manifest)
+
+            if [ "$STATUS" != "200" ]; then
+              echo "::error::Manifest missing or invalid for plugin '$plugin' (HTTP $STATUS)"
+              FAILED=1
+              continue
+            fi
+
+            if ! jq -e '.id and .name and .version and .tools' /tmp/manifest.json > /dev/null; then
+              echo "::error::Manifest for plugin '$plugin' missing required fields"
+              FAILED=1
+            fi
+          done
+
+          if [ "$FAILED" -eq 1 ]; then
+            exit 1
+          fi
+
+      # /v1/analyze smoke test
+      - name: /v1/analyze smoke test
+        id: analyze
+        run: |
+          RESPONSE=$(curl -s -X POST http://localhost:8000/v1/analyze?plugin=ocr \
+            -H "Content-Type: application/json" \
+            -d '{"image":"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIW2P4//8/AwAI/AL+ZQzQWQAAAABJRU5ErkJggg=="}')
+
+          echo "response=$RESPONSE" >> $GITHUB_OUTPUT
+
+          JOB_ID=$(echo "$RESPONSE" | jq -r '.job_id')
+          if [ "$JOB_ID" = "null" ]; then
+            echo "::error::No job_id returned from /v1/analyze"
+            exit 1
+          fi
+
+          echo "job_id=$JOB_ID" >> $GITHUB_OUTPUT
+
+      # /v1/analyze error-path tests
+      - name: /v1/analyze error-path tests
+        run: |
+          BAD=$(curl -s -o /tmp/bad.json -w "%{http_code}" \
+            -X POST http://localhost:8000/v1/analyze?plugin=does_not_exist \
+            -H "Content-Type: application/json" \
+            -d '{"image":"invalid"}')
+
+          if [ "$BAD" = "200" ]; then
+            echo "::error::Invalid plugin should not return 200"
+            exit 1
+          fi
+
+      # /v1/jobs polling test
+      - name: /v1/jobs polling test
+        run: |
+          JOB_ID="${{ steps.analyze.outputs.job_id }}"
+          echo "Polling job $JOB_ID"
+
+          for i in {1..20}; do
+            STATUS=$(curl -s http://localhost:8000/v1/jobs/$JOB_ID | jq -r '.status')
+            echo "Status: $STATUS"
+
+            if [ "$STATUS" = "done" ]; then
+              exit 0
+            fi
+
+            sleep 1
+          done
+
+          echo "::error::Job did not complete in time"
+          exit 1
+
+      # /v1/jobs cancellation test
+      - name: /v1/jobs cancellation test
+        run: |
+          RESPONSE=$(curl -s -X POST http://localhost:8000/v1/analyze?plugin=ocr \
+            -H "Content-Type: application/json" \
+            -d '{"image":"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIW2P4//8/AwAI/AL+ZQzQWQAAAABJRU5ErkJggg=="}')
+
+          JOB_ID=$(echo "$RESPONSE" | jq -r '.job_id')
+
+          CANCEL=$(curl -s -X POST http://localhost:8000/v1/jobs/$JOB_ID/cancel | jq -r '.status')
+
+          if [ "$CANCEL" != "cancelled" ]; then
+            echo "::error::Job cancellation failed"
+            exit 1
+          fi
+
+      # WebSocket reconnect test
+      - name: WebSocket reconnect test
+        run: |
+          echo "Testing WebSocket reconnect..."
+
+          echo '{"frame":"test"}' | websocat ws://localhost:8000/v1/stream > ws1.txt &
+          sleep 2
+
+          pkill websocat || true
+          sleep 1
+
+          echo '{"frame":"test"}' | websocat ws://localhost:8000/v1/stream > ws2.txt &
+          sleep 2
+
+          if ! grep -q "{" ws2.txt; then
+            echo "::error::WebSocket reconnect failed"
+            exit 1
+          fi
+
+      # Server Health Dashboard
+      - name: Server Health Dashboard
+        run: |
+          echo "### 🚦 ForgeSyte Server Health Dashboard" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- /v1/plugins manifest validation: **OK**" >> $GITHUB_STEP_SUMMARY
+          echo "- /v1/analyze smoke test: **OK**" >> $GITHUB_STEP_SUMMARY
+          echo "- /v1/analyze error-path tests: **OK**" >> $GITHUB_STEP_SUMMARY
+          echo "- /v1/jobs polling: **OK**" >> $GITHUB_STEP_SUMMARY
+          echo "- /v1/jobs cancellation: **OK**" >> $GITHUB_STEP_SUMMARY
+          echo "- /v1/stream WebSocket reconnect: **OK**" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "All runtime systems operational." >> $GITHUB_STEP_SUMMARY
