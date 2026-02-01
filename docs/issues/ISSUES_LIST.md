@@ -184,8 +184,8 @@ Here it is, clean and ready to drop into your roadmap.
 - [x] Confirm `/v1/plugins` returns all plugins  
 - [x] Confirm `/v1/plugins/{plugin}/manifest` returns tool schemas  
 - [x] Remove dependency on old MCP manifest for execution  
-- [ ] Add schema validation tests for manifests  
-- [ ] Add CI guardrail: every plugin must expose a manifest  
+- [x] Add schema validation tests for manifests  
+- [] Add CI guardrail: every plugin must expose a manifest  
 
 ---
 
