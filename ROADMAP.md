@@ -1,150 +1,117 @@
-# 🗺️ **ROADMAP.md (Drop‑In Ready for Project Root)**
+## ForgeSyte Roadmap 
 
-```markdown
-# ForgeSyte Vision Platform — Roadmap
-
-This roadmap defines the architectural direction, milestones, and guardrails for
-building a stable, plugin‑agnostic, testable, and MCP‑compatible vision
-processing platform.
-
-It is intentionally explicit and non‑negotiable: every milestone restores or
-reinforces the platform’s core contract — **plugins must be first‑class
-citizens**, not special‑cased exceptions.
+This is a rewritten, modern view of your roadmap, aligned with the **current server reality**: `/v1/analyze`, `/v1/jobs`, `/v1/plugins`, `/v1/stream`, and a job‑centric execution model. It preserves your intent but removes `/run` as a first‑class concept.
 
 ---
 
-## 🎯 Vision
+### Milestone 1 — Core Plugin & Environment Baseline
 
-ForgeSyte must support any vision plugin — OCR, YOLO, Motion, Radar, or future
-third‑party tools — with:
-
-- A unified execution model  
-- A stable plugin contract  
-- Real integration tests  
-- Dynamic tool discovery  
-- Predictable error handling  
-- Full MCP compatibility  
-
-No plugin should require hardcoded references, mocks, or bespoke endpoints.
+- **Plugin load & environment alignment**
+  - Ensure all plugins (OCR, YOLO tracker) are installed in editable mode
+  - Confirm CPU/GPU environments load the same plugin paths
+  - Add diagnostics to print active plugin file and entrypoint resolution
+- **BasePlugin contract**
+  - All plugins subclass `BasePlugin`
+  - Handlers resolve from string names to bound methods
+  - Contract validation passes end‑to‑end for each plugin
 
 ---
 
-# 🚀 Milestone 1 — Plugin Contract & Loader Rewrite  
-**Goal:** Restore architectural integrity by enforcing a real plugin contract and
-loading plugins dynamically via entry points.
+### Milestone 1.5 — YOLO Tracker Operational Baseline
 
-### Deliverables
-- Introduce `BasePlugin` abstract class  
-- Enforce required attributes (`name`, `tools`, `run_tool`)  
-- Rewrite plugin loader to use entry points only  
-- Validate plugin schemas on load  
-- Reject invalid plugins with explicit errors  
-- Remove all hardcoded plugin references (`ocr_plugin`, `motion_detector`, etc.)  
-- Add CI guardrails to prevent regressions  
-
-### Success Criteria
-- All plugins subclass `BasePlugin`  
-- Registry contains only validated plugins  
-- Loader fails fast with clear errors  
-- No hardcoded plugin names remain in the codebase  
+- **YOLO plugin wiring**
+  - YOLO tracker loads via entrypoints without errors
+  - Model weights and device selection (CPU/GPU) are correctly configured
+  - `on_load()` instantiates models and logs success
+- **Image tracking**
+  - Reinstate player, ball, pitch detection and tracking
+  - Validate JSON‑serializable outputs and schemas
+- **Smoke test notebook**
+  - `YOLO_Tracker_Smoke_Test.ipynb` runs plugin on test images
+  - Visualize detections and validate schema compliance
 
 ---
 
-# 🧪 Milestone 2 — Real Integration Tests  
-**Goal:** Replace mock‑driven tests with real plugin execution tests.
+### Milestone 2 — Real Integration Tests
 
-### Deliverables
-- Install YOLO tracker plugin as dev dependency  
-- Add plugin discovery tests (entry points → registry)  
-- Add real tool invocation tests (no mocks)  
-- Add error‑path tests (missing plugin, missing tool, invalid args)  
-- Add registry behavior tests  
-- Add `/run` endpoint tests with real plugin execution  
-- Ensure all `/run` failures return JSON (never raw 500s)  
+- **Plugin discovery**
+  - Tests for entrypoints → registry → plugin instances
+- **Execution paths**
+  - Tests for valid plugin execution via the canonical API
+  - Error‑path tests: missing plugin, invalid args, bad input
+- **Registry behavior**
+  - Ensure consistent plugin registration and reload behavior
 
-### Success Criteria
-- No integration test mocks `run_plugin_tool`  
-- YOLO plugin executes in tests  
-- OCR plugin executes in tests  
-- `/run` endpoint always returns JSON  
-- Test suite catches plugin import failures  
+*(In the modern model, these tests should target `/v1/analyze` + `/v1/jobs`, not `/run`.)*
 
 ---
 
-# 🔌 Milestone 3 — Unified Tool Execution (Frontend + Backend)  
-**Goal:** Ensure all plugins use the same execution path and telemetry.
+### Milestone 3 — Unified Execution Abstractions
 
-### Deliverables
-- Introduce `runTool()` unified tool runner (frontend)  
-- Update OCR + YOLO to use `runTool()`  
-- Add structured logging for every tool invocation  
-- Add retry wrapper with exponential backoff  
-- Add frame‑level metrics (duration, success, error)  
-- Add manifest‑fetch regression test  
-- Remove divergent fetch logic from `useVideoProcessor`  
-
-### Success Criteria
-- All plugins use the same execution path  
-- All tool calls logged with plugin/tool/duration  
-- Retries handled consistently  
-- Manifest always fetched on plugin change  
-- No direct fetch calls to `/run` outside `runTool()`  
+- **Client‑side unification**
+  - Introduce a unified “analyze” helper (replacing `runTool`) that:
+    - calls `/v1/analyze`
+    - polls `/v1/jobs/{id}`
+    - returns a stable result object
+  - OCR and YOLO flows both use this unified path
+- **Observability**
+  - Structured logging for each analysis invocation
+  - Optional retry wrappers for transient network/JSON errors
+  - Frame‑level metrics (duration, success, error) where applicable
 
 ---
 
-# 🔄 Milestone 4 — MCP Adapter Rewrite  
-**Goal:** Make MCP a first‑class interface for all plugins and tools.
+### Milestone 4 — MCP Adapter (On Top of Job Model)
 
-### Deliverables
-- Auto‑generate MCP endpoints from plugin registry  
-- Support all tools, not just `/v1/analyze?plugin=xxx`  
-- Add MCP schema generation from plugin tool schemas  
-- Add MCP integration tests  
-- Add MCP error‑path tests  
-
-### Success Criteria
-- MCP adapter exposes all plugin tools  
-- MCP responses match REST responses  
-- MCP errors match REST errors  
-- MCP tests run real plugin execution  
+- **MCP surface**
+  - Auto‑generate MCP schemas from plugin manifests
+  - Map MCP tool calls to `/v1/analyze` + `/v1/jobs`
+- **Testing**
+  - MCP integration tests for OCR and YOLO
+  - MCP error‑path tests (invalid tool, invalid args, plugin errors)
 
 ---
 
-# 🛡️ Milestone 5 — Governance & Guardrails  
-**Goal:** Prevent architectural drift from ever happening again.
+### Milestone 5 — Governance & Guardrails
 
-### Deliverables
-- CI rule: no mocks for `run_plugin_tool` in integration tests  
-- CI rule: all plugins must subclass `BasePlugin`  
-- CI rule: `/run` endpoint must always return JSON  
-- CI rule: plugin loader must load at least one plugin  
-- CI rule: manifest must exist for every plugin  
-
-### Success Criteria
-- Architectural regressions are mechanically impossible  
-- Plugin ecosystem remains stable and predictable  
-- New plugins can be added without modifying core code  
+- **Plugin invariants**
+  - CI: enforce `BasePlugin` inheritance
+  - CI: enforce manifest exists for every plugin
+  - CI: enforce at least one plugin loads successfully
+- **Response invariants**
+  - CI: enforce JSON‑only responses from public endpoints
+  - CI: enforce job results are always JSON‑serializable
+- **Architecture invariants**
+  - CI: forbid reintroduction of legacy `/run` paths
+  - CI: forbid bypassing the job model for long‑running work
 
 ---
 
-# 📌 Status Tracking
+### Milestone 6 — Job‑Based Pipeline & Web‑UI Migration
 
-Each milestone should be represented as a GitHub Milestone with issues linked
-from Section 6 of the architecture report.
-
----
-
-# 🧭 Summary
-
-This roadmap restores ForgeSyte’s original promise:  
-**a modular, extensible, plugin‑driven vision platform with real guarantees.**
-
-It replaces ad‑hoc behavior with explicit contracts, replaces mocks with real
-integration tests, and replaces hardcoded logic with dynamic discovery.
-
-ForgeSyte becomes predictable, testable, and future‑proof.
-
-```
+- **Server**
+  - `/v1/analyze` as the single entrypoint for analysis
+  - `/v1/jobs`, `/v1/jobs/{id}` for async tracking
+  - `/v1/plugins`, `/v1/plugins/{plugin}/manifest` for discovery
+- **Web‑UI**
+  - Upload flow uses `analyzeImage` + `pollJob`
+  - Jobs view lists and inspects jobs
+  - Results panel renders job results (not tool responses)
+  - WebSocket streaming uses `/v1/stream` for live camera
+- **Cleanup**
+  - Remove `runPluginTool`, `ToolExecutionResponse`, and tool‑centric execution assumptions
+  - Keep tools only as schema/UX hints, not execution units
 
 ---
 
+### Milestone 7 — VideoTracker Full Implementation
+
+- **Backend**
+  - Video ingestion, frame extraction, YOLO tracking, and aggregated job results
+- **Job model**
+  - Progress, cancellation, and timeouts tuned for video workloads
+- **Web‑UI**
+  - Video upload, job‑aware VideoTracker component, overlays, playback controls
+- **Guardrails**
+  - Integration tests from upload → job → UI
+  - CI checks for YOLO tracker correctness and schema stability
