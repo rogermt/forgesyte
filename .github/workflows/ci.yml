@@ -146,7 +146,7 @@ jobs:
         run: ./e2e.test.sh
 
   # ---------------------------------------------------------
-  # Test Integrity (PR-only semantics, but lives in same workflow)
+  # Test Integrity (PR-only)
   # ---------------------------------------------------------
   test-integrity:
     name: Test Integrity
@@ -244,22 +244,61 @@ jobs:
           cd server
           uv sync
 
+      # ---------------------------------------------------------
+      # Hardened jq + websocat installer (retry + checksum)
+      # ---------------------------------------------------------
       - name: Install jq + websocat
         run: |
           sudo apt-get update
-          sudo apt-get install -y jq websocat
+          sudo apt-get install -y jq
 
+          WEBSOCAT_URL="https://github.com/vi/websocat/releases/latest/download/websocat_x86_64-linux-static"
+          WEBSOCAT_BIN="/usr/local/bin/websocat"
+          WEBSOCAT_TMP="/tmp/websocat"
+          WEBSOCAT_SHA256_URL="https://github.com/vi/websocat/releases/latest/download/websocat_x86_64-linux-static.sha256"
+
+          for i in 1 2 3; do
+            echo "Attempt $i: downloading websocat..."
+            curl -L "$WEBSOCAT_URL" -o "$WEBSOCAT_TMP" && break
+            echo "Download failed, retrying in $((2**i)) seconds..."
+            sleep $((2**i))
+          done
+
+          if [ ! -f "$WEBSOCAT_TMP" ]; then
+            echo "::error::Failed to download websocat after 3 attempts"
+            exit 1
+          fi
+
+          curl -L "$WEBSOCAT_SHA256_URL" -o "$WEBSOCAT_TMP.sha256"
+
+          echo "Verifying checksum..."
+          cd /tmp
+          sha256sum -c websocat.sha256 --ignore-missing
+          if [ $? -ne 0 ]; then
+            echo "::error::Checksum verification failed for websocat"
+            exit 1
+          fi
+
+          chmod +x "$WEBSOCAT_TMP"
+          sudo mv "$WEBSOCAT_TMP" "$WEBSOCAT_BIN"
+
+      # ---------------------------------------------------------
+      # Start server
+      # ---------------------------------------------------------
       - name: Start ForgeSyte server
         run: |
           cd server
           uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 &
           sleep 5
+          START_TIME=$(date +%s)
+          echo "START_TIME=$START_TIME" >> $GITHUB_ENV
 
+      # ---------------------------------------------------------
       # /v1/plugins manifest validation
+      # ---------------------------------------------------------
       - name: Validate /v1/plugins manifest list
         id: plugins
         run: |
-          echo "Fetching plugin list..."
           PLUGINS=$(curl -s http://localhost:8000/v1/plugins | jq -r '.plugins[].name')
           echo "plugins=$PLUGINS" >> $GITHUB_OUTPUT
 
@@ -272,8 +311,6 @@ jobs:
         run: |
           FAILED=0
           for plugin in ${{ steps.plugins.outputs.plugins }}; do
-            echo "Checking manifest for plugin: $plugin"
-
             STATUS=$(curl -s -o /tmp/manifest.json -w "%{http_code}" \
               http://localhost:8000/v1/plugins/$plugin/manifest)
 
@@ -293,15 +330,21 @@ jobs:
             exit 1
           fi
 
+      # ---------------------------------------------------------
       # /v1/analyze smoke test
+      # ---------------------------------------------------------
       - name: /v1/analyze smoke test
         id: analyze
         run: |
+          BEFORE=$(date +%s)
+
           RESPONSE=$(curl -s -X POST http://localhost:8000/v1/analyze?plugin=ocr \
             -H "Content-Type: application/json" \
             -d '{"image":"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIW2P4//8/AwAI/AL+ZQzQWQAAAABJRU5ErkJggg=="}')
 
-          echo "response=$RESPONSE" >> $GITHUB_OUTPUT
+          AFTER=$(date +%s)
+          LATENCY=$((AFTER - BEFORE))
+          echo "ANALYZE_LATENCY=$LATENCY" >> $GITHUB_ENV
 
           JOB_ID=$(echo "$RESPONSE" | jq -r '.job_id')
           if [ "$JOB_ID" = "null" ]; then
@@ -311,7 +354,9 @@ jobs:
 
           echo "job_id=$JOB_ID" >> $GITHUB_OUTPUT
 
+      # ---------------------------------------------------------
       # /v1/analyze error-path tests
+      # ---------------------------------------------------------
       - name: /v1/analyze error-path tests
         run: |
           BAD=$(curl -s -o /tmp/bad.json -w "%{http_code}" \
@@ -324,17 +369,21 @@ jobs:
             exit 1
           fi
 
+      # ---------------------------------------------------------
       # /v1/jobs polling test
+      # ---------------------------------------------------------
       - name: /v1/jobs polling test
         run: |
           JOB_ID="${{ steps.analyze.outputs.job_id }}"
-          echo "Polling job $JOB_ID"
+          BEFORE=$(date +%s)
 
           for i in {1..20}; do
             STATUS=$(curl -s http://localhost:8000/v1/jobs/$JOB_ID | jq -r '.status')
-            echo "Status: $STATUS"
 
             if [ "$STATUS" = "done" ]; then
+              AFTER=$(date +%s)
+              JOB_LATENCY=$((AFTER - BEFORE))
+              echo "JOB_LATENCY=$JOB_LATENCY" >> $GITHUB_ENV
               exit 0
             fi
 
@@ -344,7 +393,9 @@ jobs:
           echo "::error::Job did not complete in time"
           exit 1
 
+      # ---------------------------------------------------------
       # /v1/jobs cancellation test
+      # ---------------------------------------------------------
       - name: /v1/jobs cancellation test
         run: |
           RESPONSE=$(curl -s -X POST http://localhost:8000/v1/analyze?plugin=ocr \
@@ -360,10 +411,12 @@ jobs:
             exit 1
           fi
 
+      # ---------------------------------------------------------
       # WebSocket reconnect test
+      # ---------------------------------------------------------
       - name: WebSocket reconnect test
         run: |
-          echo "Testing WebSocket reconnect..."
+          BEFORE=$(date +%s)
 
           echo '{"frame":"test"}' | websocat ws://localhost:8000/v1/stream > ws1.txt &
           sleep 2
@@ -374,21 +427,25 @@ jobs:
           echo '{"frame":"test"}' | websocat ws://localhost:8000/v1/stream > ws2.txt &
           sleep 2
 
+          AFTER=$(date +%s)
+          WS_LATENCY=$((AFTER - BEFORE))
+          echo "WS_LATENCY=$WS_LATENCY" >> $GITHUB_ENV
+
           if ! grep -q "{" ws2.txt; then
             echo "::error::WebSocket reconnect failed"
             exit 1
           fi
 
+      # ---------------------------------------------------------
       # Server Health Dashboard
+      # ---------------------------------------------------------
       - name: Server Health Dashboard
         run: |
           echo "### 🚦 ForgeSyte Server Health Dashboard" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "- /v1/plugins manifest validation: **OK**" >> $GITHUB_STEP_SUMMARY
-          echo "- /v1/analyze smoke test: **OK**" >> $GITHUB_STEP_SUMMARY
-          echo "- /v1/analyze error-path tests: **OK**" >> $GITHUB_STEP_SUMMARY
-          echo "- /v1/jobs polling: **OK**" >> $GITHUB_STEP_SUMMARY
-          echo "- /v1/jobs cancellation: **OK**" >> $GITHUB_STEP_SUMMARY
-          echo "- /v1/stream WebSocket reconnect: **OK**" >> $GITHUB_STEP_SUMMARY
+          echo "**/v1/plugins manifest validation:** OK" >> $GITHUB_STEP_SUMMARY
+          echo "**/v1/analyze latency:** ${ANALYZE_LATENCY}s" >> $GITHUB_STEP_SUMMARY
+          echo "**/v1/jobs latency:** ${JOB_LATENCY}s" >> $GITHUB_STEP_SUMMARY
+          echo "**WebSocket reconnect latency:** ${WS_LATENCY}s" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "All runtime systems operational." >> $GITHUB_STEP_SUMMARY
+          echo "**All runtime systems operational.**" >> $GITHUB_STEP_SUMMARY
