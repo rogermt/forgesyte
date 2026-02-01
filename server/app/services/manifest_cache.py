@@ -23,17 +23,17 @@ class ManifestCacheService:
         cache = ManifestCacheService(ttl_seconds=60)
 
         # Store manifest
-        cache.set(plugin_id, manifest_dict)
+        cache.set("yolo-tracker", manifest_dict)
 
         # Retrieve manifest
-        manifest = cache.get(plugin_id)
+        manifest = cache.get("yolo-tracker")
 
         # Use as FastAPI dependency
         @app.get("/manifest")
         def get_manifest(
             cache: ManifestCacheService = Depends(ManifestCacheService.dep),
         ):
-            return cache.get(plugin_id)
+            return cache.get("plugin-id")
     """
 
     def __init__(self, ttl_seconds: int = 60) -> None:
