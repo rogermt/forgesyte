@@ -21,6 +21,13 @@ repos:
 
   - repo: local
     hooks:
+      - id: web-ui-tests
+        name: Web-UI Tests
+        entry: bash -c 'cd web-ui && npm test -- --run'
+        language: system
+        pass_filenames: false
+        stages: [commit]
+
       - id: prevent-test-changes-without-justification
         name: Prevent test changes without TEST-CHANGE justification
         entry: bash
