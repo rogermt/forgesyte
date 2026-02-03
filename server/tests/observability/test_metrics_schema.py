@@ -55,8 +55,8 @@ class TestMetricsSchema:
         """Verify job_metrics table exists."""
         result = metrics_db.execute(
             """
-            SELECT table_name 
-            FROM information_schema.tables 
+            SELECT table_name
+            FROM information_schema.tables
             WHERE table_name = 'job_metrics'
         """
         ).fetchall()
@@ -67,8 +67,8 @@ class TestMetricsSchema:
         """Verify plugin_metrics table exists."""
         result = metrics_db.execute(
             """
-            SELECT table_name 
-            FROM information_schema.tables 
+            SELECT table_name
+            FROM information_schema.tables
             WHERE table_name = 'plugin_metrics'
         """
         ).fetchall()
@@ -79,8 +79,8 @@ class TestMetricsSchema:
         """Verify overlay_metrics table exists."""
         result = metrics_db.execute(
             """
-            SELECT table_name 
-            FROM information_schema.tables 
+            SELECT table_name
+            FROM information_schema.tables
             WHERE table_name = 'overlay_metrics'
         """
         ).fetchall()
@@ -91,8 +91,8 @@ class TestMetricsSchema:
         """Verify device_usage table exists."""
         result = metrics_db.execute(
             """
-            SELECT table_name 
-            FROM information_schema.tables 
+            SELECT table_name
+            FROM information_schema.tables
             WHERE table_name = 'device_usage'
         """
         ).fetchall()
@@ -110,8 +110,8 @@ class TestMetricsSchema:
 
         result = metrics_db.execute(
             """
-            SELECT table_name 
-            FROM information_schema.tables 
+            SELECT table_name
+            FROM information_schema.tables
             WHERE table_type = 'BASE TABLE'
         """
         ).fetchall()
