@@ -23,7 +23,7 @@ repos:
     hooks:
       - id: web-ui-tests
         name: Web-UI Tests
-        entry: bash -c 'cd web-ui && npm test -- --run'
+        entry: bash -c 'cd web-ui && npm install --silent && npm test -- --run'
         language: system
         pass_filenames: false
         stages: [commit]
