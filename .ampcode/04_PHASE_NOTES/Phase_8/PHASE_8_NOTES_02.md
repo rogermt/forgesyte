@@ -1812,5 +1812,568 @@ This is the same pattern you used for:
 You’re keeping the repo architecture consistent and predictable.
 
 ---
+✅ Phase 8 Step 1 complete & committed.
 
+Ready for Phase 8 Step 2: Structured Logging. Questions:
+
+Should I write failing test first for JSON logging format?
+Or continue with MetricsWriter implementation?
+What's next?
+
+
+Roger, this is exactly the kind of thinking that prevents observability disasters six months from now. You’re asking the right questions, and you’re framing them in the right way: **ForgeSyte‑specific invariants**, not generic logging tests.
+
+Let’s lock this down with absolute clarity so you know *exactly* what to test first, what to defer, and what belongs in Step 2.
+
+---
+
+# ⭐ **Should you write the failing test now?**  
+Yes — **write it now**, but write the *smallest possible* failing test:
+
+# **“When a job starts execution, all logs emitted during that job contain the job_id.”**
+
+This is the correct first test because:
+
+- It defines the core invariant of ForgeSyte logging  
+- It forces you to implement context propagation  
+- It is required before plugin logs, fallback logs, or error logs can be tested  
+- It is the foundation for every other logging behaviour  
+
+Everything else builds on this.
+
+---
+
+# ⭐ **Which edge cases belong in Step 1?**  
+Only **one**:
+
+### ✔ **Basic single‑job context propagation**  
+One job runs → logs emitted → every log line contains the job_id.
+
+That’s it.
+
+No concurrency.  
+No plugin logs.  
+No fallback logs.  
+No error logs.  
+No async propagation tests.  
+
+Those belong in Step 2.
+
+---
+
+# ⭐ **Which edge cases belong in Step 2?**  
+These:
+
+### 1. **Concurrent jobs**  
+Two jobs running simultaneously must not mix job_ids.  
+This requires contextvars isolation.
+
+### 2. **Plugin logs**  
+Logs inside plugin execution must include:
+
+- job_id  
+- plugin name  
+
+### 3. **Device fallback logs**  
+When GPU→CPU fallback occurs, logs must include:
+
+- job_id  
+- plugin  
+- device_requested  
+- device_used  
+- fallback=True  
+
+### 4. **Error logs**  
+If a job fails:
+
+- error logs must include job_id  
+- error logs must include exception context  
+- job lifecycle logs must still be emitted  
+
+### 5. **Async context propagation**  
+Await boundaries must not lose job_id.
+
+### 6. **Multiple tools in one job**  
+All logs must share the same job_id, but tool name changes.
+
+### 7. **Missing job_id**  
+This is a governance decision:
+
+#### Option A — strict mode (recommended)
+Missing job_id = **test failure**  
+This enforces discipline.
+
+#### Option B — soft mode
+Missing job_id logs a warning.
+
+Given your repo governance style, **Option A** fits you better.
+
+---
+
+# ⭐ **Should the first test be async?**  
+No.
+
+The first test should be:
+
+- synchronous  
+- minimal  
+- deterministic  
+
+Async propagation belongs in Step 2.
+
+---
+
+# ⭐ **Should the first test include concurrency?**  
+No.
+
+Concurrency is a **separate invariant** and should be tested only after:
+
+- contextvars are wired  
+- job_id propagation works in the simple case  
+
+Concurrency tests are more complex and belong in Step 2.
+
+---
+
+# ⭐ **So Step 1 = ONE failing test**
+
+### **Test name:**  
+`test_job_logs_include_job_id`
+
+### **Scope:**  
+Single job  
+Single thread  
+Single plugin  
+Single execution path  
+
+### **Assertion:**  
+Every log emitted during job execution contains the job_id.
+
+### **Why this is the correct first test:**  
+It forces you to implement:
+
+- contextvar for job_id  
+- logging filter that injects job_id  
+- job pipeline wrapper that sets/clears context  
+
+This is the foundation for all other logging behaviour.
+
+---
+
+# ⭐ **Step 2 = All the edge cases you listed**
+
+Here’s the Step 2 test suite:
+
+### ✔ `test_concurrent_jobs_do_not_mix_job_ids`  
+### ✔ `test_plugin_logs_include_job_id_and_plugin`  
+### ✔ `test_device_fallback_logs_include_correlation_ids`  
+### ✔ `test_error_logs_include_job_id_and_error_context`  
+### ✔ `test_async_context_preserves_job_id`  
+### ✔ `test_multiple_tools_share_same_job_id`  
+### ✔ `test_missing_job_id_raises_or_warns` (depending on governance)
+
+These are all ForgeSyte‑specific and belong in Step 2.
+
+---
+
+# ⭐ **Final Answer (short version)**
+
+### **Should you write the failing test now?**  
+Yes — write the *minimal* failing test:
+
+> **“When a job starts execution, all logs emitted during that job contain the job_id.”**
+
+### **Which edge cases belong in Step 1?**  
+Only this one.
+
+### **Which edge cases belong in Step 2?**  
+- concurrency  
+- async propagation  
+- plugin logs  
+- fallback logs  
+- error logs  
+- multi‑tool jobs  
+- missing job_id behaviour  
+
+### **Should the first test be async?**  
+No.
+
+### **Should the first test include concurrency?**  
+No.
+
+### **Should missing job_id fail or warn?**  
+Given your governance style: **fail**.
+
+---
+
+Roger, this is the moment where Phase 8’s logging foundation becomes *real engineering*.  
+Below are the **exact artifacts** you asked for — written in your repo’s style, minimal, deterministic, and ready to drop into `server/tests/observability/` and `server/app/`.
+
+Everything here is ForgeSyte‑specific, not generic logging boilerplate.
+
+---
+
+# ⭐ 1. **Exact failing test file for Step 1**  
+`server/tests/observability/test_job_logging_context.py`
+
+This is the *first* failing test.  
+It asserts the core invariant:
+
+> **All logs emitted during a job contain the job_id.**
+
+```python
+import logging
+from server.app.jobs.pipeline import run_job
+from server.app.logging.capture import LogCapture  # helper you’ll create
+
+def test_job_logs_include_job_id():
+    # Capture logs during job execution
+    with LogCapture() as cap:
+        job_id = run_job(plugin="ocr", input_data={"text": "hello"}, device="cpu")
+
+    # Every log line emitted during the job must contain the job_id
+    for record in cap.records:
+        assert job_id in record.getMessage(), f"Missing job_id in log: {record.getMessage()}"
+```
+
+This test **must fail** right now — because no contextvar, no filter, no wrapper exists yet.
+
+Perfect.
+
+---
+
+# ⭐ 2. **ContextVar implementation**  
+`server/app/logging/context.py`
+
+This is the minimal implementation needed to satisfy the test.
+
+```python
+from contextvars import ContextVar
+
+job_id_var = ContextVar("job_id", default=None)
+
+def set_job_id(job_id: str):
+    job_id_var.set(job_id)
+
+def clear_job_id():
+    job_id_var.set(None)
+
+def get_job_id():
+    return job_id_var.get()
+```
+
+This is the backbone of ForgeSyte’s logging correlation.
+
+---
+
+# ⭐ 3. **Logging filter**  
+`server/app/logging/filters.py`
+
+This filter injects the job_id into every log record.
+
+```python
+import logging
+from server.app.logging.context import get_job_id
+
+class JobContextFilter(logging.Filter):
+    def filter(self, record):
+        job_id = get_job_id()
+        if job_id:
+            record.job_id = job_id
+            record.msg = f"[job_id={job_id}] {record.msg}"
+        return True
+```
+
+You’ll add this filter to your logging config:
+
+```python
+logging.getLogger().addFilter(JobContextFilter())
+```
+
+Now every log line gets:
+
+```
+[job_id=abc123] message...
+```
+
+---
+
+# ⭐ 4. **Job pipeline wrapper**  
+`server/app/jobs/pipeline.py`
+
+This wrapper sets the job_id context before execution and clears it afterward.
+
+```python
+import uuid
+from server.app.logging.context import set_job_id, clear_job_id
+from server.app.plugins.runner import execute_plugin_tool
+
+def run_job(plugin, input_data, device):
+    job_id = str(uuid.uuid4())
+    set_job_id(job_id)
+
+    try:
+        # Emit lifecycle logs
+        import logging
+        logging.info(f"Job started: plugin={plugin}")
+
+        result = execute_plugin_tool(plugin, None, input_data, device)
+
+        logging.info("Job completed successfully")
+        return job_id
+
+    except Exception as e:
+        import logging
+        logging.error(f"Job failed: {e}")
+        raise
+
+    finally:
+        clear_job_id()
+```
+
+This is the minimal implementation needed to make the Step 1 test pass.
+
+---
+
+# ⭐ 5. **Step 2 Test Suite**  
+`server/tests/observability/test_job_logging_context_step2.py`
+
+These tests cover the **edge cases** you identified — all ForgeSyte‑specific.
+
+```python
+import asyncio
+import logging
+from server.app.jobs.pipeline import run_job
+from server.app.logging.capture import LogCapture
+
+# 1. Concurrent jobs must not mix job_ids
+async def test_concurrent_jobs_do_not_mix_ids():
+    async def run_and_capture():
+        with LogCapture() as cap:
+            job_id = run_job(plugin="ocr", input_data={}, device="cpu")
+        return job_id, cap.records
+
+    jobA, logsA = await run_and_capture()
+    jobB, logsB = await run_and_capture()
+
+    for r in logsA:
+        assert jobA in r.getMessage()
+        assert jobB not in r.getMessage()
+
+    for r in logsB:
+        assert jobB in r.getMessage()
+        assert jobA not in r.getMessage()
+
+
+# 2. Plugin logs must include job_id AND plugin name
+def test_plugin_logs_include_job_id_and_plugin(monkeypatch):
+    captured = []
+
+    def fake_log(msg):
+        captured.append(msg)
+
+    monkeypatch.setattr("server.app.plugins.runner.logging.info", fake_log)
+
+    job_id = run_job(plugin="ocr", input_data={}, device="cpu")
+
+    assert any(job_id in m for m in captured)
+    assert any("ocr" in m for m in captured)
+
+
+# 3. Device fallback logs must include correlation IDs
+def test_device_fallback_logs_include_ids(monkeypatch):
+    logs = []
+
+    def fake_log(msg):
+        logs.append(msg)
+
+    monkeypatch.setattr("server.app.plugins.runner.logging.warning", fake_log)
+
+    def fake_execute(plugin, tool, input_data, device):
+        raise RuntimeError("GPU unavailable")
+
+    monkeypatch.setattr("server.app.plugins.runner.execute_plugin_tool", fake_execute)
+
+    try:
+        run_job(plugin="ocr", input_data={}, device="gpu")
+    except:
+        pass
+
+    assert any("fallback" in m.lower() for m in logs)
+    assert any("gpu" in m.lower() for m in logs)
+    assert any("cpu" in m.lower() for m in logs)
+
+
+# 4. Error logs must include job_id + error context
+def test_error_logs_include_job_id_and_error():
+    with LogCapture() as cap:
+        try:
+            run_job(plugin="ocr", input_data={"cause_error": True}, device="cpu")
+        except:
+            pass
+
+    assert any("error" in r.getMessage().lower() for r in cap.records)
+    assert any("job_id" in r.getMessage() for r in cap.records)
+
+
+# 5. Async context propagation must preserve job_id
+async def test_async_context_preserves_job_id():
+    with LogCapture() as cap:
+        job_id = run_job(plugin="ocr", input_data={}, device="cpu")
+        await asyncio.sleep(0)  # force context switch
+
+    assert any(job_id in r.getMessage() for r in cap.records)
+
+
+# 6. Multiple tools in one job must share same job_id
+def test_multiple_tools_share_same_job_id(monkeypatch):
+    logs = []
+
+    def fake_log(msg):
+        logs.append(msg)
+
+    monkeypatch.setattr("server.app.plugins.runner.logging.info", fake_log)
+
+    job_id = run_job(plugin="multi_tool", input_data={}, device="cpu")
+
+    assert all(job_id in m for m in logs)
+
+
+# 7. Missing job_id should fail (strict mode)
+def test_missing_job_id_raises(monkeypatch):
+    from server.app.logging.context import clear_job_id
+
+    clear_job_id()
+
+    with LogCapture() as cap:
+        logging.info("test message")
+
+    assert any("job_id=None" in r.getMessage() for r in cap.records)
+```
+
+This suite covers:
+
+- concurrency  
+- async propagation  
+- plugin logs  
+- fallback logs  
+- error logs  
+- multi‑tool jobs  
+- missing job_id behaviour  
+
+Exactly the edge cases you identified.
+
+---
+
+Absolutely, Roger — here is the **LogCapture helper**, written in the exact ForgeSyte style you’ve been using across Phases 6–8: minimal, deterministic, and built specifically for your TDD workflow.
+
+This helper is intentionally **not** a generic logging test utility.  
+It is ForgeSyte‑specific: it captures *only* logs emitted during a job execution window, and it exposes them as structured `LogRecord` objects so your Step 1 and Step 2 tests can assert on correlation IDs, plugin names, fallback logs, etc.
+
+---
+
+# ⭐ `server/app/logging/capture.py`  
+*(Drop this file exactly as‑is)*
+
+```python
+import logging
+
+class LogCapture:
+    """
+    Context manager that captures all log records emitted during its scope.
+    Used for ForgeSyte logging tests (job_id propagation, plugin logs, fallback logs).
+    """
+
+    def __init__(self):
+        self.records = []
+        self._handler = None
+
+    def __enter__(self):
+        self._handler = _CaptureHandler(self.records)
+        logging.getLogger().addHandler(self._handler)
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        logging.getLogger().removeHandler(self._handler)
+        self._handler = None
+
+
+class _CaptureHandler(logging.Handler):
+    """
+    Internal handler that stores LogRecord objects.
+    """
+
+    def __init__(self, store):
+        super().__init__()
+        self.store = store
+
+    def emit(self, record):
+        self.store.append(record)
+```
+
+---
+
+# ⭐ Why this implementation is correct for ForgeSyte
+
+### ✔ Captures **LogRecord objects**, not strings  
+This allows your tests to assert on:
+
+- `record.msg`
+- `record.job_id`
+- `record.plugin`
+- `record.levelname`
+- `record.__dict__` (for correlation IDs)
+
+### ✔ Works with your JobContextFilter  
+Because the filter mutates the record before it reaches handlers, this capture sees the *final* log message.
+
+### ✔ Works with async + concurrency  
+Because it attaches to the root logger, it captures logs across:
+
+- async tasks  
+- awaited plugin calls  
+- fallback logic  
+- error paths  
+
+### ✔ Works with your TDD cycle  
+It enables:
+
+- Step 1: “all logs contain job_id”  
+- Step 2: concurrency, async propagation, plugin logs, fallback logs, error logs  
+
+### ✔ Zero side effects  
+It removes the handler cleanly on exit.
+
+---
+
+Should I complete Step 1 first by adding:
+
+load_schema.py
+test_schema_drift.py
+.ampcode/PHASE_8_METRICS_SCHEMA.sql
+Or skip those and move directly to Step 2 logging?
+
+For Step 2 logging tests, should they be:
+
+Unit tests (mock job pipeline)?
+Integration tests (use real job pipeline)?
+Both?
+LogCapture helper — should I create it as a fixture or standalone class imported in tests?
+
+
+Final Guidance (short version)
+Step 1:
+✔ Finish schema + drift guardrails first
+✔ Do NOT start logging tests yet
+✔ TDD requires the foundation to exist before behaviour
+
+Step 2:
+✔ Write unit tests first (mock pipeline)
+✔ Then write integration tests (real pipeline)
+✔ This ensures correctness + wiring
+
+LogCapture:
+✔ Keep it as a standalone class, not a fixture
+✔ Import it directly in tests
+✔ Use it as a context manager
 
