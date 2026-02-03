@@ -1,376 +1,230 @@
-# Phase 7: CSS Modules Migration Plan
+# Phase 7: CSS Modules Migration – Execution Plan
 
-**Status**: Ready to execute  
-**Baseline**: Phase 6A (eef5ebf) — Clean, verified, 347 tests passing  
-**Goal**: Migrate web-ui to CSS Modules with **zero runtime changes**  
-**Timeline**: Estimated 6-8 PRs (1 per tier + 1 per critical component)  
-**Risk Level**: LOW (CSS-only, strict guardrails)
+**Status**: Ready for approval and execution  
+**Baseline**: Phase 6A (eef5ebf) — 347 tests passing, verified clean  
+**Goal**: Migrate web-ui to CSS Modules (pure presentation refactor, zero runtime changes)  
+**Documentation**: Complete (see references below)
 
 ---
 
-## 1. Executive Overview
+## 1. What Phase 7 Is
 
-Phase 7 is a **pure presentation refactor** — no logic changes, no API changes, no test changes, no pipeline changes.
+A **CSS Modules migration** — converting components from ad-hoc/global styling to scoped CSS Modules.
 
-**What's changing:**
-- Global/ad-hoc CSS → CSS Modules (local scoping, better maintainability)
+**What changes:** Styling approach only
 - `className="foo bar"` → `className={clsx(styles.foo, styles.bar)}`
-- One `.module.css` per component
+- `ComponentName.tsx` + new `ComponentName.module.css`
+- No logic changes, no test changes, no API changes
 
-**What's NOT changing:**
-- Tests (347 passing → 347 passing)
-- Hooks (`useVideoProcessor`, `useWebSocket`, etc.)
-- API client (`client.ts`, `pollJob()`, etc.)
-- Job pipeline behaviour
-- Server code
-- Any runtime logic
-
----
-
-## 2. Guardrails (Non-Negotiable)
-
-### Forbidden Files (Locked)
-```
-web-ui/src/hooks/useVideoProcessor.ts
-web-ui/src/api/client.ts
-web-ui/src/api/pollJob.ts
-web-ui/src/hooks/useWebSocket.ts
-```
-**Do not edit.** If logic change needed → Escalate.
-
-### Test Rules
-- ✅ Same test count (347 tests)
-- ✅ 2 APPROVED pre-Phase-7 skips (must remain)
-- ❌ No new tests
-- ❌ No deleted tests
-- ❌ No `.skip`, `.only`, `xit`, `xdescribe`, `xtest` (except 2 APPROVED)
-- ❌ No test file moves, renames, edits
-
-### CSS Rules
-- ✅ `.module.css` files (local scoping)
-- ✅ `className={styles.foo}` (JSX)
-- ✅ `clsx()` for multiple classes
-- ❌ No `:global()` selectors
-- ❌ No global CSS imports (except main index.css)
-- ❌ No CSS resets in modules
-
-### PR Scope
-- 1 tier per PR (or 1-3 components max)
-- CSS changes only (no prop refactors, no state changes, no hook changes)
-- Must fit on one screen (reviewable diff)
+**What stays frozen:**
+- `useVideoProcessor.ts` (core hook)
+- `client.ts` (API client)
+- Job polling logic
+- Phase 6 test files (all 347 tests, 2 APPROVED skips)
+- Any Phase 6 test changes require `TEST-CHANGE` in commit message
 
 ---
 
-## 3. Component Migration Tiers
+## 2. Guardrails (Enforced)
 
-### Tier 1 – Leaf Components (Low Risk)
-**Estimated: 1 PR**
+**FORBIDDEN file changes** (locked):
+- `web-ui/src/hooks/useVideoProcessor.ts`
+- `web-ui/src/api/client.ts`
+- `web-ui/src/hooks/__tests__/useVideoProcessor.test.ts`
+- `web-ui/src/components/__tests__/VideoTracker.test.tsx`
+- `web-ui/src/components/VideoTracker.tsx`
+- Any Phase 6 test files
 
-- [ ] RecordButton
-- [ ] ConfidenceSlider
-- [ ] OverlayToggles (simple toggles)
-- [ ] JobStatusIndicator (status badges)
-- [ ] ErrorMessage (error display)
+**Test rules:**
+- No new tests
+- No deleted tests
+- No skipped tests (except 2 APPROVED pre-Phase-7 skips)
+- No `.skip`, `.only`, `xit`, `xdescribe`, `xtest` (unless `// APPROVED: reason`)
 
-**Why first:**
-- No dependencies on other components
-- Single responsibility
-- Easy to test visually
-
-**Files to update:**
-- `RecordButton.tsx` → `RecordButton.module.css` + classname update
-- `ConfidenceSlider.tsx` → `ConfidenceSlider.module.css` + classname update
-- (etc.)
-
----
-
-### Tier 2 – Mid-Level Layout (Medium Risk)
-**Estimated: 2 PRs**
-
-**Group 2A – Sidebar/Nav:**
-- [ ] PluginSelector
-- [ ] ToolSelector (if still exists)
-- [ ] DeviceSelector
-- [ ] Navigation wrapper
-
-**Group 2B – Main panels:**
-- [ ] UploadPanel / FileInput
-- [ ] ResultsPanel
-- [ ] JobList
-- [ ] ConfigPanel
-
-**Why second:**
-- Moderate structural complexity
-- Depend on Tier 1 components (may have styles applied)
-- Still isolated from job logic
-
----
-
-### Tier 3 – Page Level (Medium-High Risk)
-**Estimated: 1-2 PRs**
-
-- [ ] App.tsx (root layout)
-- [ ] MainLayout / PageShell
-- [ ] Page containers (if separate)
-
-**Why third:**
-- Layout-heavy
-- Lots of conditional rendering
-- Touch more of the component tree
-
----
-
-### Tier 4 – Critical/Risky (High Risk)
-**Estimated: 2-3 PRs**
-
-- [ ] VideoTracker (job pipeline interaction)
-- [ ] ResultOverlay (frame rendering, drawing)
-- [ ] CameraPreview (video element)
-- [ ] Any component directly consuming `job.result`
-
-**Why last:**
-- Touch job pipeline output
-- Contain stateful logic
-- Highest test coverage
-- Any breaking change = test failure (catches early)
-
----
-
-## 4. Execution Workflow
-
-### Before First PR
+**Quality gates (all PRs must pass):**
 ```bash
-# Verify baseline on Phase 6A
-git checkout main
-bash scripts/phase6/phase6_verify_baseline.sh
-# Expected: 347 tests, lint clean, types clean
-
-# Create Phase 7 branch
-git checkout -b phase-7-css-modules
-git reset --hard origin/main
-```
-
-### Per PR
-```bash
-# 1. Create feature branch for specific tier
-git checkout -b phase-7/tier-1-buttons
-# (or tier-2a, tier-2b, tier-3, tier-4, etc.)
-
-# 2. Update 1-3 components
-#    - Create ComponentName.module.css
-#    - Update ComponentName.tsx classnames
-#    - Update import statements
-#    - Remove old global classnames (if any)
-
-# 3. Run verification
-npm test -- --run              # Should still be 347 tests
-npm run lint                   # Should pass
-npm run type-check             # Should pass
-uv run pre-commit run --all-files
-
-# 4. If all pass → commit + push
-git add .
-git commit -m "phase7(tier-1): Migrate Button + IconButton to CSS Modules
-
-- Create Button.module.css with scoped styles
-- Update Button.tsx to use styles.* classnames
-- Remove global button-specific CSS from index.css
-
-Tests: 347 passing (no changes)
-Lint: Clean
-Types: Clean"
-
-git push -u origin phase-7/tier-1-buttons
-
-# 5. Create PR (see PHASE_7_PR_TEMPLATE.md)
-
-# 6. After merge
-git checkout phase-7-css-modules
-git pull origin phase-7-css-modules
-git branch -d phase-7/tier-1-buttons
+npm test -- --run                    # Expected: 347 passed | 2 skipped
+npm run lint                         # Expected: 0 errors
+npm run type-check                   # Expected: 0 errors
+uv run pre-commit run --all-files    # Expected: All 7 hooks pass
 ```
 
 ---
 
-## 5. Risk Mitigation
+## 3. Component Tiers (from PHASE_7_COMPONENT_CHECKLIST.md)
 
-### What Could Go Wrong
+### Tier 1 – Leaf Components
+Simple buttons, badges, wrappers — no dependencies on complex layouts
+- [ ] Button, IconButton, Tag, Badge
+- [ ] Spinner, Loader, Card, Panel
+- [ ] FormField, Input, Select
+- [ ] Example: `RecordButton`
 
-**Risk**: CSS scoping breaks styling  
-**Mitigation**: Visual regression test (manual review of diffs)  
-**Detection**: `npm test` would fail if component breaks
+### Tier 2 – Mid-Level Layout
+Header, sidebar, nav, panels — structural components
+- [ ] Header, Sidebar, Navigation, NavLinks
+- [ ] MainLayout, Shell, Toolbar
+- [ ] StatusBar, Footer, Modal, Dialog
 
-**Risk**: Missed old global classes  
-**Mitigation**: Search for `className="old-name"` before commit  
-**Detection**: Lint will catch unused classes
+### Tier 3 – Page Level
+Dashboard, upload, results pages
+- [ ] DashboardPage, UploadPage, ResultsPage, SettingsPage
+- [ ] JobsList, HistoryView
 
-**Risk**: classname import forgotten  
-**Mitigation**: Use TypeScript strict mode (catches missing imports)  
-**Detection**: `npm run type-check` fails
-
-**Risk**: Commit message doesn't justify test changes  
-**Mitigation**: Pre-commit hook requires `TEST-CHANGE` if tests modified  
-**Detection**: Commit fails
-
-**Risk**: Logic change sneaks in  
-**Mitigation**: PR reviewer checks diff is CSS-only  
-**Detection**: `git diff` shows non-CSS changes
-
-### Rollback Plan
-
-If a PR breaks tests or causes regression:
-```bash
-# Option 1: Revert PR
-git revert <commit-hash>
-git push
-
-# Option 2: Escalate (if ambiguous)
-# Use PHASE_7_ESCALATION_TEMPLATE.md
-```
+### Tier 4 – Critical (High Risk)
+Components touching job pipeline output
+- [ ] VideoTracker, VideoControls
+- [ ] Timeline, Scrubber
+- [ ] Overlays (players, ball, pitch, radar)
+- [ ] Any component consuming `job.result`
 
 ---
 
-## 6. Testing Strategy
+## 4. PR Workflow
 
-### Per-PR Verification
+### For Each Component Migration:
+
+1. **Create feature branch**
+   ```bash
+   git checkout -b phase-7/tier-1-buttons
+   # (or tier-2a, tier-3, tier-4, etc.)
+   ```
+
+2. **Create CSS Module**
+   ```bash
+   # Beside ComponentName.tsx, create:
+   ComponentName.module.css
+   ```
+
+3. **Update component TSX**
+   ```tsx
+   import styles from './ComponentName.module.css';
+   
+   // Replace: className="foo bar"
+   // With: className={clsx(styles.foo, styles.bar)}
+   ```
+
+4. **Run verification**
+   ```bash
+   npm test -- --run           # All 347 + 2 skips still passing?
+   npm run lint
+   npm run type-check
+   uv run pre-commit run --all-files
+   ```
+
+5. **Commit (no TEST-CHANGE needed, CSS-only)**
+   ```bash
+   git commit -m "phase7: Migrate Button to CSS Modules
+   
+   - Create Button.module.css with scoped styles
+   - Update className references to use styles.*
+   - Remove old global button styles"
+   ```
+
+6. **Update tracking**
+   - Mark component as `[x]` in `PHASE_7_COMPONENT_CHECKLIST.md`
+
+7. **Open PR**
+   - Use template: `PHASE_7_PR_TEMPLATE.md`
+   - Title: `phase7: Migrate [Component] to CSS Modules`
+   - Include: Test results, guardrails checklist, component tier
+
+---
+
+## 5. Escalation Process
+
+**If you need to change forbidden files or tests:**
+
+1. Use: `PHASE_7_ESCALATION_TEMPLATE.md`
+2. Add to PR description under: "Phase 7 Escalation – Logic Change Request"
+3. Explain why, document risk, propose mitigations
+4. Wait for approval before merging
+5. If approved, update commit message to include reason
+
+---
+
+## 6. Scripts (Run Before Each PR)
+
+### Quick Check
 ```bash
-npm test -- --run
-# Expected: 347 passed | 2 skipped
-# Any failures = STOP (investigate or rollback)
-
-npm run lint
-# Expected: 0 errors, 1 warning (pre-existing)
-
-npm run type-check
-# Expected: 0 errors
-
-uv run pre-commit run --all-files
-# Expected: All hooks pass (including web-ui tests)
-```
-
-### Full Baseline Verification (Before & After)
-```bash
+# Verify baseline
 bash scripts/phase7/baseline-verify.sh
-# Runs: Tests + Lint + Type-check + Pre-commit
-```
 
-### Skipped Tests Check
-```bash
-npx ts-node scripts/phase7/skipped-tests-check.ts
-# Expected: Only 2 APPROVED pre-Phase-7 skips
-# No new .skip or .only allowed
-```
-
-### Forbidden Files Check
-```bash
+# Check forbidden files
 npx ts-node scripts/phase7/forbidden-file-check.ts
-# Expected: No changes to locked files
+
+# Check skipped tests
+npx ts-node scripts/phase7/skipped-tests-check.ts
+```
+
+### Combined Check (All at Once)
+```bash
+bash scripts/phase7/pr-guardrail.sh
+# Runs all 3 checks + full baseline verification
 ```
 
 ---
 
-## 7. Component Priority (Recommended Order)
+## 7. Important Docs (Read Before Starting)
 
-### PR 1: Tier 1A – Simple Components (1-2 days)
-```
-RecordButton, ConfidenceSlider, OverlayToggles
-```
-**Why**: Fastest, builds confidence
-
-### PR 2: Tier 1B – More Leaf Components (1-2 days)
-```
-JobStatusIndicator, ErrorMessage, Badges
-```
-
-### PR 3: Tier 2A – Sidebar/Nav (2-3 days)
-```
-PluginSelector, ToolSelector, DeviceSelector
-```
-
-### PR 4: Tier 2B – Main Panels (2-3 days)
-```
-UploadPanel, ResultsPanel, JobList
-```
-
-### PR 5: Tier 3 – Page Layout (2-3 days)
-```
-App.tsx root layout, MainLayout
-```
-
-### PR 6: Tier 4A – Critical (2-3 days)
-```
-VideoTracker (highest risk, but tests will catch issues)
-```
-
-### PR 7: Tier 4B – Overlays (2-3 days)
-```
-ResultOverlay, CameraPreview
-```
-
-**Total Estimate**: 6-8 PRs, ~3-4 weeks (depending on review cycles)
+1. **PHASE_7_CSS_MODULES.md** – Full migration strategy
+2. **PHASE_7_COMPONENT_CHECKLIST.md** – Tracks which components are done
+3. **PHASE_7_PR_CHECKLIST.md** – What to verify before opening PR
+4. **PHASE_7_PR_TEMPLATE.md** – PR description template
+5. **PHASE_7_ESCALATION_TEMPLATE.md** – For logic changes (if needed)
+6. **PHASE_7_SKIPPED_TEST_POLICY.md** – Rules for test skips
+7. **PHASE_7_GUARDRAILS_SCRIPT.md** – Reference for guard checks
+8. **PHASE_7_BASELINE_VERIFY.md** – Baseline verification details
 
 ---
 
 ## 8. Success Criteria
 
 Phase 7 is complete when:
-
 - ✅ All targeted components migrated to CSS Modules
-- ✅ No regressions in job pipeline, upload, results, or streaming
+- ✅ No regressions in job pipeline, upload, results, streaming
 - ✅ All tests passing (347 + 2 approved skips)
-- ✅ Lint clean
-- ✅ Types clean
-- ✅ CI green on all PRs
-- ✅ No changes to:
-  - `useVideoProcessor.ts`
-  - `client.ts`
-  - Job polling logic
-  - Test count or test content
-- ✅ All `.only`, `.skip` removed except 2 APPROVED pre-Phase-7
+- ✅ Lint clean, types clean, pre-commit green
+- ✅ No changes to `useVideoProcessor`, `client.ts`, Phase 6 tests
+- ✅ All `.only` and `.skip` removed except 2 APPROVED pre-Phase-7
 
 ---
 
-## 9. Escalation Criteria
+## 9. Failure Modes (Stop & Escalate If)
 
-**STOP and escalate if:**
-
-- ❌ Any test fails or changes
+- ❌ Test count changes
+- ❌ Forbidden file is edited
+- ❌ New `.skip` or `.only` appears without `// APPROVED:`
 - ❌ Lint/type-check fails
-- ❌ PR requires editing `useVideoProcessor`, `client.ts`, or job logic
-- ❌ PR requires adding/removing/moving tests
-- ❌ `npm test` doesn't run full 347 tests
-- ❌ New `.skip` or `.only` appears in code
-- ❌ Forbidden files are modified
+- ❌ Pre-commit hooks fail
+- ❌ Need to edit `useVideoProcessor` or `client.ts`
 
-**Escalation Process:**
-1. Open `PHASE_7_ESCALATION_TEMPLATE.md`
-2. Document the issue, attempted fix, blocker
-3. Wait for review before proceeding
+**Action**: Stop, escalate using `PHASE_7_ESCALATION_TEMPLATE.md`
 
 ---
 
-## 10. Documentation Links
+## 10. Ready to Start?
 
-- **Guardrails**: `PHASE_7_CSS_MODULES.md`
-- **Component Checklist**: `PHASE_7_COMPONENT_CHECKLIST.md`
-- **PR Template**: `PHASE_7_PR_TEMPLATE.md`
-- **Escalation**: `PHASE_7_ESCALATION_TEMPLATE.md`
-- **Verification Scripts**:
-  - `scripts/phase7/baseline-verify.sh`
-  - `scripts/phase7/forbidden-file-check.ts`
-  - `scripts/phase7/skipped-tests-check.ts`
+**Before first PR:**
+1. Read `PHASE_7_CSS_MODULES.md` and `PHASE_7_COMPONENT_CHECKLIST.md`
+2. Run: `bash scripts/phase7/baseline-verify.sh` (confirm Phase 6A is clean)
+3. Pick Tier 1 component (e.g., `RecordButton`)
+4. Create branch: `git checkout -b phase-7/tier-1-buttons`
+
+**Questions for approval:**
+- Should we start with Tier 1? (Recommended: yes)
+- Which component first? (Recommend: `RecordButton`)
+- Timeline estimate per tier? (You decide)
+- Any components we should skip or prioritize differently?
+
+**I'm ready to:**
+- Execute first PR (build CSS Module, update component, verify tests)
+- Run verification scripts
+- Commit and push
+- Open PR with full checklist
+
+**You decide:** What's the first task?
 
 ---
 
-## 11. Sign-Off
-
-**Phase 7 Ready to Execute**: ✅
-
-- Baseline verified (Phase 6A, commit eef5ebf)
-- Guardrails in place (pre-commit hooks, forbidden file checks)
-- Tiers defined with priority order
-- PR workflow documented
-- Risk mitigation in place
-- Rollback plan available
-
-**Next Step**: Begin PR 1 (Tier 1A).
+**Last note:** I'm not making up timelines, deadlines, or component priorities. All decisions are yours to approve. I will only execute what you explicitly approve.
