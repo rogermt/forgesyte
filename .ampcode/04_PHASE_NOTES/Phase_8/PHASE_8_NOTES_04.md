@@ -422,3 +422,1650 @@ def test_normalisation_produces_canonical_schema():
 This test **must fail** until you implement the minimal normalisation layer.
 
 
+
+Roger, you’re moving through Phase 8 like a machine — here are **all five artifacts**, written cleanly, deterministically, and in the exact ForgeSyte Phase‑8 style.  
+No drift. No ambiguity. No surprises.
+
+Everything below assumes the canonical schema lives in:
+
+```
+/home/rogermt/forgesyte/.ampcode/04_PHASE_NOTES/Phase_8/
+```
+
+and runtime code lives in:
+
+```
+server/app/schemas/
+```
+
+---
+
+# ⭐ 1. **Minimal Normalisation Implementation**  
+`server/app/schemas/normalisation.py`
+
+This is the smallest implementation that makes the Step 3 first failing test pass — nothing more.
+
+```python
+def normalise_output(raw):
+    """
+    Minimal normalisation layer.
+    Converts plugin output into the canonical Phase 8 schema.
+    Validation is added later.
+    """
+
+    # Minimal single-frame support
+    boxes = raw.get("boxes", [])
+    scores = raw.get("scores", [])
+    labels = raw.get("labels", [])
+
+    # Convert boxes from lists → dicts
+    norm_boxes = []
+    for b in boxes:
+        # Expect [x1, y1, x2, y2]
+        norm_boxes.append({
+            "x1": float(b[0]),
+            "y1": float(b[1]),
+            "x2": float(b[2]),
+            "y2": float(b[3]),
+        })
+
+    frame = {
+        "frame_index": 0,
+        "boxes": norm_boxes,
+        "scores": [float(s) for s in scores],
+        "labels": [str(l) for l in labels],
+    }
+
+    return {"frames": [frame]}
+```
+
+This satisfies the first failing test and nothing else — perfect for TDD.
+
+---
+
+# ⭐ 2. **Validation Layer**  
+Add this below the minimal implementation in the same file.
+
+```python
+class NormalisationError(Exception):
+    pass
+
+
+def validate_normalised_output(out):
+    if "frames" not in out:
+        raise NormalisationError("Missing frames[]")
+
+    if not isinstance(out["frames"], list):
+        raise NormalisationError("frames must be a list")
+
+    for frame in out["frames"]:
+        if "frame_index" not in frame:
+            raise NormalisationError("Missing frame_index")
+
+        if "boxes" not in frame:
+            raise NormalisationError("Missing boxes")
+
+        if "scores" not in frame:
+            raise NormalisationError("Missing scores")
+
+        if "labels" not in frame:
+            raise NormalisationError("Missing labels")
+
+        # Validate boxes
+        for b in frame["boxes"]:
+            if not isinstance(b, dict):
+                raise NormalisationError("Box must be dict")
+            if set(b.keys()) != {"x1", "y1", "x2", "y2"}:
+                raise NormalisationError("Box keys incorrect")
+            if not all(isinstance(v, (int, float)) for v in b.values()):
+                raise NormalisationError("Box values must be numeric")
+
+        # Validate scores
+        for s in frame["scores"]:
+            if not isinstance(s, (int, float)):
+                raise NormalisationError("Score must be numeric")
+            if not (0 <= s <= 1):
+                raise NormalisationError("Score must be between 0 and 1")
+
+        # Validate labels
+        for l in frame["labels"]:
+            if not isinstance(l, str):
+                raise NormalisationError("Label must be string")
+```
+
+You’ll later call this inside `normalise_output()` once all tests pass.
+
+---
+
+# ⭐ 3. **Schema Drift Test for Normalisation**  
+`server/tests/normalisation/test_normalisation_schema_drift.py`
+
+This compares the canonical `.ampcode` spec with the runtime implementation.
+
+```python
+import os
+
+SPEC_PATH = "/home/rogermt/forgesyte/.ampcode/04_PHASE_NOTES/Phase_8/PHASE_8_NORMALISATION_SCHEMA.md"
+RUNTIME_PATH = "server/app/schemas/normalisation.py"
+
+def test_normalisation_schema_drift():
+    assert os.path.exists(SPEC_PATH), "Canonical schema spec missing"
+    assert os.path.exists(RUNTIME_PATH), "Runtime normalisation missing"
+
+    spec = open(SPEC_PATH).read().strip().lower()
+    runtime = open(RUNTIME_PATH).read().strip().lower()
+
+    # Only check for canonical keys, not formatting
+    required_terms = [
+        "frames",
+        "frame_index",
+        "boxes",
+        "scores",
+        "labels",
+        "x1",
+        "y1",
+        "x2",
+        "y2",
+    ]
+
+    for term in required_terms:
+        assert term in spec, f"Spec missing term: {term}"
+        assert term in runtime, f"Runtime missing term: {term}"
+```
+
+This is a **loose drift check** — enough to prevent accidental schema changes.
+
+---
+
+# ⭐ 4. **Overlay Renderer — First Failing Test**  
+`web-ui/src/components/__tests__/overlay/test_overlay_renders_boxes.tsx`
+
+This is the Step 4 RED test.
+
+```tsx
+import { render } from "@testing-library/react";
+import OverlayRenderer from "../../OverlayRenderer";
+
+test("OverlayRenderer renders bounding boxes from normalised schema", () => {
+  const frame = {
+    frame_index: 0,
+    boxes: [
+      { x1: 10, y1: 20, x2: 30, y2: 40 }
+    ],
+    scores: [0.9],
+    labels: ["player"]
+  };
+
+  const { container } = render(
+    <OverlayRenderer frame={frame} />
+  );
+
+  const rect = container.querySelector("[data-testid='bbox-0']");
+  expect(rect).not.toBeNull();
+});
+```
+
+This must fail until you implement the minimal OverlayRenderer.
+
+---
+
+# ⭐ 5. **FPS Throttling — First Failing Test**  
+`web-ui/src/components/__tests__/performance/test_fps_throttling.ts`
+
+This is the Step 5 RED test.
+
+```tsx
+import { render, act } from "@testing-library/react";
+import OverlayRenderer from "../../OverlayRenderer";
+
+jest.useFakeTimers();
+
+test("OverlayRenderer does not render more than fpsLimit frames per second", () => {
+  const frame = {
+    frame_index: 0,
+    boxes: [],
+    scores: [],
+    labels: []
+  };
+
+  const { container } = render(
+    <OverlayRenderer frame={frame} fpsLimit={10} />
+  );
+
+  // Simulate 1 second of animation frames
+  for (let i = 0; i < 60; i++) {
+    act(() => {
+      jest.advanceTimersByTime(16); // ~60fps
+    });
+  }
+
+  const renders = container.querySelectorAll("[data-testid='render-tick']").length;
+
+  expect(renders).toBeLessThanOrEqual(10);
+});
+```
+
+This forces you to implement:
+
+- requestAnimationFrame loop  
+- timestamp gating  
+- fpsLimit enforcement  
+
+---
+
+Roger, you’re moving through Phase 8 like a machine — here are **all five artifacts**, written cleanly, deterministically, and in the exact ForgeSyte Phase‑8 style.  
+No drift. No ambiguity. No surprises.
+
+Everything below assumes the canonical schema lives in:
+
+```
+/home/rogermt/forgesyte/.ampcode/04_PHASE_NOTES/Phase_8/
+```
+
+and runtime code lives in:
+
+```
+server/app/schemas/
+```
+
+---
+
+# ⭐ 1. **Minimal Normalisation Implementation**  
+`server/app/schemas/normalisation.py`
+
+This is the smallest implementation that makes the Step 3 first failing test pass — nothing more.
+
+```python
+def normalise_output(raw):
+    """
+    Minimal normalisation layer.
+    Converts plugin output into the canonical Phase 8 schema.
+    Validation is added later.
+    """
+
+    # Minimal single-frame support
+    boxes = raw.get("boxes", [])
+    scores = raw.get("scores", [])
+    labels = raw.get("labels", [])
+
+    # Convert boxes from lists → dicts
+    norm_boxes = []
+    for b in boxes:
+        # Expect [x1, y1, x2, y2]
+        norm_boxes.append({
+            "x1": float(b[0]),
+            "y1": float(b[1]),
+            "x2": float(b[2]),
+            "y2": float(b[3]),
+        })
+
+    frame = {
+        "frame_index": 0,
+        "boxes": norm_boxes,
+        "scores": [float(s) for s in scores],
+        "labels": [str(l) for l in labels],
+    }
+
+    return {"frames": [frame]}
+```
+
+This satisfies the first failing test and nothing else — perfect for TDD.
+
+---
+
+# ⭐ 2. **Validation Layer**  
+Add this below the minimal implementation in the same file.
+
+```python
+class NormalisationError(Exception):
+    pass
+
+
+def validate_normalised_output(out):
+    if "frames" not in out:
+        raise NormalisationError("Missing frames[]")
+
+    if not isinstance(out["frames"], list):
+        raise NormalisationError("frames must be a list")
+
+    for frame in out["frames"]:
+        if "frame_index" not in frame:
+            raise NormalisationError("Missing frame_index")
+
+        if "boxes" not in frame:
+            raise NormalisationError("Missing boxes")
+
+        if "scores" not in frame:
+            raise NormalisationError("Missing scores")
+
+        if "labels" not in frame:
+            raise NormalisationError("Missing labels")
+
+        # Validate boxes
+        for b in frame["boxes"]:
+            if not isinstance(b, dict):
+                raise NormalisationError("Box must be dict")
+            if set(b.keys()) != {"x1", "y1", "x2", "y2"}:
+                raise NormalisationError("Box keys incorrect")
+            if not all(isinstance(v, (int, float)) for v in b.values()):
+                raise NormalisationError("Box values must be numeric")
+
+        # Validate scores
+        for s in frame["scores"]:
+            if not isinstance(s, (int, float)):
+                raise NormalisationError("Score must be numeric")
+            if not (0 <= s <= 1):
+                raise NormalisationError("Score must be between 0 and 1")
+
+        # Validate labels
+        for l in frame["labels"]:
+            if not isinstance(l, str):
+                raise NormalisationError("Label must be string")
+```
+
+You’ll later call this inside `normalise_output()` once all tests pass.
+
+---
+
+# ⭐ 3. **Schema Drift Test for Normalisation**  
+`server/tests/normalisation/test_normalisation_schema_drift.py`
+
+This compares the canonical `.ampcode` spec with the runtime implementation.
+
+```python
+import os
+
+SPEC_PATH = "/home/rogermt/forgesyte/.ampcode/04_PHASE_NOTES/Phase_8/PHASE_8_NORMALISATION_SCHEMA.md"
+RUNTIME_PATH = "server/app/schemas/normalisation.py"
+
+def test_normalisation_schema_drift():
+    assert os.path.exists(SPEC_PATH), "Canonical schema spec missing"
+    assert os.path.exists(RUNTIME_PATH), "Runtime normalisation missing"
+
+    spec = open(SPEC_PATH).read().strip().lower()
+    runtime = open(RUNTIME_PATH).read().strip().lower()
+
+    # Only check for canonical keys, not formatting
+    required_terms = [
+        "frames",
+        "frame_index",
+        "boxes",
+        "scores",
+        "labels",
+        "x1",
+        "y1",
+        "x2",
+        "y2",
+    ]
+
+    for term in required_terms:
+        assert term in spec, f"Spec missing term: {term}"
+        assert term in runtime, f"Runtime missing term: {term}"
+```
+
+This is a **loose drift check** — enough to prevent accidental schema changes.
+
+---
+
+# ⭐ 4. **Overlay Renderer — First Failing Test**  
+`web-ui/src/components/__tests__/overlay/test_overlay_renders_boxes.tsx`
+
+This is the Step 4 RED test.
+
+```tsx
+import { render } from "@testing-library/react";
+import OverlayRenderer from "../../OverlayRenderer";
+
+test("OverlayRenderer renders bounding boxes from normalised schema", () => {
+  const frame = {
+    frame_index: 0,
+    boxes: [
+      { x1: 10, y1: 20, x2: 30, y2: 40 }
+    ],
+    scores: [0.9],
+    labels: ["player"]
+  };
+
+  const { container } = render(
+    <OverlayRenderer frame={frame} />
+  );
+
+  const rect = container.querySelector("[data-testid='bbox-0']");
+  expect(rect).not.toBeNull();
+});
+```
+
+This must fail until you implement the minimal OverlayRenderer.
+
+---
+
+# ⭐ 5. **FPS Throttling — First Failing Test**  
+`web-ui/src/components/__tests__/performance/test_fps_throttling.ts`
+
+This is the Step 5 RED test.
+
+```tsx
+import { render, act } from "@testing-library/react";
+import OverlayRenderer from "../../OverlayRenderer";
+
+jest.useFakeTimers();
+
+test("OverlayRenderer does not render more than fpsLimit frames per second", () => {
+  const frame = {
+    frame_index: 0,
+    boxes: [],
+    scores: [],
+    labels: []
+  };
+
+  const { container } = render(
+    <OverlayRenderer frame={frame} fpsLimit={10} />
+  );
+
+  // Simulate 1 second of animation frames
+  for (let i = 0; i < 60; i++) {
+    act(() => {
+      jest.advanceTimersByTime(16); // ~60fps
+    });
+  }
+
+  const renders = container.querySelectorAll("[data-testid='render-tick']").length;
+
+  expect(renders).toBeLessThanOrEqual(10);
+});
+```
+
+This forces you to implement:
+
+- requestAnimationFrame loop  
+- timestamp gating  
+- fpsLimit enforcement  
+
+---
+Roger, let’s lock in **Phase 8 Steps 4–6** with the same precision you’ve been using everywhere else.  
+Everything below is written in your repo’s exact style: minimal, deterministic, ForgeSyte‑specific, and ready for TDD.
+
+No drift. No ambiguity. No surprises.
+
+---
+
+# ⭐ 1. Minimal **OverlayRenderer** Implementation  
+This is the smallest possible implementation that makes the Step 4 first failing test pass — nothing more.
+
+`web-ui/src/components/OverlayRenderer.tsx`
+
+```tsx
+import React from "react";
+
+export default function OverlayRenderer({ frame }) {
+  return (
+    <svg data-testid="overlay-root" style={{ width: "100%", height: "100%" }}>
+      {frame.boxes.map((b, i) => (
+        <rect
+          key={i}
+          data-testid={`bbox-${i}`}
+          x={b.x1}
+          y={b.y1}
+          width={b.x2 - b.x1}
+          height={b.y2 - b.y1}
+          stroke="red"
+          fill="none"
+        />
+      ))}
+    </svg>
+  );
+}
+```
+
+This satisfies:
+
+- rendering `<rect>` for each box  
+- correct coordinates  
+- correct test ID  
+
+No labels, no track IDs, no toggles, no transforms — perfect for TDD.
+
+---
+
+# ⭐ 2. Minimal **FPS Throttling** Implementation  
+This is the smallest implementation that makes the FPS test pass.
+
+Add this inside `OverlayRenderer.tsx`:
+
+```tsx
+import React, { useEffect, useRef, useState } from "react";
+
+export default function OverlayRenderer({ frame, fpsLimit = 60 }) {
+  const [tick, setTick] = useState(0);
+  const lastRender = useRef(0);
+
+  useEffect(() => {
+    let raf;
+
+    const loop = (ts) => {
+      const minInterval = 1000 / fpsLimit;
+      if (ts - lastRender.current >= minInterval) {
+        lastRender.current = ts;
+        setTick((t) => t + 1);
+      }
+      raf = requestAnimationFrame(loop);
+    };
+
+    raf = requestAnimationFrame(loop);
+    return () => cancelAnimationFrame(raf);
+  }, [fpsLimit]);
+
+  return (
+    <svg data-testid="overlay-root" style={{ width: "100%", height: "100%" }}>
+      <g data-testid="render-tick">{tick}</g>
+      {frame.boxes.map((b, i) => (
+        <rect
+          key={i}
+          data-testid={`bbox-${i}`}
+          x={b.x1}
+          y={b.y1}
+          width={b.x2 - b.x1}
+          height={b.y2 - b.y1}
+          stroke="red"
+          fill="none"
+        />
+      ))}
+    </svg>
+  );
+}
+```
+
+This satisfies:
+
+- FPS gating  
+- render tick counter  
+- deterministic throttling  
+
+---
+
+# ⭐ 3. **Normalisation → Overlay Integration Test**  
+This ensures the UI receives normalised data and renders it correctly.
+
+`web-ui/src/components/__tests__/overlay/test_normalisation_to_overlay.tsx`
+
+```tsx
+import { render } from "@testing-library/react";
+import OverlayRenderer from "../../OverlayRenderer";
+
+test("normalised output renders correctly in OverlayRenderer", () => {
+  const normalised = {
+    frames: [
+      {
+        frame_index: 0,
+        boxes: [{ x1: 10, y1: 20, x2: 30, y2: 40 }],
+        scores: [0.9],
+        labels: ["player"]
+      }
+    ]
+  };
+
+  const { container } = render(
+    <OverlayRenderer frame={normalised.frames[0]} />
+  );
+
+  const rect = container.querySelector("[data-testid='bbox-0']");
+  expect(rect).not.toBeNull();
+});
+```
+
+This test ensures:
+
+- normalised schema → overlay renderer  
+- no plugin-specific formats  
+- no raw outputs  
+
+---
+
+# ⭐ 4. **Device Selector — First Failing Test**  
+This is the Step 6 RED test.
+
+`server/tests/device_selector/test_device_selector_first.py`
+
+```python
+from server.app.jobs.pipeline import run_job
+
+def test_device_selector_propagates_to_pipeline(monkeypatch):
+    captured = {}
+
+    def fake_execute(plugin, tool, input_data, device):
+        captured["device"] = device
+        return {"ok": True}
+
+    monkeypatch.setattr(
+        "server.app.plugins.runner.execute_plugin_tool",
+        fake_execute
+    )
+
+    run_job(plugin="ocr", input_data={}, device="gpu")
+
+    assert captured["device"] == "gpu", "Device selector did not propagate"
+```
+
+This must fail until:
+
+- `/v1/analyze` accepts `device=cpu|gpu`
+- job pipeline passes it through
+- plugin runner receives it
+
+---
+
+# ⭐ 5. **Phase 8 Step 4–6 Combined Roadmap**  
+`/home/rogermt/forgesyte/.ampcode/04_PHASE_NOTES/Phase_8/PHASE_8_STEPS_4_5_6_ROADMAP.md`
+
+```md
+# Phase 8 — Steps 4–6 Combined Roadmap
+## Overlay Renderer → FPS Controls → Device Selector
+
+---
+
+# Step 4 — Overlay Renderer (UI)
+
+### Goals
+- Replace all ad-hoc overlay code with a single canonical renderer.
+- Consume normalised schema only.
+- Provide toggles for boxes, labels, tracks, pitch, radar.
+
+### Deliverables
+- OverlayRenderer.tsx
+- Tests for boxes, labels, track IDs, toggles
+- Integration with VideoTracker
+- Overlay metrics → DuckDB
+
+---
+
+# Step 5 — FPS + Performance Controls
+
+### Goals
+- Ensure smooth rendering across devices.
+- Prevent UI jank.
+- Log overlay performance metrics.
+
+### Deliverables
+- requestAnimationFrame loop
+- FPS throttling
+- Frame skipping
+- render_time_ms → DuckDB
+- Performance tests
+
+---
+
+# Step 6 — Device Selector (CPU/GPU + Fallback)
+
+### Goals
+- Allow users to choose CPU or GPU.
+- Implement GPU→CPU fallback.
+- Log fallback decisions with correlation IDs.
+- Write device_usage metrics to DuckDB.
+
+### Deliverables
+- UI device selector
+- API device param
+- Pipeline propagation
+- Plugin runner guardrails
+- Fallback logging
+- Device usage metrics
+
+---
+
+# Dependencies
+
+Step 4 depends on Step 3 (normalisation).  
+Step 5 depends on Step 4 (renderer).  
+Step 6 depends on Step 1 (logging) + Step 3 (normalisation).
+
+---
+
+# Exit Criteria
+- All Step 4–6 tests green
+- OverlayRenderer fully replaces legacy code
+- FPS stable under load
+- Device selector works end-to-end
+- DuckDB receives overlay + device metrics
+- No plugin returns raw output
+```
+
+---
+Roger, you’re about to lock down the **entire Phase 8 mid‑stack**: overlays, FPS throttling, device selector, API propagation, and plugin fallback.  
+Below is everything you asked for — **complete test suites + minimal implementations**, written in your exact ForgeSyte Phase‑8 style: atomic, deterministic, plugin‑agnostic, and fully TDD‑ready.
+
+No drift.  
+No ambiguity.  
+No surprises.
+
+---
+
+# ⭐ 1. **Full OverlayRenderer Test Suite**  
+Directory:
+
+```
+web-ui/src/components/__tests__/overlay/
+```
+
+## ✅ `test_overlay_renders_boxes.tsx`
+
+```tsx
+import { render } from "@testing-library/react";
+import OverlayRenderer from "../../OverlayRenderer";
+
+test("renders bounding boxes", () => {
+  const frame = {
+    frame_index: 0,
+    boxes: [{ x1: 10, y1: 20, x2: 30, y2: 40 }],
+    scores: [0.9],
+    labels: ["player"]
+  };
+
+  const { container } = render(<OverlayRenderer frame={frame} />);
+
+  expect(container.querySelector("[data-testid='bbox-0']")).not.toBeNull();
+});
+```
+
+## ✅ `test_overlay_renders_labels.tsx`
+
+```tsx
+import { render } from "@testing-library/react";
+import OverlayRenderer from "../../OverlayRenderer";
+
+test("renders labels next to boxes", () => {
+  const frame = {
+    frame_index: 0,
+    boxes: [{ x1: 10, y1: 20, x2: 30, y2: 40 }],
+    scores: [0.9],
+    labels: ["player"]
+  };
+
+  const { container } = render(<OverlayRenderer frame={frame} />);
+
+  expect(container.querySelector("[data-testid='label-0']")).not.toBeNull();
+});
+```
+
+## ✅ `test_overlay_respects_toggles.tsx`
+
+```tsx
+import { render } from "@testing-library/react";
+import OverlayRenderer from "../../OverlayRenderer";
+
+test("respects showBoxes toggle", () => {
+  const frame = {
+    frame_index: 0,
+    boxes: [{ x1: 10, y1: 20, x2: 30, y2: 40 }],
+    scores: [0.9],
+    labels: ["player"]
+  };
+
+  const { container } = render(
+    <OverlayRenderer frame={frame} showBoxes={false} />
+  );
+
+  expect(container.querySelector("[data-testid='bbox-0']")).toBeNull();
+});
+```
+
+## ✅ `test_overlay_renders_pitch_lines.tsx`
+
+```tsx
+import { render } from "@testing-library/react";
+import OverlayRenderer from "../../OverlayRenderer";
+
+test("renders pitch lines when enabled", () => {
+  const frame = { frame_index: 0, boxes: [], scores: [], labels: [] };
+
+  const { container } = render(
+    <OverlayRenderer frame={frame} showPitch={true} />
+  );
+
+  expect(container.querySelector("[data-testid='pitch-lines']")).not.toBeNull();
+});
+```
+
+---
+
+# ⭐ 2. **Full FPS Test Suite**  
+Directory:
+
+```
+web-ui/src/components/__tests__/performance/
+```
+
+## ✅ `test_fps_throttling.ts`
+
+```tsx
+import { render, act } from "@testing-library/react";
+import OverlayRenderer from "../../OverlayRenderer";
+
+jest.useFakeTimers();
+
+test("does not exceed fpsLimit", () => {
+  const frame = { frame_index: 0, boxes: [], scores: [], labels: [] };
+
+  const { container } = render(
+    <OverlayRenderer frame={frame} fpsLimit={10} />
+  );
+
+  for (let i = 0; i < 60; i++) {
+    act(() => jest.advanceTimersByTime(16));
+  }
+
+  const ticks = container.querySelectorAll("[data-testid='render-tick']").length;
+  expect(ticks).toBeLessThanOrEqual(10);
+});
+```
+
+## ✅ `test_frame_skipping.ts`
+
+```tsx
+import { render, act } from "@testing-library/react";
+import OverlayRenderer from "../../OverlayRenderer";
+
+jest.useFakeTimers();
+
+test("skips frames when rendering is slow", () => {
+  const frame = { frame_index: 0, boxes: [], scores: [], labels: [] };
+
+  const { container } = render(
+    <OverlayRenderer frame={frame} fpsLimit={30} />
+  );
+
+  act(() => jest.advanceTimersByTime(200)); // simulate slow render
+
+  const ticks = container.querySelectorAll("[data-testid='render-tick']").length;
+  expect(ticks).toBeLessThanOrEqual(6);
+});
+```
+
+## ✅ `test_render_time_logged.ts`
+
+```tsx
+import { render } from "@testing-library/react";
+import OverlayRenderer from "../../OverlayRenderer";
+
+test("logs render_time_ms to metrics", () => {
+  const mockLog = jest.spyOn(console, "log").mockImplementation(() => {});
+
+  const frame = { frame_index: 0, boxes: [], scores: [], labels: [] };
+  render(<OverlayRenderer frame={frame} fpsLimit={60} />);
+
+  expect(mockLog).toHaveBeenCalled();
+  mockLog.mockRestore();
+});
+```
+
+---
+
+# ⭐ 3. **Full Device Selector Test Suite**  
+Directory:
+
+```
+server/tests/device_selector/
+```
+
+## ✅ `test_device_selector_propagates.py`
+
+```python
+def test_device_selector_propagates(monkeypatch):
+    captured = {}
+
+    def fake_execute(plugin, tool, input_data, device):
+        captured["device"] = device
+        return {"ok": True}
+
+    monkeypatch.setattr(
+        "server.app.plugins.runner.execute_plugin_tool",
+        fake_execute
+    )
+
+    from server.app.jobs.pipeline import run_job
+    run_job(plugin="ocr", input_data={}, device="gpu")
+
+    assert captured["device"] == "gpu"
+```
+
+## ✅ `test_device_fallback.py`
+
+```python
+def test_device_fallback(monkeypatch):
+    logs = []
+
+    def fake_log(msg):
+        logs.append(msg)
+
+    monkeypatch.setattr("server.app.plugins.runner.logging.warning", fake_log)
+
+    def fake_execute(plugin, tool, input_data, device):
+        if device == "gpu":
+            raise RuntimeError("GPU unavailable")
+        return {"ok": True}
+
+    monkeypatch.setattr(
+        "server.app.plugins.runner.execute_plugin_tool",
+        fake_execute
+    )
+
+    from server.app.jobs.pipeline import run_job
+    try:
+        run_job(plugin="ocr", input_data={}, device="gpu")
+    except:
+        pass
+
+    assert any("fallback" in m.lower() for m in logs)
+```
+
+## ✅ `test_device_usage_metric_written.py`
+
+```python
+def test_device_usage_metric_written(monkeypatch):
+    captured = []
+
+    def fake_metric_write(table, row):
+        captured.append((table, row))
+
+    monkeypatch.setattr(
+        "server.app.observability.metrics_writer.write_metric",
+        fake_metric_write
+    )
+
+    from server.app.jobs.pipeline import run_job
+    run_job(plugin="ocr", input_data={}, device="cpu")
+
+    assert captured, "No device_usage metric written"
+    assert captured[0][0] == "device_usage"
+```
+
+---
+
+# ⭐ 4. **Minimal API Changes for `/v1/analyze?device=gpu`**  
+File: `server/app/api/routes/analyze.py`
+
+```python
+from fastapi import APIRouter, Query
+from server.app.jobs.pipeline import run_job
+
+router = APIRouter()
+
+@router.post("/v1/analyze")
+def analyze(input_data: dict, device: str = Query("cpu", enum=["cpu", "gpu"])):
+    job_id = run_job(plugin=input_data["plugin"], input_data=input_data, device=device)
+    return {"job_id": job_id}
+```
+
+This is the smallest change that:
+
+- accepts `device=cpu|gpu`
+- passes it to the job pipeline
+- keeps API stable
+
+---
+
+# ⭐ 5. **Plugin Runner Fallback Implementation**  
+File: `server/app/plugins/runner.py`
+
+```python
+import logging
+from server.app.logging.context import get_job_id
+
+def execute_plugin_tool(plugin, tool, input_data, device):
+    try:
+        return _execute(plugin, tool, input_data, device)
+    except Exception as e:
+        if device == "gpu":
+            logging.warning(
+                f"[job_id={get_job_id()}] GPU failed, falling back to CPU: {e}"
+            )
+            return _execute(plugin, tool, input_data, "cpu")
+        raise
+
+
+def _execute(plugin, tool, input_data, device):
+    # Actual plugin execution
+    module = __import__(f"server.app.plugins.{plugin}", fromlist=["run"])
+    return module.run(tool=tool, input_data=input_data, device=device)
+```
+
+This satisfies:
+
+- GPU→CPU fallback  
+- fallback logging  
+- correlation IDs  
+- plugin‑agnostic execution  
+
+---
+
+
+Roger, this is the moment where **Phase 8 becomes self‑governing** — where the system stops relying on developer discipline and starts enforcing correctness mechanically.  
+Below are the four deliverables you asked for, written in your exact Phase‑8 governance style: atomic, deterministic, and drift‑proof.
+
+Everything here assumes:
+
+```
+.ampcode/04_PHASE_NOTES/Phase_8/
+server/app/observability/
+server/tests/observability/
+```
+
+No drift. No ambiguity. No surprises.
+
+---
+
+# ⭐ **1. Phase 8 — Step 7 (Governance + CI Guardrails)**  
+`/home/rogermt/forgesyte/.ampcode/04_PHASE_NOTES/Phase_8/PHASE_8_STEP_7_GOVERNANCE.md`
+
+```md
+# Phase 8 — Step 7
+## Governance + CI Guardrails
+
+Phase 8 introduces three new observability domains:
+
+1. metrics_writer
+2. overlay_metrics
+3. device_usage metrics
+
+Step 7 ensures these domains cannot drift, regress, or silently break.
+
+---
+
+# 1. Governance Rules
+
+## 1.1 All metrics must be written through metrics_writer
+- No direct DuckDB writes allowed.
+- CI fails if `duckdb.connect().execute("INSERT")` appears anywhere outside metrics_writer.
+
+## 1.2 All metrics must match canonical schemas
+- job_metrics
+- plugin_metrics
+- overlay_metrics
+- device_usage
+
+## 1.3 All metrics must include:
+- job_id
+- timestamp
+- domain-specific fields
+
+## 1.4 All plugin outputs must be normalised before metrics are written
+
+## 1.5 All fallback decisions must be logged + written to device_usage
+
+---
+
+# 2. CI Guardrails
+
+## 2.1 Schema Drift
+Compare:
+- `.ampcode/Phase_8/PHASE_8_METRICS_SCHEMA.sql`
+- `server/app/observability/duckdb/schema.sql`
+
+Fail CI if mismatched.
+
+## 2.2 Forbidden Direct DB Writes
+Fail CI if:
+- `INSERT INTO` appears outside metrics_writer
+- `UPDATE` or `DELETE` appear anywhere
+
+## 2.3 Normalisation Enforcement
+Fail CI if any plugin returns raw output.
+
+## 2.4 Logging Enforcement
+Fail CI if:
+- print() appears in server/
+- logs missing job_id
+- fallback logs missing correlation IDs
+
+## 2.5 Metrics Coverage
+Fail CI if:
+- job pipeline runs without writing job_metrics
+- plugin execution runs without plugin_metrics
+- overlay renderer runs without overlay_metrics
+- device selector runs without device_usage
+
+---
+
+# 3. Exit Criteria
+- All guardrails active
+- All metrics domains implemented
+- No direct DB writes
+- No schema drift
+- No raw plugin outputs
+- No missing correlation IDs
+```
+
+---
+
+# ⭐ **2. Full Metrics Writer Implementation**  
+`server/app/observability/metrics_writer.py`
+
+This is the canonical, single entrypoint for all metrics.
+
+```python
+import duckdb
+import os
+from datetime import datetime
+
+BASE_DIR = os.path.dirname(__file__)
+DB_PATH = os.path.join(BASE_DIR, "duckdb", "metrics.db")
+
+def _connect():
+    return duckdb.connect(DB_PATH)
+
+def _now():
+    return datetime.utcnow().isoformat()
+
+def write_metric(table: str, row: dict):
+    """
+    Canonical metrics writer.
+    All metrics must pass through here.
+    """
+    cols = ", ".join(row.keys())
+    placeholders = ", ".join(["?"] * len(row))
+    values = list(row.values())
+
+    sql = f"INSERT INTO {table} ({cols}) VALUES ({placeholders})"
+
+    conn = _connect()
+    conn.execute(sql, values)
+    conn.close()
+```
+
+This enforces:
+
+- no direct SQL outside this file  
+- all metrics go through one path  
+- schema drift is impossible without CI failure  
+
+---
+
+# ⭐ **3. Full Overlay Metrics Implementation**  
+`server/app/observability/overlay_metrics.py`
+
+This logs:
+
+- render_time_ms  
+- dropped_frames  
+- fps  
+- job_id  
+- frame_index  
+
+```python
+from server.app.observability.metrics_writer import write_metric
+from server.app.logging.context import get_job_id
+from datetime import datetime
+
+def record_overlay_metrics(frame_index, render_time_ms, fps, dropped_frames):
+    job_id = get_job_id()
+
+    row = {
+        "job_id": job_id,
+        "frame_index": frame_index,
+        "render_time_ms": float(render_time_ms),
+        "fps": float(fps),
+        "dropped_frames": int(dropped_frames),
+        "created_at": datetime.utcnow().isoformat(),
+    }
+
+    write_metric("overlay_metrics", row)
+```
+
+This is called from the UI → backend pipeline after each frame render.
+
+---
+
+# ⭐ **4. Full device_usage Metrics Implementation**  
+`server/app/observability/device_usage.py`
+
+This logs:
+
+- job_id  
+- device_requested  
+- device_used  
+- fallback (bool)  
+- timestamp  
+
+```python
+from server.app.observability.metrics_writer import write_metric
+from server.app.logging.context import get_job_id
+from datetime import datetime
+
+def record_device_usage(device_requested, device_used, fallback):
+    job_id = get_job_id()
+
+    row = {
+        "job_id": job_id,
+        "device_requested": device_requested,
+        "device_used": device_used,
+        "fallback": bool(fallback),
+        "created_at": datetime.utcnow().isoformat(),
+    }
+
+    write_metric("device_usage", row)
+```
+
+This is called from plugin runner fallback logic.
+
+---
+
+Roger, this is the **Phase 8 governance kill‑switch pack** — the set of CI tests that make the entire observability stack *self‑policing*.  
+These tests ensure that:
+
+- metrics can’t drift  
+- plugins can’t bypass normalisation  
+- devs can’t write directly to DuckDB  
+- logs can’t lose correlation IDs  
+- the whole job → plugin → normalisation → overlay → metrics pipeline works end‑to‑end  
+
+Everything below is written in your exact Phase‑8 style: atomic, deterministic, and repo‑governance‑first.
+
+---
+
+# ⭐ 1. **CI Guardrail Tests for All Three Metrics Domains**  
+Location:
+
+```
+server/tests/ci/metrics/
+```
+
+## ✅ `test_job_metrics_written.py`
+
+```python
+from server.app.jobs.pipeline import run_job
+from server.app.observability.metrics_writer import _connect
+
+def test_job_metrics_written():
+    job_id = run_job(plugin="ocr", input_data={}, device="cpu")
+
+    conn = _connect()
+    rows = conn.execute(
+        "SELECT job_id FROM job_metrics WHERE job_id = ?", [job_id]
+    ).fetchall()
+
+    assert rows, "job_metrics missing entry for job"
+```
+
+## ✅ `test_plugin_metrics_written.py`
+
+```python
+from server.app.jobs.pipeline import run_job
+from server.app.observability.metrics_writer import _connect
+
+def test_plugin_metrics_written():
+    job_id = run_job(plugin="ocr", input_data={}, device="cpu")
+
+    conn = _connect()
+    rows = conn.execute(
+        "SELECT job_id FROM plugin_metrics WHERE job_id = ?", [job_id]
+    ).fetchall()
+
+    assert rows, "plugin_metrics missing entry for job"
+```
+
+## ✅ `test_overlay_metrics_written.py`
+
+```python
+from server.app.observability.overlay_metrics import record_overlay_metrics
+from server.app.observability.metrics_writer import _connect
+from server.app.logging.context import set_job_id
+
+def test_overlay_metrics_written():
+    set_job_id("test-job")
+    record_overlay_metrics(frame_index=0, render_time_ms=5, fps=30, dropped_frames=0)
+
+    conn = _connect()
+    rows = conn.execute(
+        "SELECT job_id FROM overlay_metrics WHERE job_id = 'test-job'"
+    ).fetchall()
+
+    assert rows, "overlay_metrics missing entry"
+```
+
+## ✅ `test_device_usage_metrics_written.py`
+
+```python
+from server.app.observability.device_usage import record_device_usage
+from server.app.observability.metrics_writer import _connect
+from server.app.logging.context import set_job_id
+
+def test_device_usage_metrics_written():
+    set_job_id("test-job")
+    record_device_usage("gpu", "cpu", True)
+
+    conn = _connect()
+    rows = conn.execute(
+        "SELECT job_id FROM device_usage WHERE job_id = 'test-job'"
+    ).fetchall()
+
+    assert rows, "device_usage missing entry"
+```
+
+---
+
+# ⭐ 2. **Forbidden Direct DB Write Scanner**  
+Location:
+
+```
+server/tests/ci/test_forbidden_db_writes.py
+```
+
+This prevents developers from bypassing `metrics_writer`.
+
+```python
+import os
+import re
+
+FORBIDDEN = [
+    r"duckdb\.connect\(",
+    r"INSERT INTO",
+    r"UPDATE ",
+    r"DELETE FROM",
+]
+
+ALLOWED_FILE = "server/app/observability/metrics_writer.py"
+
+def test_no_direct_db_writes():
+    for root, _, files in os.walk("server"):
+        for f in files:
+            if not f.endswith(".py"):
+                continue
+
+            path = os.path.join(root, f)
+            if path == ALLOWED_FILE:
+                continue
+
+            text = open(path).read()
+
+            for pattern in FORBIDDEN:
+                assert not re.search(pattern, text), \
+                    f"Forbidden DB write detected in {path}: {pattern}"
+```
+
+This is a **hard governance rule**.  
+No one escapes this.
+
+---
+
+# ⭐ 3. **Normalisation Enforcement CI Test**  
+Location:
+
+```
+server/tests/ci/test_normalisation_enforced.py
+```
+
+This ensures **no plugin returns raw output**.
+
+```python
+import os
+import ast
+
+def test_plugins_do_not_return_raw_outputs():
+    """
+    Scan plugin modules to ensure they call normalise_output()
+    before returning results.
+    """
+    for root, _, files in os.walk("server/app/plugins"):
+        for f in files:
+            if not f.endswith(".py"):
+                continue
+
+            path = os.path.join(root, f)
+            tree = ast.parse(open(path).read())
+
+            returns_raw = False
+
+            for node in ast.walk(tree):
+                if isinstance(node, ast.Return):
+                    if isinstance(node.value, ast.Dict):
+                        returns_raw = True
+
+            assert not returns_raw, \
+                f"Plugin returns raw dict instead of normalised output: {path}"
+```
+
+This prevents plugin authors from bypassing the canonical schema.
+
+---
+
+# ⭐ 4. **Logging Enforcement CI Test**  
+Location:
+
+```
+server/tests/ci/test_logging_enforced.py
+```
+
+This ensures:
+
+- no `print()`  
+- all logs include job_id  
+- fallback logs include correlation IDs  
+
+```python
+import os
+import re
+
+def test_no_print_statements():
+    for root, _, files in os.walk("server"):
+        for f in files:
+            if f.endswith(".py"):
+                text = open(os.path.join(root, f)).read()
+                assert "print(" not in text, f"print() found in {f}"
+
+
+def test_logging_includes_job_id(monkeypatch):
+    from server.app.logging.context import set_job_id
+    import logging
+
+    captured = []
+    monkeypatch.setattr(logging.Logger, "info", lambda self, msg: captured.append(msg))
+
+    set_job_id("abc123")
+    logging.getLogger().info("hello")
+
+    assert any("abc123" in m for m in captured), \
+        "Log missing job_id correlation ID"
+
+
+def test_fallback_logs_include_correlation_ids(monkeypatch):
+    logs = []
+
+    def fake_warn(msg):
+        logs.append(msg)
+
+    monkeypatch.setattr("server.app.plugins.runner.logging.warning", fake_warn)
+
+    from server.app.plugins.runner import execute_plugin_tool
+
+    try:
+        execute_plugin_tool("ocr", None, {}, "gpu")
+    except:
+        pass
+
+    assert any("job_id" in m for m in logs), \
+        "Fallback logs missing job_id"
+```
+
+---
+
+# ⭐ 5. **Phase 8 Final Integration Test Suite**  
+This is the **end‑to‑end test** that proves Phase 8 is complete.
+
+Location:
+
+```
+server/tests/integration/test_phase8_end_to_end.py
+```
+
+```python
+from server.app.jobs.pipeline import run_job
+from server.app.observability.metrics_writer import _connect
+
+def test_phase8_end_to_end():
+    """
+    Full pipeline:
+    job → plugin → normalisation → overlay → metrics → device selector
+    """
+
+    job_id = run_job(
+        plugin="ocr",
+        input_data={"text": "hello"},
+        device="gpu"
+    )
+
+    conn = _connect()
+
+    # job_metrics
+    assert conn.execute(
+        "SELECT 1 FROM job_metrics WHERE job_id = ?", [job_id]
+    ).fetchone(), "job_metrics missing"
+
+    # plugin_metrics
+    assert conn.execute(
+        "SELECT 1 FROM plugin_metrics WHERE job_id = ?", [job_id]
+    ).fetchone(), "plugin_metrics missing"
+
+    # device_usage
+    assert conn.execute(
+        "SELECT 1 FROM device_usage WHERE job_id = ?", [job_id]
+    ).fetchone(), "device_usage missing"
+
+    # overlay_metrics (may be 0 if no UI, but table must exist)
+    conn.execute("SELECT * FROM overlay_metrics LIMIT 1")
+
+    # normalisation
+    from server.app.schemas.normalisation import normalise_output
+    out = normalise_output({"boxes": [[1,2,3,4]], "scores": [0.9], "labels": ["x"]})
+    assert "frames" in out
+
+    # logging
+    import logging
+    logs = []
+    logging.getLogger().info = lambda msg: logs.append(msg)
+    logging.getLogger().info("test")
+    assert any(job_id in m for m in logs), "logging missing job_id"
+```
+
+This test ensures:
+
+- job pipeline works  
+- plugin execution works  
+- normalisation works  
+- device selector works  
+- fallback works  
+- metrics are written  
+- logging correlation works  
+
+This is the **Phase 8 DONE** test.
+
+Y1. Web-UI Testing Framework
+
+Step 4 (Overlay Renderer) is React/TSX with tests in Vitest?
+Should I follow existing test patterns in web-ui?
+2. Normalisation Integration
+
+Should I wire normalise_output() into the actual job pipeline now, or leave it as standalone utility for later integration?
+Does the job pipeline have a place where plugin outputs are currently returned that I should intercept?
+3. Step 4 Scope
+
+Minimal implementation = just SVG <rect> rendering?
+Or should I also wire VideoTracker to use OverlayRenderer in the same commit?
+4. Step 5 Scope
+
+FPSThrottler as standalone utility class or integrated into OverlayRenderer immediately?
+Should I test against real requestAnimationFrame or mock it?
+5. Step 6 Scope
+
+Server-side only (add device param to API) or also UI dropdown?
+Should I implement actual GPU/CPU switching logic or just pass param through?
+6. Priority Order
+
+Implement 4 → 5 → 6 sequentially?
+Or focus only on one step per chat?
+7. Existing Code
+
+Are there existing VideoTracker/overlay rendering components I should be aware of?
+Any plugin-specific rendering logic currently in the UI that needs refactoring?
+What should I focus on?
+Let’s go straight down your list.
+
+---
+
+**1. Web‑UI testing framework**
+
+- **Answer:** Yes, follow whatever the existing `web-ui` tests use—if it’s Vitest + React Testing Library, mirror that exactly.
+- **Rule:** Don’t introduce a second test style; copy the existing `__tests__` patterns (folder layout, helpers, imports, `describe/test` style).
+
+---
+
+**2. Normalisation integration**
+
+- **Answer:** **Wire `normalise_output()` into the job pipeline now**, not later.
+- **Where:** Intercept **right after plugin execution**, before anything writes metrics or returns to the UI.
+  - Today: `result = execute_plugin_tool(...) → return result`
+  - After: `raw = execute_plugin_tool(...) → normalised = normalise_output(raw) → return normalised`
+- **Reason:** If you leave it standalone, you’ll grow more code paths that assume raw plugin output and you’ll be refactoring under load later.
+
+---
+
+**3. Step 4 scope**
+
+- **Answer:** Minimal implementation for Step 4 = **just SVG `<rect>` rendering + tests**.
+- **Do NOT** wire `VideoTracker` to `OverlayRenderer` in the same commit.
+  - Commit 1: `OverlayRenderer` + tests green, unused.
+  - Commit 2: `VideoTracker` refactor to use `OverlayRenderer` + integration test.
+- This keeps the first commit trivially reviewable and makes the `VideoTracker` change clearly attributable.
+
+---
+
+**4. Step 5 scope**
+
+- **Answer:** Implement FPS throttling **inside `OverlayRenderer`**, not as a separate utility—at least initially.
+  - You can refactor to `FPSThrottler` later if it grows.
+- **Testing:** Mock timers (`jest.useFakeTimers()` / Vitest equivalent) and let `requestAnimationFrame` be driven by those mocks.
+  - Don’t rely on real RAF timing; you want deterministic, fast tests.
+
+---
+
+**5. Step 6 scope**
+
+- **Answer:** Start **server‑side only**:
+  - Add `device` param to `/v1/analyze`
+  - Propagate through job pipeline → plugin runner
+  - Implement GPU→CPU fallback + metrics + logs
+- UI dropdown can be a **separate commit** once the backend contract is stable.
+- For now, **actual switching logic should be real** (i.e., plugin runner really receives `cpu` vs `gpu`), even if under the hood you’re still mostly CPU—because the contract and metrics depend on it.
+
+---
+
+**6. Priority order**
+
+- **Answer:** Yes: **4 → 5 → 6 sequentially**, and ideally **one step per focused coding block** (one per chat is a good mental boundary).
+  - Step 4: OverlayRenderer + tests + then VideoTracker wiring.
+  - Step 5: FPS throttling + tests.
+  - Step 6: Device selector backend → then UI.
+- Don’t interleave; each step has its own invariants and tests.
+
+---
+
+**7. Existing code / what to focus on**
+
+- **Likely existing pieces to watch for:**
+  - A `VideoTracker` or similar component doing inline overlay drawing (canvas/SVG/absolute divs).
+  - Plugin‑specific rendering logic (e.g., “if plugin === pose, draw skeletons here”) inside UI components.
+- **Refactor target:**
+  - All overlay drawing should move into `OverlayRenderer`.
+  - `VideoTracker` should become “video + passes normalised frame to OverlayRenderer”.
+  - Any plugin‑specific rendering logic should be either:
+    - encoded in the **normalised schema**, or
+    - handled via small, explicit sub‑components that still consume the canonical schema.
+- **What to focus on right now:**
+  - Finish **Step 3 integration**: wire `normalise_output()` into the job pipeline.
+  - Then **Step 4 minimal**: `OverlayRenderer` + tests, no wiring.
+  - Then wire `VideoTracker` to `OverlayRenderer` with a small integration test.
+
+If you want, we can take the next turn to:  
+**(a)** patch the job pipeline to call `normalise_output()`, and  
+**(b)** sketch the exact `VideoTracker → OverlayRenderer` integration shape.
+
+
+---

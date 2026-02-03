@@ -20,6 +20,7 @@ from .exceptions import PluginExecutionError
 from .models import JobStatus
 from .plugin_loader import PluginRegistry
 from .protocols import JobStore as JobStoreProtocol
+from .schemas.normalisation import normalise_output
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -382,11 +383,27 @@ class TaskProcessor:
             result_dict = (
                 result.model_dump() if hasattr(result, "model_dump") else result
             )
+
+            # Normalise plugin output to canonical schema
+            try:
+                normalised_result = normalise_output(result_dict)
+            except ValueError as e:
+                logger.warning(
+                    "Plugin output normalisation failed",
+                    extra={"job_id": job_id, "plugin": plugin_name, "error": str(e)},
+                )
+                # For now, continue with raw result if normalisation fails
+                # (This allows graceful degradation during rollout)
+                normalised_result = result_dict
+
             await self.job_store.update(
                 job_id,
                 {
                     "status": JobStatus.DONE,
-                    "result": {**result_dict, "processing_time_ms": processing_time_ms},
+                    "result": {
+                        **normalised_result,
+                        "processing_time_ms": processing_time_ms,
+                    },
                     "completed_at": datetime.utcnow(),
                     "progress": 1.0,
                 },
