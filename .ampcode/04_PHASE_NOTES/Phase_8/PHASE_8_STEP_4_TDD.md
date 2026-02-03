@@ -107,6 +107,8 @@ export const OverlayRenderer: React.FC<OverlayRendererProps> = ({
 
 ### 3. REFACTOR — Add Features Incrementally
 
+**Implementation Note:** Labels + toggles were added in a single REFACTOR commit instead of incremental commits. Tests still cover each feature independently (9 tests total, see `OverlayRenderer.test.tsx`). This batching decision maintained test isolation while reducing commit overhead.
+
 **Additional tests:**
 
 #### Test: Renders labels
