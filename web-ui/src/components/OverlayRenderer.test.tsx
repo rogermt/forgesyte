@@ -95,4 +95,57 @@ describe('OverlayRenderer', () => {
     const rects = container.querySelectorAll('rect');
     expect(rects.length).toBe(0);
   });
+
+  it('renders labels with scores', () => {
+    const { container } = render(
+      <OverlayRenderer data={normalised} width={640} height={480} />
+    );
+
+    const texts = container.querySelectorAll('text');
+    expect(texts.length).toBeGreaterThan(0);
+
+    const labelText = texts[0].textContent;
+    expect(labelText).toContain('player');
+    expect(labelText).toContain('95%');
+  });
+
+  it('hides boxes when showBoxes is false', () => {
+    const { container } = render(
+      <OverlayRenderer
+        data={normalised}
+        width={640}
+        height={480}
+        showBoxes={false}
+      />
+    );
+
+    const rects = container.querySelectorAll('rect');
+    expect(rects.length).toBe(0);
+  });
+
+  it('hides labels when showLabels is false', () => {
+    const { container } = render(
+      <OverlayRenderer
+        data={normalised}
+        width={640}
+        height={480}
+        showLabels={false}
+      />
+    );
+
+    const texts = container.querySelectorAll('text');
+    expect(texts.length).toBe(0);
+  });
+
+  it('shows both boxes and labels by default', () => {
+    const { container } = render(
+      <OverlayRenderer data={normalised} width={640} height={480} />
+    );
+
+    const rects = container.querySelectorAll('rect');
+    const texts = container.querySelectorAll('text');
+
+    expect(rects.length).toBeGreaterThan(0);
+    expect(texts.length).toBeGreaterThan(0);
+  });
 });

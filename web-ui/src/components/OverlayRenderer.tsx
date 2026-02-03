@@ -18,6 +18,8 @@ interface OverlayRendererProps {
   data: { frames: NormalisedFrame[] };
   width: number;
   height: number;
+  showBoxes?: boolean;
+  showLabels?: boolean;
 }
 
 /**
@@ -37,6 +39,8 @@ export const OverlayRenderer: React.FC<OverlayRendererProps> = ({
   data,
   width,
   height,
+  showBoxes = true,
+  showLabels = true,
 }) => {
   // Use first frame (single-frame support for now)
   const frame = data.frames[0];
@@ -56,18 +60,40 @@ export const OverlayRenderer: React.FC<OverlayRendererProps> = ({
         pointerEvents: 'none',
       }}
     >
-      {frame.boxes.map((box, i) => (
-        <rect
-          key={i}
-          x={box.x1}
-          y={box.y1}
-          width={box.x2 - box.x1}
-          height={box.y2 - box.y1}
-          fill="none"
-          stroke="blue"
-          strokeWidth="2"
-        />
-      ))}
+      {/* Render bounding boxes */}
+      {showBoxes &&
+        frame.boxes.map((box, i) => (
+          <rect
+            key={`box-${i}`}
+            x={box.x1}
+            y={box.y1}
+            width={box.x2 - box.x1}
+            height={box.y2 - box.y1}
+            fill="none"
+            stroke="blue"
+            strokeWidth="2"
+          />
+        ))}
+
+      {/* Render labels */}
+      {showLabels &&
+        frame.labels.map((label, i) => {
+          const box = frame.boxes[i];
+          if (!box) return null;
+
+          return (
+            <text
+              key={`label-${i}`}
+              x={box.x1}
+              y={Math.max(box.y1 - 4, 12)}
+              fill="blue"
+              fontSize="12"
+              fontFamily="monospace"
+            >
+              {`${label} ${(frame.scores[i] * 100).toFixed(0)}%`}
+            </text>
+          );
+        })}
     </svg>
   );
 };
