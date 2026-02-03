@@ -2069,3 +2069,229 @@ If you want, we can take the next turn to:
 
 
 ---
+
+
+
+Perfect — you’ve kept Phase 8 clean, atomic, and traceable, so we can annotate the Step 4 deviation and move forward without any architectural debt.
+
+Below is the **annotation**, then the **recommended next move**, and then the **exact boundary between Step 4 → Step 5** so you stay perfectly aligned with the Phase 8 spec.
+
+---
+
+# ✅ **Annotation for Step 4 (to place in Phase_8 notes)**
+
+Add this to:
+
+```
+.ampcode/04_PHASE_NOTES/Phase_8/PHASE_8_STEP_4_TDD.md
+```
+
+**Annotation:**
+
+> **Deviation:** During REFACTOR, labels + toggles were added in a single commit instead of incremental commits (labels → toggles → track IDs).  
+> **Impact:** None. All features are covered by isolated tests. OverlayRenderer remains minimal and plugin‑agnostic.  
+> **Decision:** No backtracking required. Continue with Step 5.
+
+This keeps the governance trail clean.
+
+---
+
+# ⭐ What you should do next
+
+You gave three options:
+
+1. Start Step 5 (FPS throttling)  
+2. Start Step 6 (device selector)  
+3. Prepare the Step 4 → Step 5 integration boundary  
+
+The correct next move is:
+
+# 👉 **Prepare the Step 4 → Step 5 integration boundary**  
+**before** starting Step 5.
+
+Why?
+
+Because Step 5 depends on Step 4 being *stable* and *isolated*.
+
+You want:
+
+- OverlayRenderer minimal + tested  
+- OverlayRenderer **not yet wired** into VideoTracker  
+- No FPS logic inside OverlayRenderer yet  
+- No performance metrics yet  
+- No device selector yet  
+
+This gives you a clean seam to introduce FPS throttling without mixing concerns.
+
+---
+
+# ⭐ Step 4 → Step 5 Integration Boundary (the exact seam)
+
+This is the boundary you want to establish **right now**:
+
+### **1. OverlayRenderer is a pure renderer**
+- Takes `frame`
+- Renders boxes, labels, toggles
+- No timing logic
+- No animation loop
+- No RAF
+- No FPS limit
+- No metrics
+
+### **2. VideoTracker is the orchestrator**
+- Owns the animation loop
+- Owns frame progression
+- Owns timing
+- Owns FPS throttling (Step 5)
+- Owns calling OverlayRenderer with the current frame
+
+### **3. OverlayRenderer must NOT know about FPS**
+This is critical.
+
+OverlayRenderer should remain:
+
+```
+function OverlayRenderer({ frame, showBoxes, showLabels, showPitch }) { ... }
+```
+
+No:
+
+- `fpsLimit`
+- `renderTick`
+- `requestAnimationFrame`
+- `performance.now()`
+
+### **4. Step 5 will introduce FPSThrottler inside VideoTracker**
+Not inside OverlayRenderer.
+
+### **5. Step 5 tests will target VideoTracker, not OverlayRenderer**
+This is the cleanest architecture.
+
+---
+
+# ⭐ What to do right now (the next commit)
+
+Create:
+
+```
+web-ui/src/components/VideoTracker.tsx
+```
+
+with a **minimal shell**:
+
+```tsx
+export default function VideoTracker({ frames }) {
+  // Step 4: no FPS logic yet
+  const frame = frames[0] // placeholder
+
+  return (
+    <OverlayRenderer frame={frame} />
+  )
+}
+```
+
+And a test:
+
+```
+test_video_tracker_renders_overlay.tsx
+```
+
+```tsx
+import { render } from "@testing-library/react"
+import VideoTracker from "../../VideoTracker"
+
+test("VideoTracker renders OverlayRenderer", () => {
+  const frames = [
+    {
+      frame_index: 0,
+      boxes: [{ x1: 10, y1: 20, x2: 30, y2: 40 }],
+      scores: [0.9],
+      labels: ["player"]
+    }
+  ]
+
+  const { container } = render(<VideoTracker frames={frames} />)
+
+  expect(container.querySelector("[data-testid='bbox-0']")).not.toBeNull()
+})
+```
+
+This gives you:
+
+- Step 4 complete  
+- Step 4 → Step 5 seam established  
+- A stable place to insert FPS throttling  
+- A stable place to insert overlay metrics  
+- A stable place to insert device selector UI later  
+
+---
+
+# ⭐ After this boundary is set:
+
+## Step 5 (FPS throttling)
+- Add FPSThrottler inside VideoTracker
+- Add RAF loop
+- Add frame skipping
+- Add render_time_ms metrics
+- Add FPS tests
+
+## Step 6 (device selector)
+- Add UI dropdown
+- Add API param
+- Add pipeline propagation
+- Add fallback metrics
+- Add fallback logs
+
+---
+
+# ⭐ Summary (short and crisp)
+
+- **Annotation:** Add deviation note to Step 4 TDD doc.  
+- **Next action:** Establish the Step 4 → Step 5 boundary by creating a minimal VideoTracker that calls OverlayRenderer.  
+- **Then:** Implement Step 5 FPS throttling inside VideoTracker (not OverlayRenderer).  
+- **Then:** Implement Step 6 device selector.
+
+---
+
+
+---
+
+## 🟢 STEP 6 PROGRESS (Current)
+
+### Created Files
+- `PHASE_8_STEP_6_TDD.md` - Complete TDD spec for device selector
+- `app/services/device_selector.py` - Device utility functions (validate, resolve, GPU detection)
+- `tests/api/test_device_selector.py` - API layer tests (5 tests, all GREEN)
+- `tests/services/test_device_selection.py` - Device service tests (7 tests, all GREEN)
+
+### API Endpoint
+- `/v1/analyze?device=cpu|gpu` accepts device parameter
+- Default: `cpu`
+- Validation: rejects invalid values with 400
+- Case-insensitive: GPU/Gpu/gpu all work
+
+### Job Pipeline
+- Device stored in job context: `device_requested`
+- Propagated through: API → Service → TaskProcessor → Job
+
+### Green Tests (12 total)
+- test_analyze_accepts_device_cpu_param ✅
+- test_analyze_accepts_device_gpu_param ✅
+- test_analyze_rejects_invalid_device_param ✅
+- test_analyze_defaults_device_to_cpu_if_not_provided ✅
+- test_analyze_device_case_insensitive ✅
+- test_cpu_device_always_available ✅
+- test_gpu_fallback_when_unavailable ✅
+- test_gpu_used_when_available ✅
+- test_validate_device_accepts_cpu ✅
+- test_validate_device_accepts_gpu ✅
+- test_validate_device_accepts_case_insensitive ✅
+- test_validate_device_rejects_invalid ✅
+
+### Next: REFACTOR Phase
+- Add observability logging (device_usage table)
+- Add fallback metrics
+- Test job completion with device info
+- Format & lint all code
+- Run full test suite
+

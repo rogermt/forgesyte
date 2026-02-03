@@ -258,6 +258,7 @@ class TaskProcessor:
         image_bytes: bytes,
         plugin_name: str,
         options: Optional[dict[str, Any]] = None,
+        device: str = "cpu",
         callback: Optional[Callable[[dict[str, Any]], Any]] = None,
     ) -> str:
         """Submit a new image analysis job.
@@ -269,6 +270,7 @@ class TaskProcessor:
             image_bytes: Raw image data (PNG, JPEG, etc.)
             plugin_name: Name of the analysis plugin to use
             options: Plugin-specific analysis options (optional)
+            device: Device preference ("cpu" or "gpu", default "cpu")
             callback: Callable invoked when job completes (optional)
 
         Returns:
@@ -296,6 +298,7 @@ class TaskProcessor:
             "created_at": datetime.utcnow(),
             "completed_at": None,
             "plugin": plugin_name,
+            "device_requested": device.lower(),
             "progress": 0.0,
         }
         await self.job_store.create(job_id, job_data)
@@ -305,7 +308,7 @@ class TaskProcessor:
 
         # Dispatch background task without blocking
         asyncio.create_task(
-            self._process_job(job_id, image_bytes, plugin_name, options or {})
+            self._process_job(job_id, image_bytes, plugin_name, options or {}, device)
         )
 
         logger.info(
@@ -313,6 +316,7 @@ class TaskProcessor:
             extra={
                 "job_id": job_id,
                 "plugin": plugin_name,
+                "device_requested": device.lower(),
                 "has_callback": callback is not None,
             },
         )
@@ -324,6 +328,7 @@ class TaskProcessor:
         image_bytes: bytes,
         plugin_name: str,
         options: dict[str, Any],
+        device: str = "cpu",
     ) -> None:
         """Process a job asynchronously.
 
@@ -335,6 +340,7 @@ class TaskProcessor:
             image_bytes: Raw image data to analyze
             plugin_name: Name of the plugin to run
             options: Plugin-specific options
+            device: Device preference ("cpu" or "gpu")
 
         Returns:
             None
@@ -348,7 +354,7 @@ class TaskProcessor:
 
         logger.debug(
             "Job processing started",
-            extra={"job_id": job_id, "plugin": plugin_name},
+            extra={"job_id": job_id, "plugin": plugin_name, "device_requested": device},
         )
 
         # Get plugin

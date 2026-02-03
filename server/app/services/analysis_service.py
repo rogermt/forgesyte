@@ -72,6 +72,7 @@ class AnalysisService:
         body_bytes: Optional[bytes],
         plugin: str,
         options: Dict[str, Any],
+        device: str = "cpu",
     ) -> Dict[str, Any]:
         """Process an image analysis request from multiple possible sources.
 
@@ -79,7 +80,7 @@ class AnalysisService:
         1. Determine image source (file, URL, or base64 body)
         2. Acquire image bytes using appropriate method
         3. Validate options JSON
-        4. Submit job to task processor
+        4. Submit job to task processor with device preference
         5. Return job tracking information
 
         Args:
@@ -88,6 +89,7 @@ class AnalysisService:
             body_bytes: Raw request body containing base64 image (optional)
             plugin: Name of plugin to execute
             options: Dict of plugin-specific options (already parsed)
+            device: Device preference ("cpu" or "gpu", default "cpu")
 
         Returns:
             Dictionary with:
@@ -95,6 +97,7 @@ class AnalysisService:
                 - status: Job status (queued, processing, completed, error)
                 - plugin: Plugin name used
                 - image_size: Size of image in bytes
+                - device_requested: Requested device ("cpu" or "gpu")
 
         Raises:
             ValueError: If no valid image source provided
@@ -111,7 +114,10 @@ class AnalysisService:
         # 2. Submit job to task processor
         try:
             job_id = await self.processor.submit_job(
-                image_bytes=image_bytes, plugin_name=plugin, options=options
+                image_bytes=image_bytes,
+                plugin_name=plugin,
+                options=options,
+                device=device,
             )
 
             logger.info(
@@ -120,6 +126,7 @@ class AnalysisService:
                     "job_id": job_id,
                     "plugin": plugin,
                     "image_size": len(image_bytes),
+                    "device_requested": device,
                 },
             )
 
@@ -128,12 +135,17 @@ class AnalysisService:
                 "status": "queued",
                 "plugin": plugin,
                 "image_size": len(image_bytes),
+                "device_requested": device,
             }
 
         except Exception:
             logger.exception(
                 "Failed to submit analysis job",
-                extra={"plugin": plugin, "image_size": len(image_bytes)},
+                extra={
+                    "plugin": plugin,
+                    "image_size": len(image_bytes),
+                    "device_requested": device,
+                },
             )
             raise
 
