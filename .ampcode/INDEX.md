@@ -1,4 +1,7 @@
-# ForgeSyte – .ampcode Index (Phase 7 Complete, Phase 8 Ready)
+# ForgeSyte – .ampcode Index (Phase 7 Complete, Phase 8 In Progress)
+
+**Note:** This directory contains **governance documentation only** — no executable code or scripts.
+All implementation code lives in `/server` and `/web-ui`.
 
 ## 01_SPEC
 - PHASE_5_8_SPEC_LOCKED.md
@@ -14,6 +17,9 @@
 - MIGRATION_PLAN.md
 - COMMIT_PLAN.md
 - MASTER_CHECKLIST_LOCKED.md
+- Phase_8/
+  - PHASE_8_PLANS.md
+  - PHASE_8_CONTEXT_CHECKPOINT.md
 
 ## 04_PHASE_NOTES
 - Phase_6A.md
@@ -35,6 +41,15 @@
   - TIER_1_ACCEPTANCE_VERIFICATION.md
   - TIER_2_ANALYSIS.md ✅ (Tier 2-4 N/A)
 - Phase_8/ 🚀 IN PROGRESS
+  - PHASE_8_README.md
+  - PHASE_8_KICKOFF.md
+  - PHASE_8_NOTES_01.md
+  - PHASE_8_NOTES_02.md (DuckDB + structured logging deep dive)
+  - PHASE_8_NOTES_03.md
+  - PHASE_8_METRICS_SCHEMA.sql (governance spec — canonical schema definition)
+  - PHASE_8_ACCEPTANCE_CHECKLIST.md
+  - PHASE_8_ESCALATION_TEMPLATE.md
+  - PHASE_8_TO_PHASE_9.md (transition plan)
 
 ## 05_REFERENCES
 - REACT_REFERENCES_NEEDED.md
@@ -61,4 +76,8 @@ Every file is intentional, canonical, and version-controlled.
 **Phase Status:**
 - ✅ Phase 6: Complete (Web-UI stabilized, job pipeline fixed)
 - ✅ Phase 7: Complete (CSS Modules migrated Tier 1, Tiers 2-4 N/A)
-- 🚀 Phase 8: In progress (Metrics, logging, buffering, UI overlays)
+- 🚀 Phase 8: In progress
+  - ✅ Step 1: DuckDB schema foundation + load_schema.py + schema drift CI guardrail
+  - ✅ Step 2: Structured logging unit tests (context.py, filters.py, capture.py)
+  - 📝 Step 2 (cont.): Integration tests + job pipeline wiring
+  - 📋 Steps 3-6: Normalisation, overlay renderer, FPS controls, device selector, governance
