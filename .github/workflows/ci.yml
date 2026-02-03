@@ -237,28 +237,21 @@ jobs:
           echo "Checking skipped tests..."
           INVALID=0
 
-          # Get skipped tests fresh from grep (avoid quote escaping issues)
-          SKIPPED=$(git grep -n "it.skip\|describe.skip\|test.skip" -- web-ui/src || true)
+          # Find all skipped tests
+          SKIPPED=$(grep -RIn "it.skip\|describe.skip\|test.skip" web-ui/src || true)
 
-          if [ -z "$SKIPPED" ]; then
-            echo "✓ No skipped tests found"
-            exit 0
-          fi
-
-          # Process line by line
-          echo "$SKIPPED" | while IFS= read -r line; do
-            [ -z "$line" ] && continue
+          while IFS= read -r line; do
             FILE=$(echo "$line" | cut -d: -f1)
-            LINENUM=$(echo "$line" | cut -d: -f2)
+            LINE=$(echo "$line" | cut -d: -f2)
 
-            # Check next line for APPROVED comment
-            NEXT=$(sed -n "$((LINENUM+1))p" "$FILE")
+            # Read the next line from the file
+            NEXT=$(sed -n "$((LINE+1))p" "$FILE")
 
             if ! echo "$NEXT" | grep -q "APPROVED"; then
-              echo "::error file=$FILE,line=$LINENUM::Skipped test missing APPROVED comment"
+              echo "::error file=$FILE,line=$LINE::Skipped test missing APPROVED comment"
               INVALID=1
             fi
-          done
+          done <<< "$SKIPPED"
 
           if [ "$INVALID" -eq 1 ]; then
             exit 1
