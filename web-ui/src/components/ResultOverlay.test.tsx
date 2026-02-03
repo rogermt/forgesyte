@@ -340,7 +340,7 @@ describe("ResultOverlay", () => {
   });
 
   it.skip("loads and draws annotated frame when provided", async () => {
-    // Skipped: Image loading behavior is hard to mock in jsdom
+    // APPROVED: Skipped intentionally. Image loading behavior is hard to mock in jsdom
     // This test requires a real browser environment or integration test
   });
 

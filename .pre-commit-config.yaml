@@ -28,6 +28,39 @@ repos:
         pass_filenames: false
         stages: [commit]
 
+      - id: validate-skipped-tests
+        name: Validate skipped tests have APPROVED comments
+        entry: bash
+        args:
+          - -c
+          - |
+            echo "Checking skipped tests..."
+            INVALID=0
+
+            # Find all skipped tests
+            SKIPPED=$(grep -RIn "it.skip\|describe.skip\|test.skip" web-ui/src || true)
+
+            while IFS= read -r line; do
+              [ -z "$line" ] && continue
+              FILE=$(echo "$line" | cut -d: -f1)
+              LINE=$(echo "$line" | cut -d: -f2)
+
+              # Read the next line from the file
+              NEXT=$(sed -n "$((LINE+1))p" "$FILE")
+
+              if ! echo "$NEXT" | grep -q "APPROVED"; then
+                echo "::error file=$FILE,line=$LINE::Skipped test missing APPROVED comment"
+                INVALID=1
+              fi
+            done <<< "$SKIPPED"
+
+            if [ "$INVALID" -eq 1 ]; then
+              exit 1
+            fi
+        language: system
+        pass_filenames: false
+        stages: [commit]
+
       - id: prevent-test-changes-without-justification
         name: Prevent test changes without TEST-CHANGE justification
         entry: bash
