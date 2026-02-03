@@ -4,8 +4,6 @@ Compares .ampcode governance spec against actual runtime schema.
 Fails if drift detected (prevents accidental schema changes).
 """
 
-import duckdb
-import tempfile
 import sys
 from pathlib import Path
 
@@ -29,9 +27,25 @@ def test_schema_drift() -> bool:
     Returns:
         True if schemas match, False if drift detected.
     """
-    # Paths
-    governance_spec = Path(__file__).parent.parent.parent / ".ampcode" / "04_PHASE_NOTES" / "Phase_8" / "PHASE_8_METRICS_SCHEMA.sql"
-    runtime_spec = Path(__file__).parent.parent.parent / "server" / "app" / "observability" / "duckdb" / "schema.sql"
+    # Paths - resolve from project root
+    script_dir = Path(__file__).resolve()
+    project_root = script_dir.parent.parent.parent
+    
+    governance_spec = (
+        project_root
+        / ".ampcode"
+        / "04_PHASE_NOTES"
+        / "Phase_8"
+        / "PHASE_8_METRICS_SCHEMA.sql"
+    )
+    runtime_spec = (
+        project_root
+        / "server"
+        / "app"
+        / "observability"
+        / "duckdb"
+        / "schema.sql"
+    )
 
     # Verify both files exist
     if not governance_spec.exists():

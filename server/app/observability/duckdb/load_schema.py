@@ -4,8 +4,9 @@ Idempotent schema initialization for Phase 8 metrics database.
 Safe for tests + startup.
 """
 
-import duckdb
 from pathlib import Path
+
+import duckdb
 
 
 def load_schema(db_path: str, schema_path: str) -> None:
