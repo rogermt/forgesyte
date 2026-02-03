@@ -12,46 +12,47 @@ This file tracks **which components have been migrated** to CSS Modules and in w
 
 ## Tier 1 – Leaf Components
 
-- [ ] Button
-- [ ] IconButton
-- [ ] Tag / Badge
-- [ ] Spinner / Loader
-- [ ] Card
-- [ ] Panel
-- [ ] SectionTitle
-- [ ] FormField / Input / Select
+**Status:** ✅ COMPLETE — Only 2 components in codebase use className (both migrated)
+
+- [x] RecordButton (migrated Feb 3, 2026)
+- [x] OverlayToggles (migrated Feb 3, 2026)
+
+**Note:** Other theoretical leaf components (Button, IconButton, Badge, etc.) do not exist in current codebase. Only RecordButton and OverlayToggles use CSS classNames.
 
 ---
 
-## Tier 2 – Mid‑Level Layout Components
+## Tier 2 – Mid-Level Layout Components
 
-- [ ] Header
-- [ ] Sidebar
-- [ ] Navigation / NavLinks
-- [ ] MainLayout / Shell
-- [ ] Toolbar
-- [ ] StatusBar / Footer
-- [ ] Modal / Dialog
+**Status:** Awaiting Tier 1 approval before starting
 
----
-
-## Tier 3 – Page‑Level Components
-
-- [ ] DashboardPage
-- [ ] UploadPage
-- [ ] ResultsPage
-- [ ] SettingsPage
-- [ ] JobsList / HistoryView
+Actual components in codebase:
+- [ ] PluginSelector
+- [ ] ToolSelector
+- [ ] CameraPreview
+- [ ] ConfidenceSlider
+- [ ] ConfigPanel
 
 ---
 
-## Tier 4 – Critical Components
+## Tier 3 – Major Layout Components
 
-- [ ] VideoTracker
-- [ ] VideoControls
-- [ ] Timeline / Scrubber
-- [ ] Overlays (players, ball, pitch, radar)
-- [ ] Any component directly consuming job results
+**Status:** Awaiting Tier 1-2 approval
+
+Actual components in codebase:
+- [ ] ResultsPanel
+- [ ] JobList
+- [ ] ResultOverlay
+
+---
+
+## Tier 4 – Critical Video/Rendering Components
+
+**Status:** Awaiting Tier 1-3 approval (highest risk tier)
+
+Actual components in codebase:
+- [ ] VideoTracker (complex, video stream integration)
+- [ ] BoundingBoxOverlay (canvas-based rendering)
+- [ ] RadarView (canvas-based rendering)
 
 ---
 
