@@ -1,4 +1,5 @@
 import React, { useState, useRef } from 'react';
+import styles from './RecordButton.module.css';
 
 export interface RecordButtonProps {
   canvas: HTMLCanvasElement | null;
@@ -93,7 +94,7 @@ export const RecordButton: React.FC<RecordButtonProps> = ({
       }
       disabled={disabled || !canvas || !videoElement}
       data-testid="record-button"
-      className={isRecording ? 'recording' : ''}
+      className={isRecording ? styles.recording : ''}
     >
       {isRecording ? 'Stop Recording' : 'Start Recording'}
     </button>

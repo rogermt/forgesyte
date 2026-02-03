@@ -1,4 +1,5 @@
 import React from 'react';
+import styles from './OverlayToggles.module.css';
 
 export interface VisibleLayers {
   players: boolean;
@@ -26,8 +27,8 @@ export const OverlayToggles: React.FC<OverlayTogglesProps> = ({
   };
 
   return (
-    <div className="overlay-toggles">
-      <label>
+    <div className={styles.container}>
+      <label className={styles.label}>
         <input
           type="checkbox"
           checked={visibleLayers.players}
@@ -37,7 +38,7 @@ export const OverlayToggles: React.FC<OverlayTogglesProps> = ({
         />
         Players
       </label>
-      <label>
+      <label className={styles.label}>
         <input
           type="checkbox"
           checked={visibleLayers.ball}
@@ -47,7 +48,7 @@ export const OverlayToggles: React.FC<OverlayTogglesProps> = ({
         />
         Ball
       </label>
-      <label>
+      <label className={styles.label}>
         <input
           type="checkbox"
           checked={visibleLayers.pitch}
@@ -57,7 +58,7 @@ export const OverlayToggles: React.FC<OverlayTogglesProps> = ({
         />
         Pitch
       </label>
-      <label>
+      <label className={styles.label}>
         <input
           type="checkbox"
           checked={visibleLayers.radar}
