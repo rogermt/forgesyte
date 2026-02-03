@@ -209,6 +209,58 @@ jobs:
           fi
 
   # ---------------------------------------------------------
+  # Skipped Test Policy (Phase 7)
+  # ---------------------------------------------------------
+  skipped-test-policy:
+    name: Phase 7 Skipped Test Policy
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'pull_request' }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Detect skipped tests
+        id: skipped
+        run: |
+          SKIPPED=$(git grep -n "it.skip" -- web-ui/src || true)
+          echo "skipped=$SKIPPED" >> $GITHUB_OUTPUT
+
+      - name: Detect .only usage
+        id: only
+        run: |
+          ONLY=$(git grep -n "\.only" -- web-ui/src || true)
+          echo "only=$ONLY" >> $GITHUB_OUTPUT
+
+      - name: Validate skipped tests
+        if: ${{ steps.skipped.outputs.skipped != '' }}
+        run: |
+          echo "Checking skipped tests..."
+          INVALID=0
+
+          while IFS= read -r line; do
+            FILE=$(echo "$line" | cut -d: -f1)
+            LINE=$(echo "$line" | cut -d: -f2)
+
+            # Check next line for APPROVED comment
+            NEXT=$(sed -n "$((LINE+1))p" "$FILE")
+
+            if ! echo "$NEXT" | grep -q "APPROVED"; then
+              echo "::error file=$FILE,line=$LINE::Skipped test missing APPROVED comment"
+              INVALID=1
+            fi
+          done <<< "${{ steps.skipped.outputs.skipped }}"
+
+          if [ "$INVALID" -eq 1 ]; then
+            exit 1
+          fi
+
+      - name: Block .only usage
+        if: ${{ steps.only.outputs.only != '' }}
+        run: |
+          echo "::error::.only detected — forbidden in Phase 7"
+          exit 1
+
+  # ---------------------------------------------------------
   # Full Server Health (runtime: plugins, analyze, jobs, websocket)
   # ---------------------------------------------------------
   server-health:

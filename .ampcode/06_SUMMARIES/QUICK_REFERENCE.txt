@@ -1,0 +1,194 @@
+╔═════════════════════════════════════════════════════════════════════════════╗
+║            ISSUE #146: JOB PIPELINE CLEANUP MIGRATION PACK                  ║
+║                     QUICK REFERENCE GUIDE                                   ║
+╚═════════════════════════════════════════════════════════════════════════════╝
+
+STATUS: ✋ AWAITING APPROVAL (pre-implementation)
+BRANCH: refactor/web-ui-job-pipeline-cleanup
+GITHUB: https://github.com/rogermt/forgesyte/issues/146
+LOCATION: /home/rogermt/forgesyte/.ampcode/
+
+═════════════════════════════════════════════════════════════════════════════
+
+WHAT GETS DELETED:
+  ❌ web-ui/src/components/ToolSelector.tsx
+  ❌ web-ui/src/utils/detectToolType.ts
+  ❌ web-ui/src/api/toolRunner.ts
+
+WHAT GETS ADDED:
+  ✅ web-ui/src/components/JobStatusIndicator.tsx
+  ✅ web-ui/src/components/JobError.tsx
+
+WHAT GETS UPDATED:
+  ⚙️  web-ui/src/components/UploadPanel.tsx
+  ⚙️  web-ui/src/components/ResultsPanel.tsx
+  ⚙️  web-ui/src/components/VideoTracker.tsx (if exists)
+  ⚙️  web-ui/src/pages/AnalyzePage.tsx (if uses ToolSelector)
+
+═════════════════════════════════════════════════════════════════════════════
+
+EXECUTION FLOW BEFORE (OLD):
+
+  User selects plugin
+          ↓
+  ToolSelector → selectedPluginId
+          ↓
+  User uploads file
+          ↓
+  runTool(toolId, file)  ❌ SYNCHRONOUS, BLOCKS UI
+          ↓
+  POST /v1/tools/{id}/run
+          ↓
+  (immediate result)
+          ↓
+  ResultsPanel + detectToolType branching
+          ├─ OCR branch
+          ├─ YOLO branch
+          └─ etc...
+
+═════════════════════════════════════════════════════════════════════════════
+
+EXECUTION FLOW AFTER (NEW):
+
+  Plugin dropdown (via apiClient.listPlugins())
+          ↓
+  User uploads file
+          ↓
+  apiClient.analyzeImage(file, pluginId)  ✅ NON-BLOCKING
+          ↓
+  POST /v1/analyze (returns job_id immediately)
+          ↓
+  apiClient.pollJob(job_id)
+          ↓
+  GET /v1/jobs/{id} (polls until done)
+          ↓
+  Job State Machine: queued → running → done → error
+          ↓
+  [JobStatusIndicator] shows current state
+  [ResultsPanel] renders job.result (generic, no branching)
+  [JobError] shows errors if any
+
+═════════════════════════════════════════════════════════════════════════════
+
+BEFORE YOU START (APPROVAL REQUIRED):
+
+Read and answer these questions:
+
+1. Plugin Selection
+   ☐ A) Dropdown with apiClient.listPlugins()
+   ☐ B) Keep minimal PluginSelector component
+   ☐ C) Other: _________
+
+2. Result Rendering
+   ☐ A) Generic JSON display
+   ☐ B) Simple card layout
+   ☐ C) Keep plugin-specific renderers
+   ☐ D) Other: _________
+
+3. Video Overlay
+   ☐ A) Inside VideoTracker
+   ☐ B) Separate component
+   ☐ C) Not implemented yet (TODO)
+   ☐ D) Other: _________
+
+4. Error Retry Button
+   ☐ A) Re-process same file/frame
+   ☐ B) Clear error, wait for new upload
+   ☐ C) Optional (callback pattern)
+   ☐ D) Other: _________
+
+5. Testing Framework
+   ☐ A) Vitest + React Testing Library (current)
+   ☐ B) Jest + Enzyme
+   ☐ C) Other: _________
+
+APPROVED BY: _______________________
+DATE: _______________________________
+
+═════════════════════════════════════════════════════════════════════════════
+
+DOCUMENTS IN THIS PACK:
+
+  📄 README.md
+     └─ Overview, approval checklist, next steps
+
+  📄 WEB-UI_ISSUE_146.md
+     └─ Main plan, exact diffs, full component code
+
+  📄 ARCHITECTURE_BEFORE_AFTER.md
+     └─ Visual diagrams, detailed comparison, testing strategy
+
+  📄 MIGRATION_PLAN.md
+     └─ Step-by-step execution phases, test patterns
+
+  📄 IMPLEMENTATION_CHECKLIST.md
+     └─ Task-by-task checklist, troubleshooting guide
+     └─ USE THIS DURING CODING!
+
+  🔧 migrate_to_job_pipeline.sh
+     └─ Bash script to find old code references
+     └─ RUN: ./.ampcode/migrate_to_job_pipeline.sh
+
+═════════════════════════════════════════════════════════════════════════════
+
+TIMELINE:
+
+  Phase 1: Preparation              15 min
+  Phase 2: Delete 3 files           10 min
+  Phase 3: Create 2 components      20 min
+  Phase 4: Update 3-4 components    30 min
+  Phase 5: Tests & verification     15 min
+  Phase 6: Commit & push             5 min
+  Phase 7: Create PR                 3 min
+  ────────────────────────────────────────
+  TOTAL:                           ~2.5 hours
+
+═════════════════════════════════════════════════════════════════════════════
+
+GETTING STARTED:
+
+  1. Read README.md (this directory)
+  2. Read WEB-UI_ISSUE_146.md (full plan)
+  3. Answer approval questions above
+  4. Get sign-off
+  5. Use IMPLEMENTATION_CHECKLIST.md during coding
+  6. Run migrate_to_job_pipeline.sh to verify
+
+═════════════════════════════════════════════════════════════════════════════
+
+SUCCESS CRITERIA (After implementation):
+
+  ✅ No runTool() in codebase
+  ✅ No ToolSelector imports
+  ✅ No detectToolType usage
+  ✅ JobStatusIndicator component exists and used
+  ✅ JobError component exists and used
+  ✅ UploadPanel uses new job pipeline
+  ✅ ResultsPanel generic (no branching)
+  ✅ VideoTracker uses job pipeline
+  ✅ All tests passing
+  ✅ Type-check clean
+  ✅ Lint clean
+  ✅ PR created and linked to #146
+
+═════════════════════════════════════════════════════════════════════════════
+
+QUESTIONS? Check:
+
+  • Plans don't match your codebase?
+    → Answer approval questions, request changes
+
+  • Stuck during implementation?
+    → Use IMPLEMENTATION_CHECKLIST.md Troubleshooting section
+
+  • Need to find old code?
+    → Run: ./.ampcode/migrate_to_job_pipeline.sh
+
+  • Need exact code to copy?
+    → See WEB-UI_ISSUE_146.md section 2-4
+
+═════════════════════════════════════════════════════════════════════════════
+
+Last updated: Feb 1, 2026
+Issue: #146
+Branch: refactor/web-ui-job-pipeline-cleanup
