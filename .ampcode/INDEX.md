@@ -46,7 +46,12 @@ All implementation code lives in `/server` and `/web-ui`.
   - PHASE_8_NOTES_01.md
   - PHASE_8_NOTES_02.md (DuckDB + structured logging deep dive)
   - PHASE_8_NOTES_03.md
+  - PHASE_8_NOTES_04.md (Steps 4-6 TDD overview)
   - PHASE_8_METRICS_SCHEMA.sql (governance spec — canonical schema definition)
+  - PHASE_8_NORMALISATION_SCHEMA.md (canonical output schema)
+  - PHASE_8_STEP_4_TDD.md (Overlay Renderer — Web UI)
+  - PHASE_8_STEP_5_TDD.md (FPS Throttling + Performance)
+  - PHASE_8_STEP_6_TDD.md (Device Selector)
   - PHASE_8_ACCEPTANCE_CHECKLIST.md
   - PHASE_8_ESCALATION_TEMPLATE.md
   - PHASE_8_TO_PHASE_9.md (transition plan)
@@ -78,6 +83,9 @@ Every file is intentional, canonical, and version-controlled.
 - ✅ Phase 7: Complete (CSS Modules migrated Tier 1, Tiers 2-4 N/A)
 - 🚀 Phase 8: In progress
   - ✅ Step 1: DuckDB schema foundation + load_schema.py + schema drift CI guardrail
-  - ✅ Step 2: Structured logging unit tests (context.py, filters.py, capture.py)
-  - 📝 Step 2 (cont.): Integration tests + job pipeline wiring
-  - 📋 Steps 3-6: Normalisation, overlay renderer, FPS controls, device selector, governance
+  - ✅ Step 2: Structured logging unit tests (context.py, filters.py, capture.py) + LogCapture
+  - ✅ Step 3: Canonical normalisation layer + 12 validation tests + governance spec
+  - 📋 Step 4: Overlay Renderer (Web UI) — TDD spec ready, implementation pending
+  - 📋 Step 5: FPS Throttling + Performance metrics — TDD spec ready
+  - 📋 Step 6: Device Selector (CPU/GPU) — TDD spec ready
+  - 📋 Governance: CI guardrails, Phase 8 closure PR
