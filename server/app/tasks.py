@@ -20,6 +20,7 @@ from .exceptions import PluginExecutionError
 from .models import JobStatus
 from .plugin_loader import PluginRegistry
 from .protocols import JobStore as JobStoreProtocol
+from .schemas.normalisation import normalise_output
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -235,6 +236,7 @@ class TaskProcessor:
         plugin_manager: PluginRegistry,
         job_store: JobStoreProtocol,
         max_workers: int = 4,
+        device_tracker=None,
     ):
         """Initialize task processor.
 
@@ -242,6 +244,7 @@ class TaskProcessor:
             plugin_manager: PluginRegistry implementation for plugin access
             job_store: JobStore implementation for job persistence
             max_workers: Number of threads in executor pool (default 4)
+            device_tracker: Optional DeviceTracker for logging device usage
 
         Raises:
             None
@@ -250,6 +253,7 @@ class TaskProcessor:
         self.job_store = job_store
         self._executor = ThreadPoolExecutor(max_workers=max_workers)
         self._callbacks: dict[str, Callable[[dict[str, Any]], Any]] = {}
+        self.device_tracker = device_tracker
         logger.debug("TaskProcessor initialized", extra={"max_workers": max_workers})
 
     async def submit_job(
@@ -257,6 +261,7 @@ class TaskProcessor:
         image_bytes: bytes,
         plugin_name: str,
         options: Optional[dict[str, Any]] = None,
+        device: str = "cpu",
         callback: Optional[Callable[[dict[str, Any]], Any]] = None,
     ) -> str:
         """Submit a new image analysis job.
@@ -268,6 +273,7 @@ class TaskProcessor:
             image_bytes: Raw image data (PNG, JPEG, etc.)
             plugin_name: Name of the analysis plugin to use
             options: Plugin-specific analysis options (optional)
+            device: Device preference ("cpu" or "gpu", default "cpu")
             callback: Callable invoked when job completes (optional)
 
         Returns:
@@ -295,6 +301,7 @@ class TaskProcessor:
             "created_at": datetime.utcnow(),
             "completed_at": None,
             "plugin": plugin_name,
+            "device_requested": device.lower(),
             "progress": 0.0,
         }
         await self.job_store.create(job_id, job_data)
@@ -304,7 +311,7 @@ class TaskProcessor:
 
         # Dispatch background task without blocking
         asyncio.create_task(
-            self._process_job(job_id, image_bytes, plugin_name, options or {})
+            self._process_job(job_id, image_bytes, plugin_name, options or {}, device)
         )
 
         logger.info(
@@ -312,6 +319,7 @@ class TaskProcessor:
             extra={
                 "job_id": job_id,
                 "plugin": plugin_name,
+                "device_requested": device.lower(),
                 "has_callback": callback is not None,
             },
         )
@@ -323,6 +331,7 @@ class TaskProcessor:
         image_bytes: bytes,
         plugin_name: str,
         options: dict[str, Any],
+        device: str = "cpu",
     ) -> None:
         """Process a job asynchronously.
 
@@ -334,6 +343,7 @@ class TaskProcessor:
             image_bytes: Raw image data to analyze
             plugin_name: Name of the plugin to run
             options: Plugin-specific options
+            device: Device preference ("cpu" or "gpu")
 
         Returns:
             None
@@ -347,7 +357,7 @@ class TaskProcessor:
 
         logger.debug(
             "Job processing started",
-            extra={"job_id": job_id, "plugin": plugin_name},
+            extra={"job_id": job_id, "plugin": plugin_name, "device_requested": device},
         )
 
         # Get plugin
@@ -382,21 +392,62 @@ class TaskProcessor:
             result_dict = (
                 result.model_dump() if hasattr(result, "model_dump") else result
             )
+
+            # Normalise plugin output to canonical schema
+            try:
+                normalised_result = normalise_output(result_dict)
+            except ValueError as e:
+                logger.warning(
+                    "Plugin output normalisation failed",
+                    extra={"job_id": job_id, "plugin": plugin_name, "error": str(e)},
+                )
+                # For now, continue with raw result if normalisation fails
+                # (This allows graceful degradation during rollout)
+                normalised_result = result_dict
+
+            # For now, device_used = device_requested (no actual fallback logic yet)
+            # In future, plugin execution will determine actual device used
+            job_data = await self.job_store.get(job_id)
+            device_requested = (
+                job_data.get("device_requested", "cpu") if job_data else "cpu"
+            )
+            device_used = device_requested  # Placeholder for now
+
             await self.job_store.update(
                 job_id,
                 {
                     "status": JobStatus.DONE,
-                    "result": {**result_dict, "processing_time_ms": processing_time_ms},
+                    "result": {
+                        **normalised_result,
+                        "processing_time_ms": processing_time_ms,
+                    },
                     "completed_at": datetime.utcnow(),
                     "progress": 1.0,
+                    "device_used": device_used,
                 },
             )
+
+            # Log device usage to observability table
+            if self.device_tracker:
+                try:
+                    await self.device_tracker.log_device_usage(
+                        job_id=job_id,
+                        device_requested=device_requested,
+                        device_used=device_used,
+                    )
+                except Exception as e:
+                    logger.warning(
+                        "Device usage logging failed (continuing)",
+                        extra={"job_id": job_id, "error": str(e)},
+                    )
 
             logger.info(
                 "Job completed successfully",
                 extra={
                     "job_id": job_id,
                     "processing_time_ms": processing_time_ms,
+                    "device_requested": device_requested,
+                    "device_used": device_used,
                 },
             )
 

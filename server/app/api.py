@@ -44,6 +44,7 @@ from .models import (
     PluginToolRunResponse,
 )
 from .services.analysis_service import AnalysisService
+from .services.device_selector import validate_device
 from .services.job_management_service import JobManagementService
 from .services.plugin_management_service import PluginManagementService
 
@@ -118,6 +119,7 @@ async def analyze_image(
     plugin: str = Query(..., description="Vision plugin identifier"),
     image_url: Optional[str] = Query(None, description="URL of image to analyze"),
     options: Optional[str] = Query(None, description="JSON string of plugin options"),
+    device: str = Query("cpu", description="Device to use: 'cpu' or 'gpu'"),
     auth: Dict[str, Any] = Depends(require_auth(["analyze"])),
     service: AnalysisService = Depends(get_analysis_service),
 ) -> Dict[str, Any]:
@@ -132,16 +134,18 @@ async def analyze_image(
                 Defaults to "ocr".
         image_url: Optional HTTP(S) URL to fetch image from.
         options: Optional JSON string with plugin-specific configuration.
+        device: Device to use ("cpu" or "gpu", default "cpu").
         auth: Authentication credentials (required, "analyze" permission).
         service: Injected AnalysisService for orchestration.
 
     Returns:
-        Dictionary containing job_id, status, and plugin name.
+        Dictionary containing job_id, status, plugin name, and device info.
 
     Raises:
         HTTPException: 400 Bad Request if options JSON is invalid.
         HTTPException: 400 Bad Request if image URL fetch fails.
         HTTPException: 400 Bad Request if image data is invalid.
+        HTTPException: 400 Bad Request if device parameter is invalid.
         HTTPException: 500 Internal Server Error if unexpected failure occurs.
     """
     try:
@@ -150,6 +154,13 @@ async def analyze_image(
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Plugin name is required",
+            )
+
+        # Validate device parameter
+        if not validate_device(device):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid device: '{device}'. Must be 'cpu' or 'gpu'.",
             )
 
         # Read uploaded file if provided
@@ -177,6 +188,7 @@ async def analyze_image(
             body_bytes=await request.body() if not file else None,
             plugin=plugin,
             options=parsed_options,
+            device=device.lower(),
         )
 
         logger.info(

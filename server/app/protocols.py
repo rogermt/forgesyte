@@ -289,7 +289,11 @@ class TaskProcessor(Protocol):
     """
 
     async def submit_job(
-        self, image_bytes: bytes, plugin_name: str, options: Dict[str, Any]
+        self,
+        image_bytes: bytes,
+        plugin_name: str,
+        options: Dict[str, Any],
+        device: str = "cpu",
     ) -> str:
         """Submit an analysis job.
 
@@ -297,6 +301,7 @@ class TaskProcessor(Protocol):
             image_bytes: Raw image bytes to analyze
             plugin_name: Plugin to use for analysis
             options: Plugin-specific options
+            device: Device preference ("cpu" or "gpu", default "cpu")
 
         Returns:
             Job ID for tracking
