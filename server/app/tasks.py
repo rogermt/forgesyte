@@ -236,6 +236,7 @@ class TaskProcessor:
         plugin_manager: PluginRegistry,
         job_store: JobStoreProtocol,
         max_workers: int = 4,
+        device_tracker=None,
     ):
         """Initialize task processor.
 
@@ -243,6 +244,7 @@ class TaskProcessor:
             plugin_manager: PluginRegistry implementation for plugin access
             job_store: JobStore implementation for job persistence
             max_workers: Number of threads in executor pool (default 4)
+            device_tracker: Optional DeviceTracker for logging device usage
 
         Raises:
             None
@@ -251,6 +253,7 @@ class TaskProcessor:
         self.job_store = job_store
         self._executor = ThreadPoolExecutor(max_workers=max_workers)
         self._callbacks: dict[str, Callable[[dict[str, Any]], Any]] = {}
+        self.device_tracker = device_tracker
         logger.debug("TaskProcessor initialized", extra={"max_workers": max_workers})
 
     async def submit_job(
@@ -402,6 +405,14 @@ class TaskProcessor:
                 # (This allows graceful degradation during rollout)
                 normalised_result = result_dict
 
+            # For now, device_used = device_requested (no actual fallback logic yet)
+            # In future, plugin execution will determine actual device used
+            job_data = await self.job_store.get(job_id)
+            device_requested = (
+                job_data.get("device_requested", "cpu") if job_data else "cpu"
+            )
+            device_used = device_requested  # Placeholder for now
+
             await self.job_store.update(
                 job_id,
                 {
@@ -412,14 +423,31 @@ class TaskProcessor:
                     },
                     "completed_at": datetime.utcnow(),
                     "progress": 1.0,
+                    "device_used": device_used,
                 },
             )
+
+            # Log device usage to observability table
+            if self.device_tracker:
+                try:
+                    await self.device_tracker.log_device_usage(
+                        job_id=job_id,
+                        device_requested=device_requested,
+                        device_used=device_used,
+                    )
+                except Exception as e:
+                    logger.warning(
+                        "Device usage logging failed (continuing)",
+                        extra={"job_id": job_id, "error": str(e)},
+                    )
 
             logger.info(
                 "Job completed successfully",
                 extra={
                     "job_id": job_id,
                     "processing_time_ms": processing_time_ms,
+                    "device_requested": device_requested,
+                    "device_used": device_used,
                 },
             )
 
