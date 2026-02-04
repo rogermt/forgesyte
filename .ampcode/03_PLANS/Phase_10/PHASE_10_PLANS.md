@@ -114,15 +114,15 @@ These streams organize implementation but are NOT authoritative:
 
 # 5. 🟩 AUTHORITATIVE: First 5 Commits (From PHASE_10_FIRST_5_COMMITS.md)
 
-## Commit 1 - Create Phase 10 Scaffolding
+Commit 1 - Create Phase 10 Scaffolding
 
 Directories:
 ```
 server/app/realtime/
 server/app/plugins/inspector/
-server/tests/phase10/
+server/tests/realtime/
 web-ui/src/realtime/
-web-ui/tests/phase10/
+web-ui/tests/realtime/
 web-ui/src/components/
 web-ui/src/stories/
 ```
@@ -133,11 +133,11 @@ Placeholder files with `__init__.py` and TODO comments.
 
 Files:
 ```
-server/tests/phase10/test_realtime_endpoint.py
-server/tests/phase10/test_job_progress_field.py
-server/tests/phase10/test_plugin_timing_field.py
-server/tests/phase10/test_connection_manager.py
-server/tests/phase10/test_inspector_service.py
+server/tests/realtime/test_realtime_endpoint.py
+server/tests/realtime/test_job_progress_field.py
+server/tests/realtime/test_plugin_timing_field.py
+server/tests/realtime/test_connection_manager.py
+server/tests/realtime/test_inspector_service.py
 ```
 
 All tests MUST FAIL (RED).
@@ -146,11 +146,11 @@ All tests MUST FAIL (RED).
 
 Files:
 ```
-web-ui/tests/phase10/realtime_endpoint.spec.ts
-web-ui/tests/phase10/progress_bar.spec.ts
-web-ui/tests/phase10/plugin_inspector.spec.ts
-web-ui/tests/phase10/realtime_client.spec.ts
-web-ui/tests/phase10/realtime_context.spec.ts
+web-ui/tests/realtime/realtime_endpoint.spec.ts
+web-ui/tests/realtime/progress_bar.spec.ts
+web-ui/tests/realtime/plugin_inspector.spec.ts
+web-ui/tests/realtime/realtime_client.spec.ts
+web-ui/tests/realtime/realtime_context.spec.ts
 ```
 
 All tests MUST FAIL (RED).
