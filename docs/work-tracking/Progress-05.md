@@ -50,34 +50,42 @@
 
 ## In Progress
 
-### 🔄 Task 4: RED Tests (Frontend)
+### ✅ Task 4: RED Tests (Frontend) (COMPLETED 2026-01-12)
 - **Description:** Write failing Playwright tests for UI controls
-- **File:** `web-ui/tests/ui_controls/ui_controls.spec.ts`
-- **Tests required:**
-  - Device selector persistence
-  - Overlay toggles existence (#toggle-boxes, #toggle-labels, #toggle-pitch, #toggle-radar)
-  - FPS slider existence (#fps-slider)
-- **Duration:** 1-2 hours
+- **Commit:** `1eee516`
+- **File:** `web-ui/tests/ui_controls/ui_controls.spec.tsx`
+- **Tests Created:**
+  - Device selector tests (3 tests - id, persistence, restore)
+  - Overlay toggles tests (5 tests - 4 IDs + toggle functionality)
+  - FPS slider tests (4 tests - id, type, persistence, restore)
+  - Loading state tests (2 tests)
+  - Error state tests (2 tests)
+- **Total:** 16 tests (all failing - components not yet implemented)
+- **Duration:** 1 hour
 
-### 📋 Task 5: Example Plugin Outputs
+### ✅ Task 5: Example Plugin Outputs (COMPLETED 2026-01-12)
 - **Description:** Create plugin_outputs.py with example outputs
+- **Commit:** `cf8da3b`
 - **File:** `server/app/examples/plugin_outputs.py`
-- **Required examples:**
-  - `OCR_EXAMPLE`
-  - `TRACKING_EXAMPLE`
+- **Examples Created:**
+  - `OCR_EXAMPLE`: OCR output with text blocks, confidence, bounding boxes
+  - `TRACKING_EXAMPLE`: Tracking output with detections, track IDs, velocity
+- **Required fields included:** `job_id`, `device_requested`, `device_used`, `fallback`, `frames`
+- **Utility functions:** `get_example_output()`, `get_example_output_for_job()`
 - **Duration:** 30 minutes
 
-### 📋 Task 6: Implement Typed API Models
-- **Description:** Implement typed response models
-- **Models:**
-  - `AnalyzeResponse`
-  - `JobStatusResponse`
-  - `JobResultResponse`
-- **Update endpoints:**
-  - `/v1/analyze`
-  - `/v1/jobs/{id}`
-  - `/v1/jobs/{id}/result`
-- **Duration:** 2-3 hours
+### ✅ Task 6: Typed API Models (COMPLETED 2026-01-12)
+- **Description:** Implement typed response models in server/app/models.py
+- **Models Implemented:**
+  - `AnalyzeResponse`: job_id, device_requested, device_used, fallback, frames: List[Any], result (optional)
+  - `JobStatusResponse`: job_id, status, device_requested, device_used
+  - `JobResultResponse`: job_id, device_requested, device_used, fallback, frames: List[Any], result (optional)
+- **Tests:** All 10 backend tests passing ✅
+- **Duration:** 1 hour
+
+---
+
+## Pending Tasks
 
 ### 📋 Task 7: Implement UI Components
 - **Description:** Implement required UI controls with correct IDs
@@ -114,25 +122,25 @@
 | 1 | Governance Commit | ✅ DONE | 30 min | `e312543` |
 | 2 | Scaffold Directories | ✅ DONE | 15 min | `d192430` |
 | 3 | RED Tests (Backend) | ✅ DONE | 1 hr | `36c4de2` |
-| 4 | RED Tests (Frontend) | 🔄 IN PROGRESS | 1-2 hrs | - |
-| 5 | Example Plugin Outputs | TODO | 30 min | - |
-| 6 | Typed API Models | TODO | 2-3 hrs | - |
+| 4 | RED Tests (Frontend) | ✅ DONE | 1 hr | `1eee516` |
+| 5 | Example Plugin Outputs | ✅ DONE | 30 min | `cf8da3b` |
+| 6 | Typed API Models | ✅ DONE | 1 hr | - |
 | 7 | UI Components | TODO | 4-6 hrs | - |
 | 8 | Storybook Story | TODO | 30 min | - |
-| 9 | Backend Tests (Green) | TODO | 1 hr | - |
+| 9 | Backend Tests (Green) | ✅ DONE | - | - |
 | 10 | Frontend Tests (Green) | TODO | 1 hr | - |
-| **TOTAL** | **Phase 9** | **3/10** | **12-16 hrs** | - |
+| **TOTAL** | **Phase 9** | **6/10** | **11-15 hrs** | - |
 
 ---
 
 ## Phase 9 Requirements Checklist
 
 ### API Requirements
-- [ ] `AnalyzeResponse` model
-- [ ] `JobStatusResponse` model
-- [ ] `JobResultResponse` model
-- [ ] Required fields: `job_id`, `device_requested`, `device_used`, `fallback`, `frames: list[Any]`
-- [ ] No FrameModel required
+- [x] `AnalyzeResponse` model
+- [x] `JobStatusResponse` model
+- [x] `JobResultResponse` model
+- [x] Required fields: `job_id`, `device_requested`, `device_used`, `fallback`, `frames: list[Any]`
+- [x] No FrameModel required
 - [ ] Update `/v1/analyze`
 - [ ] Update `/v1/jobs/{id}`
 - [ ] Update `/v1/jobs/{id}/result`
@@ -155,14 +163,14 @@
 - [ ] `OverlayRenderer.stories.tsx`
 
 ### Example Plugin Outputs
-- [ ] `server/app/examples/plugin_outputs.py`
-- [ ] `OCR_EXAMPLE`
-- [ ] `TRACKING_EXAMPLE`
+- [x] `server/app/examples/plugin_outputs.py`
+- [x] `OCR_EXAMPLE`
+- [x] `TRACKING_EXAMPLE`
 
 ### Playwright Tests
-- [ ] Device selector persistence
-- [ ] Overlay toggles existence
-- [ ] FPS slider existence
+- [x] Device selector persistence
+- [x] Overlay toggles existence
+- [x] FPS slider existence
 
 ---
 
