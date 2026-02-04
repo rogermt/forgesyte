@@ -34,21 +34,23 @@
   - `web-ui/src/stories/` - For Storybook stories
 - **Duration:** 15 minutes
 
+### ✅ Task 3: RED Tests (Backend) (COMPLETED 2026-01-12)
+- **Description:** Write failing tests for typed API responses
+- **Commit:** `36c4de2`
+- **File:** `server/tests/api_typed_responses/test_api_typed_responses.py`
+- **Tests Created:**
+  - TestAnalyzeResponse (3 tests)
+  - TestJobStatusResponse (2 tests)
+  - TestJobResultResponse (2 tests)
+  - TestDeviceFields (3 tests)
+- **Total:** 10 tests (all failing - models not yet implemented)
+- **Duration:** 1 hour
+
 ---
 
 ## In Progress
 
-### 🔄 Task 3: RED Tests (Backend)
-- **Description:** Write failing tests for typed API responses
-- **File:** `server/tests/api_typed_responses/test_api_typed_responses.py`
-- **Models to test:**
-  - `AnalyzeResponse`
-  - `JobStatusResponse`
-  - `JobResultResponse`
-- **Required fields:** `job_id`, `device_requested`, `device_used`, `fallback`, `frames: list[Any]`
-- **Duration:** 1-2 hours
-
-### 📋 Task 4: RED Tests (Frontend)
+### 🔄 Task 4: RED Tests (Frontend)
 - **Description:** Write failing Playwright tests for UI controls
 - **File:** `web-ui/tests/ui_controls/ui_controls.spec.ts`
 - **Tests required:**
@@ -111,15 +113,15 @@
 |------|------|--------|----------|--------|
 | 1 | Governance Commit | ✅ DONE | 30 min | `e312543` |
 | 2 | Scaffold Directories | ✅ DONE | 15 min | `d192430` |
-| 3 | RED Tests (Backend) | 🔄 IN PROGRESS | 1-2 hrs | - |
-| 4 | RED Tests (Frontend) | TODO | 1-2 hrs | - |
+| 3 | RED Tests (Backend) | ✅ DONE | 1 hr | `36c4de2` |
+| 4 | RED Tests (Frontend) | 🔄 IN PROGRESS | 1-2 hrs | - |
 | 5 | Example Plugin Outputs | TODO | 30 min | - |
 | 6 | Typed API Models | TODO | 2-3 hrs | - |
 | 7 | UI Components | TODO | 4-6 hrs | - |
 | 8 | Storybook Story | TODO | 30 min | - |
 | 9 | Backend Tests (Green) | TODO | 1 hr | - |
 | 10 | Frontend Tests (Green) | TODO | 1 hr | - |
-| **TOTAL** | **Phase 9** | **2/10** | **12-16 hrs** | - |
+| **TOTAL** | **Phase 9** | **3/10** | **12-16 hrs** | - |
 
 ---
 
@@ -182,6 +184,6 @@
 ---
 
 **Last Updated:** 2026-01-12  
-**Next Task:** Task 3 - RED Tests (Backend)  
+**Next Task:** Task 4 - RED Tests (Frontend)  
 **Estimated Completion:** 12-16 hours total
 
