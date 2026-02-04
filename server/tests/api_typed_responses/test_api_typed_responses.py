@@ -13,7 +13,9 @@ class TestAnalyzeResponse:
     """Tests for AnalyzeResponse model."""
 
     def test_analyze_response_has_required_fields(self):
-        """AnalyzeResponse must have job_id, device_requested, device_used, fallback, frames."""
+        """AnalyzeResponse must have job_id, device_requested, device_used,
+        fallback, frames.
+        """
         from app.models import AnalyzeResponse
 
         response = AnalyzeResponse(
