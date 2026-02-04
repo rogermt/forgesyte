@@ -88,6 +88,7 @@ class TestJobIdFilter:
         result = filter_obj.filter(record)
 
         assert result is True
+        assert hasattr(record, "job_id")
         assert record.job_id == "job-abc"  # type: ignore[attr-defined]
 
         clear_job_id()
@@ -113,6 +114,7 @@ class TestJobIdFilter:
         result = filter_obj.filter(record)
 
         assert result is True
+        assert hasattr(record, "job_id")
         assert record.job_id == "-"  # type: ignore[attr-defined]
 
     def test_filter_multiple_records(self) -> None:
