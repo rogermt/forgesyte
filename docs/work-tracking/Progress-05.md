@@ -74,14 +74,18 @@
 - **Utility functions:** `get_example_output()`, `get_example_output_for_job()`
 - **Duration:** 30 minutes
 
-### ✅ Task 6: Typed API Models (COMPLETED 2026-01-12)
-- **Description:** Implement typed response models in server/app/models.py
+### ✅ Task 6: Typed API Models & Endpoints (COMPLETED 2026-01-12)
+- **Description:** Implement typed response models and update API endpoints
 - **Models Implemented:**
   - `AnalyzeResponse`: job_id, device_requested, device_used, fallback, frames: List[Any], result (optional)
   - `JobStatusResponse`: job_id, status, device_requested, device_used
   - `JobResultResponse`: job_id, device_requested, device_used, fallback, frames: List[Any], result (optional)
-- **Tests:** All 10 backend tests passing ✅
-- **Duration:** 1 hour
+- **Endpoint Updates:**
+  - `/v1/analyze` → returns `AnalyzeResponse`
+  - `/v1/jobs/{id}` → returns `JobStatusResponse` (was `JobResponse`)
+  - `/v1/jobs/{id}/result` → new endpoint returns `JobResultResponse`
+- **Tests:** All 82 backend tests passing ✅
+- **Duration:** 2 hours
 
 ---
 
@@ -124,12 +128,12 @@
 | 3 | RED Tests (Backend) | ✅ DONE | 1 hr | `36c4de2` |
 | 4 | RED Tests (Frontend) | ✅ DONE | 1 hr | `1eee516` |
 | 5 | Example Plugin Outputs | ✅ DONE | 30 min | `cf8da3b` |
-| 6 | Typed API Models | ✅ DONE | 1 hr | - |
+| 6 | Typed API Models & Endpoints | ✅ DONE | 2 hrs | `8e3113f` |
 | 7 | UI Components | TODO | 4-6 hrs | - |
 | 8 | Storybook Story | TODO | 30 min | - |
 | 9 | Backend Tests (Green) | ✅ DONE | - | - |
 | 10 | Frontend Tests (Green) | TODO | 1 hr | - |
-| **TOTAL** | **Phase 9** | **6/10** | **11-15 hrs** | - |
+| **TOTAL** | **Phase 9** | **6/10** | **12-16 hrs** | - |
 
 ---
 
@@ -141,9 +145,9 @@
 - [x] `JobResultResponse` model
 - [x] Required fields: `job_id`, `device_requested`, `device_used`, `fallback`, `frames: list[Any]`
 - [x] No FrameModel required
-- [ ] Update `/v1/analyze`
-- [ ] Update `/v1/jobs/{id}`
-- [ ] Update `/v1/jobs/{id}/result`
+- [x] Update `/v1/analyze`
+- [x] Update `/v1/jobs/{id}`
+- [x] Update `/v1/jobs/{id}/result`
 
 ### UI Requirements
 - [ ] `#device-selector` ID
