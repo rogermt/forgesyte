@@ -24,25 +24,21 @@
   - `.ampcode/04_PHASE_NOTES/Phase_10/PHASE_10_KICKOFF.md`
   - `.ampcode/04_PHASE_NOTES/Phase_10/PHASE_9_TO_PHASE_10_DEPENDENCY_MAP.md`
 
----
-
-## In Progress
-
-### 🔄 Task 2: Scaffold Directories (NEXT)
+### ✅ Task 2: Scaffold Directories (COMPLETED 2026-01-12)
 - **Description:** Create required directory structure for Phase 9
-- **Required directories:**
-  - `server/tests/api_typed_responses/`
-  - `server/app/examples/`
-  - `web-ui/tests/ui_controls/`
-  - `web-ui/src/stories/`
-- **Status:** Ready to start
+- **Commit:** `d192430`
+- **Directories Created:**
+  - `server/tests/api_typed_responses/` - For typed API response tests
+  - `server/app/examples/` - For plugin output examples
+  - `web-ui/tests/ui_controls/` - For Playwright UI tests
+  - `web-ui/src/stories/` - For Storybook stories
 - **Duration:** 15 minutes
 
 ---
 
-## Pending Tasks
+## In Progress
 
-### 📋 Task 3: RED Tests (Backend)
+### 🔄 Task 3: RED Tests (Backend)
 - **Description:** Write failing tests for typed API responses
 - **File:** `server/tests/api_typed_responses/test_api_typed_responses.py`
 - **Models to test:**
@@ -114,8 +110,8 @@
 | Task | Name | Status | Duration | Commit |
 |------|------|--------|----------|--------|
 | 1 | Governance Commit | ✅ DONE | 30 min | `e312543` |
-| 2 | Scaffold Directories | 📋 READY | 15 min | - |
-| 3 | RED Tests (Backend) | TODO | 1-2 hrs | - |
+| 2 | Scaffold Directories | ✅ DONE | 15 min | `d192430` |
+| 3 | RED Tests (Backend) | 🔄 IN PROGRESS | 1-2 hrs | - |
 | 4 | RED Tests (Frontend) | TODO | 1-2 hrs | - |
 | 5 | Example Plugin Outputs | TODO | 30 min | - |
 | 6 | Typed API Models | TODO | 2-3 hrs | - |
@@ -123,7 +119,7 @@
 | 8 | Storybook Story | TODO | 30 min | - |
 | 9 | Backend Tests (Green) | TODO | 1 hr | - |
 | 10 | Frontend Tests (Green) | TODO | 1 hr | - |
-| **TOTAL** | **Phase 9** | **1/10** | **12-16 hrs** | - |
+| **TOTAL** | **Phase 9** | **2/10** | **12-16 hrs** | - |
 
 ---
 
@@ -186,6 +182,6 @@
 ---
 
 **Last Updated:** 2026-01-12  
-**Next Task:** Task 2 - Scaffold Directories  
+**Next Task:** Task 3 - RED Tests (Backend)  
 **Estimated Completion:** 12-16 hours total
 
