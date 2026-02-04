@@ -89,7 +89,7 @@ class TestJobIdFilter:
 
         assert result is True
         assert hasattr(record, "job_id")
-        assert getattr(record, "job_id") == "job-abc"
+        assert record.job_id == "job-abc"
 
         clear_job_id()
 
@@ -115,7 +115,7 @@ class TestJobIdFilter:
 
         assert result is True
         assert hasattr(record, "job_id")
-        assert getattr(record, "job_id") == "-"
+        assert record.job_id == "-"
 
     def test_filter_multiple_records(self) -> None:
         """Verify filter works with multiple records."""
