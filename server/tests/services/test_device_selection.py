@@ -6,8 +6,6 @@ in AnalysisService and through the job pipeline.
 """
 
 
-
-
 class TestDeviceAvailability:
     """Tests for GPU availability detection and fallback."""
 

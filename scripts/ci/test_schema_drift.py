@@ -30,7 +30,7 @@ def test_schema_drift() -> bool:
     # Paths - resolve from project root
     script_dir = Path(__file__).resolve()
     project_root = script_dir.parent.parent.parent
-    
+
     governance_spec = (
         project_root
         / ".ampcode"
@@ -39,12 +39,7 @@ def test_schema_drift() -> bool:
         / "PHASE_8_METRICS_SCHEMA.sql"
     )
     runtime_spec = (
-        project_root
-        / "server"
-        / "app"
-        / "observability"
-        / "duckdb"
-        / "schema.sql"
+        project_root / "server" / "app" / "observability" / "duckdb" / "schema.sql"
     )
 
     # Verify both files exist

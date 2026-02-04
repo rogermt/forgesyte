@@ -54,9 +54,7 @@ def get_gpu_available() -> bool:
         return False
 
 
-def resolve_device(
-    requested: str, gpu_available: bool | None = None
-) -> Device:
+def resolve_device(requested: str, gpu_available: bool | None = None) -> Device:
     """Resolve requested device to actual device with fallback.
 
     If GPU is requested but not available, falls back to CPU.

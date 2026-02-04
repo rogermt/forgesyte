@@ -8,6 +8,21 @@ from contextlib import contextmanager
 from typing import Generator, List
 
 
+class _CaptureHandler(logging.Handler):
+    """Custom handler to capture log records."""
+
+    def __init__(self) -> None:
+        """Initialize handler."""
+        super().__init__()
+        self.records: List[logging.LogRecord] = []
+        self.messages: List[str] = []
+
+    def emit(self, record: logging.LogRecord) -> None:
+        """Capture the log record."""
+        self.records.append(record)
+        self.messages.append(record.getMessage())
+
+
 class LogCapture:
     """Context manager for capturing logs in tests.
 
@@ -25,23 +40,18 @@ class LogCapture:
 
     def __init__(self) -> None:
         """Initialize log capture."""
-        self.handler = logging.StreamHandler()
-        self.records: List[logging.LogRecord] = []
-        self.messages: List[str] = []
+        self._capture_handler = _CaptureHandler()
 
     def __enter__(self) -> "LogCapture":
         """Start capturing logs."""
-        # Create custom handler to capture records
-        self.handler.emit = self._emit
-
         # Add filter for job_id (if available)
         from app.logging.filter import JobIdFilter
 
-        self.handler.addFilter(JobIdFilter())
+        self._capture_handler.addFilter(JobIdFilter())
 
         # Get root logger and add handler
         root_logger = logging.getLogger()
-        root_logger.addHandler(self.handler)
+        root_logger.addHandler(self._capture_handler)
 
         # Ensure logs are processed at DEBUG level
         self._old_level = root_logger.level
@@ -52,13 +62,26 @@ class LogCapture:
     def __exit__(self, exc_type, exc_val, exc_tb) -> None:
         """Stop capturing logs."""
         root_logger = logging.getLogger()
-        root_logger.removeHandler(self.handler)
+        root_logger.removeHandler(self._capture_handler)
         root_logger.setLevel(self._old_level)
 
-    def _emit(self, record: logging.LogRecord) -> None:
-        """Custom emit to capture record."""
-        self.records.append(record)
-        self.messages.append(record.getMessage())
+    @property
+    def records(self) -> List[logging.LogRecord]:
+        """Get all captured log records.
+
+        Returns:
+            List of LogRecord objects (with job_id attribute).
+        """
+        return self._capture_handler.records
+
+    @property
+    def messages(self) -> List[str]:
+        """Get all captured log messages.
+
+        Returns:
+            List of log message strings.
+        """
+        return self._capture_handler.messages
 
     def get_messages(self) -> List[str]:
         """Get all captured log messages.
@@ -96,9 +119,7 @@ class LogCapture:
         Returns:
             True if job_id found in any record.
         """
-        return any(
-            hasattr(rec, "job_id") and rec.job_id == job_id for rec in self.records
-        )
+        return any(getattr(rec, "job_id", None) == job_id for rec in self.records)
 
 
 @contextmanager
