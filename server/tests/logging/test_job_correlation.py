@@ -89,7 +89,7 @@ class TestJobIdFilter:
 
         assert result is True
         assert hasattr(record, "job_id")
-        assert record.job_id == "job-abc"
+        assert record.job_id == "job-abc"  # type: ignore[attr-defined]
 
         clear_job_id()
 
@@ -115,7 +115,7 @@ class TestJobIdFilter:
 
         assert result is True
         assert hasattr(record, "job_id")
-        assert record.job_id == "-"
+        assert record.job_id == "-"  # type: ignore[attr-defined]
 
     def test_filter_multiple_records(self) -> None:
         """Verify filter works with multiple records."""
@@ -150,8 +150,8 @@ class TestJobIdFilter:
         )
         filter_obj.filter(record2)
 
-        assert getattr(record1, "job_id") == "job-1"
-        assert getattr(record2, "job_id") == "job-2"
+        assert record1.job_id == "job-1"  # type: ignore[attr-defined]
+        assert record2.job_id == "job-2"  # type: ignore[attr-defined]
 
         clear_job_id()
 
@@ -256,6 +256,6 @@ class TestLoggingIntegration:
 
         assert cap.has_message("An error occurred")
         records = cap.get_records()
-        assert any(getattr(rec, "job_id", None) == "job-error" for rec in records)
+        assert any(rec.job_id == "job-error" for rec in records)  # type: ignore[attr-defined]
 
         clear_job_id()

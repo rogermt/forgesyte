@@ -19,6 +19,13 @@ repos:
         additional_dependencies: [types-requests, types-Pillow, tenacity]
         exclude: ^original_vision_mcp/
 
+  - repo: https://github.com/pre-commit/mirrors-eslint
+    rev: v9.0.0
+    hooks:
+      - id: eslint
+        files: web-ui/src
+        args: [--max-warnings=0]
+
   - repo: local
     hooks:
       - id: web-ui-tests
