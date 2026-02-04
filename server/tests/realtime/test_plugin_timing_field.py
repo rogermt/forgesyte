@@ -1,11 +1,13 @@
 """Test Phase 10: Extended job model with plugin timings field.
 
-This test verifies that the extended job model includes the optional plugin_timings field.
+This test verifies that the extended job model includes the optional
+plugin_timings field.
 """
 
 from datetime import datetime
-from app.models import JobStatus
+
 from app.extended_job import ExtendedJobResponse
+from app.models import JobStatus
 
 
 def test_job_response_includes_plugin_timings_field():

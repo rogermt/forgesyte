@@ -14,6 +14,7 @@ Phase: 10
 """
 
 from typing import Dict
+
 from fastapi import WebSocket
 
 
@@ -59,4 +60,3 @@ class ConnectionManager:
             except Exception:
                 await self.disconnect(session_id)
         return False
-
