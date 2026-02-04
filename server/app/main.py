@@ -41,6 +41,7 @@ from .services import (
 )
 from .tasks import init_task_processor, job_store
 from .websocket_manager import ws_manager
+from .realtime import websocket_router as realtime_router
 
 # ---------------------------------------------------------------------------
 # Configuration Layer (Pydantic Settings)
@@ -297,6 +298,7 @@ def get_analysis_service() -> VisionAnalysisService:
 app.include_router(api_router, prefix=settings.api_prefix)
 app.include_router(mcp_router, prefix=settings.api_prefix)
 app.include_router(plugins_router, prefix="")
+app.include_router(realtime_router, prefix=settings.api_prefix)
 
 
 @app.get("/.well-known/mcp-manifest", include_in_schema=False)
