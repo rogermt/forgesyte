@@ -75,8 +75,8 @@ describe('FPSThrottler', () => {
     expect(callback).toHaveBeenCalledTimes(2); // Now 2
   });
 
-  it('handles zero time start', () => {
-    let currentTime = 0;
+it('handles zero time start', () => {
+    const currentTime = 0;
     const getTime = () => currentTime;
 
     const throttler = new FPSThrottler(30, getTime);
