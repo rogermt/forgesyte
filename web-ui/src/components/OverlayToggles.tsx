@@ -2,8 +2,8 @@ import React from 'react';
 import styles from './OverlayToggles.module.css';
 
 export interface VisibleLayers {
-  players: boolean;
-  ball: boolean;
+  boxes: boolean;
+  labels: boolean;
   pitch: boolean;
   radar: boolean;
 }
@@ -31,26 +31,29 @@ export const OverlayToggles: React.FC<OverlayTogglesProps> = ({
       <label className={styles.label}>
         <input
           type="checkbox"
-          checked={visibleLayers.players}
-          onChange={() => handleToggle('players')}
+          id="toggle-boxes"
+          checked={visibleLayers.boxes}
+          onChange={() => handleToggle('boxes')}
           disabled={disabled}
-          data-testid="toggle-players"
+          data-testid="toggle-boxes"
         />
-        Players
+        Boxes
       </label>
       <label className={styles.label}>
         <input
           type="checkbox"
-          checked={visibleLayers.ball}
-          onChange={() => handleToggle('ball')}
+          id="toggle-labels"
+          checked={visibleLayers.labels}
+          onChange={() => handleToggle('labels')}
           disabled={disabled}
-          data-testid="toggle-ball"
+          data-testid="toggle-labels"
         />
-        Ball
+        Labels
       </label>
       <label className={styles.label}>
         <input
           type="checkbox"
+          id="toggle-pitch"
           checked={visibleLayers.pitch}
           onChange={() => handleToggle('pitch')}
           disabled={disabled}
@@ -61,6 +64,7 @@ export const OverlayToggles: React.FC<OverlayTogglesProps> = ({
       <label className={styles.label}>
         <input
           type="checkbox"
+          id="toggle-radar"
           checked={visibleLayers.radar}
           onChange={() => handleToggle('radar')}
           disabled={disabled}

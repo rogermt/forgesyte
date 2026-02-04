@@ -8,9 +8,6 @@ These tests define the expected behavior for Phase 9 typed API responses:
 Tests will FAIL until the models are implemented.
 """
 
-import pytest
-from pydantic import ValidationError
-
 
 class TestAnalyzeResponse:
     """Tests for AnalyzeResponse model."""
@@ -18,7 +15,7 @@ class TestAnalyzeResponse:
     def test_analyze_response_has_required_fields(self):
         """AnalyzeResponse must have job_id, device_requested, device_used, fallback, frames."""
         from app.models import AnalyzeResponse
-        
+
         response = AnalyzeResponse(
             job_id="test-job-123",
             device_requested="gpu",
@@ -35,7 +32,7 @@ class TestAnalyzeResponse:
     def test_analyze_response_frames_is_list(self):
         """frames field must be a list of Any."""
         from app.models import AnalyzeResponse
-        
+
         response = AnalyzeResponse(
             job_id="test-job-456",
             device_requested="cpu",
@@ -48,7 +45,7 @@ class TestAnalyzeResponse:
     def test_analyze_response_optional_fields(self):
         """AnalyzeResponse should accept optional result field."""
         from app.models import AnalyzeResponse
-        
+
         response = AnalyzeResponse(
             job_id="test-job-789",
             device_requested="gpu",
@@ -66,7 +63,7 @@ class TestJobStatusResponse:
     def test_job_status_response_has_required_fields(self):
         """JobStatusResponse must have required fields."""
         from app.models import JobStatusResponse
-        
+
         response = JobStatusResponse(
             job_id="job-123",
             status="running",
@@ -81,7 +78,7 @@ class TestJobStatusResponse:
     def test_job_status_response_all_statuses(self):
         """JobStatusResponse must accept all valid statuses."""
         from app.models import JobStatusResponse
-        
+
         statuses = ["queued", "running", "done", "error", "not_found"]
         for status in statuses:
             response = JobStatusResponse(
@@ -99,7 +96,7 @@ class TestJobResultResponse:
     def test_job_result_response_has_required_fields(self):
         """JobResultResponse must have required fields."""
         from app.models import JobResultResponse
-        
+
         response = JobResultResponse(
             job_id="result-job-123",
             device_requested="gpu",
@@ -116,7 +113,7 @@ class TestJobResultResponse:
     def test_job_result_response_with_result(self):
         """JobResultResponse should include result field."""
         from app.models import JobResultResponse
-        
+
         response = JobResultResponse(
             job_id="result-job-456",
             device_requested="cpu",
@@ -134,7 +131,7 @@ class TestDeviceFields:
     def test_analyze_response_device_fields(self):
         """AnalyzeResponse must have device_requested and device_used."""
         from app.models import AnalyzeResponse
-        
+
         # Test with gpu requested, cpu used (fallback case)
         response = AnalyzeResponse(
             job_id="device-test-1",
@@ -150,7 +147,7 @@ class TestDeviceFields:
     def test_job_status_response_device_fields(self):
         """JobStatusResponse must have device_requested and device_used."""
         from app.models import JobStatusResponse
-        
+
         response = JobStatusResponse(
             job_id="device-test-2",
             status="running",
@@ -163,7 +160,7 @@ class TestDeviceFields:
     def test_job_result_response_device_fields(self):
         """JobResultResponse must have device_requested and device_used."""
         from app.models import JobResultResponse
-        
+
         response = JobResultResponse(
             job_id="device-test-3",
             device_requested="gpu",
@@ -173,4 +170,3 @@ class TestDeviceFields:
         )
         assert response.device_requested == "gpu"
         assert response.device_used == "nvidia"
-

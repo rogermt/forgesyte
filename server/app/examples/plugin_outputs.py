@@ -12,8 +12,7 @@ These examples are used for:
 Phase 9: API Typed Responses & UI Controls
 """
 
-from typing import Any, Dict, List, Optional
-
+from typing import Any, Dict, Optional
 
 # =============================================================================
 # OCR Plugin Example Output
@@ -190,15 +189,16 @@ TRACKING_EXAMPLE: Dict[str, Any] = {
 # Utility Functions
 # =============================================================================
 
+
 def get_example_output(plugin_type: str) -> Dict[str, Any]:
     """Get example output by plugin type.
-    
+
     Args:
         plugin_type: Type of plugin ('ocr' or 'tracking')
-    
+
     Returns:
         Example output dictionary
-    
+
     Raises:
         ValueError: If plugin_type is not recognized
     """
@@ -207,15 +207,17 @@ def get_example_output(plugin_type: str) -> Dict[str, Any]:
     elif plugin_type.lower() == "tracking":
         return TRACKING_EXAMPLE.copy()
     else:
-        raise ValueError(f"Unknown plugin type: {plugin_type}. Supported types: 'ocr', 'tracking'")
+        raise ValueError(
+            f"Unknown plugin type: {plugin_type}. Supported types: 'ocr', 'tracking'"
+        )
 
 
 def get_example_output_for_job(job_id: str) -> Optional[Dict[str, Any]]:
     """Get example output by job_id.
-    
+
     Args:
         job_id: Job identifier
-    
+
     Returns:
         Example output dictionary or None if not found
     """
@@ -224,4 +226,3 @@ def get_example_output_for_job(job_id: str) -> Optional[Dict[str, Any]]:
     elif job_id == TRACKING_EXAMPLE["job_id"]:
         return TRACKING_EXAMPLE.copy()
     return None
-
