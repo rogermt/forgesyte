@@ -1,0 +1,177 @@
+ter name="content">
+# ⭐ Phase 9 Final Plan (LOCKED)
+
+**Status:** Planned → Active  
+**Owner:** Roger  
+**Depends on:** Phase 8 (Closed)  
+**Unblocks:** Phase 10  
+
+**Authoritative Source:** `/home/rogermt/forgesyte/.ampcode/04_PHASE_NOTES/Phase_9/PHASE_9_FINAL_LOCKED_PLAN.md`
+
+---
+
+# 1. WHAT I WILL FOLLOW EXACTLY (Hard Requirements)
+
+## API Requirements (From Section 2.1)
+
+- Implement typed models:
+  - `AnalyzeResponse`
+  - `JobStatusResponse`
+  - `JobResultResponse`
+- Required fields:
+  - `job_id`
+  - `device_requested`
+  - `device_used`
+  - `fallback`
+  - `frames: list[Any]`
+- No FrameModel required
+- Update `/v1/analyze`, `/v1/jobs/{id}`, `/v1/jobs/{id}/result`
+
+## UI Requirements (From Section 2.2)
+
+### Required IDs:
+- `#device-selector`
+- `#toggle-boxes`
+- `#toggle-labels`
+- `#toggle-pitch`
+- `#toggle-radar`
+- `#fps-slider`
+
+### Persistence keys:
+- `forgesyte_device_preference`
+- `forgesyte_fps_target`
+
+### Required states:
+- Loading state
+- Error state
+
+## Storybook (From Section 2.3)
+
+- ONE story: `OverlayRenderer.stories.tsx`
+
+## Example Plugin Outputs (From Section 2.3)
+
+- File: `server/app/examples/plugin_outputs.py`
+- Must include: `OCR_EXAMPLE`, `TRACKING_EXAMPLE`
+
+## Required Playwright Tests (From Section 2.4)
+
+- Device selector persistence
+- Overlay toggles existence
+- FPS slider existence
+
+---
+
+# 2. WHAT I WILL ADD (Permitted Deviations)
+
+- LoadingSpinner.tsx
+- ErrorBanner.tsx
+- Additional Storybook stories (optional)
+- TypeScript interfaces
+- CSS modules
+- ErrorBoundary
+- PropTypes/runtime validation
+
+---
+
+# 3. WHAT I WILL SKIP (Explicit Non-Requirements)
+
+- Schema drift detection
+- FrameModel
+- Full Storybook coverage
+- Additional governance rules
+- Extra Playwright tests
+
+---
+
+# 4. WORK STREAMS
+
+## 4.1 API Models
+- [ ] Add AnalyzeResponse, JobStatusResponse, JobResultResponse
+- [ ] Update endpoints
+
+## 4.2 UI Components
+- [ ] Add device selector (#device-selector)
+- [ ] Add FPS slider (#fps-slider)
+- [ ] Add overlay toggles (#toggle-boxes, labels, pitch, radar)
+- [ ] Add LoadingSpinner.tsx
+- [ ] Add ErrorBanner.tsx
+- [ ] Add persistence
+
+## 4.3 Developer Experience
+- [ ] Add plugin_outputs.py with OCR_EXAMPLE, TRACKING_EXAMPLE
+- [ ] Add OverlayRenderer.stories.tsx
+
+## 4.4 Tests
+- [ ] Add backend tests for typed models
+- [ ] Add Playwright tests for UI
+
+---
+
+# 5. FIRST 4 COMMITS (Descriptive Names)
+
+## Commit 1 - Scaffold Directories
+```
+server/tests/api_typed_responses/
+server/app/examples/
+web-ui/tests/ui_controls/
+web-ui/src/stories/
+```
+
+## Commit 2 - RED Tests (Backend)
+- `server/tests/api_typed_responses/test_api_typed_responses.py`
+- Tests typed API responses
+
+## Commit 3 - RED Tests (Frontend)
+- `web-ui/tests/ui_controls/ui_controls.spec.ts`
+- Tests for device selector, overlay toggles, FPS slider
+
+## Commit 4 - Example Outputs
+- `server/app/examples/plugin_outputs.py`
+- OCR_EXAMPLE, TRACKING_EXAMPLE
+
+---
+
+# 6. SUCCESS CRITERIA
+
+- [ ] Typed API responses implemented
+- [ ] Required UI controls exist with correct IDs
+- [ ] Loading + error states implemented
+- [ ] Example plugin outputs exist
+- [ ] ONE Storybook story exists
+- [ ] Required Playwright tests pass
+- [ ] No Phase 9 invariants broken
+
+---
+
+# 7. PHASE 10 DEPENDENCIES
+
+Phase 10 depends on:
+- Typed API models
+- Required fields
+- UI IDs
+- Example plugin outputs
+- Playwright tests
+
+Phase 10 inherits:
+- Flexible frames (list[Any])
+- Minimal governance
+- Optional Storybook coverage
+
+---
+
+# 8. DESCRIPTIVE FILE NAMING
+
+Folder names describe functionality, not phases:
+
+| Phase Reference | Descriptive Name | Purpose |
+|----------------|-----------------|---------|
+| `server/tests/phase9/` | `server/tests/api_typed_responses/` | Tests for typed API responses |
+| `web-ui/tests/phase9/` | `web-ui/tests/ui_controls/` | Tests for UI controls |
+
+File names describe behavior:
+
+| Phase Reference | Descriptive Name | Purpose |
+|----------------|-----------------|---------|
+| `test_api_typed_response.py` | `test_api_typed_responses.py` | Tests typed API responses |
+| `phase9_ui_controls.spec.ts` | `ui_controls.spec.ts` | Tests UI controls |

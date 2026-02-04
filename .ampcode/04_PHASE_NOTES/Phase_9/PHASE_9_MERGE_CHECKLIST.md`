@@ -1,0 +1,95 @@
+---
+
+# 📋 **PHASE 9 MERGE CHECKLIST (Aligned with Developer Contract)**  
+**File:** `.ampcode/04_PHASE_NOTES/Phase_9/PHASE_9_MERGE_CHECKLIST.md`
+
+```md
+# Phase 9 — Merge Checklist (Developer Contract Aligned)
+
+This checklist defines the minimum required conditions for merging Phase 9 into
+`main`. All items must be checked before merge.
+
+---
+
+## 1. API Requirements
+
+- [ ] `AnalyzeResponse` implemented
+- [ ] `JobStatusResponse` implemented
+- [ ] `JobResultResponse` implemented
+- [ ] `/v1/analyze` returns typed model
+- [ ] `/v1/jobs/{id}` returns typed model
+- [ ] `/v1/jobs/{id}/result` returns typed model
+- [ ] Required fields present:
+  - [ ] `job_id`
+  - [ ] `device_requested`
+  - [ ] `device_used`
+  - [ ] `fallback`
+  - [ ] `frames: list[Any]`
+- [ ] No breaking changes to Phase 9 API contract
+
+---
+
+## 2. UI Requirements
+
+### Device Selector
+- [ ] Exists in `ConfigPanel.tsx`
+- [ ] ID: `#device-selector`
+- [ ] Persists via `forgesyte_device_preference`
+
+### Overlay Toggles
+- [ ] `#toggle-boxes`
+- [ ] `#toggle-labels`
+- [ ] `#toggle-pitch`
+- [ ] `#toggle-radar`
+
+### FPS Slider
+- [ ] Exists in `ConfigPanel.tsx`
+- [ ] ID: `#fps-slider`
+- [ ] Persists via `forgesyte_fps_target`
+
+### UI States
+- [ ] Loading state implemented
+- [ ] Error state implemented
+
+---
+
+## 3. Developer Experience Requirements
+
+- [ ] `server/app/examples/plugin_outputs.py` exists
+- [ ] Contains `OCR_EXAMPLE`
+- [ ] Contains `TRACKING_EXAMPLE`
+- [ ] One Storybook story for `OverlayRenderer` exists
+- [ ] Storybook builds successfully
+
+---
+
+## 4. Test Requirements
+
+Playwright tests:
+- [ ] Device selector persistence test passes
+- [ ] Overlay toggles existence test passes
+- [ ] FPS slider existence test passes
+- [ ] (Optional) basic rendering test passes
+
+General:
+- [ ] All existing test governance passes
+- [ ] No unapproved skipped tests
+
+---
+
+## 5. Final Checks
+
+- [ ] All CI jobs green
+- [ ] No Phase 9 invariants broken
+- [ ] README updated
+- [ ] Developer Contract satisfied
+- [ ] PR uses Phase 9 PR template
+
+---
+
+## 6. Merge Status
+
+- [ ] Phase 9 is complete and ready to merge into `main`.
+```
+
+---

@@ -37,8 +37,11 @@ from .mcp import (
     build_gemini_extension_manifest,
 )
 from .models import (
+    AnalyzeResponse,
     JobResponse,
+    JobResultResponse,
     JobStatus,
+    JobStatusResponse,
     PluginMetadata,
     PluginToolRunRequest,
     PluginToolRunResponse,
@@ -112,7 +115,7 @@ def get_plugin_service(request: Request) -> PluginManagementService:
 # ============================================================================
 
 
-@router.post("/analyze", response_model=Dict[str, Any])
+@router.post("/analyze", response_model=AnalyzeResponse)
 async def analyze_image(
     request: Request,
     file: Optional[UploadFile] = None,
@@ -122,7 +125,7 @@ async def analyze_image(
     device: str = Query("cpu", description="Device to use: 'cpu' or 'gpu'"),
     auth: Dict[str, Any] = Depends(require_auth(["analyze"])),
     service: AnalysisService = Depends(get_analysis_service),
-) -> Dict[str, Any]:
+) -> AnalyzeResponse:
     """Submit an image for analysis using specified vision plugin.
 
     Supports multiple image sources: file upload, remote URL, or raw body bytes.
@@ -139,7 +142,7 @@ async def analyze_image(
         service: Injected AnalysisService for orchestration.
 
     Returns:
-        Dictionary containing job_id, status, plugin name, and device info.
+        AnalyzeResponse containing job_id, device info, and frame tracking.
 
     Raises:
         HTTPException: 400 Bad Request if options JSON is invalid.
@@ -195,7 +198,17 @@ async def analyze_image(
             "Analysis request submitted",
             extra={"job_id": result["job_id"], "plugin": plugin},
         )
-        return result
+
+        # Return typed response with device info and frame tracking
+        device_requested = device.lower()
+        return AnalyzeResponse(
+            job_id=result["job_id"],
+            device_requested=device_requested,
+            device_used=device_requested,  # Will be updated when job completes
+            fallback=False,  # Will be updated if fallback occurs
+            frames=[],  # Will be populated as frames are processed
+            result=None,  # Will be populated when analysis completes
+        )
 
     except ExternalServiceError as e:
         logger.error(
@@ -236,12 +249,12 @@ async def analyze_image(
 # ============================================================================
 
 
-@router.get("/jobs/{job_id}", response_model=JobResponse)
+@router.get("/jobs/{job_id}", response_model=JobStatusResponse)
 async def get_job_status(
     job_id: str,
     auth: Dict[str, Any] = Depends(require_auth(["analyze"])),
     service: JobManagementService = Depends(get_job_service),
-) -> JobResponse:
+) -> JobStatusResponse:
     """Retrieve status and results for a specific analysis job.
 
     Args:
@@ -250,7 +263,7 @@ async def get_job_status(
         service: Injected JobManagementService.
 
     Returns:
-        JobResponse containing job status, results, and metadata.
+        JobStatusResponse containing job status and device information.
 
     Raises:
         HTTPException: 404 Not Found if job does not exist.
@@ -263,7 +276,67 @@ async def get_job_status(
             detail="Job not found",
         )
 
-    return JobResponse(**job)
+    # Map job status string to JobStatus enum
+    job_status = job.get("status", "queued")
+    if isinstance(job_status, str):
+        try:
+            job_status = JobStatus(job_status)
+        except ValueError:
+            job_status = JobStatus.QUEUED
+
+    return JobStatusResponse(
+        job_id=job["job_id"],
+        status=job_status,
+        device_requested=job.get("device_requested", "cpu"),
+        device_used=job.get("device_used", job.get("device_requested", "cpu")),
+    )
+
+
+@router.get("/jobs/{job_id}/result", response_model=JobResultResponse)
+async def get_job_result(
+    job_id: str,
+    auth: Dict[str, Any] = Depends(require_auth(["analyze"])),
+    service: JobManagementService = Depends(get_job_service),
+) -> JobResultResponse:
+    """Retrieve full results for a completed analysis job.
+
+    Returns the complete job result including frames and analysis output.
+
+    Args:
+        job_id: Unique job identifier to retrieve.
+        auth: Authentication credentials (required, "analyze" permission).
+        service: Injected JobManagementService.
+
+    Returns:
+        JobResultResponse containing job result with frames and analysis output.
+
+    Raises:
+        HTTPException: 404 Not Found if job does not exist.
+    """
+    job = await service.get_job_status(job_id)
+    if not job:
+        logger.warning("Job not found", extra={"job_id": job_id})
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Job not found",
+        )
+
+    # Determine if fallback occurred
+    device_requested = job.get("device_requested", "cpu")
+    device_used = job.get("device_used", device_requested)
+    fallback = device_requested != device_used
+
+    # Get result data
+    result = job.get("result", {})
+
+    return JobResultResponse(
+        job_id=job["job_id"],
+        device_requested=device_requested,
+        device_used=device_used,
+        fallback=fallback,
+        frames=[],  # Will be populated as frames are tracked
+        result=result,
+    )
 
 
 @router.get("/jobs")

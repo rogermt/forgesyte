@@ -289,3 +289,89 @@ class PluginToolRunResponse(BaseModel):
                 "processing_time_ms": 42,
             }
         }
+
+
+# =============================================================================
+# Phase 9: Typed API Response Models
+# =============================================================================
+
+
+class AnalyzeResponse(BaseModel):
+    """Response for analysis request initiation.
+
+    Returned immediately when an analysis job is queued. Contains device
+    allocation information and frame tracking.
+
+    Attributes:
+        job_id: Unique job identifier for tracking the analysis request
+        device_requested: Device requested by the client (e.g., "gpu", "cpu", "nvidia")
+        device_used: Actual device allocated for processing
+        fallback: Whether fallback to a different device occurred
+        frames: List of frames to be processed or being processed
+        result: Optional analysis result (populated when analysis completes)
+    """
+
+    job_id: str = Field(..., description="Unique job identifier")
+    device_requested: str = Field(
+        ..., description="Device requested (e.g., 'gpu', 'cpu', 'nvidia')"
+    )
+    device_used: str = Field(..., description="Actual device used for processing")
+    fallback: bool = Field(
+        ..., description="Whether fallback to a different device occurred"
+    )
+    frames: List[Any] = Field(
+        default_factory=list, description="List of frames to process"
+    )
+    result: Optional[Dict[str, Any]] = Field(
+        default=None, description="Analysis result (present when done)"
+    )
+
+
+class JobStatusResponse(BaseModel):
+    """Response for job status queries.
+
+    Returns the current status of a queued or running analysis job.
+
+    Attributes:
+        job_id: Unique job identifier
+        status: Current job status (queued, running, done, error, not_found)
+        device_requested: Device requested for the job
+        device_used: Actual device allocated for processing
+    """
+
+    job_id: str = Field(..., description="Unique job identifier")
+    status: JobStatus = Field(..., description="Current job status")
+    device_requested: str = Field(
+        ..., description="Device requested (e.g., 'gpu', 'cpu', 'nvidia')"
+    )
+    device_used: str = Field(..., description="Actual device used for processing")
+
+
+class JobResultResponse(BaseModel):
+    """Response for completed job results.
+
+    Returns the full results of a completed analysis job.
+
+    Attributes:
+        job_id: Unique job identifier
+        device_requested: Device requested for the job
+        device_used: Actual device allocated for processing
+        fallback: Whether fallback to a different device occurred
+        frames: List of processed frames with their analysis data
+        result: Analysis results dictionary (optional for partial results)
+    """
+
+    job_id: str = Field(..., description="Unique job identifier")
+    device_requested: str = Field(
+        ..., description="Device requested (e.g., 'gpu', 'cpu', 'nvidia')"
+    )
+    device_used: str = Field(..., description="Actual device used for processing")
+    fallback: bool = Field(
+        ..., description="Whether fallback to a different device occurred"
+    )
+    frames: List[Any] = Field(
+        default_factory=list, description="Processed frames with analysis data"
+    )
+    result: Optional[Dict[str, Any]] = Field(
+        default=None, description="Analysis results (optional for partial results)"
+    )
