@@ -135,4 +135,3 @@ class MetadataPayload(BaseModel):
 #     plugin_id: str
 #     result: Dict[str, Any]
 #     confidence: Optional[float] = None
-

@@ -13,8 +13,8 @@ Author: Roger
 Phase: 10
 """
 
-from typing import Any, Dict, List, Optional
 from datetime import datetime
+from typing import Any, Dict, List, Optional
 
 
 class InspectorService:
@@ -27,7 +27,7 @@ class InspectorService:
         """Register a plugin for inspection."""
         self.plugins[plugin_id] = {
             **metadata,
-            "registered_at": datetime.utcnow().isoformat()
+            "registered_at": datetime.utcnow().isoformat(),
         }
 
     def extract_metadata(self, plugin_id: str) -> Optional[Dict[str, Any]]:
@@ -44,10 +44,10 @@ class InspectorService:
     def analyze_health(self, plugin_id: str) -> Dict[str, Any]:
         """Analyze the health status of a plugin."""
         metadata = self.extract_metadata(plugin_id)
-        
+
         if not metadata:
             return {"status": "unknown", "plugin_id": plugin_id}
-        
+
         return {
             "status": "healthy",
             "plugin_id": plugin_id,
@@ -60,7 +60,7 @@ class InspectorService:
         metadata = self.extract_metadata(plugin_id)
         health = self.analyze_health(plugin_id)
         timings = self.get_timings(plugin_id)
-        
+
         return {
             "plugin_id": plugin_id,
             "metadata": metadata,
@@ -76,11 +76,9 @@ class InspectorService:
     def get_all_reports(self) -> Dict[str, Dict[str, Any]]:
         """Generate reports for all registered plugins."""
         return {
-            plugin_id: self.generate_report(plugin_id)
-            for plugin_id in self.plugins
+            plugin_id: self.generate_report(plugin_id) for plugin_id in self.plugins
         }
 
 
 # Singleton instance for application-wide use
 inspector_service = InspectorService()
-

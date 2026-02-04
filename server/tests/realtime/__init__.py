@@ -6,4 +6,3 @@ plugin inspector service, and related features.
 Author: Roger
 Phase: 10
 """
-

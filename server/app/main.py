@@ -32,6 +32,7 @@ from .api_plugins import router as plugins_router
 from .auth import init_auth_service
 from .mcp import router as mcp_router
 from .plugin_loader import PluginRegistry
+from .realtime import websocket_router as realtime_router
 from .services import (
     AnalysisService,
     ImageAcquisitionService,
@@ -41,7 +42,6 @@ from .services import (
 )
 from .tasks import init_task_processor, job_store
 from .websocket_manager import ws_manager
-from .realtime import websocket_router as realtime_router
 
 # ---------------------------------------------------------------------------
 # Configuration Layer (Pydantic Settings)

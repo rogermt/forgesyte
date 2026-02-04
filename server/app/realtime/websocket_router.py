@@ -13,11 +13,12 @@ Author: Roger
 Phase: 10
 """
 
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from datetime import datetime
 from typing import Optional
 
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+
 from app.realtime.connection_manager import ConnectionManager
-from app.realtime.message_types import RealtimeMessage, MessageType
 
 router = APIRouter()
 connection_manager = ConnectionManager()
@@ -25,37 +26,33 @@ connection_manager = ConnectionManager()
 
 @router.websocket("/v1/realtime")
 async def websocket_endpoint(
-    websocket: WebSocket,
-    session_id: Optional[str] = None
+    websocket: WebSocket, session_id: Optional[str] = None
 ) -> None:
     """Real-time WebSocket endpoint for streaming updates.
-    
+
     Args:
         websocket: The WebSocket connection.
         session_id: Optional session identifier. Defaults to None.
     """
     session_id = session_id or "default"
-    
+
     await connection_manager.connect(session_id, websocket)
-    
+
     try:
         while True:
             # Receive and process messages
             data = await websocket.receive_json()
-            
+
             # Echo back for now - TODO: implement proper message handling
-            await websocket.send_json({
-                "type": "ack",
-                "payload": {"original": data},
-                "timestamp": datetime.utcnow().isoformat()
-            })
-            
+            await websocket.send_json(
+                {
+                    "type": "ack",
+                    "payload": {"original": data},
+                    "timestamp": datetime.utcnow().isoformat(),
+                }
+            )
+
     except WebSocketDisconnect:
         pass
     finally:
         await connection_manager.disconnect(session_id)
-
-
-# Import datetime for timestamp generation
-from datetime import datetime
-

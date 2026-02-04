@@ -7,7 +7,6 @@ Author: Roger
 Phase: 10 (Real-Time Infrastructure)
 """
 
-from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
@@ -17,7 +16,7 @@ from app.models import JobResponse
 
 class ExtendedJobResponse(JobResponse):
     """Extended job response with real-time fields.
-    
+
     Adds optional fields for:
     - progress: Job progress percentage (0-100)
     - plugin_timings: Per-plugin execution timing data
@@ -25,20 +24,16 @@ class ExtendedJobResponse(JobResponse):
     """
 
     progress: Optional[int] = Field(
-        default=None,
-        ge=0,
-        le=100,
-        description="Job progress percentage (0-100)"
+        default=None, ge=0, le=100, description="Job progress percentage (0-100)"
     )
-    
+
     plugin_timings: Optional[Dict[str, float]] = Field(
         default=None,
-        description="Per-plugin timing data in milliseconds (plugin_id -> timing_ms)"
+        description="Per-plugin timing data in milliseconds (plugin_id -> timing_ms)",
     )
-    
+
     warnings: Optional[List[str]] = Field(
-        default_factory=list,
-        description="Non-fatal warnings during job execution"
+        default_factory=list, description="Non-fatal warnings during job execution"
     )
 
 
@@ -62,8 +57,11 @@ class PluginTimingUpdate(BaseModel):
 class JobWarning(BaseModel):
     """Warning message for non-fatal issues."""
 
-    plugin_id: Optional[str] = Field(default=None, description="Plugin that generated warning")
+    plugin_id: Optional[str] = Field(
+        default=None, description="Plugin that generated warning"
+    )
     warning_code: Optional[str] = Field(default=None, description="Warning identifier")
     message: str = Field(..., description="Warning message")
-    details: Optional[Dict[str, Any]] = Field(default=None, description="Additional details")
-
+    details: Optional[Dict[str, Any]] = Field(
+        default=None, description="Additional details"
+    )
