@@ -1,24 +1,46 @@
-## Summary
-Describe the purpose of this PR and the functionality it changes.
+# Phase 11 PR Checklist
 
----
+## Required (Authoritative)
 
-## TEST CHANGE JUSTIFICATION (required if any test files changed)
+- [ ] All server tests pass locally (`cd server && uv run pytest`)
+- [ ] No Phase 9 or Phase 10 invariants broken
+- [ ] No API contract changes unless explicitly approved via RFC
+- [ ] No plugin can crash the server
+- [ ] If test files changed: commit message includes `TEST-CHANGE:` with justification
 
-If this PR modifies, deletes, or adds any test files, you MUST explain:
+## Required (CI)
 
-- What changed in the tests
-- Why the test needed to change
-- What functionality the updated test now protects
-- Why the previous test was insufficient or incorrect
+- [ ] CI server tests passed
+- [ ] CI web-ui tests passed (Playwright)
+- [ ] CI contract tests passed
 
-If no test files changed, write: **N/A**
+## Optional (Code Quality)
 
----
+- [ ] Code follows PEP 8 style guide
+- [ ] Type hints added to new functions
+- [ ] Docstrings updated or added
+- [ ] No debugging print statements left in code
 
-## Checklist
-- [ ] Code changes align with project architecture
-- [ ] No tests were modified without justification
-- [ ] All existing tests pass
-- [ ] New tests added where appropriate
+## Optional (Documentation)
 
+- [ ] README updated (if user-facing)
+- [ ] Architecture doc updated (if design changed)
+- [ ] API endpoint documented (if new endpoint)
+- [ ] Plugin contract updated (if plugin API changed)
+
+## Description
+
+Describe your changes clearly. Include:
+
+- **What** you changed
+- **Why** you changed it
+- **How** you tested it
+- **Related issues** (e.g., "Closes #123")
+
+## Related Issues
+
+Closes #[issue-number]
+
+## Notes
+
+Any special considerations, gotchas, or follow-up work?

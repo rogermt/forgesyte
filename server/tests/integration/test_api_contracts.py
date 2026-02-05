@@ -19,7 +19,7 @@ import pytest
 from httpx import AsyncClient
 from pydantic import ValidationError
 
-from app.models import JobResponse, JobStatus, PluginMetadata
+from app.models import JobResponse, JobStatus, JobStatusResponse, PluginMetadata
 
 
 @pytest.mark.integration
@@ -130,7 +130,7 @@ class TestSingleJobEndpointContract:
     async def test_single_job_endpoint_returns_valid_job_response(
         self, client: AsyncClient
     ) -> None:
-        """GET /v1/jobs/{id} should return single job matching JobResponse schema"""
+        """GET /v1/jobs/{id} should return single job matching JobStatusResponse schema"""
         # First get a job ID
         list_response = await client.get("/v1/jobs?limit=1")
         jobs = list_response.json()["jobs"]
@@ -146,9 +146,9 @@ class TestSingleJobEndpointContract:
 
         data = response.json()
 
-        # Verify it's a JobResponse
+        # Verify it's a JobStatusResponse (GET /jobs/{id} endpoint)
         try:
-            job = JobResponse(**data)
+            job = JobStatusResponse(**data)
             assert job.job_id == job_id
         except ValidationError as e:
             pytest.fail(f"Job response doesn't match schema: {e}")
