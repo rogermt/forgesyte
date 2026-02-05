@@ -91,12 +91,12 @@ jobs:
         with:
           node-version: 20
           cache: 'npm'
-          cache-dependency-path: web-ui/package.json
+          cache-dependency-path: web-ui/package-lock.json
 
       - name: Install dependencies
         run: |
           cd web-ui
-          npm install
+          npm ci
 
       - name: Run lint
         run: |
@@ -136,11 +136,13 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
+          cache: 'npm'
+          cache-dependency-path: web-ui/package-lock.json
 
       - name: Install dependencies
         run: |
           cd server && uv sync
-          cd ../web-ui && npm install
+          cd ../web-ui && npm ci
 
       - name: Run E2E tests
         run: ./e2e.test.sh
