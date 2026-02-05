@@ -70,7 +70,7 @@ export function DeviceSelector({
     if (selectedDevice && selectedDevice !== device) {
       setDevice(selectedDevice);
     }
-  }, [selectedDevice]);
+  }, [selectedDevice, device]);
 
   const selectedDeviceInfo = AVAILABLE_DEVICES.find(d => d.value === device);
 

@@ -20,7 +20,6 @@ import { ProgressBar } from '@/components/ProgressBar';
 import { PluginInspector } from '@/components/PluginInspector';
 
 interface RealtimeOverlayProps {
-  jobId?: string;
   showProgressBar?: boolean;
   showPluginInspector?: boolean;
   showWarnings?: boolean;
@@ -28,13 +27,12 @@ interface RealtimeOverlayProps {
 }
 
 export function RealtimeOverlay({
-  jobId,
   showProgressBar = true,
   showPluginInspector = true,
   showWarnings = true,
   showErrors = true,
 }: RealtimeOverlayProps) {
-  const { state, connect, disconnect } = useRealtime();
+  const { state } = useRealtime();
 
   return (
     <div className="realtime-overlay" data-testid="realtime-overlay">

@@ -71,7 +71,7 @@ export function FPSSlider({
     if (selectedFPS && selectedFPS !== fps) {
       setFPS(selectedFPS);
     }
-  }, [selectedFPS]);
+  }, [selectedFPS, fps]);
 
   return (
     <div style={styles.container}>

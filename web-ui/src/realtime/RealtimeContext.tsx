@@ -129,6 +129,7 @@ export function RealtimeProvider({ children, url = 'ws://localhost:8000/v1/realt
     return () => {
       realtimeClient.disconnect();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [url]);
 
   const connect = async () => {
