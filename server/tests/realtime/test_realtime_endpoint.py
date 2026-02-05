@@ -4,7 +4,6 @@ This test verifies that the /v1/realtime WebSocket endpoint exists and
 is properly registered.
 """
 
-import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 

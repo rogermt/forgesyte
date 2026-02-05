@@ -130,7 +130,7 @@ class TestSingleJobEndpointContract:
     async def test_single_job_endpoint_returns_valid_job_response(
         self, client: AsyncClient
     ) -> None:
-        """GET /v1/jobs/{id} should return single job matching JobStatusResponse schema"""
+        """GET /v1/jobs/{id} returns single job matching JobStatusResponse."""
         # First get a job ID
         list_response = await client.get("/v1/jobs?limit=1")
         jobs = list_response.json()["jobs"]
