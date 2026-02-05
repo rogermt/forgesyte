@@ -7,7 +7,6 @@ Verifies:
 - Audit fails hard in strict mode
 """
 
-import os
 import pytest
 
 from app.plugins.loader.plugin_registry import get_registry
