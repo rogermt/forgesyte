@@ -27,6 +27,12 @@ class PluginHealthResponse(BaseModel):
     last_used: Optional[datetime] = Field(None, description="Last execution timestamp")
     success_count: int = Field(0, description="Number of successful executions")
     error_count: int = Field(0, description="Number of failed executions")
+    last_execution_time_ms: Optional[float] = Field(
+        None, description="Last execution time in milliseconds"
+    )
+    avg_execution_time_ms: Optional[float] = Field(
+        None, description="Average execution time (last 10 runs) in milliseconds"
+    )
 
     class Config:
         json_schema_extra = {
@@ -38,6 +44,8 @@ class PluginHealthResponse(BaseModel):
                 "success_count": 42,
                 "error_count": 0,
                 "uptime_seconds": 3600.5,
+                "last_execution_time_ms": 125.5,
+                "avg_execution_time_ms": 130.2,
             }
         }
 

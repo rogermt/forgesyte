@@ -73,6 +73,29 @@ class PluginMetadata:
         self.last_used: Optional[datetime] = None
         self.success_count: int = 0
         self.error_count: int = 0
+        self._execution_times: list = []  # Track last 10 execution times (in ms)
+        self._max_execution_times: int = 10  # Keep last 10 for averaging
+
+    @property
+    def last_execution_time_ms(self) -> Optional[float]:
+        """Get the last execution time in milliseconds."""
+        if self._execution_times:
+            return self._execution_times[-1]
+        return None
+
+    @property
+    def avg_execution_time_ms(self) -> Optional[float]:
+        """Get the average execution time from last 10 runs."""
+        if not self._execution_times:
+            return None
+        return sum(self._execution_times) / len(self._execution_times)
+
+    def record_execution_time(self, time_ms: float) -> None:
+        """Record an execution time for metrics tracking."""
+        self._execution_times.append(time_ms)
+        # Keep only the last N execution times
+        if len(self._execution_times) > self._max_execution_times:
+            self._execution_times.pop(0)
 
 
 class PluginRegistry:
@@ -166,17 +189,25 @@ class PluginRegistry:
             self._plugins[name].last_used = datetime.utcnow()
             self._lifecycle.set_state(name, PluginLifecycleState.RUNNING)
 
-    def record_success(self, name: str) -> None:
+    def record_success(
+        self, name: str, execution_time_ms: Optional[float] = None
+    ) -> None:
         """Record successful execution."""
         with self._rwlock:
             if name in self._plugins:
                 self._plugins[name].success_count += 1
+                if execution_time_ms is not None:
+                    self._plugins[name].record_execution_time(execution_time_ms)
 
-    def record_error(self, name: str) -> None:
+    def record_error(
+        self, name: str, execution_time_ms: Optional[float] = None
+    ) -> None:
         """Record failed execution."""
         with self._rwlock:
             if name in self._plugins:
                 self._plugins[name].error_count += 1
+                if execution_time_ms is not None:
+                    self._plugins[name].record_execution_time(execution_time_ms)
 
     def get_status(self, name: str) -> Optional[PluginHealthResponse]:
         """Get health status for a single plugin."""
@@ -201,6 +232,8 @@ class PluginRegistry:
                 last_used=meta.last_used,
                 success_count=meta.success_count,
                 error_count=meta.error_count,
+                last_execution_time_ms=meta.last_execution_time_ms,
+                avg_execution_time_ms=meta.avg_execution_time_ms,
             )
         finally:
             self._rwlock.release_read()

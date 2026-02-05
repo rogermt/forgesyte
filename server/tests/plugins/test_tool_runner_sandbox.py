@@ -4,12 +4,12 @@ Verifies that plugin tool execution is properly wrapped in sandbox
 with state tracking and error isolation.
 """
 
-import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
-from app.plugins.loader.plugin_registry import PluginRegistry, get_registry
+import pytest
+
+from app.plugins.loader.plugin_registry import PluginRegistry
 from app.plugins.sandbox import run_plugin_sandboxed
-from app.plugins.sandbox.sandbox_runner import PluginSandboxResult
 from app.services.plugin_management_service import PluginManagementService
 
 
@@ -81,7 +81,9 @@ class TestToolRunnerSandbox:
         service.registry.get.return_value = mock_plugin
 
         # Execute tool
-        result = service.run_plugin_tool("test_plugin", "echo_tool", {"message": "hello"})
+        result = service.run_plugin_tool(
+            "test_plugin", "echo_tool", {"message": "hello"}
+        )
 
         # Verify result
         assert result == {"message": "hello"}
@@ -160,6 +162,7 @@ class TestSandboxRunnerDirectly:
 
     def test_run_plugin_sandboxed_success(self):
         """Test successful sandboxed execution."""
+
         def success_fn(x: int) -> int:
             return x * 2
 
@@ -171,6 +174,7 @@ class TestSandboxRunnerDirectly:
 
     def test_run_plugin_sandboxed_runtime_error(self):
         """Test sandbox catches RuntimeError."""
+
         def fail_fn() -> None:
             raise RuntimeError("Test error")
 
@@ -182,6 +186,7 @@ class TestSandboxRunnerDirectly:
 
     def test_run_plugin_sandboxed_import_error(self):
         """Test sandbox catches ImportError."""
+
         def import_fail() -> None:
             raise ImportError("No module named 'missing'")
 
@@ -193,6 +198,7 @@ class TestSandboxRunnerDirectly:
 
     def test_run_plugin_sandboxed_value_error(self):
         """Test sandbox catches ValueError."""
+
         def value_fail() -> None:
             raise ValueError("Invalid value")
 
@@ -203,6 +209,7 @@ class TestSandboxRunnerDirectly:
 
     def test_run_plugin_sandboxed_memory_error(self):
         """Test sandbox catches MemoryError."""
+
         def memory_fail() -> None:
             raise MemoryError("Out of memory")
 
@@ -213,6 +220,7 @@ class TestSandboxRunnerDirectly:
 
     def test_run_plugin_sandboxed_generic_exception(self):
         """Test sandbox catches generic Exception."""
+
         def generic_fail() -> None:
             raise Exception("Generic error")
 
@@ -246,7 +254,7 @@ class TestRegistryStateTracking:
     def test_mark_running_updates_last_used(self, registry):
         """Test mark_running updates last_used timestamp."""
         registry.register("test", "Test", "1.0")
-        
+
         # Initially no last_used
         status = registry.get_status("test")
         assert status.last_used is None
@@ -270,3 +278,90 @@ class TestRegistryStateTracking:
         """Test getting missing plugin instance returns None."""
         result = registry.get_plugin_instance("nonexistent")
         assert result is None
+
+
+class TestExecutionTimeTracking:
+    """Test execution time tracking in sandbox and registry."""
+
+    def test_sandbox_returns_execution_time_on_success(self):
+        """Test that sandbox returns execution time on success."""
+
+        def slow_fn() -> None:
+            import time
+
+            time.sleep(0.01)  # 10ms sleep
+
+        result = run_plugin_sandboxed(slow_fn)
+
+        assert result.ok is True
+        assert result.execution_time_ms is not None
+        assert result.execution_time_ms >= 10.0  # At least 10ms
+
+    def test_sandbox_returns_execution_time_on_error(self):
+        """Test that sandbox returns execution time even on error."""
+
+        def slow_fail() -> None:
+            import time
+
+            time.sleep(0.01)  # 10ms sleep
+            raise ValueError("Test error")
+
+        result = run_plugin_sandboxed(slow_fail)
+
+        assert result.ok is False
+        assert result.execution_time_ms is not None
+        assert result.execution_time_ms >= 10.0  # At least 10ms
+
+    def test_execution_time_recorded_in_registry(self, registry):
+        """Test that execution time is recorded in registry."""
+        registry.register("test", "Test", "1.0")
+        registry.record_success("test", 125.5)
+
+        status = registry.get_status("test")
+        assert status.last_execution_time_ms == 125.5
+        assert status.avg_execution_time_ms == 125.5  # Average of 1 run
+
+    def test_execution_time_error_recorded_in_registry(self, registry):
+        """Test that execution time is recorded even on error."""
+        registry.register("test", "Test", "1.0")
+        registry.record_error("test", 85.3)
+
+        status = registry.get_status("test")
+        assert status.last_execution_time_ms == 85.3
+        assert status.avg_execution_time_ms == 85.3
+
+    def test_avg_execution_time_tracks_last_10_runs(self, registry):
+        """Test that average is calculated from last 10 runs."""
+        registry.register("test", "Test", "1.0")
+
+        # Record 15 executions with different times
+        for i in range(15):
+            registry.record_success("test", 100.0 + i)
+
+        status = registry.get_status("test")
+
+        # Should track last 10 runs (105.0 to 114.0) - oldest 5 are dropped
+        assert status.last_execution_time_ms == 114.0  # Last one (100 + 14)
+        # Average of 105, 106, ..., 114 = 109.5
+        assert status.avg_execution_time_ms == 109.5
+
+    def test_execution_time_tracked_in_health_response(self, registry):
+        """Test that execution time appears in health response."""
+        registry.register("test", "Test", "1.0")
+        registry.record_success("test", 42.5)
+
+        status = registry.get_status("test")
+
+        assert hasattr(status, "last_execution_time_ms")
+        assert hasattr(status, "avg_execution_time_ms")
+        assert status.last_execution_time_ms == 42.5
+        assert status.avg_execution_time_ms == 42.5
+
+    def test_execution_time_none_before_any_run(self, registry):
+        """Test that execution time is None before any runs."""
+        registry.register("test", "Test", "1.0")
+
+        status = registry.get_status("test")
+
+        assert status.last_execution_time_ms is None
+        assert status.avg_execution_time_ms is None

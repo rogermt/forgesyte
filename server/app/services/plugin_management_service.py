@@ -339,7 +339,7 @@ class PluginManagementService:
 
             if sandbox_result.ok:
                 # Success: record and return result
-                registry.record_success(plugin_id)
+                registry.record_success(plugin_id, sandbox_result.execution_time_ms)
                 result = sandbox_result.result
                 result_keys: Any = (
                     list(result.keys()) if isinstance(result, dict) else "unknown"
@@ -348,7 +348,7 @@ class PluginManagementService:
                 return result
             else:
                 # Sandbox caught an error: record and raise
-                registry.record_error(plugin_id)
+                registry.record_error(plugin_id, sandbox_result.execution_time_ms)
                 error_type = sandbox_result.error_type or "UnknownError"
                 error_msg = sandbox_result.error or "Plugin execution failed"
 

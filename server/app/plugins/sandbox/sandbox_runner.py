@@ -4,6 +4,7 @@ Isolates plugin execution to prevent server crashes.
 """
 
 import logging
+import time
 from dataclasses import dataclass
 from typing import Any, Callable, Dict, Optional
 
@@ -16,6 +17,7 @@ class PluginSandboxResult:
     result: Any = None
     error: Optional[str] = None
     error_type: Optional[str] = None
+    execution_time_ms: Optional[float] = None
 
 
 logger = logging.getLogger(__name__)
@@ -43,8 +45,10 @@ def run_plugin_sandboxed(
         **kwargs: Additional arguments to pass to tool_fn
 
     Returns:
-        PluginSandboxResult with ok, result, error, error_type
+        PluginSandboxResult with ok, result, error, error_type, execution_time_ms
     """
+    execution_time_ms: Optional[float] = None
+
     try:
         # Prepare arguments - only add device/annotated if explicitly provided
         call_args: Dict[str, Any] = {}
@@ -56,22 +60,38 @@ def run_plugin_sandboxed(
             call_args["annotated"] = annotated
         call_args.update(kwargs)
 
-        # Execute the tool function
+        # Execute the tool function with timing
         fn_name = getattr(tool_fn, "__name__", repr(tool_fn))
         logger.debug(f"Executing sandboxed plugin: {fn_name}")
 
-        result = tool_fn(**call_args)
+        start_time = time.perf_counter()
+        try:
+            result = tool_fn(**call_args)
 
-        # Handle async functions
-        import asyncio
-        if asyncio.iscoroutine(result):
-            result = asyncio.run(result)
+            # Handle async functions
+            import asyncio
+
+            if asyncio.iscoroutine(result):
+                # For async functions, we need to run the coroutine and time it
+                start_time_async = time.perf_counter()
+                result = asyncio.run(result)
+                end_time_async = time.perf_counter()
+                execution_time_ms = (end_time_async - start_time_async) * 1000
+            else:
+                end_time = time.perf_counter()
+                execution_time_ms = (end_time - start_time) * 1000
+
+        except Exception:
+            end_time = time.perf_counter()
+            execution_time_ms = (end_time - start_time) * 1000
+            raise
 
         return PluginSandboxResult(
             ok=True,
             result=result,
             error=None,
             error_type=None,
+            execution_time_ms=execution_time_ms,
         )
 
     except ImportError as e:
@@ -81,6 +101,7 @@ def run_plugin_sandboxed(
             ok=False,
             error=error_msg,
             error_type="ImportError",
+            execution_time_ms=execution_time_ms,
         )
 
     except RuntimeError as e:
@@ -90,6 +111,7 @@ def run_plugin_sandboxed(
             ok=False,
             error=error_msg,
             error_type="RuntimeError",
+            execution_time_ms=execution_time_ms,
         )
 
     except ValueError as e:
@@ -99,6 +121,7 @@ def run_plugin_sandboxed(
             ok=False,
             error=error_msg,
             error_type="ValueError",
+            execution_time_ms=execution_time_ms,
         )
 
     except MemoryError as e:
@@ -108,6 +131,7 @@ def run_plugin_sandboxed(
             ok=False,
             error=error_msg,
             error_type="MemoryError",
+            execution_time_ms=execution_time_ms,
         )
 
     except Exception as e:
@@ -118,6 +142,7 @@ def run_plugin_sandboxed(
             ok=False,
             error=error_msg,
             error_type=type(e).__name__,
+            execution_time_ms=execution_time_ms,
         )
 
 
