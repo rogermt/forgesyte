@@ -1,4 +1,4 @@
-# Phase 11 Progress Tracker
+ying questions that maake # Phase 11 Progress Tracker
 
 **Plugin Stability & Crash-Proof Execution**
 
@@ -14,6 +14,21 @@ Phase 11 transforms the plugin system from "might crash the server" to "impossib
 - **Implementation Status:** ⏳ NOT STARTED
 - **Timeline:** 8 commits across 4 weeks
 - **Success Criteria:** 7 objective items
+
+---
+
+## Governance Model: STRICT (No Deviations)
+
+Following PHASE_11_NOTES_02.md - Hybrid Model:
+
+| Area | Requirement |
+|------|-------------|
+| Sandbox execution | STRICT - Required |
+| Lifecycle states | STRICT - Required (LOADED, INITIALIZED, RUNNING, FAILED, UNAVAILABLE) |
+| Health API contract | STRICT - 200 always, never 500 |
+| Pre-commit tests | STRICT - `uv run pytest` before every commit |
+| Thread safety | STRICT - Required |
+| VideoTracker stability | STRICT - Required |
 
 ---
 
@@ -34,10 +49,30 @@ Phase 11 transforms the plugin system from "might crash the server" to "impossib
 - [x] PHASE_11_IMPLEMENTATION_PLAN.md – 8-commit timeline
 - [x] PHASE_11_PR_TEMPLATE.md – Markdown template
 - [x] PHASE_11_COMPLETION_CRITERIA.md – Definition of done
+- [x] PHASE_11_NOTES_01.md – Authoritative decisions (RWLock, GPU checks, etc.)
+- [x] PHASE_11_NOTES_02.md – Governance model (Strict vs Flexible)
 
 ### Active Documents
 - [x] .github/pull_request_template.md – GitHub automation
 - [x] scripts/audit_plugins.py – Governance scanner
+
+---
+
+## Authoritative Decisions (From PHASE_11_NOTES_01.md)
+
+| Setting | Authoritative Value |
+|---------|-------------------|
+| Expected concurrent load | 10-50 requests/second |
+| Registry Lock | RWLock (Reader-Writer Lock) |
+| GPU/CUDA Check | Both `torch.cuda.is_available()` AND `nvidia-smi` (fail-safe) |
+| Model File Check | Read first bytes (detect corruption) |
+| Lifecycle States | Keep 5 (LOADED, INITIALIZED, RUNNING, FAILED, UNAVAILABLE) |
+| Auto-Recovery | No - require manual restart |
+| Timeout Default | 60 seconds |
+| Memory Limit | 1 GB |
+| VideoTracker | Mark UNAVAILABLE if no GPU |
+| Commit Strategy | Two tracks: Backend (1-4) and Integration (5-8) |
+| Validation Hook | Required - `plugin.validate()` after `__init__` |
 
 ---
 
@@ -52,19 +87,26 @@ Phase 11 transforms the plugin system from "might crash the server" to "impossib
 - All modules with `pass` stubs
 - Imports wired
 
-**Verification:**
+**Pre-Commit Verification:**
 ```bash
 cd server && python -m pytest tests/ -q
 # Expected: Tests RED (failing)
 ```
 
-**Checklist:**
+**Commit Requirements:**
 - [ ] Create `server/app/plugins/loader/` module
 - [ ] Create `server/app/plugins/sandbox/` module
 - [ ] Create `server/app/plugins/lifecycle/` module
 - [ ] Create `server/app/plugins/health/` module
 - [ ] All files have stubs (no implementation)
 - [ ] Imports resolve
+
+**Pre-Commit Command:**
+```bash
+cd server && uv run pytest -v
+cd server && uv run ruff check --fix app/
+cd server && uv run mypy app/ --no-site-packages
+```
 
 ---
 
@@ -77,18 +119,23 @@ cd server && python -m pytest tests/ -q
 - `/v1/plugins/{name}/health` endpoint wired
 - Router included in main app
 
-**Verification:**
+**Pre-Commit Verification:**
 ```bash
 cd server && pytest tests/test_plugin_health_api/ -v
 # Expected: Tests RED (endpoints not implemented)
 ```
 
-**Checklist:**
+**Commit Requirements:**
 - [ ] PluginHealthResponse model created
 - [ ] PluginHealthRouter created
 - [ ] Router included in main app
 - [ ] Endpoints callable (return NotImplementedError)
 - [ ] Tests fail as expected (RED)
+
+**Pre-Commit Command:**
+```bash
+cd server && uv run pytest tests/test_plugin_health_api/ -v
+```
 
 ---
 
@@ -101,18 +148,25 @@ cd server && pytest tests/test_plugin_health_api/ -v
 - PluginLifecycleManager working
 - All state transitions implemented
 
-**Verification:**
+**Authoritative Lock Type:** RWLock (Reader-Writer Lock)
+
+**Pre-Commit Verification:**
 ```bash
 cd server && pytest tests/test_plugin_loader/test_import_failures.py -v
 # Expected: Tests GREEN
 ```
 
-**Checklist:**
-- [ ] PluginRegistry class implemented (from PHASE_11_CONCRETE_IMPLEMENTATION.md)
-- [ ] Thread-safe with locks
+**Commit Requirements:**
+- [ ] PluginRegistry class implemented with RWLock
+- [ ] Thread-safe with RWLock (reader for reads, writer for writes)
 - [ ] All methods: register, mark_failed, mark_unavailable, get_status, list_all, list_available
 - [ ] LifecycleManager integrated
 - [ ] Tests pass
+
+**Pre-Commit Command:**
+```bash
+cd server && uv run pytest tests/test_plugin_loader/ -v
+```
 
 ---
 
@@ -125,18 +179,23 @@ cd server && pytest tests/test_plugin_loader/test_import_failures.py -v
 - Returns structured error objects
 - Never raises to caller
 
-**Verification:**
+**Pre-Commit Verification:**
 ```bash
 cd server && pytest tests/test_plugin_sandbox/ -v
 # Expected: All sandbox tests GREEN
 ```
 
-**Checklist:**
+**Commit Requirements:**
 - [ ] PluginSandboxResult class implemented
-- [ ] run_plugin_sandboxed() function implemented (from PHASE_11_CONCRETE_IMPLEMENTATION.md)
+- [ ] run_plugin_sandboxed() function implemented
 - [ ] Exception handling complete
 - [ ] Error types captured
 - [ ] Tests pass
+
+**Pre-Commit Command:**
+```bash
+cd server && uv run pytest tests/test_plugin_sandbox/ -v
+```
 
 ---
 
@@ -149,19 +208,24 @@ cd server && pytest tests/test_plugin_sandbox/ -v
 - Registry state updated on all paths
 - Success/error counts tracked
 
-**Verification:**
+**Pre-Commit Verification:**
 ```bash
 cd server && pytest tests/test_tool_runner/test_sandbox_integration.py -v
 # Expected: All integration tests GREEN
 ```
 
-**Checklist:**
+**Commit Requirements:**
 - [ ] ToolRunner imports sandbox runner
 - [ ] ToolRunner.run() wrapped in sandbox
 - [ ] Registry.mark_failed() called on errors
 - [ ] Registry.record_success() called on success
 - [ ] Registry.record_error() called on failure
 - [ ] Tests pass
+
+**Pre-Commit Command:**
+```bash
+cd server && uv run pytest tests/test_tool_runner/ -v
+```
 
 ---
 
@@ -174,19 +238,24 @@ cd server && pytest tests/test_tool_runner/test_sandbox_integration.py -v
 - Health API returns full metrics
 - Success/error counts exposed
 
-**Verification:**
+**Pre-Commit Verification:**
 ```bash
 cd server && pytest tests/test_plugin_metrics/ -v
 # Expected: All metrics tests GREEN
 ```
 
-**Checklist:**
+**Commit Requirements:**
 - [ ] success_count tracking added to PluginMetadata
 - [ ] error_count tracking added to PluginMetadata
 - [ ] uptime_seconds calculation added
 - [ ] last_used timestamp updated
 - [ ] PluginHealthResponse includes all metrics
 - [ ] Health API returns metrics
+
+**Pre-Commit Command:**
+```bash
+cd server && uv run pytest -v --tb=short
+```
 
 ---
 
@@ -195,24 +264,31 @@ cd server && pytest tests/test_plugin_metrics/ -v
 **Status:** ⏳ PENDING
 
 **Expected Output:**
-- Timeout wrapper for sandbox
-- Memory limit wrapper for sandbox
+- Timeout wrapper for sandbox (60s default)
+- Memory limit wrapper for sandbox (1GB default)
 - Guards prevent hanging/OOM
 
-**Verification:**
+**Authoritative Values:** Timeout: 60s, Memory: 1GB
+
+**Pre-Commit Verification:**
 ```bash
 cd server && pytest tests/test_plugin_sandbox/test_timeout.py -v
 cd server && pytest tests/test_plugin_sandbox/test_memory_guard.py -v
 # Expected: All guard tests GREEN
 ```
 
-**Checklist:**
+**Commit Requirements:**
 - [ ] timeout.py module implemented
 - [ ] memory_guard.py module implemented
 - [ ] run_plugin_sandboxed_with_guards() function created
-- [ ] Timeout handling tested
-- [ ] Memory limits tested
+- [ ] Timeout handling tested (60s)
+- [ ] Memory limits tested (1GB)
 - [ ] Tests pass
+
+**Pre-Commit Command:**
+```bash
+cd server && uv run pytest tests/test_plugin_sandbox/ -v
+```
 
 ---
 
@@ -225,7 +301,7 @@ cd server && pytest tests/test_plugin_sandbox/test_memory_guard.py -v
 - All Phase 11 tests pass
 - No Phase 9/10 regressions
 
-**Verification:**
+**Pre-Commit Verification:**
 ```bash
 cd server && pytest tests/test_plugin_loader/ \
                     tests/test_plugin_health_api/ \
@@ -233,18 +309,24 @@ cd server && pytest tests/test_plugin_loader/ \
                     tests/test_tool_runner/ \
                     tests/test_videotracker_stability/ -v
 
-cd web-ui && npm run test -- --run
-# Expected: All tests GREEN (40+ Phase 11, 16 Phase 9, 31 Phase 10)
+cd web-ui && npm run test -- --: All tests GREENrun
+# Expected (40+ Phase 11, 16 Phase 9, 31 Phase 10)
 ```
 
-**Checklist:**
-- [ ] Pre-commit hook configured
+**Commit Requirements:**
+- [ ] Pre-commit hook configured (DO NOT ALTER - per user instruction)
 - [ ] PR template updated
 - [ ] CI checks updated
 - [ ] All Phase 11 tests pass
 - [ ] All Phase 9 tests pass
 - [ ] All Phase 10 tests pass
 - [ ] No regressions
+
+**Pre-Commit Command:**
+```bash
+cd server && uv run pytest -v --tb=short
+cd web-ui && npm run test -- --run
+```
 
 ---
 
@@ -275,7 +357,7 @@ cd web-ui && npm run test -- --run
 - [ ] Run tests frequently
 - [ ] Check for lint/type issues
 
-### Before Commit
+### Before Commit (MANDATORY)
 ```bash
 cd server && uv run pytest -v
 cd server && uv run ruff check --fix app/
@@ -330,14 +412,14 @@ server/app/plugins/
 ├── loader/
 │   ├── __init__.py
 │   ├── plugin_loader.py ← Commit 3
-│   ├── plugin_registry.py ← Commit 3
-│   ├── dependency_checker.py ← Commit 3
+│   ├── plugin_registry.py ← Commit 3 (use RWLock!)
+│   ├── dependency_checker.py ← Commit 3 (dual GPU check + read bytes)
 │   └── plugin_errors.py ← Commit 1
 ├── sandbox/
 │   ├── __init__.py
 │   ├── sandbox_runner.py ← Commit 4
-│   ├── timeout.py ← Commit 7
-│   └── memory_guard.py ← Commit 7
+│   ├── timeout.py ← Commit 7 (60s default)
+│   └── memory_guard.py ← Commit 7 (1GB default)
 ├── lifecycle/
 │   ├── __init__.py
 │   ├── lifecycle_state.py ← Commit 1
@@ -402,6 +484,8 @@ None currently. All specification complete and ready for implementation.
 - [Phase 11 Implementation Plan](.ampcode/04_PHASE_NOTES/Phase_11/PHASE_11_IMPLEMENTATION_PLAN.md)
 - [Phase 11 Concrete Implementation](.ampcode/04_PHASE_NOTES/Phase_11/PHASE_11_CONCRETE_IMPLEMENTATION.md)
 - [Phase 11 Developer Contract](.ampcode/04_PHASE_NOTES/Phase_11/PHASE_11_DEVELOPER_CONTRACT.md)
+- [Phase 11 Authoritative Decisions](.ampcode/04_PHASE_NOTES/Phase_11/PHASE_11_NOTES_01.md)
+- [Phase 11 Governance Model](.ampcode/04_PHASE_NOTES/Phase_11/PHASE_11_NOTES_02.md)
 
 ---
 
@@ -422,3 +506,4 @@ None currently. All specification complete and ready for implementation.
 **Last Modified By:** Phase 11 Setup
 
 **Next Review:** When implementation starts
+

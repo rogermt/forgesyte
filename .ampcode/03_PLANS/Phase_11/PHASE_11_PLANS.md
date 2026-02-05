@@ -1,4 +1,73 @@
-# ⭐ Phase 11 Plans (AUTHORITATIVE vs GUESSING - HONEST DELINEATION)
+Clarifying Questions for Phase 11 Plans
+Based on my review of the Phase notes and current plan docs, here are questions that would strengthen clarity:
+
+1. VideoTracker GPU Detection Specificity
+Current state: "Check GPU before init → mark UNAVAILABLE if missing"
+
+Question: Should we distinguish between:
+
+No GPU hardware at all (truly unavailable)
+GPU present but driver broken (could fail at runtime)
+CUDA toolkit missing but fixable?
+This affects error messaging quality.
+
+2. Lock Timeout Behavior Under Contention
+Current assumption: RWLock sufficient for 10-50 req/sec
+
+Question: When lock acquisition times out (your contingency):
+
+Should Health API return 503 (temporarily unavailable)?
+Or retry with exponential backoff?
+Or mark plugin UNAVAILABLE?
+This clarifies what "lock timeout" actually does.
+
+3. Silent Init Failures Detection
+Mentioned in 🟨 GUESSING (3.1): Plugin's __init__ catches exception internally
+
+Question: Do we require a validate() hook AFTER __init__ succeeds?
+
+If yes: Should this be part of the manifest?
+If no: How do we detect "init succeeded but plugin is broken"?
+Affects Commit 6 requirements.
+
+4. Error Message Specificity for Dependency Chains
+Current approach: "Module X not found"
+
+Question: Should we do a chain inspection for indirect failures?
+
+Example: import yolo succeeds, but import yolo.models fails due to missing CUDA
+Should we report "CUDA missing" or "yolo initialization failed"?
+Affects DependencyChecker complexity.
+
+5. Auto-Recovery vs Manual Restart Justification
+Current decision: Manual restart only (no auto-recovery)
+
+Question: Is this because:
+
+Restarting might hide deeper issues?
+Auto-recovery could mask corrupt state?
+Simpler for Phase 11, defer to Phase 12?
+Affects user experience expectations.
+
+6. Concurrent Access Pattern Reality Check
+Assumption: < 50 requests/second to plugin APIs
+
+Question: Are we counting:
+
+ALL API calls (health checks + tool runs)?
+Just tool execution requests?
+
+Affects lock strategy sufficiency.
+
+7. Phase 11 Pre-Commit Hook Authority
+Current state: "DO NOT ALTER per user instruction"
+
+Question: Does this mean:
+
+Don't change the WHAT the hook checks (tests, lint, types)?
+Don't change the HOW it checks it (order, commands)?
+Or both?
+Affects whether we can optimize hook performance.# ⭐ Phase 11 Plans (AUTHORITATIVE - NO GUESSING)
 
 **Status:** Specification Complete → Implementation Pending  
 **Owner:** Roger  
@@ -7,525 +76,292 @@
 
 ---
 
-# Legend
+## Authoritative Sources
 
-- 🟩 **AUTHORITATIVE** - Content from Phase 11 specification files (BINDING)
-- 🟦 **INFERRED** - Derived from spec, safe assumptions (mostly safe)
-- 🟨 **GUESSING** - My uncertainty areas, requires verification (FLAG THESE)
-- 🟧 **RISKY** - High uncertainty, could fail, needs contingency (WATCH CAREFULLY)
-
-**Authoritative Sources:**
-- PHASE_11_CONCRETE_IMPLEMENTATION.md
-- PHASE_11_PLUGIN_LOADER_V2.md
-- PHASE_11_GREEN_TESTS.md
-- PHASE_11_DEVELOPER_CONTRACT.md
-- PHASE_11_COMPLETION_CRITERIA.md
-- PHASE_11_VIDEOTRACKER_STABILITY.md
-
----
-
-# 1. 🟩 AUTHORITATIVE: What is Guaranteed
-
-## 1.1 Architecture (From PHASE_11_ARCHITECTURE.md)
-
-✅ **These are locked in:**
-
-- PluginRegistry tracks ALL plugin states
-- PluginLifecycleManager manages state transitions
-- DependencyChecker validates packages/GPU/models
-- PluginSandboxRunner catches all exceptions
-- ToolRunner uses sandbox (no exceptions reach FastAPI)
-- Health API never returns 500
-
-## 1.2 Plugin States (Guaranteed)
-
-✅ **These 5 states are final:**
-
-```
-LOADED          → Initial state after registration
-INITIALIZED     → After __init__ succeeds
-RUNNING         → During tool execution
-FAILED          → On any exception
-UNAVAILABLE     → Missing deps/GPU
-```
-
-State transitions are **unidirectional and final** — once FAILED/UNAVAILABLE, stays there (until restart).
-
-## 1.3 API Contracts (Guaranteed)
-
-✅ **These endpoints are locked:**
-
-```
-GET /v1/plugins
-  → Returns list[PluginHealthResponse]
-  → Always 200
-
-GET /v1/plugins/{name}/health
-  → Returns PluginHealthResponse
-  → Always 200 or 404 (NEVER 500)
-```
-
-## 1.4 Error Guarantees (Guaranteed)
-
-✅ **All plugin errors must be:**
-
-- Caught (never raised to FastAPI)
-- Structured (dict with `ok`, `error`, `error_type`)
-- Actionable (message explains what went wrong + how to fix)
-- Logged (full traceback in server logs)
-
-## 1.5 VideoTracker Hardening (Guaranteed)
-
-✅ **VideoTracker MUST:**
-
-- Check GPU before init → mark UNAVAILABLE if missing
-- Check models before init → mark UNAVAILABLE if missing
-- Return structured error if execution fails (no crash)
-- Have manifest with `requires_gpu: true`
+| Document | Purpose |
+|----------|---------|
+| PHASE_11_KICKOFF.md | First 5 commits, scaffolding |
+| PHASE_11_ARCHITECTURE.md | System design, components, data flow |
+| PHASE_11_RED_TESTS.md | 17 RED test cases |
+| PHASE_11_CONCRETE_IMPLEMENTATION.md | Production code |
+| PHASE_11_PLUGIN_LOADER_V2.md | Full PluginLoader v2 |
+| PHASE_11_GREEN_TESTS.md | Post-implementation tests |
+| PHASE_11_DEVELOPER_CONTRACT.md | 10 binding rules |
+| PHASE_11_IMPLEMENTATION_PLAN.md | 8-commit timeline |
+| PHASE_11_COMPLETION_CRITERIA.md | Definition of done |
+| PHASE_11_VIDEOTRACKER_STABILITY.md | Hardening patch |
+| PHASE_11_NOTES_01.md | Authoritative decisions |
+| PHASE_11_NOTES_02.md | Governance model |
 
 ---
 
-# 2. 🟦 INFERRED: Safe Assumptions (Probably OK)
+## Part 1: Strict Requirements (Non-Negotiable)
 
-## 2.1 Thread Safety
+### 1.1 Sandbox Execution
 
-**Assumption:** Using `threading.Lock` will be sufficient
-
-- ✅ Assumption rationale: PluginRegistry is I/O bound, not CPU bound
-- ✅ Contention expected: Low (few plugins, many reads)
-- ⚠️ Risk: If >100 concurrent requests, may need RWLock
-- 🔍 Verification: Load test with 50+ concurrent requests
-
-## 2.2 Dependency Checking Approach
-
-**Assumption:** Check deps before import is safe and sufficient
-
-- ✅ Works for Python packages (importlib.util.find_spec)
-- ✅ Works for GPU (torch.cuda.is_available())
-- ⚠️ Uncertain: Model file paths — what if files are huge/network-mounted?
-- 🔍 Verification: Test with real model files (multi-GB)
-
-## 2.3 Error Message Format
-
-**Assumption:** "Module X not found: Y" is clear enough
-
-- ✅ Users understand "missing torch"
-- ⚠️ Uncertain: What if error is deeply nested (e.g., torch → CUDA → driver)?
-- 🔍 Verification: Review actual errors from YOLO loading
-
-## 2.4 Performance Overhead
-
-**Assumption:** Sandbox adds <5ms per call
-
-- ✅ Try/except overhead is low
-- ⚠️ Uncertain: With logging + registry updates, actual overhead unknown
-- 🔍 Verification: Benchmark actual vs expected (tool call that takes 100ms)
-
----
-
-# 3. 🟨 GUESSING: Areas of Uncertainty
-
-## 3.1 What if DependencyChecker Misses Some Cases?
-
-**Current approach:**
-```python
-# Check Python packages
-import sys, os, json, torch, cv2
-
-# Check GPU
-torch.cuda.is_available()
-
-# Check model files
-os.path.exists(path)
-```
-
-**What could go wrong:**
-
-- ❓ What if `torch.cuda.is_available()` is false but GPU IS available (driver issue)?
-- ❓ What if model file exists but is corrupted/unreadable?
-- ❓ What if package imports but its dependencies are missing?
-
-**Verification Plan:**
-```bash
-# Test 1: Intentionally break CUDA driver
-# Test 2: Create corrupted model file
-# Test 3: Install package but break a dep
-pytest tests/test_plugin_loader/test_dependency_checker.py -v --verbose-errors
-```
-
-## 3.2 What if Registry State Gets Out of Sync?
-
-**Risk:** Registry says LOADED but ToolRunner says FAILED
-
-**Could happen if:**
-- Registry update fails silently
-- Concurrent access not properly locked
-- Exception during state transition
-
-**Mitigation:**
-- Use locks for ALL registry access (already planned)
-- Health API always queries registry directly
-- Audit tool detects drift: `scripts/audit_plugins.py`
-
-**Verification:**
-```bash
-# Stress test with 100 concurrent requests
-# Verify health API matches internal state
-pytest tests/test_plugin_registry/test_concurrent_access.py -v
-```
-
-## 3.3 What if Sandbox Catches Exception But Can't Log It?
-
-**Risk:** Plugin.run() fails, exception caught, but logging fails
-
-- Example: logging to file fails (permissions), exception not recorded
-- Result: Error disappears silently
-
-**Current safeguard:**
-```python
-try:
-    result = run_plugin_sandboxed(fn)
-except Exception as exc:  # Catch outer exception
-    logger.error(f"Sandbox failure: {exc}")
-```
-
-**But what if:**
-- Logger itself is broken?
-- Disk full so can't write logs?
-- Exception during exception handling?
-
-**Verification:**
-```bash
-# Test with broken logger
-# Test with full disk
-# Test nested exceptions
-pytest tests/test_plugin_sandbox/test_logging_edge_cases.py -v
-```
-
-## 3.4 What if VideoTracker Fails in a Way We Didn't Anticipate?
-
-**Known failure modes:**
-- GPU missing → UNAVAILABLE ✅
-- Model missing → UNAVAILABLE ✅
-- Memory error during inference → FAILED ✅
-- Timeout during inference → ? (uncertain)
-- Network error during inference → ? (uncertain)
-- Corrupted frame input → ? (uncertain)
-
-**Guesses:**
-- Timeout will be caught as RuntimeError ✅
-- Network error will be caught as Exception ✅
-- Corrupted frame will be caught as ValueError or similar ✅
-
-**Risk:** VideoTracker has special code path we don't know about
-
-**Verification:**
-```bash
-# Run YOLO with bad input, timeout, network error
-# Verify error is caught and structured
-pytest tests/test_videotracker_stability/ -v --with-timeout
-```
-
----
-
-# 4. 🟧 RISKY: High Uncertainty Areas
-
-## 4.1 Loader v2 Import/Init Isolation
-
-**What I'm confident about:**
-- Can catch ImportError when importing module ✅
-- Can catch Exception during __init__ ✅
-
-**What I'm uncertain about:**
-- Can I reliably detect WHICH init failed (GPU vs model vs config)?
-- What if init fails silently (no exception)?
-- What if init succeeds but plugin is non-functional?
-
-**Example of concern:**
+All plugin execution MUST go through the sandbox wrapper. No plugin may crash the server.
 
 ```python
-# This might NOT raise an exception:
-class Plugin:
+# MUST use sandbox for all plugin calls
+from app.plugins.sandbox.sandbox_runner import run_plugin_sandboxed
+
+result = run_plugin_sandboxed(plugin.run, **args)
+```
+
+### 1.2 Lifecycle State Machine (5 States Required)
+
+| State | Meaning |
+|-------|---------|
+| LOADED | Initial state after registration |
+| INITIALIZED | After `__init__` succeeds |
+| RUNNING | During tool execution |
+| FAILED | On any exception |
+| UNAVAILABLE | Missing deps/GPU/models |
+
+State transitions are unidirectional and final.
+
+### 1.3 Health API Contract
+
+```
+GET /v1/plugins         → 200 (list of all plugins)
+GET /v1/plugins/{name}/health → 200 or 404 (never 500)
+```
+
+### 1.4 Pre-Commit Enforcement
+
+Before EVERY commit:
+```bash
+cd server && uv run pytest -v
+```
+
+### 1.5 PluginRegistry Thread Safety
+
+Registry operations MUST be thread-safe. Lock type is RWLock (see Section 2).
+
+---
+
+
+| Registry Lock Type | RWLock (Reader-Writer Lock) |
+| Reads | Use reader lock |
+| Writes | Use writer lock |
+
+```python
+from threading import RWLock
+
+class PluginRegistry:
     def __init__(self):
-        try:
-            import torch
-        except:
-            self._model = None  # Silent failure!
+        self._lock = RWLock()
     
-    def run(self, data):
-        if self._model is None:
-            raise RuntimeError("Model not loaded")  # Fails at runtime
+    def get_status(self, name: str) -> PluginHealthResponse:
+        with self._lock.reader_lock():
+            # read-only operations
+    
+    def mark_failed(self, name: str, reason: str) -> None:
+        with self._lock.writer_lock():
+            # write operations
 ```
 
-**Risk:** We might mark plugin LOADED when it's actually broken
+### 2.2 Dependency Checking
 
-**Mitigation:**
-- Require plugins to fail fast in __init__ (part of contract)
-- Add validation hook: `plugin.validate()` after init
-- Test actual VideoTracker loading
+| Check Type | Method |
+|------------|--------|
+| GPU/CUDA | Both `torch.cuda.is_available()` AND `nvidia-smi` (fail-safe) |
+| Model Files | Read first 16 bytes (detect corruption) |
+| Python Packages | `importlib.util.find_spec()` |
 
-**Verification:**
-```bash
-# Test with plugin that silently fails
-# Ensure we catch it
-pytest tests/test_plugin_loader/test_init_failures_comprehensive.py -v
-```
+### 2.3 Runtime Guards
 
-## 4.2 Thread Safety Under Load
+| Guard | Value |
+|-------|-------|
+| Timeout | 60 seconds (default) |
+| Memory Limit | 1 GB (default) |
+| Configuration | Global defaults + per-plugin overrides allowed |
 
-**Guaranteed to work:**
-- Lock prevents concurrent access ✅
-- State updates are atomic ✅
+### 2.4 Lifecycle & Recovery
 
-**Uncertain:**
-- What if 1000 concurrent requests hit registry?
-- Will lock contention cause timeouts?
-- Will there be deadlocks?
+| Setting | Value |
+|---------|-------|
+| States | 5 (LOADED, INITIALIZED, RUNNING, FAILED, UNAVAILABLE) |
+| Auto-Recovery | NO - require manual restart |
+| Validation Hook | REQUIRED - `plugin.validate()` after `__init__` |
 
-**Risk:** High load causes registry to hang
+### 2.5 VideoTracker Hardening
 
-**Mitigation:**
-- Use lock timeouts (fail-safe)
-- Monitor lock contention
-- Add metrics for lock wait time
-
-**Verification:**
-```bash
-# Stress test with 1000 concurrent requests
-# Measure lock contention
-pytest tests/test_plugin_registry/test_stress_concurrent.py -v
-```
-
-## 4.3 Error Message Quality
-
-**What's guaranteed:**
-- Every error includes a reason ✅
-- Reason is not empty ✅
-
-**What's uncertain:**
-- Are reasons actually ACTIONABLE?
-- Do users understand "ImportError: ModuleNotFoundError"?
-- Do users understand GPU error messages?
-
-**Risk:** Error messages are confusing, users can't fix issues
-
-**Mitigation:**
-- Review actual errors from real plugins
-- Make messages specific: "Missing torch (install: pip install torch)"
-- Include remediation steps
-
-**Verification:**
-```bash
-# Manually test 10 different failure modes
-# Ask user: "Do you understand what went wrong?"
-python scripts/audit_plugins.py --verbose
-```
+| Check | Behavior |
+|-------|----------|
+| Missing GPU | Mark UNAVAILABLE |
+| Missing Models | Mark UNAVAILABLE |
+| Runtime Error | Return structured error, no crash |
+| Manifest | Must include `requires_gpu: true` |
 
 ---
 
-# 5. 🟩 AUTHORITATIVE: Completion Criteria
+## Part 3: Implementation Plan (8 Commits)
 
-Phase 11 is DONE when:
+### Commit 1: Scaffold Plugin Stability Modules
+- Create `server/app/plugins/loader/` module
+- Create `server/app/plugins/sandbox/` module
+- Create `server/app/plugins/lifecycle/` module
+- Create `server/app/plugins/health/` module
+- All files with `pass` stubs
 
-- [x] PluginRegistry fully operational (thread-safe state tracking)
-- [x] PluginSandboxRunner catches all exceptions
-- [x] Health API never returns 500
-- [x] VideoTracker hardened (no crashes)
-- [ ] All 40+ GREEN tests pass
-- [ ] All Phase 9/10 tests still pass
+### Commit 2: Wire Plugin Health API
+- `health_model.py` - PluginHealthResponse
+- `health_router.py` - `/v1/plugins` and `/v1/plugins/{name}/health`
+- Mount in `main.py`
+
+### Commit 3: Implement PluginRegistry
+- RWLock-based thread safety
+- All state transitions
+- DependencyChecker with dual GPU check
+
+### Commit 4: Implement PluginSandboxRunner
+- Exception isolation
+- Structured result objects
+- Never raises to caller
+
+### Commit 5: Wire ToolRunner to Sandbox
+- `ToolRunner.run()` wrapped in sandbox
+- Registry state updated on all paths
+- Success/error counts tracked
+
+### Commit 6: Add Error Tracking & Metrics
+- success_count, error_count
+- uptime_seconds
+- last_used timestamp
+- Health API returns full metrics
+
+### Commit 7: Add Timeout & Memory Guards
+- timeout.py module (60s default)
+- memory_guard.py module (1GB default)
+- Guards prevent hanging/OOM
+
+### Commit 8: Enforce Developer Contract
+- Pre-commit hook configured
+- PR template updated
+- Final test sweep
+- No Phase 9/10 regressions
+
+---
+
+## Part 4: Test Requirements (40+ Tests)
+
+### Required Test Suites
+
+| Suite | Count | Location |
+|-------|-------|----------|
+| Import Failures | 3 | tests/test_plugin_loader/ |
+| Init Failures | 2 | tests/test_plugin_loader/ |
+| Dependency Checking | 6 | tests/test_plugin_loader/ |
+| Health API | 8 | tests/test_plugin_health_api/ |
+| Sandbox Runner | 6 | tests/test_plugin_sandbox/ |
+| ToolRunner Integration | 4 | tests/test_tool_runner/ |
+| VideoTracker Stability | 4 | tests/test_videotracker_stability/ |
+| Metrics | 3+ | tests/test_plugin_metrics/ |
+| Timeout/Memory Guards | 4+ | tests/test_plugin_sandbox/ |
+
+### Regression Requirements
+- Phase 9 tests: 16/16 must pass
+- Phase 10 tests: 31/31 must pass
+
+---
+
+## Part 5: Governance Model (From PHASE_11_NOTES_02.md)
+
+### Strict (Non-Negotiable)
+- Sandbox execution
+- Lifecycle states
+- Health API contract
+- Pre-commit server tests
+- PluginRegistry thread safety
+- VideoTracker stability
+
+### Flexible (Engineering Judgment)
+- Lock type (RWLock recommended, Lock acceptable)
+- GPU checks (dual recommended, torch-only acceptable)
+- Model validation (read bytes recommended, exists acceptable)
+- plugin.validate() hook (recommended, optional)
+- Timeout/memory defaults (60s/1GB recommended)
+- Commit granularity (8 or fewer)
+- TDD workflow (recommended)
+
+---
+
+## Part 6: Completion Criteria
+
+Phase 11 is DONE when ALL of:
+
+- [ ] PluginRegistry fully operational (RWLock, thread-safe)
+- [ ] PluginSandboxRunner catches all exceptions
+- [ ] Health API never returns 500 (only 200/404)
+- [ ] VideoTracker hardened (no crashes)
+- [ ] All 40+ Phase 11 tests pass
+- [ ] All Phase 9 tests pass (16/16)
+- [ ] All Phase 10 tests pass (31/31)
 - [ ] Pre-commit governance enforced
 - [ ] audit_plugins.py passes
 
 ---
 
-# 6. 🟦 INFERRED: First 8 Commits
+## Part 7: File Structure
 
-Based on PHASE_11_IMPLEMENTATION_PLAN.md:
+```
+server/app/plugins/
+├── loader/
+│   ├── __init__.py
+│   ├── plugin_loader.py
+│   ├── plugin_registry.py ← use RWLock!
+│   ├── dependency_checker.py ← dual GPU check!
+│   └── plugin_errors.py
+├── sandbox/
+│   ├── __init__.py
+│   ├── sandbox_runner.py
+│   ├── timeout.py ← 60s default
+│   └── memory_guard.py ← 1GB default
+├── lifecycle/
+│   ├── __init__.py
+│   ├── lifecycle_state.py
+│   └── lifecycle_manager.py
+└── health/
+    ├── __init__.py
+    ├── health_model.py
+    └── health_router.py
 
-| Commit | Status | Risk |
-|--------|--------|------|
-| 1. Scaffold modules | ⏳ | 🟩 Low |
-| 2. Wire health API | ⏳ | 🟩 Low |
-| 3. Implement PluginRegistry | ⏳ | 🟦 Medium (thread safety) |
-| 4. Implement PluginSandboxRunner | ⏳ | 🟩 Low |
-| 5. Wire ToolRunner to sandbox | ⏳ | 🟦 Medium (integration) |
-| 6. Add metrics | ⏳ | 🟩 Low |
-| 7. Add timeout/memory guards | ⏳ | 🟧 High (resource limits untested) |
-| 8. Enforce governance | ⏳ | 🟩 Low |
-
----
-
-# 7. 🟨 GUESSING: Potential Issues
-
-## Issue 1: PluginRegistry Lock Contention
-
-**Probability:** 40% (will show up under load)
-
-**Impact:** HIGH (causes timeouts, failed health checks)
-
-**Mitigation:** Add lock timeout + metrics
-
-**Test:** Stress test with 100+ concurrent requests
-
-## Issue 2: VideoTracker Silent Failures
-
-**Probability:** 30% (edge cases with GPU/models)
-
-**Impact:** MEDIUM (plugin marked LOADED but doesn't work)
-
-**Mitigation:** Add `plugin.validate()` hook
-
-**Test:** Test with corrupted/missing models
-
-## Issue 3: Error Message Clarity
-
-**Probability:** 60% (users won't understand errors)
-
-**Impact:** MEDIUM (users can't fix issues)
-
-**Mitigation:** Review real errors, add remediation steps
-
-**Test:** User testing with real plugin failures
-
-## Issue 4: Timeout/Memory Guards Performance
-
-**Probability:** 50% (guards might be slow)
-
-**Impact:** MEDIUM (tool execution slows down)
-
-**Mitigation:** Benchmark guards, optimize if needed
-
-**Test:** Performance test with 1000 calls
+tests/
+├── test_plugin_loader/
+├── test_plugin_health_api/
+├── test_plugin_sandbox/
+├── test_tool_runner/
+└── test_videotracker_stability/
+```
 
 ---
 
-# 8. 🟨 GUESSING: Unknowns
+## Part 8: Pre-Commit Command (MANDATORY)
 
-## Unknown 1: YOLO Loading Behavior
+Before EVERY commit:
 
-**Question:** How long does YOLO initialization take?
-
-**Current assumption:** < 1 second on GPU
-
-**Why it matters:** If init is slow, registry.register() might time out
-
-**Verification:** Profile actual YOLO init
-
-## Unknown 2: Concurrent Plugin Access Patterns
-
-**Question:** How many plugins will be accessed concurrently?
-
-**Current assumption:** < 10 per second
-
-**Why it matters:** If assumption wrong, need better lock strategy
-
-**Verification:** Monitor real usage patterns
-
-## Unknown 3: Error Message Specificity
-
-**Question:** Are our error messages specific enough?
-
-**Current assumption:** "ImportError: No module named X" is clear
-
-**Why it matters:** If unclear, users can't fix issues
-
-**Verification:** User testing with real errors
+```bash
+cd server && uv run pytest -v
+cd server && uv run ruff check --fix app/
+cd server && uv run mypy app/ --no-site-packages
+cd web-ui && npm run type-check && npm run lint
+```
 
 ---
 
-# 9. 🟧 CONTINGENCY PLANS
+## Links
 
-## If Registry Lock Causes Bottleneck
-
-**Plan A:** Use RWLock instead of simple Lock
-**Plan B:** Use async locks (asyncio)
-**Plan C:** Reduce lock scope (lock individual plugins, not whole registry)
-
-**Decision point:** If health API queries take >100ms under 100 concurrent requests
-
-## If VideoTracker Still Crashes
-
-**Plan A:** Add pre-flight validation hook
-**Plan B:** Require explicit GPU/model check in __init__
-**Plan C:** Use subprocess isolation (separate process per plugin)
-
-**Decision point:** If Phase 11 tests fail due to plugin crashes
-
-## If Timeout Guards Are Too Slow
-
-**Plan A:** Make timeout optional (per-plugin config)
-**Plan B:** Use OS signals instead of timer (faster)
-**Plan C:** Skip timeout guards for fast plugins
-
-**Decision point:** If tool execution time increases > 10%
+- [Architecture](.ampcode/04_PHASE_NOTES/Phase_11/PHASE_11_ARCHITECTURE.md)
+- [Implementation Plan](.ampcode/04_PHASE_NOTES/Phase_11/PHASE_11_IMPLEMENTATION_PLAN.md)
+- [Concrete Implementation](.ampcode/04_PHASE_NOTES/Phase_11/PHASE_11_CONCRETE_IMPLEMENTATION.md)
+- [Developer Contract](.ampcode/04_PHASE_NOTES/Phase_11/PHASE_11_DEVELOPER_CONTRACT.md)
+- [Completion Criteria](.ampcode/04_PHASE_NOTES/Phase_11/PHASE_11_COMPLETION_CRITERIA.md)
+- [Authoritative Decisions](.ampcode/04_PHASE_NOTES/Phase_11/PHASE_11_NOTES_01.md)
+- [Governance Model](.ampcode/04_PHASE_NOTES/Phase_11/PHASE_11_NOTES_02.md)
 
 ---
 
-# 10. 🟩 AUTHORITATIVE: What Will Be Verified
+**This document is AUTHORITATIVE. All decisions are locked in.**
 
-Before merging Phase 11:
-
-- [ ] All 40+ GREEN tests pass
-- [ ] All Phase 9/10 tests still pass
-- [ ] `audit_plugins.py` runs without errors
-- [ ] Health API returns 200 for all cases
-- [ ] No plugin crashes server
-- [ ] Error messages are actionable
-- [ ] Pre-commit hook enforces tests
-
----
-
-# 11. 🟨 MY HONEST UNCERTAINTY SUMMARY
-
-**What I'm 100% confident about:**
-- Architecture is solid ✅
-- Test contract is clear ✅
-- API contracts are locked ✅
-- Thread safety approach is sound ✅
-
-**What I'm 80% confident about:**
-- Dependency checker catches all cases ⚠️
-- Error messages are clear ⚠️
-- Performance is acceptable ⚠️
-
-**What I'm 60% confident about:**
-- VideoTracker won't find new edge cases ⚠️
-- Lock strategy scales to production ⚠️
-- Timeout guards don't break things ⚠️
-
-**What I'm 40% confident about:**
-- No surprise failure modes emerge ⚠️
-- Users find error messages helpful ⚠️
-- Registry never gets out of sync ⚠️
-
----
-
-# 12. 🟦 INFERRED: Risk Mitigation Strategy
-
-**For MEDIUM risks:**
-1. Write extra tests (edge cases)
-2. Monitor in dev environment
-3. Be ready to pivot if needed
-
-**For HIGH risks:**
-1. Benchmark before implementation
-2. Test thoroughly with real data
-3. Have fallback plan ready
-
-**For CRITICAL risks:**
-1. Design contingency in advance
-2. Implement fail-safe defaults
-3. Plan for rollback
-
----
-
-**Roger, Phase 11 is AUTHORITATIVE on architecture but has UNCERTAINTIES in:**
-1. Thread safety under load
-2. Error clarity to users
-3. Performance overhead
-4. Plugin edge cases
-5. Dependency detection completeness
-
-**These will be VERIFIED during implementation.**
-
-**If any major assumption fails, we have contingency plans ready.**
+**No guessing. No ambiguity. No deviations.**
