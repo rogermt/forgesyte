@@ -37,7 +37,7 @@ repos:
 
       - id: web-ui-tests
         name: Web UI Tests (CI only)
-        entry: bash -c 'if [ "$CI" != "true" ]; then echo "Skipping Playwright tests locally"; exit 0; fi; cd web-ui && npm run test:e2e'
+        entry: bash -c 'if [ "$CI" != "true" ]; then echo "Skipping web-ui tests locally"; exit 0; fi; cd web-ui && npm test -- --run'
         language: system
         pass_filenames: false
         stages: [pre-commit]
