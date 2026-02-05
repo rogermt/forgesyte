@@ -49,7 +49,7 @@ EXPECTED_CONTRACTS = {
 
 
 def check_field(
-    field_name: str, field_value: Any, expected_type: Tuple[type, ...] | type
+    field_name: str, field_value: Any, expected_type: Any
 ) -> Tuple[bool, str]:
     """Check if field matches expected type.
 
@@ -62,12 +62,15 @@ def check_field(
         (is_valid, error_message)
     """
     if not isinstance(expected_type, tuple):
-        expected_type = (expected_type,)
+        expected_type = (expected_type,)  # type: ignore
 
-    if not isinstance(field_value, expected_type):
-        expected_names = ", ".join(t.__name__ for t in expected_type)
+    if not isinstance(field_value, expected_type):  # type: ignore
+        expected_names = ", ".join(t.__name__ for t in expected_type)  # type: ignore
         actual_name = type(field_value).__name__
-        return False, f"Type mismatch: {field_name} (expected {expected_names}, got {actual_name})"
+        return (
+            False,
+            f"Type mismatch: {field_name} (expected {expected_names}, got {actual_name})",
+        )
 
     return True, ""
 
@@ -89,7 +92,7 @@ def scan_contract(response_name: str, data: Dict[str, Any]) -> List[str]:
     errors = []
 
     # Check required fields are present
-    for field_name, expected_type in contract.items():
+    for field_name, expected_type in contract.items():  # type: ignore
         if field_name not in data:
             errors.append(f"Missing required field: {field_name}")
             continue
@@ -101,7 +104,7 @@ def scan_contract(response_name: str, data: Dict[str, Any]) -> List[str]:
 
     # Check for unexpected fields (extra fields)
     for field_name in data:
-        if field_name not in contract:
+        if field_name not in contract:  # type: ignore
             # Extra fields are OK (forward compatibility)
             pass
 
@@ -136,9 +139,7 @@ def scan_sample_files() -> int:
 
         # Infer response type from filename
         # e.g., "analyze_response.json" → "AnalyzeResponse"
-        type_name = "".join(
-            word.capitalize() for word in contract_file.stem.split("_")
-        )
+        type_name = "".join(word.capitalize() for word in contract_file.stem.split("_"))
 
         errors = scan_contract(type_name, data)
 

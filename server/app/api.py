@@ -363,12 +363,12 @@ async def list_jobs(
     """
     jobs_result = await service.list_jobs(status=status, plugin=plugin, limit=limit)
     jobs_list = list(jobs_result)
-    
+
     logger.debug(
         "Jobs listed",
         extra={"count": len(jobs_list), "status": status, "plugin": plugin},
     )
-    
+
     # Ensure all required JobResponse fields are present
     jobs_response = []
     for j in jobs_list:
@@ -384,7 +384,7 @@ async def list_jobs(
             "progress": j.get("progress", 0),
         }
         jobs_response.append(JobResponse(**job_data))
-    
+
     return {
         "jobs": jobs_response,
         "count": len(jobs_list),
