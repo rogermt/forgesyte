@@ -363,14 +363,30 @@ async def list_jobs(
     """
     jobs_result = await service.list_jobs(status=status, plugin=plugin, limit=limit)
     jobs_list = list(jobs_result)
-
+    
     logger.debug(
         "Jobs listed",
         extra={"count": len(jobs_list), "status": status, "plugin": plugin},
     )
-
+    
+    # Ensure all required JobResponse fields are present
+    jobs_response = []
+    for j in jobs_list:
+        # Provide defaults for required fields if missing
+        job_data = {
+            "job_id": j.get("job_id"),
+            "status": j.get("status", JobStatus.QUEUED),
+            "result": j.get("result"),
+            "error": j.get("error"),
+            "created_at": j.get("created_at"),
+            "completed_at": j.get("completed_at"),
+            "plugin": j.get("plugin", "unknown"),
+            "progress": j.get("progress", 0),
+        }
+        jobs_response.append(JobResponse(**job_data))
+    
     return {
-        "jobs": [JobResponse(**j) for j in jobs_list],
+        "jobs": jobs_response,
         "count": len(jobs_list),
     }
 

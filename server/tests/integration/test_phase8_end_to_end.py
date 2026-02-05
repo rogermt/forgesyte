@@ -28,7 +28,8 @@ class TestPhase8Pipeline:
         data = response.json()
         assert data["job_id"]
         assert data["device_requested"] == "cpu"
-        assert data["status"] == "queued"
+        assert data["device_used"] == "cpu"
+        assert data["fallback"] is False
 
     @pytest.mark.asyncio
     async def test_end_to_end_device_selector_validation(self, client) -> None:
