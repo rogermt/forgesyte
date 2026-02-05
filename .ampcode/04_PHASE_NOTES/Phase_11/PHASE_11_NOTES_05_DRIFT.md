@@ -294,3 +294,52 @@ You now have:
 This is exactly how Phase 11 should feel:  
 **tight, deterministic, and impossible to regress.**
 
+
+---
+
+## Appendix: Phase 11 Drift Safeguards Summary
+
+### What is Phase 11 Drift?
+
+Drift occurs when:
+1. New code calls `.metadata()` on plugins (legacy pattern)
+2. Endpoints return plugin objects instead of health dicts
+3. PluginRegistry is instantiated directly (breaks singleton)
+4. Registry state is bypassed or inconsistent
+5. Type hints are missing (mypy unchecked)
+
+### How We Prevent It
+
+**Before each commit:**
+```bash
+cd server && uv run pre-commit run --all-files
+```
+
+**When reviewing code:**
+- ✅ All endpoints return `PluginHealthResponse`
+- ✅ All plugin access via `get_registry()` singleton
+- ✅ No `.metadata()` calls anywhere
+- ✅ Type hints present and mypy clean
+- ✅ Tests pass (928 required)
+
+**On production:**
+```bash
+python scripts/audit_plugins.py --url http://api:8000/v1/plugins
+```
+Must report: ✅ All checks passed
+
+### The Phase 11 Contract
+
+If it doesn't go through the registry → **PHASE 11 DRIFT** → FIX IT
+
+If mypy complains → **PHASE 11 DRIFT** → FIX IT  
+
+If tests fail → **PHASE 11 DRIFT** → FIX IT
+
+If audit reports FAILED/UNAVAILABLE → **INVESTIGATE** → FIX IT
+
+---
+
+**Locked in by:** Pre-commit hooks + Type checking + Audit script  
+**Maintained by:** Every contributor (before push)  
+**Status**: 🔒 PROTECTED
