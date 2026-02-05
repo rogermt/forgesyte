@@ -26,6 +26,7 @@ from fastapi import (
     UploadFile,
     status,
 )
+from fastapi.responses import RedirectResponse
 
 from .auth import require_auth
 from .exceptions import ExternalServiceError
@@ -538,6 +539,20 @@ async def reload_plugin(
 
     logger.info("Plugin reloaded", extra={"plugin": name})
     return {"status": "reloaded", "plugin": name}
+
+
+# TEST-CHANGE (Phase 11): Compatibility shim for legacy endpoint
+@router.get("/plugins/{name}", include_in_schema=False)
+async def legacy_plugin_manifest_redirect(name: str) -> RedirectResponse:
+    """Phase 11 compatibility shim.
+
+    Redirects legacy /v1/plugins/{name} → /v1/plugins/{name}/health
+    Handles browser caches, older builds, and external integrations.
+    Prevents blank UI screens from 500 errors.
+    """
+    return RedirectResponse(
+        url=f"/v1/plugins/{name}/health", status_code=301
+    )
 
 
 @router.post("/plugins/reload-all")

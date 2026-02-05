@@ -99,8 +99,13 @@ export class ForgeSyteAPIClient {
     }
 
     async getPlugins(): Promise<Plugin[]> {
-        const result = (await this.fetch("/plugins")) as Record<string, unknown>;
-        return result.plugins as Plugin[];
+        // Phase 11: /v1/plugins returns array directly (not wrapped in object)
+        const result = (await this.fetch("/plugins")) as unknown;
+        if (Array.isArray(result)) {
+            return result as Plugin[];
+        }
+        // Fallback for older API versions
+        return (result as Record<string, unknown>).plugins as Plugin[];
     }
 
     async analyzeImage(
@@ -208,7 +213,11 @@ export class ForgeSyteAPIClient {
     }
 
     async getPluginManifest(pluginId: string): Promise<PluginManifest> {
-        return this.fetch(`/plugins/${pluginId}/manifest`) as unknown as Promise<PluginManifest>;
+        // Phase 11: Use /plugins/{pluginId}/health instead of legacy /manifest endpoint
+        // The health endpoint returns plugin health status compatible with PluginManifest interface
+        return this.fetch(
+            `/plugins/${pluginId}/health`
+        ) as unknown as Promise<PluginManifest>;
     }
 
     async runPluginTool(
