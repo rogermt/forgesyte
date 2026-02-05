@@ -301,7 +301,8 @@ def test_list_returns_all_plugins(monkeypatch):
     assert len(plugins) == 2
     assert "p1" in plugins
     assert "p2" in plugins
-    assert all(isinstance(p, BasePlugin) for p in plugins.values())
+    # list() returns metadata dicts, not plugin instances
+    assert all(isinstance(p, dict) for p in plugins.values())
 
 
 def test_no_plugins_available(monkeypatch):

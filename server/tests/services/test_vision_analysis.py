@@ -36,7 +36,7 @@ class TestVisionAnalysisService:
     async def test_handle_frame_success(self, service, mock_registry, mock_ws_manager):
         """Test successful frame handling."""
         mock_plugin = Mock()
-        mock_plugin.analyze.return_value = {"objects": []}
+        mock_plugin.run_tool.return_value = {"objects": []}
         mock_registry.get.return_value = mock_plugin
 
         frame_data = {
@@ -48,7 +48,7 @@ class TestVisionAnalysisService:
         await service.handle_frame("client1", "plugin1", frame_data)
 
         mock_registry.get.assert_called_with("plugin1")
-        mock_plugin.analyze.assert_called_once()
+        mock_plugin.run_tool.assert_called_once()
         mock_ws_manager.send_frame_result.assert_called_once()
 
         args = mock_ws_manager.send_frame_result.call_args[0]
@@ -78,7 +78,7 @@ class TestVisionAnalysisService:
     ):
         """Test frame handling with 'image_data' field (Issue #21)."""
         mock_plugin = Mock()
-        mock_plugin.analyze.return_value = {"objects": []}
+        mock_plugin.run_tool.return_value = {"objects": []}
         mock_registry.get.return_value = mock_plugin
 
         # Client sends 'image_data' field, not 'data'
@@ -91,7 +91,7 @@ class TestVisionAnalysisService:
         await service.handle_frame("client1", "plugin1", frame_data)
 
         # Should succeed with image_data field
-        mock_plugin.analyze.assert_called_once()
+        mock_plugin.run_tool.assert_called_once()
         mock_ws_manager.send_frame_result.assert_called_once()
 
     @pytest.mark.asyncio
@@ -116,7 +116,7 @@ class TestVisionAnalysisService:
     ):
         """Test handling plugin analysis exception."""
         mock_plugin = Mock()
-        mock_plugin.analyze.side_effect = Exception("Analysis Error")
+        mock_plugin.run_tool.side_effect = Exception("Analysis Error")
         mock_registry.get.return_value = mock_plugin
 
         frame_data = {

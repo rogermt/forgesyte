@@ -160,12 +160,29 @@ class TestToolsCallHandler:
             transport = MCPTransport()
 
             class FakePlugin:
-                def analyze(self, image_bytes, options):
+                name = "test_plugin"
+                tools = {
+                    "ocr": {
+                        "handler": "analyze_image",
+                        "description": "OCR analysis",
+                        "input_schema": {"type": "object"},
+                        "output_schema": {"type": "object"},
+                    }
+                }
+
+                def analyze_image(self, image_bytes, options):
                     return {
                         "text": "hello world",
                         "confidence": 0.99,
                         "blocks": [{"x": 0, "y": 0}],
                     }
+
+                def run_tool(self, tool_name, args):
+                    if tool_name == "ocr":
+                        return self.analyze_image(
+                            args["image"], args.get("options", {})
+                        )
+                    raise ValueError(f"Unknown tool: {tool_name}")
 
             monkeypatch.setattr(
                 transport._protocol_handlers.plugin_manager,
@@ -209,8 +226,25 @@ class TestToolsCallHandler:
             transport = MCPTransport()
 
             class FailingPlugin:
-                def analyze(self, image_bytes, options):
+                name = "failing_plugin"
+                tools = {
+                    "ocr": {
+                        "handler": "analyze_image",
+                        "description": "OCR analysis",
+                        "input_schema": {"type": "object"},
+                        "output_schema": {"type": "object"},
+                    }
+                }
+
+                def analyze_image(self, image_bytes, options):
                     raise Exception("Plugin failed")
+
+                def run_tool(self, tool_name, args):
+                    if tool_name == "ocr":
+                        return self.analyze_image(
+                            args["image"], args.get("options", {})
+                        )
+                    raise ValueError(f"Unknown tool: {tool_name}")
 
             monkeypatch.setattr(
                 transport._protocol_handlers.plugin_manager,
@@ -243,12 +277,29 @@ class TestToolsCallHandler:
             transport = MCPTransport()
 
             class UnicodePlugin:
-                def analyze(self, image_bytes, options):
+                name = "unicode_plugin"
+                tools = {
+                    "ocr": {
+                        "handler": "analyze_image",
+                        "description": "OCR analysis",
+                        "input_schema": {"type": "object"},
+                        "output_schema": {"type": "object"},
+                    }
+                }
+
+                def analyze_image(self, image_bytes, options):
                     return {
                         "text": "Héllo wørld 中文 🎉 émojis",
                         "confidence": 0.95,
                         "metadata": {"lang": "multi", "chars": "spëcial"},
                     }
+
+                def run_tool(self, tool_name, args):
+                    if tool_name == "ocr":
+                        return self.analyze_image(
+                            args["image"], args.get("options", {})
+                        )
+                    raise ValueError(f"Unknown tool: {tool_name}")
 
             monkeypatch.setattr(
                 transport._protocol_handlers.plugin_manager,
@@ -333,12 +384,29 @@ class TestToolsCallHandler:
                 blocks: list
 
             class PydanticPlugin:
-                def analyze(self, image_bytes, options):
+                name = "pydantic_plugin"
+                tools = {
+                    "ocr": {
+                        "handler": "analyze_image",
+                        "description": "OCR analysis",
+                        "input_schema": {"type": "object"},
+                        "output_schema": {"type": "object"},
+                    }
+                }
+
+                def analyze_image(self, image_bytes, options):
                     return AnalysisResult(
                         text="extracted text",
                         confidence=0.95,
                         blocks=[{"x": 0, "y": 0, "text": "line1"}],
                     )
+
+                def run_tool(self, tool_name, args):
+                    if tool_name == "ocr":
+                        return self.analyze_image(
+                            args["image"], args.get("options", {})
+                        )
+                    raise ValueError(f"Unknown tool: {tool_name}")
 
             monkeypatch.setattr(
                 transport._protocol_handlers.plugin_manager,
@@ -387,7 +455,17 @@ class TestToolsCallHandler:
             app.include_router(router)
 
             class LargePlugin:
-                def analyze(self, image_bytes, options):
+                name = "large_plugin"
+                tools = {
+                    "ocr": {
+                        "handler": "analyze_image",
+                        "description": "OCR analysis",
+                        "input_schema": {"type": "object"},
+                        "output_schema": {"type": "object"},
+                    }
+                }
+
+                def analyze_image(self, image_bytes, options):
                     return {
                         "text": "x" * 5000,
                         "confidence": 0.9,
@@ -395,6 +473,13 @@ class TestToolsCallHandler:
                             {"x": i, "y": i, "text": "block" * 50} for i in range(50)
                         ],
                     }
+
+                def run_tool(self, tool_name, args):
+                    if tool_name == "ocr":
+                        return self.analyze_image(
+                            args["image"], args.get("options", {})
+                        )
+                    raise ValueError(f"Unknown tool: {tool_name}")
 
             plugin_manager = PluginRegistry()
             monkeypatch.setattr(plugin_manager, "get", lambda name: LargePlugin())

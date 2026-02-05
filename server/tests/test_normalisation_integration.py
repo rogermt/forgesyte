@@ -24,7 +24,7 @@ def plugin_manager():
     manager = MagicMock()
     # Mock plugin with OCR-like output
     plugin = MagicMock()
-    plugin.analyze.return_value = {
+    plugin.run_tool.return_value = {
         "boxes": [[10, 20, 30, 40]],
         "scores": [0.95],
         "labels": ["text"],

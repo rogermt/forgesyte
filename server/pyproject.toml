@@ -49,9 +49,6 @@ packages = ["app"]
 
 [tool.ruff]
 line-length = 88
-extend-ignore = [
-    "E501",  # Line too long (handled by formatter)
-]
 
 [tool.ruff.lint]
 select = [
@@ -63,6 +60,7 @@ select = [
     "B",  # flake8-bugbear
 ]
 extend-ignore = [
+    "E501",  # Line too long (handled by formatter)
     "PLR",  # Design related codes
     "B008", # Allow function calls in FastAPI defaults (Query, Depends, etc.)
     "C901", # Allow complex functions where needed (like websocket handlers)
