@@ -4,7 +4,6 @@
 
 import { describe, it, expect } from "vitest";
 import { render, screen } from "@testing-library/react";
-import { PluginInspector } from "@/components/PluginInspector";
 
 describe("PluginInspector", () => {
     it("should render with id plugin-inspector", async () => {

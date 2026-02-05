@@ -7,7 +7,7 @@
  * Phase 9: UI Controls
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 
 // ============================================================================
 // Types
@@ -54,7 +54,7 @@ export function DeviceSelector({
     }
   }, [onDeviceChange]);
 
-  // Load preference from localStorage on mount
+  // Load preference from localStorage on mount (only once)
   useEffect(() => {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved && AVAILABLE_DEVICES.some(d => d.value === saved)) {
@@ -62,15 +62,14 @@ export function DeviceSelector({
       if (onDeviceChange) {
         onDeviceChange(saved);
       }
+      return; // Don't apply selectedDevice prop if we loaded from storage
     }
-  }, [onDeviceChange]);
-
-  // Update state when prop changes
-  useEffect(() => {
+    // Only update from prop if no localStorage value
     if (selectedDevice && selectedDevice !== device) {
       setDevice(selectedDevice);
     }
-  }, [selectedDevice]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Empty dependency array - run only on mount
 
   const selectedDeviceInfo = AVAILABLE_DEVICES.find(d => d.value === device);
 

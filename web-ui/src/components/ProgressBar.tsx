@@ -14,7 +14,7 @@
  * Phase: 10
  */
 
-import React from 'react';
+
 
 interface ProgressBarProps {
   progress: number;

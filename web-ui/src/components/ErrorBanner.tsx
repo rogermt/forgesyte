@@ -6,7 +6,7 @@
  * Phase 9: UI Controls
  */
 
-import React, { useCallback } from 'react';
+import { useCallback } from 'react';
 
 // ============================================================================
 // Types

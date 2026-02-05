@@ -12,7 +12,7 @@
  * Phase: 10
  */
 
-import React, { createContext, useContext, useReducer, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useReducer, useEffect, useState, ReactNode } from 'react';
 import { RealtimeClient, RealtimeMessage, ConnectionState } from './RealtimeClient';
 
 interface RealtimeState {
@@ -86,9 +86,18 @@ interface RealtimeProviderProps {
   url?: string;
 }
 
+// Helper to ensure context is not null
+function useRealtimeContext(): RealtimeContextValue {
+  const context = useContext(RealtimeContext);
+  if (!context) {
+    throw new Error('useRealtime must be used within a RealtimeProvider');
+  }
+  return context;
+}
+
 export function RealtimeProvider({ children, url = 'ws://localhost:8000/v1/realtime' }: RealtimeProviderProps) {
-  const [state, dispatch] = useReducer(reducer, initialState);
-  const [client, setClient] = React.useState<RealtimeClient | null>(null);
+   const [state, dispatch] = useReducer(reducer, initialState);
+   const [client, setClient] = useState<RealtimeClient | null>(null);
 
   useEffect(() => {
     const realtimeClient = new RealtimeClient(url);
@@ -129,6 +138,7 @@ export function RealtimeProvider({ children, url = 'ws://localhost:8000/v1/realt
     return () => {
       realtimeClient.disconnect();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [url]);
 
   const connect = async () => {
@@ -179,10 +189,6 @@ export function RealtimeProvider({ children, url = 'ws://localhost:8000/v1/realt
 }
 
 export function useRealtime(): RealtimeContextValue {
-  const context = useContext(RealtimeContext);
-  if (!context) {
-    throw new Error('useRealtime must be used within a RealtimeProvider');
-  }
-  return context;
+  return useRealtimeContext();
 }
 

@@ -8,11 +8,11 @@ import { RealtimeProvider, useRealtime } from "@/realtime/RealtimeContext";
 
 describe("RealtimeContext", () => {
     it("should provide initial state", () => {
-        let capturedState: ReturnType<typeof useRealtime>["state"] | null = null;
+        let capturedState: any = null;
 
         function TestComponent() {
-            const { state } = useRealtime();
-            capturedState = state;
+            const context = useRealtime();
+            capturedState = context;
             return <div>Test</div>;
         }
 
@@ -23,16 +23,16 @@ describe("RealtimeContext", () => {
         );
 
         expect(capturedState).toBeDefined();
-        expect(capturedState?.progress).toBeNull();
-        expect(capturedState?.isConnected).toBe(false);
+        expect(capturedState.state.progress).toBeNull();
+        expect(capturedState.state.isConnected).toBe(false);
     });
 
     it("should have isConnected false initially", () => {
-        let connectedState: boolean | null = null;
+        let connectedState: any = null;
 
         function TestComponent() {
-            const { state } = useRealtime();
-            connectedState = state.isConnected;
+            const context = useRealtime();
+            connectedState = context.state.isConnected;
             return <div>Test</div>;
         }
 
@@ -46,14 +46,11 @@ describe("RealtimeContext", () => {
     });
 
     it("should expose connect and disconnect methods", () => {
-        let methods: { connect: () => Promise<void>; disconnect: () => void } | null = null;
+        let capturedContext: any = null;
 
         function TestComponent() {
             const context = useRealtime();
-            methods = {
-                connect: context.connect,
-                disconnect: context.disconnect,
-            };
+            capturedContext = context;
             return <div>Test</div>;
         }
 
@@ -63,10 +60,10 @@ describe("RealtimeContext", () => {
             </RealtimeProvider>
         );
 
-        expect(methods?.connect).toBeDefined();
-        expect(typeof methods?.connect).toBe("function");
-        expect(methods?.disconnect).toBeDefined();
-        expect(typeof methods?.disconnect).toBe("function");
+        expect(capturedContext.connect).toBeDefined();
+        expect(typeof capturedContext.connect).toBe("function");
+        expect(capturedContext.disconnect).toBeDefined();
+        expect(typeof capturedContext.disconnect).toBe("function");
     });
 
     it("should expose send method", () => {

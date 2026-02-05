@@ -19,12 +19,14 @@ repos:
         additional_dependencies: [types-requests, types-Pillow, tenacity]
         exclude: ^original_vision_mcp/
 
-  - repo: https://github.com/pre-commit/mirrors-eslint
-    rev: v9.0.0
+  - repo: local
     hooks:
       - id: eslint
-        files: web-ui/src
-        args: [--max-warnings=0]
+        name: ESLint
+        entry: bash -c 'cd web-ui && npm install >/dev/null 2>&1 && npx eslint src --ext ts,tsx --max-warnings=0'
+        language: system
+        files: ^web-ui/src/.*\.(tsx?|jsx?)$
+        pass_filenames: false
 
   - repo: local
     hooks:

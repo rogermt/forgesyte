@@ -14,13 +14,12 @@
  * Phase: 10
  */
 
-import React from 'react';
 import { useRealtime } from '@/realtime/RealtimeContext';
 import { ProgressBar } from '@/components/ProgressBar';
 import { PluginInspector } from '@/components/PluginInspector';
 
-interface RealtimeOverlayProps {
-  jobId?: string;
+export interface RealtimeOverlayProps {
+  jobId: string;
   showProgressBar?: boolean;
   showPluginInspector?: boolean;
   showWarnings?: boolean;
@@ -28,16 +27,16 @@ interface RealtimeOverlayProps {
 }
 
 export function RealtimeOverlay({
-  jobId,
-  showProgressBar = true,
-  showPluginInspector = true,
-  showWarnings = true,
-  showErrors = true,
-}: RealtimeOverlayProps) {
-  const { state, connect, disconnect } = useRealtime();
+   jobId,
+   showProgressBar = true,
+   showPluginInspector = true,
+   showWarnings = true,
+   showErrors = true,
+ }: RealtimeOverlayProps) {
+   const { state } = useRealtime();
 
-  return (
-    <div className="realtime-overlay" data-testid="realtime-overlay">
+   return (
+     <div className="realtime-overlay" data-testid="realtime-overlay" data-job-id={jobId}>
       {/* Connection Status */}
       <div className="realtime-status">
         <span className={`connection-status ${state.isConnected ? 'connected' : 'disconnected'}`}>

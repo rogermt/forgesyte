@@ -12,7 +12,7 @@
 
 import { useCallback } from 'react';
 import { useRealtime } from './RealtimeContext';
-import { RealtimeMessage, ConnectionState } from './RealtimeClient';
+import { RealtimeMessage } from './RealtimeClient';
 
 export function useRealtimeConnection() {
   const { state, connect, disconnect } = useRealtime();
