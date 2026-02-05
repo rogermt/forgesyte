@@ -83,7 +83,8 @@ class PluginLoader:
             # Step 5: Run validate() hook
             self._validate_plugin(plugin_instance)
 
-            # Step 6: Mark INITIALIZED
+            # Step 6: Store instance and mark INITIALIZED
+            self.registry.set_plugin_instance(plugin_name, plugin_instance)
             self.registry.mark_initialized(plugin_name)
             logger.info(f"✓ Plugin loaded and validated: {plugin_name}")
 

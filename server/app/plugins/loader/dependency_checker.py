@@ -54,6 +54,7 @@ class DependencyChecker:
         torch_available = False
         try:
             import torch
+
             torch_available = torch.cuda.is_available()
             logger.debug(f"torch.cuda.is_available(): {torch_available}")
         except ImportError:

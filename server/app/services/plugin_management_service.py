@@ -18,13 +18,14 @@ Example:
     success = await service.reload_plugin("ocr")
 """
 
-import asyncio
 import json
 import logging
 import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from ..plugins.loader.plugin_registry import get_registry
+from ..plugins.sandbox import run_plugin_sandboxed
 from ..protocols import PluginRegistry
 
 logger = logging.getLogger(__name__)
@@ -272,10 +273,11 @@ class PluginManagementService:
         tool_name: str,
         args: Dict[str, Any],
     ) -> Dict[str, Any]:
-        """Execute a plugin tool with given arguments.
+        """Execute a plugin tool with given arguments using sandbox.
 
         Finds the plugin, locates the tool function, validates arguments,
-        and executes the tool. Handles both sync and async tool functions.
+        and executes the tool in a crash-proof sandbox. Handles both sync
+        and async tool functions with state tracking.
 
         Args:
             plugin_id: Plugin ID
@@ -290,6 +292,9 @@ class PluginManagementService:
             TimeoutError: Tool execution exceeded timeout
             Exception: Tool execution failed
         """
+        # Get registry for state tracking
+        registry = get_registry()
+
         # 1. Find plugin in registry
         plugin = self.registry.get(plugin_id)
 
@@ -321,45 +326,47 @@ class PluginManagementService:
         # 3. Get tool function
         tool_func = getattr(plugin, tool_name)
 
-        # 4. Execute tool (handle async/sync)
+        # 4. Mark plugin as RUNNING
+        registry.mark_running(plugin_id)
+
+        # 5. Execute tool in sandbox
         try:
-            if asyncio.iscoroutinefunction(tool_func):
-                # Async tool: run in event loop with timeout
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
+            # Use sandbox for crash-proof execution
+            sandbox_result = run_plugin_sandboxed(
+                tool_func,
+                **args,
+            )
 
-                try:
-                    result = loop.run_until_complete(
-                        asyncio.wait_for(
-                            tool_func(**args),
-                            timeout=30.0,  # 30-second timeout per frame
-                        )
-                    )
-                finally:
-                    loop.close()
+            if sandbox_result.ok:
+                # Success: record and return result
+                registry.record_success(plugin_id)
+                result = sandbox_result.result
+                result_keys: Any = (
+                    list(result.keys()) if isinstance(result, dict) else "unknown"
+                )
+                logger.debug(f"Tool returned result with keys: {result_keys}")
+                return result
             else:
-                # Sync tool: call directly
-                result = tool_func(**args)
+                # Sandbox caught an error: record and raise
+                registry.record_error(plugin_id)
+                error_type = sandbox_result.error_type or "UnknownError"
+                error_msg = sandbox_result.error or "Plugin execution failed"
 
-            result_keys = list(result.keys()) if isinstance(result, dict) else "unknown"
-            logger.debug(f"Tool returned result with keys: {result_keys}")
-
-            return result
-
-        except asyncio.TimeoutError as e:
-            raise TimeoutError(
-                f"Tool '{tool_name}' execution exceeded 30 second timeout"
-            ) from e
-
-        except TypeError as e:
-            # Argument mismatch
-            raise ValueError(
-                f"Invalid arguments for tool '{tool_name}': {e}. "
-                f"Check manifest input schema."
-            ) from e
+                if error_type == "TimeoutError":
+                    raise TimeoutError(
+                        f"Tool '{tool_name}' execution exceeded timeout: {error_msg}"
+                    )
+                elif error_type == "ValueError":
+                    raise ValueError(
+                        f"Invalid arguments for tool '{tool_name}': {error_msg}. "
+                        f"Check manifest input schema."
+                    )
+                else:
+                    raise Exception(f"Tool execution error ({error_type}): {error_msg}")
 
         except Exception as e:
-            # Tool execution error
+            # Catch any unexpected errors from sandbox wrapper itself
+            # Note: Don't record error here - it's already recorded in sandbox error handling
             logger.error(
                 f"Tool '{tool_name}' execution failed: {e}",
                 exc_info=True,

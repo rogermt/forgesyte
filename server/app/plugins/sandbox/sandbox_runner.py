@@ -25,8 +25,8 @@ def run_plugin_sandboxed(
     tool_fn: Callable,
     *,
     frame_base64: Optional[str] = None,
-    device: str = "cpu",
-    annotated: bool = False,
+    device: Optional[str] = None,
+    annotated: Optional[bool] = None,
     **kwargs: Any,
 ) -> PluginSandboxResult:
     """
@@ -38,27 +38,34 @@ def run_plugin_sandboxed(
     Args:
         tool_fn: The plugin tool function to execute
         frame_base64: Base64-encoded image frame (optional)
-        device: Device to use (cpu/cuda)
-        annotated: Whether to return annotated results
+        device: Device to use (cpu/cuda), only passed if explicitly set
+        annotated: Whether to return annotated results, only passed if explicitly set
         **kwargs: Additional arguments to pass to tool_fn
 
     Returns:
         PluginSandboxResult with ok, result, error, error_type
     """
     try:
-        # Prepare arguments
+        # Prepare arguments - only add device/annotated if explicitly provided
         call_args: Dict[str, Any] = {}
         if frame_base64 is not None:
             call_args["frame"] = frame_base64
-        if device:
+        if device is not None:
             call_args["device"] = device
-        if annotated:
+        if annotated is not None:
             call_args["annotated"] = annotated
         call_args.update(kwargs)
 
         # Execute the tool function
-        logger.debug(f"Executing sandboxed plugin: {tool_fn.__name__}")
+        fn_name = getattr(tool_fn, "__name__", repr(tool_fn))
+        logger.debug(f"Executing sandboxed plugin: {fn_name}")
+
         result = tool_fn(**call_args)
+
+        # Handle async functions
+        import asyncio
+        if asyncio.iscoroutine(result):
+            result = asyncio.run(result)
 
         return PluginSandboxResult(
             ok=True,

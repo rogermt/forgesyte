@@ -32,9 +32,7 @@ def list_plugins():
     plugins = registry.list_all()
 
     available = sum(
-        1
-        for p in plugins
-        if p.state.value in {"LOADED", "INITIALIZED", "RUNNING"}
+        1 for p in plugins if p.state.value in {"LOADED", "INITIALIZED", "RUNNING"}
     )
     failed = sum(1 for p in plugins if p.state.value == "FAILED")
     unavailable = sum(1 for p in plugins if p.state.value == "UNAVAILABLE")

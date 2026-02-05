@@ -3,4 +3,6 @@
 Provides exception isolation for plugin execution.
 """
 
-pass
+from .sandbox_runner import run_plugin_sandboxed, run_with_timeout
+
+__all__ = ["run_plugin_sandboxed", "run_with_timeout"]

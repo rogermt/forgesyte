@@ -7,7 +7,7 @@ thread safety.
 import logging
 from datetime import datetime
 from threading import RLock
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 from ..health.health_model import PluginHealthResponse
 from ..lifecycle.lifecycle_manager import PluginLifecycleManager
@@ -64,9 +64,7 @@ class RWLock:
 class PluginMetadata:
     """Internal metadata for a plugin."""
 
-    def __init__(
-        self, name: str, description: str = "", version: str = ""
-    ) -> None:
+    def __init__(self, name: str, description: str = "", version: str = "") -> None:
         self.name = name
         self.description = description
         self.version = version
@@ -91,6 +89,7 @@ class PluginRegistry:
     def __init__(self) -> None:
         """Initialize the plugin registry."""
         self._plugins: Dict[str, PluginMetadata] = {}
+        self._plugin_instances: Dict[str, Any] = {}
         self._lifecycle = PluginLifecycleManager()
         self._rwlock = RWLock()
 
@@ -99,6 +98,7 @@ class PluginRegistry:
         name: str,
         description: str = "",
         version: str = "",
+        instance: Optional[Any] = None,
     ) -> None:
         """Register a plugin as LOADED."""
         with self._rwlock:
@@ -108,8 +108,23 @@ class PluginRegistry:
             metadata = PluginMetadata(name, description, version)
             metadata.loaded_at = datetime.utcnow()
             self._plugins[name] = metadata
+            if instance is not None:
+                self._plugin_instances[name] = instance
             self._lifecycle.set_state(name, PluginLifecycleState.LOADED)
             logger.info(f"✓ Registered plugin: {name}")
+
+    def set_plugin_instance(self, name: str, instance: Any) -> None:
+        """Store a plugin instance."""
+        with self._rwlock:
+            self._plugin_instances[name] = instance
+
+    def get_plugin_instance(self, name: str) -> Optional[Any]:
+        """Retrieve a plugin instance by name."""
+        self._rwlock.acquire_read()
+        try:
+            return self._plugin_instances.get(name)
+        finally:
+            self._rwlock.release_read()
 
     def mark_failed(self, name: str, reason: str) -> None:
         """Mark a plugin as FAILED with error reason."""
