@@ -550,9 +550,7 @@ async def legacy_plugin_manifest_redirect(name: str) -> RedirectResponse:
     Handles browser caches, older builds, and external integrations.
     Prevents blank UI screens from 500 errors.
     """
-    return RedirectResponse(
-        url=f"/v1/plugins/{name}/health", status_code=301
-    )
+    return RedirectResponse(url=f"/v1/plugins/{name}/health", status_code=301)
 
 
 @router.post("/plugins/reload-all")
