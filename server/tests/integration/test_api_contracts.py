@@ -19,7 +19,7 @@ import pytest
 from httpx import AsyncClient
 from pydantic import ValidationError
 
-from app.models import JobResponse, JobStatus, JobStatusResponse, PluginMetadata
+from app.models import JobResponse, JobStatus, JobStatusResponse
 
 
 @pytest.mark.integration
@@ -171,56 +171,78 @@ class TestSingleJobEndpointContract:
 
 @pytest.mark.integration
 class TestPluginsEndpointContract:
-    """Verify /v1/plugins endpoint returns documented PluginMetadata schema"""
+    """Verify /v1/plugins endpoint returns documented PluginHealthResponse list (Phase 11)"""
 
     async def test_plugins_endpoint_returns_valid_plugins(
         self, client: AsyncClient
     ) -> None:
-        """GET /v1/plugins should return list of valid PluginMetadata"""
+        """GET /v1/plugins should return flat list of PluginHealthResponse dicts
+
+        TEST-CHANGE (Phase 11): Endpoint now returns flat list (not wrapped in {plugins: [...], count: ...})
+        """
         response = await client.get("/v1/plugins")
         assert response.status_code == 200
 
         data = response.json()
-        assert "plugins" in data, "Response must contain 'plugins' key"
-        assert isinstance(data["plugins"], list), "plugins must be a list"
+        assert isinstance(data, list), "Phase 11: response must be a flat list"
 
-        for plugin_data in data["plugins"]:
-            try:
-                plugin = PluginMetadata(**plugin_data)
-                assert plugin.name is not None
-                assert plugin.description is not None
-            except ValidationError as e:
-                pytest.fail(f"Plugin doesn't match schema: {e}")
+        # Verify each item is a dict with Phase 11 health fields
+        for plugin_data in data:
+            assert isinstance(plugin_data, dict)
+            assert "name" in plugin_data
+            assert "state" in plugin_data
+            assert "description" in plugin_data
 
     async def test_plugins_endpoint_required_fields(self, client: AsyncClient) -> None:
-        """Verify all required plugin fields are present"""
+        """Verify all 10 required Phase 11 plugin fields are present
+
+        TEST-CHANGE (Phase 11): Updated to check flat list with Phase 11 health schema fields
+        """
         response = await client.get("/v1/plugins")
         data = response.json()
 
-        required_fields = {"name", "description", "version", "inputs", "outputs"}
+        assert isinstance(data, list), "Phase 11: response must be a flat list"
 
-        for plugin in data["plugins"]:
+        # All 10 Phase 11 required fields
+        required_fields = {
+            "name",
+            "state",
+            "description",
+            "reason",
+            "success_count",
+            "error_count",
+            "last_used",
+            "uptime_seconds",
+            "last_execution_time_ms",
+            "avg_execution_time_ms",
+        }
+
+        for plugin in data:
             for field in required_fields:
                 assert field in plugin, f"Required field '{field}' missing from plugin"
+
+            # Validate state is one of allowed Phase 11 values
+            assert plugin["state"] in [
+                "LOADED",
+                "INITIALIZED",
+                "RUNNING",
+                "FAILED",
+                "UNAVAILABLE",
+            ], f"Invalid state: {plugin['state']}"
 
     async def test_plugins_endpoint_inputs_outputs_are_lists(
         self, client: AsyncClient
     ) -> None:
-        """Verify inputs and outputs are arrays of strings"""
+        """Verify Phase 11 endpoint returns flat list (inputs/outputs in detailed schema)
+
+        TEST-CHANGE (Phase 11): Updated for flat list health schema.
+        Phase 11 list endpoint uses health response, not detailed tool schema.
+        """
         response = await client.get("/v1/plugins")
         data = response.json()
 
-        for plugin in data["plugins"]:
-            assert isinstance(plugin.get("inputs", []), list)
-            assert isinstance(plugin.get("outputs", []), list)
-            assert isinstance(plugin.get("permissions", []), list)
-
-            for item in plugin.get("inputs", []):
-                assert isinstance(item, str)
-            for item in plugin.get("outputs", []):
-                assert isinstance(item, str)
-            for item in plugin.get("permissions", []):
-                assert isinstance(item, str)
+        assert isinstance(data, list), "Phase 11: response must be a flat list"
+        # Phase 11 health schema doesn't include inputs/outputs - those are in /plugins/{name}
 
 
 @pytest.mark.integration
@@ -266,19 +288,22 @@ class TestFixtureConsistency:
     async def test_plugins_endpoint_matches_fixture_schema(
         self, client: AsyncClient
     ) -> None:
-        """Real /v1/plugins response should match fixture structure"""
+        """Real /v1/plugins response should match fixture structure (Phase 11)
+
+        TEST-CHANGE (Phase 11): Updated for flat list health schema.
+        Endpoint returns list directly (not wrapped in {plugins: [...], count: ...})
+        """
         fixtures = self.load_fixtures()
         fixture_plugins = fixtures["plugins_list"]
 
-        # Get real response
+        # Get real response - Phase 11 returns flat list
         response = await client.get("/v1/plugins")
-        real_data = response.json()
-        real_plugins = real_data.get("plugins", [])
+        real_plugins = response.json()
 
         if not fixture_plugins or not real_plugins:
             pytest.skip("No plugins to compare")
 
-        # Compare field names
+        # Compare field names (both are flat lists)
         fixture_fields = set(fixture_plugins[0].keys())
         real_fields = set(real_plugins[0].keys())
 

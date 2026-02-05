@@ -79,33 +79,27 @@
   "plugins_list": [
     {
       "name": "motion_detector",
+      "state": "INITIALIZED",
       "description": "Detects motion in video frames and returns coordinates",
-      "version": "1.0.0",
-      "inputs": ["image"],
-      "outputs": ["json"],
-      "permissions": ["read:images"],
-      "config_schema": {
-        "sensitivity": {
-          "type": "number",
-          "default": 0.5,
-          "description": "Motion detection sensitivity (0-1)"
-        }
-      }
+      "reason": null,
+      "success_count": 42,
+      "error_count": 0,
+      "last_used": "2026-02-05T16:58:32.432Z",
+      "uptime_seconds": 3600,
+      "last_execution_time_ms": 150,
+      "avg_execution_time_ms": 145
     },
     {
       "name": "object_detection",
+      "state": "UNAVAILABLE",
       "description": "Detects objects in images using YOLO",
-      "version": "2.1.0",
-      "inputs": ["image"],
-      "outputs": ["json"],
-      "permissions": ["read:images"],
-      "config_schema": {
-        "model": {
-          "type": "string",
-          "default": "yolov8",
-          "description": "YOLO model version"
-        }
-      }
+      "reason": "GPU not available",
+      "success_count": 0,
+      "error_count": 1,
+      "last_used": null,
+      "uptime_seconds": null,
+      "last_execution_time_ms": null,
+      "avg_execution_time_ms": null
     }
   ],
   "frame_result": {

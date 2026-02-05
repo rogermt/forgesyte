@@ -441,13 +441,13 @@ async def list_plugins(
 ) -> List[Dict[str, Any]]:
     """List all available vision analysis plugins.
 
-    Phase 11 API Contract: Returns list of PluginHealthResponse dicts.
+    Phase 11 API Contract: Returns flat list of PluginHealthResponse dicts.
 
     Args:
         service: Injected PluginManagementService.
 
     Returns:
-        List of plugin health status dicts with fields:
+        Flat list of plugin health status dicts with fields:
         - name: Plugin identifier
         - state: Lifecycle state (LOADED|INITIALIZED|RUNNING|FAILED|UNAVAILABLE)
         - description: Human-readable description
@@ -456,11 +456,17 @@ async def list_plugins(
         - error_count: Number of failed executions
         - last_used: ISO timestamp of last use
         - uptime_seconds: Seconds since plugin was loaded
+        - last_execution_time_ms: Last execution duration in ms
+        - avg_execution_time_ms: Average execution duration in ms
     """
-    plugins = await service.list_plugins()
+    # Get registry directly to access health data (not service which returns manifests)
+    from .plugins.loader.plugin_registry import get_registry
+
+    registry = get_registry()
+    plugins = registry.list_all()
     logger.debug("Plugins listed", extra={"count": len(plugins)})
 
-    # Return list of dicts (PluginHealthResponse serialized)
+    # Return flat list of PluginHealthResponse dicts (Phase 11 contract)
     return [
         plugin.model_dump() if hasattr(plugin, "model_dump") else plugin
         for plugin in plugins
