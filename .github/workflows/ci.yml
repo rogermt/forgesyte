@@ -32,7 +32,7 @@ jobs:
       - name: Run mypy type checking
         run: |
           cd server
-          PYTHONPATH=. uv run mypy app/ --no-site-packages
+          PYTHONPATH=app uv run mypy app/ --no-site-packages
         continue-on-error: true
 
   # ---------------------------------------------------------
@@ -90,8 +90,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: 'npm'
-          cache-dependency-path: web-ui/package-lock.json
 
       - name: Install dependencies
         run: |
@@ -136,13 +134,11 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: 'npm'
-          cache-dependency-path: web-ui/package-lock.json
 
       - name: Install dependencies
         run: |
           cd server && uv sync
-          cd ../web-ui && npm ci
+          cd ../web-ui && npm ci --legacy-peer-deps
 
       - name: Run E2E tests
         run: ./e2e.test.sh
