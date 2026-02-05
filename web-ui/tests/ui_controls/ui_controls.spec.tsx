@@ -8,26 +8,34 @@ These tests define the expected behavior for Phase 9 UI controls:
 Tests will FAIL until the components are implemented.
 */
 
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { describe, it, expect, beforeEach } from "vitest";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 
-// Mock localStorage
-const localStorageMock = {
-    getItem: vi.fn(),
-    setItem: vi.fn(),
-    clear: vi.fn(),
-    removeItem: vi.fn(),
-};
+// Mock localStorage with actual storage behavior
+const localStorageMock = (() => {
+    let store: Record<string, string> = {};
+    return {
+        getItem: (key: string) => store[key] || null,
+        setItem: (key: string, value: string) => {
+            store[key] = value.toString();
+        },
+        clear: () => {
+            store = {};
+        },
+        removeItem: (key: string) => {
+            delete store[key];
+        },
+    };
+})();
 Object.defineProperty(globalThis, "localStorage", {
     value: localStorageMock,
     writable: true,
 });
 
 describe("UI Controls - Device Selector", () => {
-    beforeEach(() => {
-        vi.clearAllMocks();
-        localStorageMock.getItem.mockReturnValue(null);
-    });
+     beforeEach(() => {
+         localStorageMock.clear();
+     });
 
     it("should render device selector with id #device-selector", async () => {
         // This test will FAIL until DeviceSelector component is implemented
@@ -48,22 +56,25 @@ describe("UI Controls - Device Selector", () => {
         const select = document.getElementById("device-selector") as HTMLSelectElement;
         fireEvent.change(select, { target: { value: "nvidia" } });
         
-        // Verify localStorage was called
-        expect(localStorageMock.setItem).toHaveBeenCalledWith(
-            "forgesyte_device_preference",
-            "nvidia"
-        );
+        // Verify localStorage was updated
+        await waitFor(() => {
+            expect(localStorageMock.getItem("forgesyte_device_preference")).toBe("nvidia");
+        });
     });
 
     it("should restore device preference from localStorage on mount", async () => {
-        localStorageMock.getItem.mockReturnValue("gpu");
+        localStorageMock.setItem("forgesyte_device_preference", "gpu");
         
         const { DeviceSelector } = await import("@/components/DeviceSelector");
         
         render(<DeviceSelector />);
         
-        const select = document.getElementById("device-selector") as HTMLSelectElement;
-        expect(select.value).toBe("gpu");
+        const select = await waitFor(() => 
+            document.getElementById("device-selector") as HTMLSelectElement
+        );
+        await waitFor(() => {
+            expect(select.value).toBe("gpu");
+        });
     });
 });
 
@@ -118,7 +129,11 @@ describe("UI Controls - Overlay Toggles", () => {
 });
 
 describe("UI Controls - FPS Slider", () => {
-    it("should render fps-slider with id #fps-slider", async () => {
+     beforeEach(() => {
+         localStorageMock.clear();
+     });
+
+     it("should render fps-slider with id #fps-slider", async () => {
         const { FPSSlider } = await import("@/components/FPSSlider");
         
         render(<FPSSlider />);
@@ -153,14 +168,18 @@ it("should have fps slider functionality", async () => {
     });
 
     it("should restore fps target from localStorage on mount", async () => {
-        localStorageMock.getItem.mockReturnValue("60");
+        localStorageMock.setItem("forgesyte_fps_target", "60");
         
         const { FPSSlider } = await import("@/components/FPSSlider");
         
         render(<FPSSlider />);
         
-        const slider = document.getElementById("fps-slider") as HTMLInputElement;
-        expect(slider.value).toBe("60");
+        const slider = await waitFor(() =>
+            document.getElementById("fps-slider") as HTMLInputElement
+        );
+        await waitFor(() => {
+            expect(slider.value).toBe("60");
+        });
     });
 });
 

@@ -12,7 +12,7 @@
  * Phase: 10
  */
 
-import React, { createContext, useContext, useReducer, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useReducer, useEffect, useState, ReactNode } from 'react';
 import { RealtimeClient, RealtimeMessage, ConnectionState } from './RealtimeClient';
 
 interface RealtimeState {
@@ -96,8 +96,8 @@ function useRealtimeContext(): RealtimeContextValue {
 }
 
 export function RealtimeProvider({ children, url = 'ws://localhost:8000/v1/realtime' }: RealtimeProviderProps) {
-  const [state, dispatch] = useReducer(reducer, initialState);
-  const [client, setClient] = React.useState<RealtimeClient | null>(null);
+   const [state, dispatch] = useReducer(reducer, initialState);
+   const [client, setClient] = useState<RealtimeClient | null>(null);
 
   useEffect(() => {
     const realtimeClient = new RealtimeClient(url);

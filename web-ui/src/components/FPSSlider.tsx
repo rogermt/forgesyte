@@ -52,7 +52,7 @@ export function FPSSlider({
     }
   }, [onFPSChange]);
 
-  // Load preference from localStorage on mount
+  // Load preference from localStorage on mount (only once)
   useEffect(() => {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) {
@@ -62,16 +62,15 @@ export function FPSSlider({
         if (onFPSChange) {
           onFPSChange(parsed);
         }
+        return; // Don't apply selectedFPS prop if we loaded from storage
       }
     }
-  }, [onFPSChange]);
-
-  // Update state when prop changes
-  useEffect(() => {
+    // Only update from prop if no localStorage value
     if (selectedFPS && selectedFPS !== fps) {
       setFPS(selectedFPS);
     }
-  }, [selectedFPS, fps]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Empty dependency array - run only on mount
 
   return (
     <div style={styles.container}>
