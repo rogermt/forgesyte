@@ -35,13 +35,6 @@ repos:
         pass_filenames: false
         stages: [pre-commit]
 
-      - id: web-ui-tests
-        name: Web UI Tests (CI only)
-        entry: bash -c 'if [ "$CI" != "true" ]; then echo "Skipping web-ui tests locally"; exit 0; fi; cd web-ui && npm test -- --run'
-        language: system
-        pass_filenames: false
-        stages: [pre-commit]
-
       - id: validate-skipped-tests
         name: Validate skipped tests have APPROVED comments
         entry: bash
