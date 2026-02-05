@@ -1,10 +1,11 @@
 """Plugin registry with thread-safe state tracking for Phase 11.
 
 Authoritative registry of all plugins and their states with RWLock-based
-thread safety.
+thread safety. Enforces singleton pattern to prevent registry divergence.
 """
 
 import logging
+import threading
 from datetime import datetime
 from threading import RLock
 from typing import Any, Dict, List, Optional
@@ -108,21 +109,43 @@ class PluginMetadata:
 
 class PluginRegistry:
     """
-    Authoritative registry of all plugins and their states.
+    Authoritative registry of all plugins and their states (Phase 11 singleton).
 
     Guarantees:
     - Every plugin has a queryable state
     - Failed/unavailable plugins are visible, not hidden
     - No state is lost on error
     - Thread-safe access to all state
+    - Singleton: Only one instance can exist (prevents registry divergence)
     """
 
-    def __init__(self) -> None:
-        """Initialize the plugin registry."""
-        self._plugins: Dict[str, PluginMetadata] = {}
-        self._plugin_instances: Dict[str, Any] = {}
-        self._lifecycle = PluginLifecycleManager()
-        self._rwlock = RWLock()
+    _instance: Optional["PluginRegistry"] = None
+    _lock = threading.Lock()
+
+    def __new__(cls) -> "PluginRegistry":
+        """Enforce singleton pattern (Phase 11).
+
+        Raises:
+            RuntimeError: If direct instantiation attempted. Use get_registry() instead.
+        """
+        raise RuntimeError(
+            "PluginRegistry is a singleton (Phase 11). Use get_registry() instead."
+        )
+
+    @classmethod
+    def _create_instance(cls) -> "PluginRegistry":
+        """Internal factory for singleton creation. Called by get_registry()."""
+        obj = object.__new__(cls)
+        return obj
+
+    def _init_singleton(self) -> None:
+        """Initialize singleton instance (called by get_registry after creation)."""
+        if not hasattr(self, "_initialized"):
+            self._plugins: Dict[str, PluginMetadata] = {}
+            self._plugin_instances: Dict[str, Any] = {}
+            self._lifecycle = PluginLifecycleManager()
+            self._rwlock = RWLock()
+            self._initialized = True
 
     def register(
         self,
@@ -302,13 +325,23 @@ class PluginRegistry:
         }
 
 
-# Singleton instance
-_registry: Optional[PluginRegistry] = None
-
-
 def get_registry() -> PluginRegistry:
-    """Get or create the global plugin registry."""
-    global _registry
-    if _registry is None:
-        _registry = PluginRegistry()
-    return _registry
+    """Get or create the global plugin registry (Phase 11 singleton).
+
+    Thread-safe singleton getter. Always returns the same instance.
+    Do NOT instantiate PluginRegistry() directly; use this function.
+
+    Returns:
+        The global PluginRegistry singleton instance
+
+    Raises:
+        RuntimeError: Never (singleton creation is safe)
+    """
+    if PluginRegistry._instance is None:
+        with PluginRegistry._lock:
+            if PluginRegistry._instance is None:
+                # Create instance via factory (bypasses __new__ check)
+                PluginRegistry._instance = PluginRegistry._create_instance()
+                # Initialize the singleton
+                PluginRegistry._instance._init_singleton()
+    return PluginRegistry._instance

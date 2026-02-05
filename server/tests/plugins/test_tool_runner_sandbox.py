@@ -43,13 +43,14 @@ class MockPlugin:
 
 @pytest.fixture
 def registry():
-    """Create a fresh registry for each test."""
-    registry = PluginRegistry()
-    # Reset singleton for clean tests
-    import app.plugins.loader.plugin_registry as pr_module
+    """Get the singleton registry for each test."""
+    from app.plugins.loader.plugin_registry import get_registry
 
-    pr_module._registry = registry
-    return registry
+    # Reset singleton instance for clean tests (Phase 11)
+    PluginRegistry._instance = None
+
+    # Get fresh singleton
+    return get_registry()
 
 
 @pytest.fixture
