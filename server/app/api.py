@@ -42,7 +42,6 @@ from .models import (
     JobResultResponse,
     JobStatus,
     JobStatusResponse,
-    PluginMetadata,
     PluginToolRunRequest,
     PluginToolRunResponse,
 )
@@ -473,32 +472,36 @@ async def list_plugins(
     ]
 
 
-@router.get("/plugins/{name}", response_model=PluginMetadata)
-async def get_plugin_info(
-    name: str,
-    service: PluginManagementService = Depends(get_plugin_service),
-) -> PluginMetadata:
-    """Retrieve detailed information about a specific plugin.
+@router.get("/plugins/{name}")
+async def get_plugin_info(name: str) -> Dict[str, Any]:
+    """Retrieve health information about a specific plugin (Phase 11).
 
     Args:
         name: Plugin identifier to retrieve.
-        service: Injected PluginManagementService.
 
     Returns:
-        PluginMetadata containing plugin details.
+        PluginHealthResponse dict with health status and metrics.
 
     Raises:
         HTTPException: 404 Not Found if plugin does not exist.
     """
-    plugin = await service.get_plugin_info(name)
-    if not plugin:
+    from .plugins.loader.plugin_registry import get_registry
+
+    registry = get_registry()
+    plugin_status = registry.get_status(name)
+
+    if plugin_status is None:
         logger.warning("Plugin not found", extra={"plugin": name})
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Plugin '{name}' not found",
         )
 
-    return plugin.metadata()
+    return (
+        plugin_status.model_dump()
+        if hasattr(plugin_status, "model_dump")
+        else plugin_status
+    )
 
 
 @router.post("/plugins/{name}/reload")
