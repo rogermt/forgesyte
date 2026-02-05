@@ -6,6 +6,7 @@ thread safety.
 
 import logging
 from datetime import datetime
+from threading import RLock
 from typing import Dict, List, Optional
 
 from ..health.health_model import PluginHealthResponse
@@ -13,6 +14,51 @@ from ..lifecycle.lifecycle_manager import PluginLifecycleManager
 from ..lifecycle.lifecycle_state import PluginLifecycleState
 
 logger = logging.getLogger(__name__)
+
+
+class RWLock:
+    """
+    Reader-Writer Lock for Phase 11 thread safety.
+
+    Allows multiple concurrent readers or single writer.
+    Preferred over simple Lock for 10-50 req/sec load.
+    """
+
+    def __init__(self) -> None:
+        self._read_lock = RLock()
+        self._write_lock = RLock()
+        self._readers = 0
+
+    def acquire_read(self) -> None:
+        """Acquire read lock (multiple readers allowed)."""
+        with self._read_lock:
+            self._readers += 1
+            if self._readers == 1:
+                self._write_lock.acquire()
+
+    def release_read(self) -> None:
+        """Release read lock."""
+        with self._read_lock:
+            self._readers -= 1
+            if self._readers == 0:
+                self._write_lock.release()
+
+    def acquire_write(self) -> None:
+        """Acquire write lock (exclusive access)."""
+        self._write_lock.acquire()
+
+    def release_write(self) -> None:
+        """Release write lock."""
+        self._write_lock.release()
+
+    def __enter__(self) -> "RWLock":
+        """Context manager for write lock."""
+        self.acquire_write()
+        return self
+
+    def __exit__(self, *args: object) -> None:
+        """Exit context manager."""
+        self.release_write()
 
 
 class PluginMetadata:
@@ -46,7 +92,7 @@ class PluginRegistry:
         """Initialize the plugin registry."""
         self._plugins: Dict[str, PluginMetadata] = {}
         self._lifecycle = PluginLifecycleManager()
-        self._lock = __import__("threading").Lock()
+        self._rwlock = RWLock()
 
     def register(
         self,
@@ -55,7 +101,7 @@ class PluginRegistry:
         version: str = "",
     ) -> None:
         """Register a plugin as LOADED."""
-        with self._lock:
+        with self._rwlock:
             if name in self._plugins:
                 logger.warning(f"Plugin {name} already registered; overwriting")
 
@@ -67,7 +113,7 @@ class PluginRegistry:
 
     def mark_failed(self, name: str, reason: str) -> None:
         """Mark a plugin as FAILED with error reason."""
-        with self._lock:
+        with self._rwlock:
             if name not in self._plugins:
                 logger.error(f"Cannot mark unknown plugin FAILED: {name}")
                 return
@@ -79,7 +125,7 @@ class PluginRegistry:
 
     def mark_unavailable(self, name: str, reason: str) -> None:
         """Mark a plugin as UNAVAILABLE (missing deps, etc)."""
-        with self._lock:
+        with self._rwlock:
             if name not in self._plugins:
                 self._plugins[name] = PluginMetadata(name)
 
@@ -89,7 +135,7 @@ class PluginRegistry:
 
     def mark_initialized(self, name: str) -> None:
         """Mark a plugin as INITIALIZED (ready to run)."""
-        with self._lock:
+        with self._rwlock:
             if name not in self._plugins:
                 logger.warning(f"Marking unknown plugin INITIALIZED: {name}")
                 return
@@ -98,7 +144,7 @@ class PluginRegistry:
 
     def mark_running(self, name: str) -> None:
         """Mark a plugin as RUNNING (executing tool)."""
-        with self._lock:
+        with self._rwlock:
             if name not in self._plugins:
                 return
 
@@ -107,19 +153,20 @@ class PluginRegistry:
 
     def record_success(self, name: str) -> None:
         """Record successful execution."""
-        with self._lock:
+        with self._rwlock:
             if name in self._plugins:
                 self._plugins[name].success_count += 1
 
     def record_error(self, name: str) -> None:
         """Record failed execution."""
-        with self._lock:
+        with self._rwlock:
             if name in self._plugins:
                 self._plugins[name].error_count += 1
 
     def get_status(self, name: str) -> Optional[PluginHealthResponse]:
         """Get health status for a single plugin."""
-        with self._lock:
+        self._rwlock.acquire_read()
+        try:
             if name not in self._plugins:
                 return None
 
@@ -140,20 +187,26 @@ class PluginRegistry:
                 success_count=meta.success_count,
                 error_count=meta.error_count,
             )
+        finally:
+            self._rwlock.release_read()
 
     def list_all(self) -> List[PluginHealthResponse]:
         """List all plugins with their status."""
-        with self._lock:
+        self._rwlock.acquire_read()
+        try:
             statuses = []
             for name in self._plugins:
                 status = self.get_status(name)
                 if status:
                     statuses.append(status)
             return sorted(statuses, key=lambda s: s.name)
+        finally:
+            self._rwlock.release_read()
 
     def list_available(self) -> List[str]:
         """List only LOADED/INITIALIZED/RUNNING plugins."""
-        with self._lock:
+        self._rwlock.acquire_read()
+        try:
             available = []
             for name, _meta in self._plugins.items():
                 state = self._lifecycle.get_state(name)
@@ -164,16 +217,24 @@ class PluginRegistry:
                 }:
                     available.append(name)
             return available
+        finally:
+            self._rwlock.release_read()
 
     def get_state(self, name: str) -> Optional[PluginLifecycleState]:
         """Get just the lifecycle state of a plugin."""
-        with self._lock:
+        self._rwlock.acquire_read()
+        try:
             return self._lifecycle.get_state(name)
+        finally:
+            self._rwlock.release_read()
 
     def all_states(self) -> Dict[str, PluginLifecycleState]:
         """Get all plugin states as a dict."""
-        with self._lock:
+        self._rwlock.acquire_read()
+        try:
             return self._lifecycle.all_states()
+        finally:
+            self._rwlock.release_read()
 
     def is_available(self, name: str) -> bool:
         """Check if plugin is available (not FAILED/UNAVAILABLE)."""
