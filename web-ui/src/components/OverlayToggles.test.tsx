@@ -5,8 +5,8 @@ import { OverlayToggles, VisibleLayers } from './OverlayToggles';
 
 describe('OverlayToggles', () => {
   const defaultLayers: VisibleLayers = {
-    players: true,
-    ball: true,
+    boxes: true,
+    labels: true,
     pitch: true,
     radar: false,
   };
@@ -17,8 +17,8 @@ describe('OverlayToggles', () => {
       <OverlayToggles visibleLayers={defaultLayers} onChange={onChange} />
     );
 
-    expect(screen.getByText('Players')).toBeInTheDocument();
-    expect(screen.getByText('Ball')).toBeInTheDocument();
+    expect(screen.getByText('Boxes')).toBeInTheDocument();
+    expect(screen.getByText('Labels')).toBeInTheDocument();
     expect(screen.getByText('Pitch')).toBeInTheDocument();
     expect(screen.getByText('Radar')).toBeInTheDocument();
   });
@@ -29,39 +29,39 @@ describe('OverlayToggles', () => {
       <OverlayToggles visibleLayers={defaultLayers} onChange={onChange} />
     );
 
-    expect(screen.getByTestId('toggle-players')).toBeChecked();
-    expect(screen.getByTestId('toggle-ball')).toBeChecked();
+    expect(screen.getByTestId('toggle-boxes')).toBeChecked();
+    expect(screen.getByTestId('toggle-labels')).toBeChecked();
     expect(screen.getByTestId('toggle-pitch')).toBeChecked();
     expect(screen.getByTestId('toggle-radar')).not.toBeChecked();
   });
 
-  it('calls onChange when players toggle is clicked', async () => {
+  it('calls onChange when boxes toggle is clicked', async () => {
     const user = userEvent.setup();
     const onChange = vi.fn();
     render(
       <OverlayToggles visibleLayers={defaultLayers} onChange={onChange} />
     );
 
-    await user.click(screen.getByTestId('toggle-players'));
+    await user.click(screen.getByTestId('toggle-boxes'));
 
     expect(onChange).toHaveBeenCalledWith({
       ...defaultLayers,
-      players: false,
+      boxes: false,
     });
   });
 
-  it('calls onChange when ball toggle is clicked', async () => {
+  it('calls onChange when labels toggle is clicked', async () => {
     const user = userEvent.setup();
     const onChange = vi.fn();
     render(
       <OverlayToggles visibleLayers={defaultLayers} onChange={onChange} />
     );
 
-    await user.click(screen.getByTestId('toggle-ball'));
+    await user.click(screen.getByTestId('toggle-labels'));
 
     expect(onChange).toHaveBeenCalledWith({
       ...defaultLayers,
-      ball: false,
+      labels: false,
     });
   });
 
@@ -105,8 +105,8 @@ describe('OverlayToggles', () => {
       />
     );
 
-    expect(screen.getByTestId('toggle-players')).toBeDisabled();
-    expect(screen.getByTestId('toggle-ball')).toBeDisabled();
+    expect(screen.getByTestId('toggle-boxes')).toBeDisabled();
+    expect(screen.getByTestId('toggle-labels')).toBeDisabled();
     expect(screen.getByTestId('toggle-pitch')).toBeDisabled();
     expect(screen.getByTestId('toggle-radar')).toBeDisabled();
   });
@@ -115,8 +115,8 @@ describe('OverlayToggles', () => {
     const user = userEvent.setup();
     const onChange = vi.fn();
     const allDisabled: VisibleLayers = {
-      players: false,
-      ball: false,
+      boxes: false,
+      labels: false,
       pitch: false,
       radar: false,
     };
@@ -124,11 +124,11 @@ describe('OverlayToggles', () => {
       <OverlayToggles visibleLayers={allDisabled} onChange={onChange} />
     );
 
-    await user.click(screen.getByTestId('toggle-players'));
+    await user.click(screen.getByTestId('toggle-boxes'));
 
     expect(onChange).toHaveBeenCalledWith({
-      players: true,
-      ball: false,
+      boxes: true,
+      labels: false,
       pitch: false,
       radar: false,
     });
@@ -141,8 +141,8 @@ describe('OverlayToggles', () => {
       <OverlayToggles visibleLayers={defaultLayers} onChange={onChange} />
     );
 
-    await user.click(screen.getByTestId('toggle-players'));
-    await user.click(screen.getByTestId('toggle-ball'));
+    await user.click(screen.getByTestId('toggle-boxes'));
+    await user.click(screen.getByTestId('toggle-labels'));
     await user.click(screen.getByTestId('toggle-radar'));
 
     expect(onChange).toHaveBeenCalledTimes(3);
