@@ -40,21 +40,17 @@ describe("ProgressBar", () => {
     });
 
     it("should have different size variants", async () => {
-        const { ProgressBar: SmallPB } = await import("@/components/ProgressBar");
         const smallContainer = render(<ProgressBar progress={50} size="small" />);
         expect(smallContainer.container.querySelector(".progress-bar-small")).toBeInTheDocument();
 
-        const { ProgressBar: LargePB } = await import("@/components/ProgressBar");
         const largeContainer = render(<ProgressBar progress={50} size="large" />);
         expect(largeContainer.container.querySelector(".progress-bar-large")).toBeInTheDocument();
     });
 
     it("should have different variant classes", async () => {
-        const { ProgressBar: DefaultPB } = await import("@/components/ProgressBar");
         const defaultContainer = render(<ProgressBar progress={50} variant="default" />);
         expect(defaultContainer.container.querySelector(".progress-bar-default")).toBeInTheDocument();
 
-        const { ProgressBar: SuccessPB } = await import("@/components/ProgressBar");
         const successContainer = render(<ProgressBar progress={50} variant="success" />);
         expect(successContainer.container.querySelector(".progress-bar-success")).toBeInTheDocument();
     });

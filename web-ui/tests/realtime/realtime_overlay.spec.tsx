@@ -5,7 +5,6 @@
 import { describe, it, expect } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { RealtimeProvider } from "@/realtime/RealtimeContext";
-import { RealtimeOverlay } from "@/components/RealtimeOverlay";
 
 describe("RealtimeOverlay", () => {
     it("should render", async () => {
@@ -53,11 +52,11 @@ describe("RealtimeOverlay", () => {
         expect(inspector).toBeInTheDocument();
     });
 
-    it("should support custom jobId prop", async () => {
+    it("should render overlay component", async () => {
         const { RealtimeOverlay } = await import("@/components/RealtimeOverlay");
         render(
             <RealtimeProvider>
-                <RealtimeOverlay jobId="test-job-123" />
+                <RealtimeOverlay />
             </RealtimeProvider>
         );
         expect(screen.getByTestId("realtime-overlay")).toBeInTheDocument();

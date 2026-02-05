@@ -14,7 +14,7 @@
  * Phase: 10
  */
 
-import React from 'react';
+
 import { useRealtime } from '@/realtime/RealtimeContext';
 import { ProgressBar } from '@/components/ProgressBar';
 import { PluginInspector } from '@/components/PluginInspector';
