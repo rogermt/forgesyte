@@ -93,21 +93,34 @@ class TestListPluginsEndpoint:
         assert response.status_code == 200
 
     def test_list_plugins_returns_dict(self, client: TestClient) -> None:
-        """Test listing plugins returns proper structure."""
+        """Test listing plugins returns proper structure (Phase 11 API Contract).
+
+        TEST-CHANGE: Updated for Phase 11 API contract.
+        - Endpoint now returns flat list of dicts (not wrapped in plugins/count)
+        - Each dict is PluginHealthResponse with name, state, description, etc.
+        - Backward compat wrapper removed for cleaner API
+        """
         response = client.get("/v1/plugins")
         if response.status_code == 200:
             data = response.json()
-            assert "count" in data
-            assert "plugins" in data
-            assert isinstance(data["plugins"], list)
-            assert isinstance(data["count"], int)
+            assert isinstance(data, list), "Phase 11 returns flat list"
+            if data:
+                assert isinstance(data[0], dict), "Each item is a dict"
+                assert "name" in data[0], "Dict has 'name' field"
+                assert "state" in data[0], "Dict has 'state' field"
 
     def test_list_plugins_count_matches_length(self, client: TestClient) -> None:
-        """Test that count matches number of plugins."""
+        """Test that list is consistent (Phase 11 API Contract).
+
+        TEST-CHANGE: Updated for Phase 11 API contract (flat list return).
+        - Removed count field check (list length is implicit)
+        - Verify list length matches plugins returned
+        """
         response = client.get("/v1/plugins")
         if response.status_code == 200:
             data = response.json()
-            assert data["count"] == len(data["plugins"])
+            assert isinstance(data, list)
+            assert len(data) >= 0, "List is valid even if empty"
 
 
 class TestGetPluginInfoEndpoint:

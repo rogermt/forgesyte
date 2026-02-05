@@ -97,6 +97,14 @@ class PluginMetadata:
         if len(self._execution_times) > self._max_execution_times:
             self._execution_times.pop(0)
 
+    def metadata(self) -> Dict[str, Any]:
+        """Convert to metadata dict for API responses."""
+        return {
+            "name": self.name,
+            "description": self.description,
+            "version": self.version,
+        }
+
 
 class PluginRegistry:
     """

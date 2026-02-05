@@ -15,7 +15,7 @@ Endpoints are organized by domain:
 import json
 import logging
 import time
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from fastapi import (
     APIRouter,
@@ -438,25 +438,33 @@ async def cancel_job(
 @router.get("/plugins")
 async def list_plugins(
     service: PluginManagementService = Depends(get_plugin_service),
-) -> Dict[str, Any]:
+) -> List[Dict[str, Any]]:
     """List all available vision analysis plugins.
+
+    Phase 11 API Contract: Returns list of PluginHealthResponse dicts.
 
     Args:
         service: Injected PluginManagementService.
 
     Returns:
-        Dictionary containing:
-            - plugins: List of PluginMetadata objects.
-            - count: Total number of plugins available.
+        List of plugin health status dicts with fields:
+        - name: Plugin identifier
+        - state: Lifecycle state (LOADED|INITIALIZED|RUNNING|FAILED|UNAVAILABLE)
+        - description: Human-readable description
+        - reason: Error reason if FAILED/UNAVAILABLE
+        - success_count: Number of successful executions
+        - error_count: Number of failed executions
+        - last_used: ISO timestamp of last use
+        - uptime_seconds: Seconds since plugin was loaded
     """
     plugins = await service.list_plugins()
-
     logger.debug("Plugins listed", extra={"count": len(plugins)})
 
-    return {
-        "plugins": [plugin.metadata() for plugin in plugins],
-        "count": len(plugins),
-    }
+    # Return list of dicts (PluginHealthResponse serialized)
+    return [
+        plugin.model_dump() if hasattr(plugin, "model_dump") else plugin
+        for plugin in plugins
+    ]
 
 
 @router.get("/plugins/{name}", response_model=PluginMetadata)
