@@ -270,8 +270,9 @@ async def lifespan(app: FastAPI):
 
     # Shutdown: Graceful cleanup
     logger.info("Shutting down ForgeSyte...")
-    for name, plugin in plugin_manager.list().items():
+    for name in plugin_manager.list().keys():
         try:
+            plugin = plugin_manager.get(name)
             if plugin and hasattr(plugin, "on_unload"):
                 plugin.on_unload()
                 logger.debug("Plugin unloaded", extra={"plugin": name})

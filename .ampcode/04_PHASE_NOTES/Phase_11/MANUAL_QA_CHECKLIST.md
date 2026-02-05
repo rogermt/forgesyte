@@ -6,16 +6,16 @@
 - [ ] ToolRunner never calls plugin.run() directly
 
 ## Lifecycle State Machine
-- [ ] GET /v1/plugins shows only: LOADED, INITIALIZED, RUNNING, FAILED, UNAVAILABLE
+- [x] GET /v1/plugins shows only: LOADED, INITIALIZED, RUNNING, FAILED, UNAVAILABLE
 - [ ] FAILED plugins include a reason
 - [ ] UNAVAILABLE plugins include a reason
 - [ ] No plugin stuck in None or empty state
 
 ## Health API
-- [ ] GET /v1/plugins → 200
-- [ ] GET /v1/plugins/{name}/health → 200
-- [ ] GET /v1/plugins/does_not_exist/health → 404
-- [ ] Never returns 500
+- [x] GET /v1/plugins → 200
+- [x] GET /v1/plugins/{name}/health → 200
+- [x] GET /v1/plugins/does_not_exist/health → 404
+- [ ] Never returns 500 (http://localhost:8000/v1/plugins/ocr) Internaal server error
 
 ## Registry Thread Safety
 - [ ] Run 200 concurrent health checks → no deadlocks
@@ -32,8 +32,8 @@
 - [ ] Fix test → commit succeeds
 
 ## Regression
-- [ ] Phase 9 tests pass
-- [ ] Phase 10 tests pass
+- [x] Phase 9 tests pass
+- [x] Phase 10 tests pass
 
 ---
 
