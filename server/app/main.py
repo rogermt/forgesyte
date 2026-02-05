@@ -32,6 +32,7 @@ from .api_plugins import router as plugins_router
 from .auth import init_auth_service
 from .mcp import router as mcp_router
 from .plugin_loader import PluginRegistry
+from .plugins.health.health_router import router as health_router
 from .realtime import websocket_router as realtime_router
 from .services import (
     AnalysisService,
@@ -299,6 +300,7 @@ app.include_router(api_router, prefix=settings.api_prefix)
 app.include_router(mcp_router, prefix=settings.api_prefix)
 app.include_router(plugins_router, prefix="")
 app.include_router(realtime_router, prefix=settings.api_prefix)
+app.include_router(health_router)
 
 
 @app.get("/.well-known/mcp-manifest", include_in_schema=False)
