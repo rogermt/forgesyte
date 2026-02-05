@@ -70,7 +70,7 @@ class VisionAnalysisService:
 
         Raises:
             PluginNotFoundError: If plugin doesn't exist (sent to client, not raised)
-            PluginExecutionError: If plugin.analyze() fails (sent to client, not raised)
+            PluginExecutionError: If plugin.run_tool() fails (sent to client, not raised)
         """
         # Validate plugin exists
         active_plugin = self.plugins.get(plugin_name)
@@ -105,7 +105,9 @@ class VisionAnalysisService:
 
             # Time the analysis execution
             start_time = time.time()
-            result = active_plugin.analyze(image_bytes, data.get("options", {}))
+            # Use default tool if not specified
+            tool_name = data.get("tool", "default")
+            result = active_plugin.run_tool(tool_name, {"image": image_bytes, "options": data.get("options", {})})
             processing_time = (time.time() - start_time) * 1000
 
             # Send results back to client

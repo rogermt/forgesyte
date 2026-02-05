@@ -234,11 +234,11 @@ class MCPProtocolHandlers:
                     message="Invalid argument: image must be string or bytes",
                 )
 
-            # Invoke plugin (supports sync and async analyze methods)
-            if hasattr(plugin, "run_async") and callable(plugin.run_async):
-                result = await plugin.run_async(image_bytes, options)
-            elif hasattr(plugin, "analyze") and callable(plugin.analyze):
-                maybe_coro = plugin.analyze(image_bytes, options)
+            # Invoke plugin via run_tool
+            tool_name = options.get("tool", "default") if isinstance(options, dict) else "default"
+            tool_args = {"image": image_bytes, "options": options or {}}
+            if hasattr(plugin, "run_tool") and callable(plugin.run_tool):
+                maybe_coro = plugin.run_tool(tool_name, tool_args)
                 if inspect.isawaitable(maybe_coro):
                     result = await maybe_coro
                 else:
@@ -246,7 +246,7 @@ class MCPProtocolHandlers:
             else:
                 raise MCPTransportError(
                     code=JSONRPCErrorCode.INTERNAL_ERROR,
-                    message="Plugin does not have analyze method",
+                    message="Plugin does not have run_tool method",
                 )
 
             # Convert Pydantic models to dict

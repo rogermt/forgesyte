@@ -178,13 +178,19 @@ class PluginRegistry:
         """
         return self._plugins.get(name)
 
-    def list(self) -> Dict[str, BasePlugin]:
-        """List all loaded plugins.
+    def list(self) -> Dict[str, Dict[str, Any]]:
+        """List all loaded plugins with metadata.
 
         Returns:
-            Dictionary mapping plugin names to BasePlugin instances.
+            Dictionary mapping plugin names to their metadata dictionaries.
         """
-        return dict(self._plugins)
+        result: Dict[str, Dict[str, Any]] = {}
+        for name, plugin in self._plugins.items():
+            result[name] = {
+                "name": plugin.name,
+                "tools": plugin.tools,
+            }
+        return result
 
     def register(self, plugin: BasePlugin) -> None:
         """Register a plugin after enforcing the BasePlugin contract.

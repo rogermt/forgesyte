@@ -227,7 +227,7 @@ class TaskProcessor:
         _callbacks: Dictionary mapping job_id to completion callbacks
 
     Notes:
-        ThreadPoolExecutor runs plugin.analyze() in thread pool to avoid
+        ThreadPoolExecutor runs plugin.run_tool() in thread pool to avoid
         blocking the event loop for CPU-intensive operations.
     """
 
@@ -381,8 +381,11 @@ class TaskProcessor:
             loop = asyncio.get_event_loop()
 
             # Run CPU-intensive work in thread pool
+            # Use default tool if not specified
+            tool_name = options.get("tool", "default")
+            tool_args = {"image": image_bytes, "options": {k: v for k, v in options.items() if k != "tool"}}
             result = await loop.run_in_executor(
-                self._executor, plugin.analyze, image_bytes, options
+                self._executor, plugin.run_tool, tool_name, tool_args
             )
 
             processing_time_ms = (time.perf_counter() - start_time) * 1000

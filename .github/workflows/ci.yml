@@ -33,7 +33,6 @@ jobs:
         run: |
           cd server
           PYTHONPATH=app uv run mypy app/ --no-site-packages
-        continue-on-error: true
 
   # ---------------------------------------------------------
   # Server tests (matrix)

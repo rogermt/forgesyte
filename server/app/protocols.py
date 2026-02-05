@@ -21,45 +21,44 @@ from typing import Any, Dict, Optional, Protocol
 class VisionPlugin(Protocol):
     """Structural contract for vision analysis plugins.
 
-    Any class with these methods can be used as a vision plugin, enabling
-    swappable implementations without code changes.
+    Any class with these attributes/methods can be used as a vision plugin,
+    enabling swappable implementations without code changes.
+    Aligns with BasePlugin contract.
     """
 
-    def analyze(self, image_bytes: bytes, options: Dict[str, Any]) -> Any:
-        """Analyze image and return results.
+    # Required attributes
+    name: str
+    """Unique plugin identifier"""
+
+    tools: Dict[str, Dict[str, Any]]
+    """Mapping of tool_name → metadata dict with handler, description, schemas"""
+
+    def run_tool(self, tool_name: str, args: Dict[str, Any]) -> Any:
+        """Execute a tool by name.
 
         Args:
-            image_bytes: Raw image bytes (PNG, JPEG, etc.)
-            options: Plugin-specific analysis options
+            tool_name: Name of the tool to execute
+            args: Tool-specific arguments dictionary
 
         Returns:
-            Plugin-specific analysis results (varies by plugin)
+            JSON-serializable analysis result
 
         Raises:
-            ValueError: If image format is unsupported
-            RuntimeError: If analysis fails unexpectedly
+            ValueError: If tool not found or args invalid
+            RuntimeError: If execution fails
         """
         ...
 
-    def metadata(self) -> Dict[str, Any]:
-        """Get plugin metadata and capabilities.
+    def validate(self) -> None:
+        """Optional plugin-level validation hook.
 
-        Returns:
-            Dictionary with name, description, version, inputs, outputs, permissions
+        Plugins may override to:
+        - Load models
+        - Check file paths
+        - Check GPU availability
+        - Preload resources
 
-        Raises:
-            RuntimeError: If metadata cannot be generated
-        """
-        ...
-
-    def on_unload(self) -> None:
-        """Clean up plugin resources on shutdown.
-
-        Called when server shuts down or plugin is unloaded.
-        Should gracefully release any held resources.
-
-        Raises:
-            RuntimeError: If cleanup fails
+        Called once at plugin registration time.
         """
         ...
 
@@ -102,11 +101,11 @@ class PluginRegistry(Protocol):
         """
         ...
 
-    def register(self, plugin: VisionPlugin) -> None:
+    def register(self, plugin: Any) -> None:
         """Register a plugin after enforcing contract.
 
         Args:
-            plugin: VisionPlugin instance to register.
+            plugin: Plugin instance to register (must satisfy VisionPlugin protocol).
 
         Raises:
             TypeError: If plugin doesn't satisfy VisionPlugin protocol.
