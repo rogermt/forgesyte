@@ -97,8 +97,26 @@ def app_with_plugins():
 
     # Load plugins via entry-points
     plugin_manager = PluginRegistry()
-    plugin_manager.load_plugins()
+    load_result = plugin_manager.load_plugins()
+    loaded_list = list(load_result.get("loaded", {}).keys())
     app.state.plugins = plugin_manager
+
+    # Phase 11: Register loaded plugins into health registry (Phase 11 contract)
+    from app.plugins.loader.plugin_registry import get_registry
+
+    health_registry = get_registry()
+    for plugin_name in loaded_list:
+        plugin = plugin_manager.get(plugin_name)
+        if plugin:
+            # Register plugin in health registry if not already registered
+            if health_registry.get_status(plugin_name) is None:
+                health_registry.register(
+                    plugin_name,
+                    getattr(plugin, "description", ""),
+                    getattr(plugin, "version", ""),
+                    instance=plugin,
+                )
+                health_registry.mark_initialized(plugin_name)
 
     # Initialize task processor
     init_task_processor(plugin_manager)

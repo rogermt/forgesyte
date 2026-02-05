@@ -32,6 +32,7 @@ from .api_plugins import router as plugins_router
 from .auth import init_auth_service
 from .mcp import router as mcp_router
 from .plugin_loader import PluginRegistry
+from .plugins.health.health_router import router as health_router
 from .realtime import websocket_router as realtime_router
 from .services import (
     AnalysisService,
@@ -190,6 +191,56 @@ async def lifespan(app: FastAPI):
 
     app.state.plugins = plugin_manager
 
+    # Phase 11: Register loaded plugins into health registry (Phase 11 contract)
+    try:
+        from .plugins.loader.plugin_registry import get_registry
+
+        health_registry = get_registry()
+        for plugin_name in loaded_list:
+            plugin = plugin_manager.get(plugin_name)
+            if plugin:
+                # Register plugin in health registry if not already registered
+                if health_registry.get_status(plugin_name) is None:
+                    health_registry.register(
+                        plugin_name,
+                        getattr(plugin, "description", ""),
+                        getattr(plugin, "version", ""),
+                        instance=plugin,
+                    )
+                    health_registry.mark_initialized(plugin_name)
+                    logger.info(f"Registered plugin in health registry: {plugin_name}")
+    except Exception as e:
+        logger.error(
+            "Failed to register plugins in health registry", extra={"error": str(e)}
+        )
+
+    # Phase 11: Startup audit (verify singleton registry consistency)
+    try:
+        from .plugins.loader.startup_audit import run_startup_audit
+
+        run_startup_audit(loaded_list)
+    except Exception as e:
+        logger.error("Startup audit failed", extra={"error": str(e)})
+        if os.getenv("PHASE11_STRICT_AUDIT") == "1":
+            raise
+
+    # Phase 11: Debug logging (print registry state at boot)
+    try:
+        from .plugins.loader.plugin_registry import get_registry
+
+        registry = get_registry()
+        statuses = registry.list_all()
+        logger.info("=" * 50)
+        logger.info("Phase 11 Registry State (Boot)")
+        logger.info("=" * 50)
+        logger.info(f"Total plugins in registry: {len(statuses)}")
+        for s in statuses:
+            state_str = s.state.value if s.state else "NO_STATE"
+            logger.info(f"  - {s.name}: {state_str}")
+        logger.info("=" * 50)
+    except Exception as e:
+        logger.error("Failed to log registry state", extra={"error": str(e)})
+
     # Service & Task Processor Initialization
     local_task_processor = None
     try:
@@ -219,8 +270,9 @@ async def lifespan(app: FastAPI):
 
     # Shutdown: Graceful cleanup
     logger.info("Shutting down ForgeSyte...")
-    for name, plugin in plugin_manager.list().items():
+    for name in plugin_manager.list().keys():
         try:
+            plugin = plugin_manager.get(name)
             if plugin and hasattr(plugin, "on_unload"):
                 plugin.on_unload()
                 logger.debug("Plugin unloaded", extra={"plugin": name})
@@ -299,6 +351,7 @@ app.include_router(api_router, prefix=settings.api_prefix)
 app.include_router(mcp_router, prefix=settings.api_prefix)
 app.include_router(plugins_router, prefix="")
 app.include_router(realtime_router, prefix=settings.api_prefix)
+app.include_router(health_router)
 
 
 @app.get("/.well-known/mcp-manifest", include_in_schema=False)
