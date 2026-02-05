@@ -824,7 +824,7 @@ class TestTaskProcessorProcessing:
     ) -> None:
         """Test successful job processing."""
         mock_plugin = MagicMock()
-        mock_plugin.analyze = MagicMock(return_value={"objects": [1, 2, 3]})
+        mock_plugin.run_tool = MagicMock(return_value={"objects": [1, 2, 3]})
         mock_plugin_manager.get = MagicMock(return_value=mock_plugin)
 
         job_id = await task_processor.submit_job(b"image_data", "test_plugin")
@@ -843,7 +843,7 @@ class TestTaskProcessorProcessing:
     ) -> None:
         """Test job processing with plugin exception."""
         mock_plugin = MagicMock()
-        mock_plugin.analyze = MagicMock(side_effect=Exception("Analysis failed"))
+        mock_plugin.run_tool = MagicMock(side_effect=Exception("Analysis failed"))
         mock_plugin_manager.get = MagicMock(return_value=mock_plugin)
 
         job_id = await task_processor.submit_job(b"image_data", "test_plugin")
@@ -860,7 +860,7 @@ class TestTaskProcessorProcessing:
     ) -> None:
         """Test that processing sets progress."""
         mock_plugin = MagicMock()
-        mock_plugin.analyze = MagicMock(return_value={"data": "test"})
+        mock_plugin.run_tool = MagicMock(return_value={"data": "test"})
         mock_plugin_manager.get = MagicMock(return_value=mock_plugin)
 
         job_id = await task_processor.submit_job(b"image_data", "test_plugin")
@@ -885,7 +885,7 @@ class TestTaskProcessorCallbacks:
             callback_called.append(job)
 
         mock_plugin = MagicMock()
-        mock_plugin.analyze = MagicMock(return_value={"data": "test"})
+        mock_plugin.run_tool = MagicMock(return_value={"data": "test"})
         mock_plugin_manager.get = MagicMock(return_value=mock_plugin)
 
         job_id = await task_processor.submit_job(
@@ -907,7 +907,7 @@ class TestTaskProcessorCallbacks:
             callback_called.append(job)
 
         mock_plugin = MagicMock()
-        mock_plugin.analyze = MagicMock(return_value={"data": "test"})
+        mock_plugin.run_tool = MagicMock(return_value={"data": "test"})
         mock_plugin_manager.get = MagicMock(return_value=mock_plugin)
 
         job_id = await task_processor.submit_job(
@@ -928,7 +928,7 @@ class TestTaskProcessorCallbacks:
             raise Exception("Callback failed")
 
         mock_plugin = MagicMock()
-        mock_plugin.analyze = MagicMock(return_value={"data": "test"})
+        mock_plugin.run_tool = MagicMock(return_value={"data": "test"})
         mock_plugin_manager.get = MagicMock(return_value=mock_plugin)
 
         job_id = await task_processor.submit_job(
@@ -951,7 +951,7 @@ class TestTaskProcessorCallbacks:
             pass
 
         mock_plugin = MagicMock()
-        mock_plugin.analyze = MagicMock(return_value={"data": "test"})
+        mock_plugin.run_tool = MagicMock(return_value={"data": "test"})
         mock_plugin_manager.get = MagicMock(return_value=mock_plugin)
 
         job_id = await task_processor.submit_job(
@@ -1002,7 +1002,7 @@ class TestTaskProcessorErrorHandling:
     ) -> None:
         """Test that processing time is recorded."""
         mock_plugin = MagicMock()
-        mock_plugin.analyze = MagicMock(return_value={"data": "test"})
+        mock_plugin.run_tool = MagicMock(return_value={"data": "test"})
         mock_plugin_manager.get = MagicMock(return_value=mock_plugin)
 
         job_id = await task_processor.submit_job(b"image_data", "test_plugin")
@@ -1019,7 +1019,7 @@ class TestTaskProcessorErrorHandling:
     ) -> None:
         """Test that completed_at is set when job succeeds."""
         mock_plugin = MagicMock()
-        mock_plugin.analyze = MagicMock(return_value={"data": "test"})
+        mock_plugin.run_tool = MagicMock(return_value={"data": "test"})
         mock_plugin_manager.get = MagicMock(return_value=mock_plugin)
 
         job_id = await task_processor.submit_job(b"image_data", "test_plugin")
@@ -1035,7 +1035,7 @@ class TestTaskProcessorErrorHandling:
     ) -> None:
         """Test that completed_at is set when job errors."""
         mock_plugin = MagicMock()
-        mock_plugin.analyze = MagicMock(side_effect=Exception("Failed"))
+        mock_plugin.run_tool = MagicMock(side_effect=Exception("Failed"))
         mock_plugin_manager.get = MagicMock(return_value=mock_plugin)
 
         job_id = await task_processor.submit_job(b"image_data", "test_plugin")
@@ -1066,8 +1066,8 @@ class TestTaskProcessorErrorHandling:
             language="eng",
             error=None,
         )
-        # Tasks.py calls plugin.analyze (sync), not analyze_async
-        mock_plugin.analyze = MagicMock(return_value=pydantic_result)
+        # Tasks.py calls plugin.run_tool (sync), not run_tool_async
+        mock_plugin.run_tool = MagicMock(return_value=pydantic_result)
         mock_plugin_manager.get.return_value = mock_plugin
 
         # Submit and process job

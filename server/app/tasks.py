@@ -383,7 +383,10 @@ class TaskProcessor:
             # Run CPU-intensive work in thread pool
             # Use default tool if not specified
             tool_name = options.get("tool", "default")
-            tool_args = {"image": image_bytes, "options": {k: v for k, v in options.items() if k != "tool"}}
+            tool_args = {
+                "image": image_bytes,
+                "options": {k: v for k, v in options.items() if k != "tool"},
+            }
             result = await loop.run_in_executor(
                 self._executor, plugin.run_tool, tool_name, tool_args
             )

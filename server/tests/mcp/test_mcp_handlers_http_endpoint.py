@@ -31,6 +31,14 @@ class MockPlugin:
         self.inputs = inputs or ["image"]
         self.outputs = outputs or ["json"]
         self.version = version
+        self.tools = {
+            "default": {
+                "handler": "analyze_image",
+                "description": self.description,
+                "input_schema": {"type": "object"},
+                "output_schema": {"type": "object"},
+            }
+        }
 
     def metadata(self) -> dict:
         """Return plugin metadata."""
@@ -45,13 +53,19 @@ class MockPlugin:
             meta["title"] = self.title
         return meta
 
-    def analyze(self, image_bytes: bytes, options: dict) -> dict:
+    def analyze_image(self, image_bytes: bytes, options: dict) -> dict:
         """Analyze image bytes and return results."""
         return {
             "text": "mock result",
             "confidence": 0.95,
             "blocks": [],
         }
+
+    def run_tool(self, tool_name: str, args: dict) -> dict:
+        """Execute a tool by name."""
+        if tool_name == "default":
+            return self.analyze_image(args["image"], args.get("options", {}))
+        raise ValueError(f"Unknown tool: {tool_name}")
 
     def on_unload(self) -> None:
         """Called when plugin is unloaded."""

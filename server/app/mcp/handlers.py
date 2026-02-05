@@ -235,10 +235,18 @@ class MCPProtocolHandlers:
                 )
 
             # Invoke plugin via run_tool
-            tool_name = options.get("tool", "default") if isinstance(options, dict) else "default"
+            # The tool_name parameter from params is the plugin name, not the tool name
+            # Try to find the tool within the plugin (use first tool if available)
+            tool_to_call = options.get("tool") if isinstance(options, dict) else None
+            if not tool_to_call and hasattr(plugin, "tools") and plugin.tools:
+                # Use first tool if no specific tool requested
+                tool_to_call = next(iter(plugin.tools.keys()))
+            if not tool_to_call:
+                tool_to_call = "default"
+
             tool_args = {"image": image_bytes, "options": options or {}}
             if hasattr(plugin, "run_tool") and callable(plugin.run_tool):
-                maybe_coro = plugin.run_tool(tool_name, tool_args)
+                maybe_coro = plugin.run_tool(tool_to_call, tool_args)
                 if inspect.isawaitable(maybe_coro):
                     result = await maybe_coro
                 else:
@@ -277,7 +285,11 @@ class MCPProtocolHandlers:
         except Exception as e:
             logger.error(
                 "Error invoking tool",
-                extra={"tool_name": tool_name, "error": str(e)},
+                extra={
+                    "tool_name": tool_to_call,
+                    "plugin_name": tool_name,
+                    "error": str(e),
+                },
             )
             raise MCPTransportError(
                 code=JSONRPCErrorCode.INTERNAL_ERROR,

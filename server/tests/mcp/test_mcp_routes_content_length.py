@@ -35,12 +35,29 @@ class TestContentLengthCorrectness:
             app.include_router(router)
 
             class LargePlugin:
-                def analyze(self, image_bytes, options):
+                name = "large_plugin"
+                tools = {
+                    "ocr": {
+                        "handler": "analyze_image",
+                        "description": "OCR analysis",
+                        "input_schema": {"type": "object"},
+                        "output_schema": {"type": "object"},
+                    }
+                }
+
+                def analyze_image(self, image_bytes, options):
                     return {
                         "text": "x" * 10000,
                         "confidence": 0.95,
                         "blocks": [{"id": i, "t": "block" * 100} for i in range(100)],
                     }
+
+                def run_tool(self, tool_name, args):
+                    if tool_name == "ocr":
+                        return self.analyze_image(
+                            args["image"], args.get("options", {})
+                        )
+                    raise ValueError(f"Unknown tool: {tool_name}")
 
             pm = PluginRegistry()
             monkeypatch.setattr(pm, "get", lambda name: LargePlugin())
@@ -91,11 +108,28 @@ class TestContentLengthCorrectness:
             app.include_router(router)
 
             class UnicodePlugin:
-                def analyze(self, image_bytes, options):
+                name = "unicode_plugin"
+                tools = {
+                    "ocr": {
+                        "handler": "analyze_image",
+                        "description": "OCR analysis",
+                        "input_schema": {"type": "object"},
+                        "output_schema": {"type": "object"},
+                    }
+                }
+
+                def analyze_image(self, image_bytes, options):
                     return {
                         "text": "中文日本語한국어🎉🚀" * 500,
                         "confidence": 0.99,
                     }
+
+                def run_tool(self, tool_name, args):
+                    if tool_name == "ocr":
+                        return self.analyze_image(
+                            args["image"], args.get("options", {})
+                        )
+                    raise ValueError(f"Unknown tool: {tool_name}")
 
             pm = PluginRegistry()
             monkeypatch.setattr(pm, "get", lambda name: UnicodePlugin())
@@ -142,11 +176,26 @@ class TestContentLengthCorrectness:
         app.include_router(router)
 
         class BigPlugin:
-            def analyze(self, image_bytes, options):
+            name = "big_plugin"
+            tools = {
+                "ocr": {
+                    "handler": "analyze_image",
+                    "description": "OCR analysis",
+                    "input_schema": {"type": "object"},
+                    "output_schema": {"type": "object"},
+                }
+            }
+
+            def analyze_image(self, image_bytes, options):
                 return {
                     "text": "テスト" * 3000,
                     "blocks": [{"x": i, "data": "日本語" * 100} for i in range(50)],
                 }
+
+            def run_tool(self, tool_name, args):
+                if tool_name == "ocr":
+                    return self.analyze_image(args["image"], args.get("options", {}))
+                raise ValueError(f"Unknown tool: {tool_name}")
 
         pm = PluginRegistry()
         monkeypatch.setattr(pm, "get", lambda name: BigPlugin())

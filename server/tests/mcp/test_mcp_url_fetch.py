@@ -28,7 +28,17 @@ class TestToolsCallURLFetch:
             received_data = {}
 
             class InspectorPlugin:
-                def analyze(self, image_bytes, options):
+                name = "inspector_plugin"
+                tools = {
+                    "ocr": {
+                        "handler": "analyze_image",
+                        "description": "OCR analysis",
+                        "input_schema": {"type": "object"},
+                        "output_schema": {"type": "object"},
+                    }
+                }
+
+                def analyze_image(self, image_bytes, options):
                     received_data["bytes"] = image_bytes
                     received_data["type"] = type(image_bytes).__name__
                     if isinstance(image_bytes, bytes) and image_bytes.startswith(
@@ -42,6 +52,13 @@ class TestToolsCallURLFetch:
                             f"Expected PNG signature, got: {image_bytes[:20]!r}"
                         )
                     return {"text": "extracted", "confidence": 0.95}
+
+                def run_tool(self, tool_name, args):
+                    if tool_name == "ocr":
+                        return self.analyze_image(
+                            args["image"], args.get("options", {})
+                        )
+                    raise ValueError(f"Unknown tool: {tool_name}")
 
             monkeypatch.setattr(
                 transport._protocol_handlers.plugin_manager,
@@ -207,9 +224,26 @@ class TestToolsCallURLFetch:
             received_bytes = []
 
             class InspectorPlugin:
-                def analyze(self, image_bytes, options):
+                name = "inspector_plugin"
+                tools = {
+                    "ocr": {
+                        "handler": "analyze_image",
+                        "description": "OCR analysis",
+                        "input_schema": {"type": "object"},
+                        "output_schema": {"type": "object"},
+                    }
+                }
+
+                def analyze_image(self, image_bytes, options):
                     received_bytes.append(image_bytes)
                     return {"ok": True}
+
+                def run_tool(self, tool_name, args):
+                    if tool_name == "ocr":
+                        return self.analyze_image(
+                            args["image"], args.get("options", {})
+                        )
+                    raise ValueError(f"Unknown tool: {tool_name}")
 
             monkeypatch.setattr(
                 transport._protocol_handlers.plugin_manager,
@@ -246,9 +280,26 @@ class TestToolsCallURLFetch:
             received_bytes = []
 
             class InspectorPlugin:
-                def analyze(self, image_bytes, options):
+                name = "inspector_plugin"
+                tools = {
+                    "ocr": {
+                        "handler": "analyze_image",
+                        "description": "OCR analysis",
+                        "input_schema": {"type": "object"},
+                        "output_schema": {"type": "object"},
+                    }
+                }
+
+                def analyze_image(self, image_bytes, options):
                     received_bytes.append(image_bytes)
                     return {"ok": True}
+
+                def run_tool(self, tool_name, args):
+                    if tool_name == "ocr":
+                        return self.analyze_image(
+                            args["image"], args.get("options", {})
+                        )
+                    raise ValueError(f"Unknown tool: {tool_name}")
 
             monkeypatch.setattr(
                 transport._protocol_handlers.plugin_manager,
@@ -286,8 +337,25 @@ class TestToolsCallURLFetch:
             fetched_urls = []
 
             class DummyPlugin:
-                def analyze(self, image_bytes, options):
+                name = "dummy_plugin"
+                tools = {
+                    "ocr": {
+                        "handler": "analyze_image",
+                        "description": "OCR analysis",
+                        "input_schema": {"type": "object"},
+                        "output_schema": {"type": "object"},
+                    }
+                }
+
+                def analyze_image(self, image_bytes, options):
                     return {"ok": True}
+
+                def run_tool(self, tool_name, args):
+                    if tool_name == "ocr":
+                        return self.analyze_image(
+                            args["image"], args.get("options", {})
+                        )
+                    raise ValueError(f"Unknown tool: {tool_name}")
 
             monkeypatch.setattr(
                 transport._protocol_handlers.plugin_manager,
