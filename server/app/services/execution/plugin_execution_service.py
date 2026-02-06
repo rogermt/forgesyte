@@ -12,13 +12,13 @@ Execution Chain:
 
 import asyncio
 import logging
-from typing import Any, Dict, Optional
+from typing import Any, Callable, Dict
 
 from app.core.validation.execution_validation import (
-    validate_input_payload,
-    validate_plugin_output,
     InputValidationError,
     OutputValidationError,
+    validate_input_payload,
+    validate_plugin_output,
 )
 from app.exceptions import PluginExecutionError
 
@@ -40,7 +40,7 @@ class PluginExecutionService:
     - Track metrics (handled by PluginRegistry)
     """
 
-    def __init__(self, tool_runner: callable):
+    def __init__(self, tool_runner: Callable[..., Any]):
         """Initialize plugin execution service with a ToolRunner.
 
         Args:
@@ -163,4 +163,3 @@ class PluginExecutionService:
             ) from e
 
         return validate_plugin_output(raw_result)
-

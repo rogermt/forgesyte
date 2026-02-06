@@ -8,10 +8,8 @@ Tests verify:
 - Execution times are recorded
 """
 
-import pytest
-
-from app.plugins.loader.plugin_registry import PluginRegistry, get_registry
 from app.plugins.lifecycle.lifecycle_state import PluginLifecycleState
+from app.plugins.loader.plugin_registry import PluginRegistry, get_registry
 
 
 class FakeRWLock:
@@ -66,10 +64,9 @@ class TestUpdateExecutionMetrics:
 
         # Register a plugin
         from app.plugins.loader.plugin_registry import PluginMetadata
+
         registry._plugins["test_plugin"] = PluginMetadata(
-            name="test_plugin",
-            description="Test plugin",
-            version="1.0.0"
+            name="test_plugin", description="Test plugin", version="1.0.0"
         )
 
         # Call update_execution_metrics with success
@@ -87,7 +84,10 @@ class TestUpdateExecutionMetrics:
         assert metadata.last_execution_time_ms == 150
 
         # Verify lifecycle state
-        assert registry._lifecycle.get_state("test_plugin") == PluginLifecycleState.INITIALIZED
+        assert (
+            registry._lifecycle.get_state("test_plugin")
+            == PluginLifecycleState.INITIALIZED
+        )
 
     def test_updates_metrics_on_error(self):
         """Failed execution should increment error_count and set FAILED state."""
@@ -110,10 +110,9 @@ class TestUpdateExecutionMetrics:
         registry._lifecycle = MockLifecycleManager()
 
         from app.plugins.loader.plugin_registry import PluginMetadata
+
         registry._plugins["failing_plugin"] = PluginMetadata(
-            name="failing_plugin",
-            description="Failing plugin",
-            version="1.0.0"
+            name="failing_plugin", description="Failing plugin", version="1.0.0"
         )
 
         # Call update_execution_metrics with error
@@ -130,7 +129,10 @@ class TestUpdateExecutionMetrics:
         assert metadata.error_count == 1
 
         # Verify lifecycle state
-        assert registry._lifecycle.get_state("failing_plugin") == PluginLifecycleState.FAILED
+        assert (
+            registry._lifecycle.get_state("failing_plugin")
+            == PluginLifecycleState.FAILED
+        )
 
     def test_handles_unknown_plugin_gracefully(self):
         """Unknown plugin should be handled gracefully without raising."""
@@ -175,10 +177,9 @@ class TestUpdateExecutionMetrics:
         registry._lifecycle = MockLifecycleManager()
 
         from app.plugins.loader.plugin_registry import PluginMetadata
+
         registry._plugins["timed_plugin"] = PluginMetadata(
-            name="timed_plugin",
-            description="Timed plugin",
-            version="1.0.0"
+            name="timed_plugin", description="Timed plugin", version="1.0.0"
         )
 
         # Record multiple executions
@@ -222,10 +223,9 @@ class TestUpdateExecutionMetrics:
         registry._lifecycle = MockLifecycleManager()
 
         from app.plugins.loader.plugin_registry import PluginMetadata
+
         registry._plugins["state_test_plugin"] = PluginMetadata(
-            name="state_test_plugin",
-            description="State test plugin",
-            version="1.0.0"
+            name="state_test_plugin", description="State test plugin", version="1.0.0"
         )
 
         # Success case - should set INITIALIZED
@@ -235,7 +235,10 @@ class TestUpdateExecutionMetrics:
             elapsed_ms=100,
             had_error=False,
         )
-        assert registry._lifecycle.get_state("state_test_plugin") == PluginLifecycleState.INITIALIZED
+        assert (
+            registry._lifecycle.get_state("state_test_plugin")
+            == PluginLifecycleState.INITIALIZED
+        )
 
         # Error case - should set FAILED
         registry.update_execution_metrics(
@@ -244,7 +247,10 @@ class TestUpdateExecutionMetrics:
             elapsed_ms=50,
             had_error=True,
         )
-        assert registry._lifecycle.get_state("state_test_plugin") == PluginLifecycleState.FAILED
+        assert (
+            registry._lifecycle.get_state("state_test_plugin")
+            == PluginLifecycleState.FAILED
+        )
 
 
 class TestRegistryIntegration:

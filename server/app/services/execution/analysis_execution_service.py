@@ -18,6 +18,7 @@ import logging
 from typing import Any, Dict, Optional
 
 from app.models import JobStatus
+
 from .job_execution_service import JobExecutionService
 
 logger = logging.getLogger(__name__)
@@ -159,7 +160,9 @@ class AnalysisExecutionService:
         return {
             "job_id": job_id,
             "status": JobStatus.QUEUED.value,
-            "created_at": self._job_execution_service._jobs[job_id].created_at.isoformat(),
+            "created_at": self._job_execution_service._jobs[
+                job_id
+            ].created_at.isoformat(),
         }
 
     async def start_job(self, job_id: str) -> Dict[str, Any]:
@@ -246,4 +249,3 @@ class AnalysisExecutionService:
                 "tool_name": tool_name,
             },
         )
-

@@ -19,6 +19,7 @@ from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
 from app.models import JobStatus
+
 from .plugin_execution_service import PluginExecutionService
 
 logger = logging.getLogger(__name__)
@@ -40,6 +41,7 @@ class Job:
         started_at: Job start timestamp
         completed_at: Job completion timestamp
     """
+
     job_id: str
     plugin_name: str
     tool_name: str
@@ -140,7 +142,9 @@ class JobExecutionService:
             job = self._jobs[job_id]
 
             if job.status != JobStatus.QUEUED:
-                raise ValueError(f"Job '{job_id}' is not queued (current: {job.status})")
+                raise ValueError(
+                    f"Job '{job_id}' is not queued (current: {job.status})"
+                )
 
             # Transition to RUNNING
             job.status = JobStatus.RUNNING
@@ -293,4 +297,3 @@ class JobExecutionService:
 
         logger.info("Job cancelled", extra={"job_id": job_id})
         return True
-

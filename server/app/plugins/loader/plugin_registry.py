@@ -324,6 +324,54 @@ class PluginRegistry:
             PluginLifecycleState.RUNNING,
         }
 
+    def update_execution_metrics(
+        self,
+        plugin_name: str,
+        state: str,
+        elapsed_ms: int,
+        had_error: bool,
+    ) -> None:
+        """Update metrics and lifecycle state after each execution (Phase 12).
+
+        Args:
+            plugin_name: Name of the plugin that executed
+            state: Lifecycle state (INITIALIZED for success, FAILED for error)
+            elapsed_ms: Execution time in milliseconds
+            had_error: True if execution had an error
+
+        Note:
+            Uses ONLY valid lifecycle states: INITIALIZED, FAILED
+            Metrics fields are updated atomically with state change.
+        """
+        with self._rwlock:
+            if plugin_name not in self._plugins:
+                logger.warning(
+                    f"update_execution_metrics called for unknown plugin: {plugin_name}"
+                )
+                return
+
+            metadata = self._plugins[plugin_name]
+
+            # Update counts
+            if had_error:
+                metadata.error_count += 1
+            else:
+                metadata.success_count += 1
+
+            # Track execution time
+            metadata.record_execution_time(elapsed_ms)
+
+            # Update lifecycle state based on success/error
+            if had_error:
+                self._lifecycle.set_state(plugin_name, PluginLifecycleState.FAILED)
+            else:
+                self._lifecycle.set_state(plugin_name, PluginLifecycleState.INITIALIZED)
+
+            logger.debug(
+                f"Updated metrics for {plugin_name}: state={state}, "
+                f"elapsed_ms={elapsed_ms}, had_error={had_error}"
+            )
+
 
 def get_registry() -> PluginRegistry:
     """Get or create the global plugin registry (Phase 11 singleton).

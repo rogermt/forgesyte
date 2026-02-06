@@ -16,13 +16,12 @@ Execution Chain:
     ToolRunner (actual plugin execution)
 """
 
-from .plugin_execution_service import PluginExecutionService
-from .job_execution_service import JobExecutionService
 from .analysis_execution_service import AnalysisExecutionService
+from .job_execution_service import JobExecutionService
+from .plugin_execution_service import PluginExecutionService
 
 __all__ = [
     "PluginExecutionService",
-    "JobExecutionService", 
+    "JobExecutionService",
     "AnalysisExecutionService",
 ]
-

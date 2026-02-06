@@ -10,20 +10,20 @@ Tests verify:
 import pytest
 import pytest_asyncio
 
-from app.services.execution.plugin_execution_service import PluginExecutionService
 from app.core.validation.execution_validation import (
     InputValidationError,
     OutputValidationError,
 )
+from app.services.execution.plugin_execution_service import PluginExecutionService
 
 
 class MockToolRunner:
     """Mock ToolRunner for testing delegation."""
 
     def __init__(self, should_fail: bool = False, fail_message: str = "Tool failed"):
-        self.call_count = 0
-        self.last_tool_name = None
-        self.last_args = None
+        self.call_count: int = 0
+        self.last_tool_name: str | None = None
+        self.last_args: dict[str, object] | None = None
         self.should_fail = should_fail
         self.fail_message = fail_message
 
@@ -54,7 +54,7 @@ class TestPluginExecutionService:
     @pytest.mark.asyncio
     async def test_delegates_to_tool_runner(self, service, mock_tool_runner):
         """Service should delegate execution to ToolRunner."""
-        result = await service.execute_tool(
+        await service.execute_tool(
             tool_name="test_tool",
             args={"image": b"test_image_data", "option": "value"},
         )
@@ -62,7 +62,10 @@ class TestPluginExecutionService:
         # Verify ToolRunner was called
         assert mock_tool_runner.call_count == 1
         assert mock_tool_runner.last_tool_name == "test_tool"
-        assert mock_tool_runner.last_args == {"image": b"test_image_data", "option": "value"}
+        assert mock_tool_runner.last_args == {
+            "image": b"test_image_data",
+            "option": "value",
+        }
 
     @pytest.mark.asyncio
     async def test_returns_validated_result(self, service, mock_tool_runner):
@@ -92,9 +95,10 @@ class TestPluginExecutionService:
     @pytest.mark.asyncio
     async def test_validates_output_from_tool_runner(self):
         """Service should validate output from ToolRunner."""
+
         # Create a runner that returns None
         class NoneReturningRunner:
-            async def __call__(self, tool_name: str, args: dict):
+            async def __call__(self, tool_name: str, args: dict) -> None:
                 return None
 
         service_none = PluginExecutionService(tool_runner=NoneReturningRunner())
@@ -135,8 +139,8 @@ class TestPluginExecutionService:
         # Verify the contract: service only calls the tool_runner callable
         assert mock_tool_runner.call_count == 1
         # The service itself doesn't have a reference to any plugin
-        assert not hasattr(service, '_plugin')
-        assert not hasattr(service, 'run')
+        assert not hasattr(service, "_plugin")
+        assert not hasattr(service, "run")
 
 
 class TestSyncExecution:
@@ -148,6 +152,7 @@ class TestSyncExecution:
     @pytest.fixture
     def sync_tool_runner(self):
         """Create a synchronous mock ToolRunner."""
+
         class SyncRunner:
             def __init__(self):
                 self.call_count = 0
@@ -159,6 +164,7 @@ class TestSyncExecution:
                 self.last_tool_name = tool_name
                 self.last_args = args
                 return {"result": "sync_success", "data": [4, 5, 6]}
+
         return SyncRunner()
 
     @pytest.mark.asyncio
@@ -191,6 +197,7 @@ class TestSyncExecution:
     @pytest.mark.asyncio
     async def test_execute_tool_sync_propagates_errors(self):
         """Sync execution should propagate errors."""
+
         class FailingRunner:
             def __call__(self, tool_name: str, args: dict):
                 raise RuntimeError("Sync failure")
@@ -204,4 +211,3 @@ class TestSyncExecution:
             )
 
         assert "Sync failure" in str(exc_info.value)
-

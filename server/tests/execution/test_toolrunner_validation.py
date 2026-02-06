@@ -9,10 +9,10 @@ Tests verify:
 import pytest
 
 from app.core.validation.execution_validation import (
-    validate_input_payload,
-    validate_plugin_output,
     InputValidationError,
     OutputValidationError,
+    validate_input_payload,
+    validate_plugin_output,
 )
 
 
@@ -22,56 +22,41 @@ class TestInputValidation:
     def test_rejects_empty_image(self):
         """Empty image payload should raise InputValidationError."""
         with pytest.raises(InputValidationError) as exc_info:
-            validate_input_payload({
-                "image": "",
-                "mime_type": "image/png"
-            })
+            validate_input_payload({"image": "", "mime_type": "image/png"})
         assert "image" in str(exc_info.value).lower()
 
     def test_rejects_missing_image(self):
         """Missing image key should raise InputValidationError."""
         with pytest.raises(InputValidationError):
-            validate_input_payload({
-                "mime_type": "image/png"
-            })
+            validate_input_payload({"mime_type": "image/png"})
 
     def test_rejects_empty_mime_type(self):
         """Empty mime_type should raise InputValidationError."""
         with pytest.raises(InputValidationError):
-            validate_input_payload({
-                "image": "base64data",
-                "mime_type": ""
-            })
+            validate_input_payload({"image": "base64data", "mime_type": ""})
 
     def test_rejects_missing_mime_type(self):
         """Missing mime_type key should raise InputValidationError."""
         with pytest.raises(InputValidationError):
-            validate_input_payload({
-                "image": "base64data"
-            })
+            validate_input_payload({"image": "base64data"})
 
     def test_rejects_invalid_mime_type(self):
         """Non-string mime_type should raise InputValidationError."""
         with pytest.raises(InputValidationError):
-            validate_input_payload({
-                "image": "base64data",
-                "mime_type": 123  # type: ignore
-            })
+            validate_input_payload(
+                {"image": "base64data", "mime_type": 123}  # type: ignore
+            )
 
     def test_accepts_valid_payload(self):
         """Valid payload should pass without exception."""
         # Should not raise
-        validate_input_payload({
-            "image": "base64data123",
-            "mime_type": "image/png"
-        })
+        validate_input_payload({"image": "base64data123", "mime_type": "image/png"})
 
     def test_accepts_binary_image(self):
         """Binary image data should be accepted."""
-        validate_input_payload({
-            "image": b"\x89PNG\r\n\x1a\n",
-            "mime_type": "image/png"
-        })
+        validate_input_payload(
+            {"image": b"\x89PNG\r\n\x1a\n", "mime_type": "image/png"}
+        )
 
 
 class TestOutputValidation:
@@ -110,8 +95,10 @@ class TestOutputValidation:
 
     def test_accepts_nested_dict(self):
         """Nested dict should pass validation."""
-        result = validate_plugin_output({
-            "predictions": [{"label": "cat", "confidence": 0.95}],
-            "metadata": {"model": "yolo"}
-        })
+        result = validate_plugin_output(
+            {
+                "predictions": [{"label": "cat", "confidence": 0.95}],
+                "metadata": {"model": "yolo"},
+            }
+        )
         assert result["predictions"][0]["label"] == "cat"

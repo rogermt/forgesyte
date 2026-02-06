@@ -11,24 +11,27 @@ import pytest
 import pytest_asyncio
 
 from app.models import JobStatus
-from app.services.execution.job_execution_service import JobExecutionService, Job
-from app.services.execution.plugin_execution_service import PluginExecutionService
+from app.services.execution.job_execution_service import Job, JobExecutionService
 
 
 class MockPluginExecutionService:
     """Mock PluginExecutionService for testing delegation."""
 
     def __init__(self, should_fail: bool = False, fail_message: str = "Plugin failed"):
-        self.execute_tool_calls = []
+        self.execute_tool_calls: list[dict[str, object]] = []
         self.should_fail = should_fail
         self.fail_message = fail_message
 
-    async def execute_tool(self, tool_name: str, args: dict, mime_type: str = "image/png"):
-        self.execute_tool_calls.append({
-            "tool_name": tool_name,
-            "args": args,
-            "mime_type": mime_type,
-        })
+    async def execute_tool(
+        self, tool_name: str, args: dict, mime_type: str = "image/png"
+    ) -> dict[str, object]:
+        self.execute_tool_calls.append(
+            {
+                "tool_name": tool_name,
+                "args": args,
+                "mime_type": mime_type,
+            }
+        )
 
         if self.should_fail:
             raise RuntimeError(self.fail_message)
@@ -47,9 +50,7 @@ class TestJobExecutionService:
     @pytest_asyncio.fixture
     async def service(self, mock_plugin_service):
         """Create a JobExecutionService instance."""
-        return JobExecutionService(
-            plugin_execution_service=mock_plugin_service
-        )
+        return JobExecutionService(plugin_execution_service=mock_plugin_service)
 
     @pytest.mark.asyncio
     async def test_creates_job_in_queued_status(self, service):
@@ -76,7 +77,7 @@ class TestJobExecutionService:
             args={"image": b"test"},
         )
 
-        result = await service.run_job(job_id)
+        await service.run_job(job_id)
 
         # Verify PluginExecutionService was called
         assert len(mock_plugin_service.execute_tool_calls) == 1
@@ -102,7 +103,9 @@ class TestJobExecutionService:
         assert job["status"] in [JobStatus.RUNNING.value, JobStatus.DONE.value]
 
     @pytest.mark.asyncio
-    async def test_job_transitions_to_success_on_success(self, service, mock_plugin_service):
+    async def test_job_transitions_to_success_on_success(
+        self, service, mock_plugin_service
+    ):
         """Job should transition to DONE on successful execution."""
         job_id = await service.create_job(
             plugin_name="test_plugin",
@@ -273,7 +276,7 @@ class TestJobExecutionService:
     async def test_list_jobs_filters_by_status(self, service):
         """Listing jobs should filter by status if specified."""
         job_id1 = await service.create_job("plugin1", "tool1", {"image": b"test1"})
-        job_id2 = await service.create_job("plugin2", "tool2", {"image": b"test2"})
+        await service.create_job("plugin2", "tool2", {"image": b"test2"})
 
         # Complete one job
         await service.run_job(job_id1)
@@ -299,7 +302,8 @@ class TestJobExecutionService:
     async def test_jobs_sorted_by_created_at(self, service):
         """Jobs should be sorted by created_at (newest first)."""
         import time
-        job_id1 = await service.create_job("plugin1", "tool1", {"image": b"test"})
+
+        await service.create_job("plugin1", "tool1", {"image": b"test"})
         time.sleep(0.01)  # Small delay to ensure different timestamps
         job_id2 = await service.create_job("plugin2", "tool2", {"image": b"test"})
 
@@ -341,4 +345,3 @@ class TestJobDataclass:
         # We test via the service's _job_to_dict method indirectly
         # by checking that the service properly converts jobs
         pass  # The service integration tests cover this
-
