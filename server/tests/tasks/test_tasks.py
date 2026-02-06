@@ -6,7 +6,7 @@ Following TDD: Write tests first, then implement code to make them pass.
 import asyncio
 import os
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from unittest.mock import MagicMock
 
 import pytest
@@ -76,7 +76,7 @@ class TestJobStoreCreate:
             "status": JobStatus.QUEUED,
             "result": None,
             "error": None,
-            "created_at": datetime.utcnow(),
+            "created_at": datetime.now(timezone.utc),
             "completed_at": None,
             "progress": 0.0,
         }
@@ -95,7 +95,7 @@ class TestJobStoreCreate:
             "status": JobStatus.QUEUED,
             "result": None,
             "error": None,
-            "created_at": datetime.utcnow(),
+            "created_at": datetime.now(timezone.utc),
             "completed_at": None,
             "progress": 0.0,
         }
@@ -119,7 +119,7 @@ class TestJobStoreCreate:
                 "status": JobStatus.QUEUED,
                 "result": None,
                 "error": None,
-                "created_at": datetime.utcnow(),
+                "created_at": datetime.now(timezone.utc),
                 "completed_at": None,
                 "progress": 0.0,
             },
@@ -132,7 +132,7 @@ class TestJobStoreCreate:
                 "status": JobStatus.QUEUED,
                 "result": None,
                 "error": None,
-                "created_at": datetime.utcnow(),
+                "created_at": datetime.now(timezone.utc),
                 "completed_at": None,
                 "progress": 0.0,
             },
@@ -144,20 +144,20 @@ class TestJobStoreCreate:
     @pytest.mark.asyncio
     async def test_create_job_timestamp(self, job_store: JobStore) -> None:
         """Test that created job has timestamp."""
-        before = datetime.utcnow()
+        before = datetime.now(timezone.utc)
         job_data = {
             "job_id": "job1",
             "plugin": "plugin",
             "status": JobStatus.QUEUED,
             "result": None,
             "error": None,
-            "created_at": datetime.utcnow(),
+            "created_at": datetime.now(timezone.utc),
             "completed_at": None,
             "progress": 0.0,
         }
         await job_store.create("job1", job_data)
         job = job_data
-        after = datetime.utcnow()
+        after = datetime.now(timezone.utc)
         assert before <= job["created_at"] <= after
 
 
@@ -175,7 +175,7 @@ class TestJobStoreUpdate:
                 "status": JobStatus.QUEUED,
                 "result": None,
                 "error": None,
-                "created_at": datetime.utcnow(),
+                "created_at": datetime.now(timezone.utc),
                 "completed_at": None,
                 "progress": 0.0,
             },
@@ -204,7 +204,7 @@ class TestJobStoreUpdate:
                 "status": JobStatus.QUEUED,
                 "result": None,
                 "error": None,
-                "created_at": datetime.utcnow(),
+                "created_at": datetime.now(timezone.utc),
                 "completed_at": None,
                 "progress": 0.0,
             },
@@ -212,7 +212,7 @@ class TestJobStoreUpdate:
         result = {
             "data": [1, 2, 3],
         }
-        completed = datetime.utcnow()
+        completed = datetime.now(timezone.utc)
         await job_store.update(
             "job1",
             {
@@ -238,7 +238,7 @@ class TestJobStoreUpdate:
             "status": JobStatus.QUEUED,
             "result": None,
             "error": None,
-            "created_at": datetime.utcnow(),
+            "created_at": datetime.now(timezone.utc),
             "completed_at": None,
             "progress": 0.0,
         }
@@ -268,7 +268,7 @@ class TestJobStoreGet:
                 "status": JobStatus.QUEUED,
                 "result": None,
                 "error": None,
-                "created_at": datetime.utcnow(),
+                "created_at": datetime.now(timezone.utc),
                 "completed_at": None,
                 "progress": 0.0,
             },
@@ -294,7 +294,7 @@ class TestJobStoreGet:
                 "status": JobStatus.QUEUED,
                 "result": None,
                 "error": None,
-                "created_at": datetime.utcnow(),
+                "created_at": datetime.now(timezone.utc),
                 "completed_at": None,
                 "progress": 0.0,
             },
@@ -327,7 +327,7 @@ class TestJobStoreList:
                 "status": JobStatus.QUEUED,
                 "result": None,
                 "error": None,
-                "created_at": datetime.utcnow(),
+                "created_at": datetime.now(timezone.utc),
                 "completed_at": None,
                 "progress": 0.0,
             },
@@ -340,7 +340,7 @@ class TestJobStoreList:
                 "status": JobStatus.QUEUED,
                 "result": None,
                 "error": None,
-                "created_at": datetime.utcnow(),
+                "created_at": datetime.now(timezone.utc),
                 "completed_at": None,
                 "progress": 0.0,
             },
@@ -353,7 +353,7 @@ class TestJobStoreList:
                 "status": JobStatus.QUEUED,
                 "result": None,
                 "error": None,
-                "created_at": datetime.utcnow(),
+                "created_at": datetime.now(timezone.utc),
                 "completed_at": None,
                 "progress": 0.0,
             },
@@ -373,7 +373,7 @@ class TestJobStoreList:
                 "status": JobStatus.QUEUED,
                 "result": None,
                 "error": None,
-                "created_at": datetime.utcnow(),
+                "created_at": datetime.now(timezone.utc),
                 "completed_at": None,
                 "progress": 0.0,
             },
@@ -387,7 +387,7 @@ class TestJobStoreList:
                 "status": JobStatus.QUEUED,
                 "result": None,
                 "error": None,
-                "created_at": datetime.utcnow(),
+                "created_at": datetime.now(timezone.utc),
                 "completed_at": None,
                 "progress": 0.0,
             },
@@ -401,7 +401,7 @@ class TestJobStoreList:
                 "status": JobStatus.QUEUED,
                 "result": None,
                 "error": None,
-                "created_at": datetime.utcnow(),
+                "created_at": datetime.now(timezone.utc),
                 "completed_at": None,
                 "progress": 0.0,
             },
@@ -424,7 +424,7 @@ class TestJobStoreList:
                 "status": JobStatus.QUEUED,
                 "result": None,
                 "error": None,
-                "created_at": datetime.utcnow(),
+                "created_at": datetime.now(timezone.utc),
                 "completed_at": None,
                 "progress": 0.0,
             },
@@ -437,7 +437,7 @@ class TestJobStoreList:
                 "status": JobStatus.QUEUED,
                 "result": None,
                 "error": None,
-                "created_at": datetime.utcnow(),
+                "created_at": datetime.now(timezone.utc),
                 "completed_at": None,
                 "progress": 0.0,
             },
@@ -450,7 +450,7 @@ class TestJobStoreList:
                 "status": JobStatus.QUEUED,
                 "result": None,
                 "error": None,
-                "created_at": datetime.utcnow(),
+                "created_at": datetime.now(timezone.utc),
                 "completed_at": None,
                 "progress": 0.0,
             },
@@ -474,7 +474,7 @@ class TestJobStoreList:
                 "status": JobStatus.QUEUED,
                 "result": None,
                 "error": None,
-                "created_at": datetime.utcnow(),
+                "created_at": datetime.now(timezone.utc),
                 "completed_at": None,
                 "progress": 0.0,
             },
@@ -487,7 +487,7 @@ class TestJobStoreList:
                 "status": JobStatus.QUEUED,
                 "result": None,
                 "error": None,
-                "created_at": datetime.utcnow(),
+                "created_at": datetime.now(timezone.utc),
                 "completed_at": None,
                 "progress": 0.0,
             },
@@ -500,7 +500,7 @@ class TestJobStoreList:
                 "status": JobStatus.QUEUED,
                 "result": None,
                 "error": None,
-                "created_at": datetime.utcnow(),
+                "created_at": datetime.now(timezone.utc),
                 "completed_at": None,
                 "progress": 0.0,
             },
@@ -523,7 +523,7 @@ class TestJobStoreList:
                 "status": JobStatus.QUEUED,
                 "result": None,
                 "error": None,
-                "created_at": datetime.utcnow(),
+                "created_at": datetime.now(timezone.utc),
                 "completed_at": None,
                 "progress": 0.0,
             },
@@ -536,7 +536,7 @@ class TestJobStoreList:
                 "status": JobStatus.QUEUED,
                 "result": None,
                 "error": None,
-                "created_at": datetime.utcnow(),
+                "created_at": datetime.now(timezone.utc),
                 "completed_at": None,
                 "progress": 0.0,
             },
@@ -549,7 +549,7 @@ class TestJobStoreList:
                 "status": JobStatus.QUEUED,
                 "result": None,
                 "error": None,
-                "created_at": datetime.utcnow(),
+                "created_at": datetime.now(timezone.utc),
                 "completed_at": None,
                 "progress": 0.0,
             },
@@ -572,7 +572,7 @@ class TestJobStoreList:
                     "job_id": f"job{i}",
                     "plugin": "plugin1",
                     "status": JobStatus.DONE,
-                    "created_at": datetime.utcnow(),
+                    "created_at": datetime.now(timezone.utc),
                 },
             )
 
@@ -596,7 +596,7 @@ class TestJobStoreCleanup:
                     "job_id": f"job{i}",
                     "plugin": "plugin1",
                     "status": JobStatus.QUEUED,
-                    "created_at": datetime.utcnow(),
+                    "created_at": datetime.now(timezone.utc),
                 },
             )
         assert len(store._jobs) == 5
@@ -612,7 +612,7 @@ class TestJobStoreCleanup:
                 "job_id": "job5",
                 "plugin": "plugin1",
                 "status": JobStatus.QUEUED,
-                "created_at": datetime.utcnow(),
+                "created_at": datetime.now(timezone.utc),
             },
         )
         # Cleanup should have removed oldest completed jobs
@@ -629,7 +629,7 @@ class TestJobStoreCleanup:
                 "job_id": "job1",
                 "plugin": "plugin1",
                 "status": JobStatus.QUEUED,
-                "created_at": datetime.utcnow(),
+                "created_at": datetime.now(timezone.utc),
             },
         )
         await store.update("job1", {"status": JobStatus.DONE})
@@ -641,7 +641,7 @@ class TestJobStoreCleanup:
                 "job_id": "job2",
                 "plugin": "plugin1",
                 "status": JobStatus.QUEUED,
-                "created_at": datetime.utcnow(),
+                "created_at": datetime.now(timezone.utc),
             },
         )
         await store.create(
@@ -650,7 +650,7 @@ class TestJobStoreCleanup:
                 "job_id": "job3",
                 "plugin": "plugin1",
                 "status": JobStatus.QUEUED,
-                "created_at": datetime.utcnow(),
+                "created_at": datetime.now(timezone.utc),
             },
         )
 
@@ -663,7 +663,7 @@ class TestJobStoreCleanup:
                 "job_id": "job4",
                 "plugin": "plugin1",
                 "status": JobStatus.QUEUED,
-                "created_at": datetime.utcnow(),
+                "created_at": datetime.now(timezone.utc),
             },
         )
         # job1 should be removed since it was done and oldest

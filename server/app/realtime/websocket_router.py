@@ -13,7 +13,7 @@ Author: Roger
 Phase: 10
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
@@ -48,7 +48,7 @@ async def websocket_endpoint(
                 {
                     "type": "ack",
                     "payload": {"original": data},
-                    "timestamp": datetime.utcnow().isoformat(),
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
                 }
             )
 

@@ -13,7 +13,7 @@ import logging
 import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Callable, Optional
 
 from .exceptions import PluginExecutionError
@@ -155,7 +155,9 @@ class JobStore:
             jobs = [j for j in jobs if j.get("plugin") == plugin]
 
         # Sort by created_at descending (newest first)
-        jobs.sort(key=lambda j: j.get("created_at", datetime.utcnow()), reverse=True)
+        jobs.sort(
+            key=lambda j: j.get("created_at", datetime.now(timezone.utc)), reverse=True
+        )
         result = jobs[:limit]
         logger.debug(
             "Listed jobs",
@@ -195,7 +197,7 @@ class JobStore:
             return
 
         # Sort by created_at ascending (oldest first)
-        completed.sort(key=lambda x: x[1].get("created_at", datetime.utcnow()))
+        completed.sort(key=lambda x: x[1].get("created_at", datetime.now(timezone.utc)))
 
         # Remove oldest 20%
         remove_count = max(1, len(completed) // 5)
@@ -298,7 +300,7 @@ class TaskProcessor:
             "status": JobStatus.QUEUED,
             "result": None,
             "error": None,
-            "created_at": datetime.utcnow(),
+            "created_at": datetime.now(timezone.utc),
             "completed_at": None,
             "plugin": plugin_name,
             "device_requested": device.lower(),
@@ -427,7 +429,7 @@ class TaskProcessor:
                         **normalised_result,
                         "processing_time_ms": processing_time_ms,
                     },
-                    "completed_at": datetime.utcnow(),
+                    "completed_at": datetime.now(timezone.utc),
                     "progress": 1.0,
                     "device_used": device_used,
                 },
@@ -467,7 +469,7 @@ class TaskProcessor:
                 {
                     "status": JobStatus.ERROR,
                     "error": str(e),
-                    "completed_at": datetime.utcnow(),
+                    "completed_at": datetime.now(timezone.utc),
                 },
             )
 
@@ -481,7 +483,7 @@ class TaskProcessor:
                 {
                     "status": JobStatus.ERROR,
                     "error": f"Unexpected error: {str(e)}",
-                    "completed_at": datetime.utcnow(),
+                    "completed_at": datetime.now(timezone.utc),
                 },
             )
 
@@ -567,7 +569,7 @@ class TaskProcessor:
             {
                 "status": JobStatus.ERROR,
                 "error": "Cancelled by user",
-                "completed_at": datetime.utcnow(),
+                "completed_at": datetime.now(timezone.utc),
             },
         )
 

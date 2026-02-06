@@ -25,7 +25,7 @@ Author: Roger
 Phase: 10
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Dict, Literal, Optional
 
@@ -58,7 +58,7 @@ class RealtimeMessage(BaseModel):
 
     type: MessageType
     payload: Dict[str, Any] = Field(default_factory=dict)
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     class Config:
         json_encoders = {

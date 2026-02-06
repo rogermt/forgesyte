@@ -6,7 +6,7 @@ Tracks both requested and actual device usage with fallback detection.
 
 import logging
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -61,7 +61,7 @@ class DeviceTracker:
                     device_requested.lower(),
                     device_used.lower(),
                     fallback,
-                    datetime.utcnow(),
+                    datetime.now(timezone.utc),
                 ],
             )
 

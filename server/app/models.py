@@ -7,7 +7,7 @@ Models enforce data integrity at API boundaries, preventing invalid data from
 entering the business logic layer.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
@@ -235,7 +235,7 @@ class WebSocketMessage(BaseModel):
     )
     payload: Dict[str, Any] = Field(..., description="Message-specific payload data")
     timestamp: datetime = Field(
-        default_factory=datetime.utcnow,
+        default_factory=lambda: datetime.now(timezone.utc),
         description="Message creation timestamp (ISO 8601)",
     )
 

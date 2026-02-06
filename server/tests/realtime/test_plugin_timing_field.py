@@ -4,7 +4,7 @@ This test verifies that the extended job model includes the optional
 plugin_timings field.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 from app.extended_job import ExtendedJobResponse
 from app.models import JobStatus
@@ -15,7 +15,7 @@ def test_job_response_includes_plugin_timings_field():
     job = ExtendedJobResponse(
         job_id="test-job",
         status=JobStatus.RUNNING,
-        created_at=datetime.utcnow(),
+        created_at=datetime.now(timezone.utc),
         plugin="test-plugin",
         plugin_timings={"ocr": 12.5, "detector": 45.2},
     )
@@ -29,7 +29,7 @@ def test_job_response_plugin_timings_type():
     job = ExtendedJobResponse(
         job_id="test-job",
         status=JobStatus.RUNNING,
-        created_at=datetime.utcnow(),
+        created_at=datetime.now(timezone.utc),
         plugin="test-plugin",
         plugin_timings={"ocr": 10.0},
     )
@@ -42,7 +42,7 @@ def test_job_response_plugin_timings_none_by_default():
     job = ExtendedJobResponse(
         job_id="test-job",
         status=JobStatus.QUEUED,
-        created_at=datetime.utcnow(),
+        created_at=datetime.now(timezone.utc),
         plugin="test-plugin",
     )
     assert job.plugin_timings is None
@@ -53,7 +53,7 @@ def test_job_response_warnings_field():
     job = ExtendedJobResponse(
         job_id="test-job",
         status=JobStatus.RUNNING,
-        created_at=datetime.utcnow(),
+        created_at=datetime.now(timezone.utc),
         plugin="test-plugin",
         warnings=["Warning 1", "Warning 2"],
     )

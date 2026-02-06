@@ -6,7 +6,7 @@ thread safety. Enforces singleton pattern to prevent registry divergence.
 
 import logging
 import threading
-from datetime import datetime
+from datetime import datetime, timezone
 from threading import RLock
 from typing import Any, Dict, List, Optional
 
@@ -160,7 +160,7 @@ class PluginRegistry:
                 logger.warning(f"Plugin {name} already registered; overwriting")
 
             metadata = PluginMetadata(name, description, version)
-            metadata.loaded_at = datetime.utcnow()
+            metadata.loaded_at = datetime.now(timezone.utc)
             self._plugins[name] = metadata
             if instance is not None:
                 self._plugin_instances[name] = instance
@@ -217,7 +217,7 @@ class PluginRegistry:
             if name not in self._plugins:
                 return
 
-            self._plugins[name].last_used = datetime.utcnow()
+            self._plugins[name].last_used = datetime.now(timezone.utc)
             self._lifecycle.set_state(name, PluginLifecycleState.RUNNING)
 
     def record_success(
@@ -251,7 +251,7 @@ class PluginRegistry:
             state = self._lifecycle.get_state(name)
             uptime = None
             if meta.loaded_at:
-                uptime = (datetime.utcnow() - meta.loaded_at).total_seconds()
+                uptime = (datetime.now(timezone.utc) - meta.loaded_at).total_seconds()
 
             return PluginHealthResponse(
                 name=meta.name,

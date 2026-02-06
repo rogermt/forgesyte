@@ -13,7 +13,7 @@ Author: Roger
 Phase: 10
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 
@@ -27,7 +27,7 @@ class InspectorService:
         """Register a plugin for inspection."""
         self.plugins[plugin_id] = {
             **metadata,
-            "registered_at": datetime.utcnow().isoformat(),
+            "registered_at": datetime.now(timezone.utc).isoformat(),
         }
 
     def extract_metadata(self, plugin_id: str) -> Optional[Dict[str, Any]]:
@@ -66,7 +66,7 @@ class InspectorService:
             "metadata": metadata,
             "health": health,
             "timings": timings,
-            "generated_at": datetime.utcnow().isoformat(),
+            "generated_at": datetime.now(timezone.utc).isoformat(),
         }
 
     def list_plugins(self) -> List[str]:
