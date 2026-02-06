@@ -473,38 +473,6 @@ async def list_plugins(
     ]
 
 
-@router.get("/plugins/{name}")
-async def get_plugin_info(name: str) -> Dict[str, Any]:
-    """Retrieve health information about a specific plugin (Phase 11).
-
-    Args:
-        name: Plugin identifier to retrieve.
-
-    Returns:
-        PluginHealthResponse dict with health status and metrics.
-
-    Raises:
-        HTTPException: 404 Not Found if plugin does not exist.
-    """
-    from .plugins.loader.plugin_registry import get_registry
-
-    registry = get_registry()
-    plugin_status = registry.get_status(name)
-
-    if plugin_status is None:
-        logger.warning("Plugin not found", extra={"plugin": name})
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Plugin '{name}' not found",
-        )
-
-    return (
-        plugin_status.model_dump()
-        if hasattr(plugin_status, "model_dump")
-        else plugin_status
-    )
-
-
 @router.post("/plugins/{name}/reload")
 async def reload_plugin(
     name: str,
@@ -539,18 +507,6 @@ async def reload_plugin(
 
     logger.info("Plugin reloaded", extra={"plugin": name})
     return {"status": "reloaded", "plugin": name}
-
-
-# TEST-CHANGE (Phase 11): Compatibility shim for legacy endpoint
-@router.get("/plugins/{name}", include_in_schema=False)
-async def legacy_plugin_manifest_redirect(name: str) -> RedirectResponse:
-    """Phase 11 compatibility shim.
-
-    Redirects legacy /v1/plugins/{name} → /v1/plugins/{name}/health
-    Handles browser caches, older builds, and external integrations.
-    Prevents blank UI screens from 500 errors.
-    """
-    return RedirectResponse(url=f"/v1/plugins/{name}/health", status_code=301)
 
 
 @router.post("/plugins/reload-all")
