@@ -26,7 +26,6 @@ from fastapi import (
     UploadFile,
     status,
 )
-from fastapi.responses import RedirectResponse
 
 from .auth import require_auth
 from .exceptions import ExternalServiceError

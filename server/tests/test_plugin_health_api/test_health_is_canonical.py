@@ -34,14 +34,14 @@ def test_health_endpoint_is_canonical(client: TestClient) -> None:
     # Test canonical endpoint with first available plugin
     plugin_name = plugins[0]["name"]
     resp = client.get(f"/v1/plugins/{plugin_name}/health")
-    assert resp.status_code == 200, (
-        "Phase 11 violation: canonical health endpoint must return 200"
-    )
+    assert (
+        resp.status_code == 200
+    ), "Phase 11 violation: canonical health endpoint must return 200"
 
     data = resp.json()
-    assert "name" in data and "state" in data, (
-        "Phase 11 violation: health endpoint returned invalid schema"
-    )
+    assert (
+        "name" in data and "state" in data
+    ), "Phase 11 violation: health endpoint returned invalid schema"
 
 
 def test_health_endpoint_returns_valid_schema(client: TestClient) -> None:
