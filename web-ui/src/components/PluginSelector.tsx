@@ -330,7 +330,7 @@ export function PluginSelector({
         </select>
       </div>
 
-      {/* Plugin Info Box - only show if not compact and plugin data exists */}
+      {/* Plugin Info Box - only show basic info (manifest details loaded separately by App) */}
       {!compact && selectedPluginData && (
         <div
           style={styles.infoBox}
@@ -343,28 +343,8 @@ export function PluginSelector({
             <span style={styles.infoVersion}>v{selectedPluginData.version}</span>
           </div>
 
-          <p style={styles.infoDescription}>{selectedPluginData.description}</p>
-
-          {selectedPluginData.inputs.length > 0 && (
-            <div style={styles.infoSection}>
-              <div style={{ ...styles.infoLabel, color: "var(--accent-cyan)" }}>
-                Inputs:
-              </div>
-              <div style={styles.infoValue}>
-                {selectedPluginData.inputs.join(", ")}
-              </div>
-            </div>
-          )}
-
-          {selectedPluginData.outputs.length > 0 && (
-            <div style={styles.infoSection}>
-              <div style={{ ...styles.infoLabel, color: "var(--accent-orange)" }}>
-                Outputs:
-              </div>
-              <div style={styles.infoValue}>
-                {selectedPluginData.outputs.join(", ")}
-              </div>
-            </div>
+          {selectedPluginData.description && (
+            <p style={styles.infoDescription}>{selectedPluginData.description}</p>
           )}
         </div>
       )}

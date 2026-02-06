@@ -213,10 +213,10 @@ export class ForgeSyteAPIClient {
     }
 
     async getPluginManifest(pluginId: string): Promise<PluginManifest> {
-        // Phase 11: Use /plugins/{pluginId}/health instead of legacy /manifest endpoint
-        // The health endpoint returns plugin health status compatible with PluginManifest interface
+        // Phase 11: Use canonical /plugins/{pluginId}/manifest endpoint
+        // (baseUrl already includes /v1)
         return this.fetch(
-            `/plugins/${pluginId}/health`
+            `/plugins/${pluginId}/manifest`
         ) as unknown as Promise<PluginManifest>;
     }
 

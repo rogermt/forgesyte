@@ -281,37 +281,9 @@ describe("PluginSelector", () => {
       });
     });
 
-    it("should display plugin inputs", async () => {
-      mockGetPlugins.mockResolvedValue(mockPlugins);
-
-      render(
-        <PluginSelector
-          selectedPlugin="ocr"
-          onPluginChange={vi.fn()}
-        />
-      );
-
-      await waitFor(() => {
-        expect(screen.getByText("Inputs:")).toBeInTheDocument();
-        expect(screen.getByText("image")).toBeInTheDocument();
-      });
-    });
-
-    it("should display plugin outputs", async () => {
-      mockGetPlugins.mockResolvedValue(mockPlugins);
-
-      render(
-        <PluginSelector
-          selectedPlugin="ocr"
-          onPluginChange={vi.fn()}
-        />
-      );
-
-      await waitFor(() => {
-        expect(screen.getByText("Outputs:")).toBeInTheDocument();
-        expect(screen.getByText(/text, confidence/)).toBeInTheDocument();
-      });
-    });
+    // Note: Inputs/outputs are now displayed from manifest (loaded by App),
+    // not from the plugins list (which only has health data).
+    // PluginSelector only shows basic info: name, version, description.
 
     it("should update info when selection changes", async () => {
       const user = userEvent.setup();
