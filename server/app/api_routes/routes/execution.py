@@ -31,4 +31,3 @@ async def analyze_execution(payload: Dict[str, Any]):
         raise HTTPException(status_code=400, detail=error["error"])
 
     return {"plugin": plugin_name, "result": result}
-
