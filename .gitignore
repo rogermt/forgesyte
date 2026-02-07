@@ -212,3 +212,4 @@ scratch/
 # Pre-commit
 .pre-commit-config.local.yaml
 .pre-commit-framework/
+server/forgesyte.log*
