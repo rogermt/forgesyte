@@ -29,6 +29,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from .api import router as api_router
 from .api_plugins import router as plugins_router
+from .api_routes.routes.execution import router as execution_router
 from .auth import init_auth_service
 from .mcp import router as mcp_router
 from .plugin_loader import PluginRegistry
@@ -352,6 +353,7 @@ app.include_router(mcp_router, prefix=settings.api_prefix)
 app.include_router(plugins_router, prefix="")
 app.include_router(realtime_router, prefix=settings.api_prefix)
 app.include_router(health_router)
+app.include_router(execution_router)
 
 
 @app.get("/.well-known/mcp-manifest", include_in_schema=False)

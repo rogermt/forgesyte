@@ -14,8 +14,9 @@ Execution Chain:
                                           ToolRunner
 """
 
+import asyncio
 import logging
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Tuple
 
 from app.models import JobStatus
 
@@ -50,6 +51,57 @@ class AnalysisExecutionService:
         """
         self._job_execution_service = job_execution_service
         logger.debug("AnalysisExecutionService initialized")
+
+    # -------------------------------------------------------------------------
+    # Synchronous execution (for API compatibility)
+    # -------------------------------------------------------------------------
+    def analyze(
+        self,
+        plugin_name: str,
+        args: Dict[str, Any],
+    ) -> Tuple[Dict[str, Any], Optional[Dict[str, Any]]]:
+        """Synchronous analysis execution.
+
+        Creates a job, runs it immediately, and returns (result, error).
+        This is the synchronous wrapper that API routes expect.
+
+        Args:
+            plugin_name: Name of the plugin to execute
+            args: Tool-specific arguments including 'image' and 'mime_type'
+
+        Returns:
+            Tuple of (result_dict, error_dict) where error_dict is None on success
+        """
+        # Extract tool_name from args if present
+        tool_name = args.get("tool_name", "default")
+        # mime_type is passed via args to downstream services
+
+        # Run the async submission synchronously
+        loop = asyncio.new_event_loop()
+        try:
+            job_id = loop.run_until_complete(
+                self._job_execution_service.create_job(
+                    plugin_name=plugin_name,
+                    tool_name=tool_name,
+                    args=args,
+                )
+            )
+
+            job_result = loop.run_until_complete(
+                self._job_execution_service.run_job(job_id)
+            )
+        finally:
+            loop.close()
+
+        # Return (result, error) tuple
+        if job_result.get("error"):
+            error_response: dict[str, Any] = {
+                "type": "execution_error",
+                "message": job_result["error"],
+            }
+            return {}, error_response
+        result_data: dict[str, Any] = job_result.get("result", {})
+        return result_data, None
 
     async def submit_analysis(
         self,

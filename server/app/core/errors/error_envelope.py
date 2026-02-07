@@ -3,10 +3,9 @@
 All exceptions during plugin execution are wrapped in this envelope.
 """
 
+import traceback
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional
-import traceback
-
 
 ErrorType = str  # Type alias for error classification
 

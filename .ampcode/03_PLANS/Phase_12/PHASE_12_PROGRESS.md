@@ -271,6 +271,39 @@ HTTP Response (200 or 400)
 
 ---
 
+## Pre-Commit Requirements (MANDATORY)
+
+**✅ ALL TESTS MUST PASS BEFORE ANY COMMIT**
+
+### Pre-Commit Hook Steps
+1. Run `pre-commit run --all-files` locally
+2. Verify ALL tests pass
+3. Commit only when 100% clean
+
+### Pre-Commit Tests Include:
+- Black (code formatting)
+- Ruff (linting + auto-fix)
+- Mypy (type checking)
+- ESLint (web-ui)
+- Server Tests (pytest)
+- Validate skipped tests (APPROVED comments)
+- Prevent test changes without TEST-CHANGE justification
+
+### Command Sequence Before Commit:
+```bash
+# 1. Run pre-commit hooks
+pre-commit run --all-files
+
+# 2. Verify all tests pass
+cd server && uv run pytest -q
+
+# 3. Only commit if ALL checks pass
+git add .
+git commit -m "YOUR_MESSAGE"
+```
+
+---
+
 ## Next Steps
 
 1. **Read PHASE_12_NOTES_05_FINAL.md** completely
@@ -279,7 +312,7 @@ HTTP Response (200 or 400)
 4. **Run tests after EACH step**
 5. **Use TDD workflow** (tests first, then implementation)
 6. **Use git commits** with proper message format
-7. **Run scanner before each commit**
+7. **Run pre-commit before each commit** ← **MANDATORY**
 8. **Create PR** when all 7 steps complete
 9. **Merge** after all checks pass
 

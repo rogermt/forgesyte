@@ -8,11 +8,13 @@ from typing import Any, Dict
 
 class InputValidationError(Exception):
     """Raised when incoming request payload is invalid."""
+
     pass
 
 
 class OutputValidationError(Exception):
     """Raised when plugin output is invalid or malformed."""
+
     pass
 
 

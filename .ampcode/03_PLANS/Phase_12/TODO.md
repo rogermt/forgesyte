@@ -69,6 +69,13 @@ cd server && uv run pytest tests/execution/test_analysis_execution_endpoint.py -
 
 # Run service tests only
 cd server && uv run pytest tests/execution/test_*_execution_service.py -v
+
+# PRE-COMMIT (MANDATORY BEFORE ANY COMMIT)
+# 1. Run pre-commit hooks
+pre-commit run --all-files
+
+# 2. Run all server tests
+cd server && uv run pytest -q
 ```
 
 ---
