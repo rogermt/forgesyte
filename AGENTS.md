@@ -74,6 +74,31 @@ uv run black app/ tests/ && uv run ruff check --fix app/ tests/ && uv run mypy a
 uv run pre-commit run --all-files
 ```
 
+### Execution Governance Verification
+
+Before committing ANY changes, verify the CI workflow would pass locally.
+
+**Run all of these in order:**
+
+```bash
+# 1. Run execution governance scanner (repo root)
+python scripts/scan_execution_violations.py
+
+# 2. Run plugin registry tests
+cd server && uv run pytest tests/plugins -v
+
+# 3. Run execution governance tests  
+cd server && uv run pytest tests/execution -v
+
+# 4. Run all core tests (full suite - matches CI)
+cd server && uv run pytest tests/ -v --tb=short
+```
+
+**All four MUST PASS before committing.** 
+
+These are the exact same checks that `.github/workflows/execution-ci.yml` runs on every PR and push to `main`. 
+If any step fails locally, it will also fail in CI — do not commit until all pass.
+
 ### Code Style (Python)
 
 - **Formatting**: Follow PEP 8, use Black (line-length 88)
@@ -201,8 +226,20 @@ For any feature or bug fix, follow Test-Driven Development:
 2. **Run tests to verify they fail** - Confirm tests catch the issue
 3. **Implement code** - Write minimal code to make tests pass
 4. **Run tests to verify they pass** - Confirm implementation works
-5. **Run lint and type check** - Ensure code quality
+5. **Run lint, type check, and execution governance verification** - Ensure code quality
 6. **Commit** - Only after all above pass
+
+**Before committing, run the full verification suite:**
+```bash
+# For Python/Server changes:
+uv run pre-commit run --all-files          # black/ruff/mypy
+cd server && uv run pytest tests/ -v       # all tests
+python scripts/scan_execution_violations.py # governance check
+
+# For TypeScript/Web-UI changes:
+npm run lint && npm run type-check         # eslint/tsc
+npm run test -- --run                      # vitest
+```
 
 ```bash
 # Example TDD workflow
