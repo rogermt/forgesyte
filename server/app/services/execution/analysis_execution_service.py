@@ -72,12 +72,14 @@ class AnalysisExecutionService:
             Tuple of (result_dict, error_dict) where error_dict is None on success
         """
         # Extract tool_name from args if present
-        tool_name = args.get("tool_name", "default")
+        # If not provided, pass None to JobExecutionService which handles tool selection
+        tool_name: Optional[str] = args.get("tool_name")
 
         # Create and run job asynchronously without asyncio.run()
+        # JobExecutionService validates tool_name against plugin manifest
         job_id = await self._job_execution_service.create_job(
             plugin_name=plugin_name,
-            tool_name=tool_name,
+            tool_name=tool_name or "",  # type: ignore  # JobExecutionService handles validation
             args=args,
         )
         job_result = await self._job_execution_service.run_job(job_id)
