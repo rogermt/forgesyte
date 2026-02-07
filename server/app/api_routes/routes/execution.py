@@ -272,7 +272,7 @@ async def analyze_execution_async(
     try:
         job_info = await service.submit_analysis_async(
             plugin_name=request.plugin,
-            tool_name="default",
+            tool_name="analyze",  # Use actual tool name, not hardcoded "default"
             args={"image": request.image},
             mime_type=request.mime_type,
         )

@@ -21,6 +21,14 @@ DIRECT_PLUGIN_RUN = re.compile(
 )
 FORBIDDEN_LIFECYCLE = re.compile(r"LifecycleState\.(SUCCESS|ERROR)")
 
+# Tool name contract patterns (Issue #164)
+FORBIDDEN_TOOL_NAME_PATTERNS = [
+    r'args\.get\s*\(\s*["\']tool_name["\']\s*,\s*["\']default["\']\s*\)',  # args.get("tool_name", "default")
+    r'tool_name\s*=\s*["\']default["\']',  # tool_name = "default"
+    r'tool_name\s*or\s*["\']default["\']',  # tool_name or "default"
+]
+FORBIDDEN_TOOL_NAME = re.compile("|".join(FORBIDDEN_TOOL_NAME_PATTERNS), re.IGNORECASE)
+
 
 def check_file(path: str) -> list[str]:
     """Check a single file for violations."""
@@ -47,6 +55,12 @@ def check_file(path: str) -> list[str]:
         # Check for forbidden lifecycle states
         if "LifecycleState.SUCCESS" in line or "LifecycleState.ERROR" in line:
             violations.append(f"Forbidden LifecycleState in {path}:{i}")
+
+        # Check for tool_name contract violations (Issue #164)
+        if FORBIDDEN_TOOL_NAME.search(line):
+            violations.append(
+                f"Tool name contract violation (hardcoded 'default') in {path}:{i}"
+            )
 
     return violations
 
