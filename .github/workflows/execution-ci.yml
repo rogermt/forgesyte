@@ -29,12 +29,12 @@ jobs:
       - name: Run execution scanner
         run: python scripts/scan_execution_violations.py
 
-      - name: Run plugin registry tests (Phase 11)
+      - name: Run plugin registry tests
         run: |
           cd server
           uv run pytest tests/plugins -v
 
-      - name: Run execution tests (Phase 12)
+      - name: Run execution governance tests
         run: |
           cd server
           uv run pytest tests/execution -v
