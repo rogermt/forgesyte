@@ -1,0 +1,34 @@
+name: Execution Governance CI
+
+on:
+  pull_request:
+  push:
+    branches: [ main ]
+
+jobs:
+  execution-governance:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install pytest
+
+      - name: Run execution scanner
+        run: python scripts/scan_execution_violations.py
+
+      - name: Run Phase 11 tests
+        run: pytest server/tests/phase_11
+
+      - name: Run execution tests
+        run: pytest server/tests/execution
+
