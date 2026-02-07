@@ -22,9 +22,7 @@ def mock_service():
     service.get_job_result = AsyncMock(return_value=None)
     service.list_jobs = AsyncMock(return_value=[])
     service.cancel_job = AsyncMock(return_value=True)
-
-    # Sync method - MagicMock works fine
-    service.analyze = MagicMock(return_value=({"result": {}, "value": 42}, None))
+    service.analyze = AsyncMock(return_value=({"result": {}, "value": 42}, None))
 
     return service
 

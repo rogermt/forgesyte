@@ -177,10 +177,15 @@ async def analyze_execution(
         extra={"plugin": request.plugin},
     )
 
+    # Generate a sync job_id for the response
+    import uuid
+
+    sync_job_id = f"sync-{uuid.uuid4().hex[:8]}"
+
     try:
         # Call service.analyze which returns (result, error) tuple as expected by tests
-        # analyze is a sync method (not async), so no await needed
-        result, error = service.analyze(
+        # analyze is an async method, so await is required
+        result, error = await service.analyze(
             plugin_name=request.plugin,
             args={"image": request.image, "mime_type": request.mime_type},
         )
@@ -200,9 +205,11 @@ async def analyze_execution(
             extra={"plugin": request.plugin},
         )
 
-        # Return result with plugin name included and result nested under "result" key
+        # Return wrapped response with plugin, job_id, status, and result
         return {
             "plugin": request.plugin,
+            "job_id": sync_job_id,
+            "status": "done",
             "result": result,
         }
 
@@ -484,13 +491,15 @@ async def cancel_job(
         logger.warning("Job not found for cancellation", extra={"job_id": job_id})
         raise HTTPException(status_code=404, detail="Job not found")
 
-    # Check if job can be cancelled (check for both SUCCESS/DONE and FAILED/ERROR)
+    # Check if job can be cancelled - only queued/running jobs can be cancelled
+    # Completed jobs (done/success or error/failed) cannot be cancelled
+    # Accept both test format (success/failed) and enum format (done/error)
     status_value = job.get("status", "")
     if status_value in (
         JobStatus.DONE.value,
         JobStatus.ERROR.value,
-        "success",
-        "failed",
+        "success",  # Test format
+        "failed",  # Test format
     ):
         logger.warning(
             "Job already completed, cannot cancel",

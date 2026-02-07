@@ -14,7 +14,6 @@ Execution Chain:
                                           ToolRunner
 """
 
-import asyncio
 import logging
 from typing import Any, Dict, Optional, Tuple
 
@@ -55,7 +54,7 @@ class AnalysisExecutionService:
     # -------------------------------------------------------------------------
     # Synchronous execution (for API compatibility)
     # -------------------------------------------------------------------------
-    def analyze(
+    async def analyze(
         self,
         plugin_name: str,
         args: Dict[str, Any],
@@ -63,7 +62,7 @@ class AnalysisExecutionService:
         """Synchronous analysis execution.
 
         Creates a job, runs it immediately, and returns (result, error).
-        This is the synchronous wrapper that API routes expect.
+        This is the asynchronous wrapper that API routes expect.
 
         Args:
             plugin_name: Name of the plugin to execute
@@ -74,24 +73,14 @@ class AnalysisExecutionService:
         """
         # Extract tool_name from args if present
         tool_name = args.get("tool_name", "default")
-        # mime_type is passed via args to downstream services
 
-        # Run the async submission synchronously
-        loop = asyncio.new_event_loop()
-        try:
-            job_id = loop.run_until_complete(
-                self._job_execution_service.create_job(
-                    plugin_name=plugin_name,
-                    tool_name=tool_name,
-                    args=args,
-                )
-            )
-
-            job_result = loop.run_until_complete(
-                self._job_execution_service.run_job(job_id)
-            )
-        finally:
-            loop.close()
+        # Create and run job asynchronously without asyncio.run()
+        job_id = await self._job_execution_service.create_job(
+            plugin_name=plugin_name,
+            tool_name=tool_name,
+            args=args,
+        )
+        job_result = await self._job_execution_service.run_job(job_id)
 
         # Return (result, error) tuple
         if job_result.get("error"):

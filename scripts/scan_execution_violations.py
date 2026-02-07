@@ -10,38 +10,44 @@ import sys
 
 # Define paths
 import os
-SERVER_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'server')
+
+SERVER_DIR = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "server"
+)
 
 # Patterns to detect actual code calls (not comments/docstrings)
-DIRECT_PLUGIN_RUN = re.compile(r'^\s*(?!#)(?!.*["\'])(?:[a-zA-Z_][a-zA-Z0-9_.]*\s*=\s*)?plugin\.run\s*\(')
-FORBIDDEN_LIFECYCLE = re.compile(r'LifecycleState\.(SUCCESS|ERROR)')
+DIRECT_PLUGIN_RUN = re.compile(
+    r'^\s*(?!#)(?!.*["\'])(?:[a-zA-Z_][a-zA-Z0-9_.]*\s*=\s*)?plugin\.run\s*\('
+)
+FORBIDDEN_LIFECYCLE = re.compile(r"LifecycleState\.(SUCCESS|ERROR)")
+
 
 def check_file(path: str) -> list[str]:
     """Check a single file for violations."""
-    violations = []
-    
+    violations: list[str] = []
+
     try:
-        with open(path, 'r', encoding='utf-8') as f:
+        with open(path, "r", encoding="utf-8") as f:
             lines = f.readlines()
     except (UnicodeDecodeError, PermissionError):
         return violations
-    
+
     for i, line in enumerate(lines, 1):
         # Skip comments and docstrings (lines with only quotes)
         stripped = line.strip()
-        if stripped.startswith('#'):
+        if stripped.startswith("#"):
             continue
         if '"""' in stripped or "'''" in stripped:
             continue
-            
+
         # Check for direct plugin.run() calls
         if DIRECT_PLUGIN_RUN.search(line):
             violations.append(f"Direct plugin.run() in {path}:{i}")
-        
+
         # Check for forbidden lifecycle states
-        if 'LifecycleState.SUCCESS' in line or 'LifecycleState.ERROR' in line:
+        if "LifecycleState.SUCCESS" in line or "LifecycleState.ERROR" in line:
             violations.append(f"Forbidden LifecycleState in {path}:{i}")
-    
+
     return violations
 
 
@@ -51,34 +57,34 @@ def main() -> int:
     print("Execution Governance Scanner")
     print("=" * 60)
     print()
-    
+
     all_violations = []
     files_checked = 0
-    
+
     print("[1/2] Scanning for violations...")
-    
+
     # Walk server/app directory (excluding tests)
     for root, dirs, files in os.walk(SERVER_DIR):
         # Skip test directories
-        if '/tests/' in root:
+        if "/tests/" in root:
             continue
         # Skip __pycache__
-        if '__pycache__' in root:
+        if "__pycache__" in root:
             continue
         # Skip .pyc files
-        if root.endswith('.pyc'):
+        if root.endswith(".pyc"):
             continue
-            
+
         for file in files:
-            if file.endswith('.py'):
+            if file.endswith(".py"):
                 path = os.path.join(root, file)
                 violations = check_file(path)
                 if violations:
                     all_violations.extend(violations)
                 files_checked += 1
-    
+
     print(f"   Checked {files_checked} files")
-    
+
     if all_violations:
         print(f"   ❌ Found {len(all_violations)} violations:")
         for v in all_violations[:10]:
@@ -87,12 +93,12 @@ def main() -> int:
             print(f"      ... and {len(all_violations) - 10} more")
     else:
         print("   ✅ No violations found")
-    
+
     print()
     print("=" * 60)
     print("Summary")
     print("=" * 60)
-    
+
     if all_violations:
         print(f"❌ FAILED - {len(all_violations)} violation(s) found")
         return 1
@@ -103,4 +109,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
-
