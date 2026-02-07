@@ -395,4 +395,3 @@ class TestConcurrentExecution:
         assert len(results) == 5
         for result in results:
             assert result["status"] == JobStatus.DONE.value
-
