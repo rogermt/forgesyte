@@ -150,6 +150,61 @@ You should see tools such as:
 
 ---
 
+## Execution Governance
+
+ForgeSyte's execution layer is governed by strict mechanical rules enforced via a static scanner and CI pipeline.
+
+### Quick Links
+
+- **Execution Governance Documentation:** [`docs/design/execution-governance.md`](docs/design/execution-governance.md)
+  - Architecture overview
+  - Plugin lifecycle states
+  - Job lifecycle
+  - Validation rules
+  - Error envelope format
+  - Scanner rules
+  - CI enforcement
+
+- **Architecture Diagrams:** [`docs/design/execution-architecture.drawio`](docs/design/execution-architecture.drawio)
+  - Visual execution flow
+  - Component dependencies
+  - Job lifecycle diagram
+  - Registry state machine
+  - Error envelope flow
+
+- **Developer Onboarding:** [`docs/design/execution-onboarding.md`](docs/design/execution-onboarding.md)
+  - Core mental model
+  - Running tests
+  - Running the scanner
+  - Adding plugins
+  - Adding execution features
+  - Debugging execution issues
+
+- **Phase 12 Wrap‑Up:** [`docs/phase12-wrap-up.md`](docs/phase12-wrap-up.md)
+  - What Phase 12 achieved
+  - Key guarantees enforced
+  - Future enhancements
+
+- **Repository Audit Checklist:** [`docs/repo-audit-checklist.md`](docs/repo-audit-checklist.md)
+  - Verify governance compliance
+  - Check directory structure
+  - Validate architecture
+  - Ensure CI enforcement
+
+### Running the Mechanical Scanner
+
+The scanner enforces execution governance invariants:
+
+```bash
+python scripts/scan_execution_violations.py
+```
+
+If it prints `✅ PASSED`, you're compliant. If it prints violations, fix them before committing.
+
+CI runs this automatically on every PR and push to `main`.
+
+---
+
 ## Architecture Overview
 
 See `ARCHITECTURE.md` for the full diagram.
