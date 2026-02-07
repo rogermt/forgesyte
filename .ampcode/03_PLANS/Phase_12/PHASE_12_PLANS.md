@@ -131,7 +131,7 @@ scripts/
 └── scan_phase_12_violations.py ← Mechanical enforcement
 
 .github/workflows/
-└── phase_12_ci.yml ← CI pipeline
+└── execution-ci.yml ← CI pipeline
 ```
 
 ---
@@ -146,7 +146,7 @@ scripts/
 - `server/app/plugins/validation/input_validator.py`
 - `server/app/plugins/validation/output_validator.py`
 
-**Test:** `tests/phase_12/test_tool_runner.py`
+**Test:** `tests/execution/test_tool_runner.py`
 
 ### Step 2: Extend PluginRegistry
 **File:** `server/app/plugins/loader/plugin_registry.py`
@@ -165,9 +165,9 @@ def update_execution_metrics(self, plugin_name, state, elapsed_ms, had_error):
 - `server/app/services/execution/analysis_execution_service.py`
 
 **Tests:**
-- `tests/phase_12/test_plugin_execution_service.py`
-- `tests/phase_12/test_job_execution_service.py`
-- `tests/phase_12/test_analysis_execution_service.py`
+- `tests/execution/test_plugin_execution_service.py`
+- `tests/execution/test_job_execution_service.py`
+- `tests/execution/test_analysis_execution_service.py`
 
 ### Step 4: API Route
 **File:** `server/app/api/routes/analysis_execution.py`
@@ -198,10 +198,372 @@ app.include_router(analysis_execution_router)
 - Finally block exists
 - `update_execution_metrics()` called in finally
 
-### Step 7: CI Pipeline
-**Files:**
-- `.github/workflows/phase_12_ci.yml`
-- `.git/hooks/pre-commit` (optional)
+### Step 7: Documentation + Diagrams
+
+**Purpose:** Codify the execution governance system so it's impossible for future contributors to misunderstand or drift.
+
+---
+
+## 1. Execution Governance Documentation
+
+### File: `docs/design/execution-governance.md`
+
+This document becomes the **single source of truth** for the execution subsystem.
+
+### Sections to include:
+
+#### A. Overview
+- What the execution layer does
+- Why governance exists
+- High‑level flow diagram
+
+#### B. Plugin Execution Architecture
+- ToolRunner
+- PluginExecutionService
+- JobExecutionService
+- AnalysisExecutionService
+- API routes
+
+#### C. Lifecycle States
+- LOADED
+- INITIALIZED
+- RUNNING
+- FAILED
+- UNAVAILABLE
+
+#### D. Job Lifecycle
+- PENDING → RUNNING → SUCCESS/FAILED
+
+#### E. Validation Rules
+- Input validation
+- Output validation
+
+#### F. Error Envelope Format
+- Structured error wrapping
+- Error types and classification
+
+#### G. Scanner Rules
+- No direct plugin.run
+- ToolRunner invariants
+- Valid lifecycle states only
+
+#### H. CI Pipeline
+- Scanner
+- Phase 11 tests
+- Execution tests
+
+#### I. Developer Responsibilities
+- How to add a plugin
+- How to add a new execution endpoint
+- How to debug execution failures
+
+#### J. File Locations
+- All key file paths organized by function
+
+---
+
+## 2. Architecture Diagrams
+
+### File: `docs/design/execution-architecture.drawio`
+
+Include diagrams for:
+
+#### A. Execution Flow Diagram
+```
+API → AnalysisExecutionService → JobExecutionService → PluginExecutionService → ToolRunner → Plugin
+```
+
+#### B. Job Lifecycle Diagram
+```
+PENDING → RUNNING → SUCCESS/FAILED
+```
+
+#### C. Registry State Diagram
+```
+LOADED → INITIALIZED / FAILED / UNAVAILABLE
+```
+
+#### D. Error Envelope Flow
+```
+Exception → Envelope → API → Client
+```
+
+#### E. Scanner Enforcement Diagram
+```
+Developer → Code → Scanner → CI → Merge
+```
+
+### Alternative: ASCII Diagrams
+
+```
++--------+        +---------------------------+        +---------------------------+
+| Client |  HTTP  |        API Route          |        |  AnalysisExecutionService |
+|        +------->|   /v1/analyze-execution   +------->+  (sync + async orchestration)
++--------+        +---------------------------+        +---------------------------+
+                                                           |
+                                                           v
+                                                +---------------------------+
+                                                |    JobExecutionService    |
+                                                | PENDING→RUNNING→SUCCESS/  |
+                                                |           FAILED          |
+                                                +---------------------------+
+                                                           |
+                                                           v
+                                                +---------------------------+
+                                                |  PluginExecutionService   |
+                                                |  delegates to ToolRunner  |
+                                                +---------------------------+
+                                                           |
+                                                           v
+                                                +---------------------------+
+                                                |        ToolRunner         |
+                                                | validation + metrics +    |
+                                                |  lifecycle + envelopes    |
+                                                +---------------------------+
+                                                           |
+                                                           v
+                                                +---------------------------+
+                                                |          Plugin           |
+                                                |        .run(payload)      |
+                                                +---------------------------+
+
+
+                          +---------------------------------------------+
+                          |             Plugin Registry                 |
+                          |  state, success/error counts, timings,     |
+                          |  last_used, etc. (updated by ToolRunner)   |
+                          +---------------------------------------------+
+
+
++---------------------------+                 +---------------------------+
+|   Mechanical Scanner      |                 |   Execution Governance    |
+| scripts/scan_execution_   |  enforces       |           CI              |
+| violations.py             +---------------->+ .github/workflows/       |
+| - no direct plugin.run    |                 |   execution-ci.yml        |
+| - ToolRunner invariants   |                 | - scanner + tests on PR   |
++---------------------------+                 +---------------------------+
+```
+
+---
+
+## 3. Developer Onboarding Guide
+
+### File: `docs/execution-onboarding.md`
+
+Include:
+
+#### A. Core Mental Model
+All plugin execution must follow this exact path:
+```
+API → AnalysisExecutionService → JobExecutionService → PluginExecutionService → ToolRunner → Plugin
+```
+
+**Never call plugin.run() directly. Always go through ToolRunner.**
+
+#### B. Running Tests
+```bash
+# Run all tests
+pytest server/tests -v
+
+# Run execution governance tests
+pytest server/tests/execution -v
+```
+
+#### C. Running the Mechanical Scanner
+```bash
+python scripts/scan_execution_violations.py
+```
+
+#### D. Where Things Live
+| Area | Path |
+|------|------|
+| Execution services | `server/app/services/execution/` |
+| ToolRunner | `server/app/plugins/runtime/tool_runner.py` |
+| Execution API | `server/app/api/routes/analysis_execution.py` |
+| Execution tests | `server/tests/execution/` |
+| Scanner | `scripts/scan_execution_violations.py` |
+| CI workflow | `.github/workflows/execution-ci.yml` |
+| Governance docs | `docs/design/execution-governance.md` |
+
+#### E. Adding or Modifying a Plugin
+1. Implement `.run(payload: dict) -> dict`
+2. Register the plugin in the registry
+3. Do NOT call `plugin.run()` directly
+4. Let ToolRunner handle validation, metrics, lifecycle, error envelopes
+
+#### F. Adding or Modifying Execution Behavior
+- Use `AnalysisExecutionService` for API-facing orchestration
+- Use `JobExecutionService` for job lifecycle
+- Use `PluginExecutionService` to reach ToolRunner
+- Never bypass ToolRunner
+
+#### G. Debugging Execution Issues
+1. Check job state (PENDING/RUNNING/SUCCESS/FAILED)
+2. Check error envelope (type, message, plugin, details)
+3. Check registry metrics (success_count, error_count, timings)
+4. Run scanner + tests
+
+#### H. Before Opening a PR
+```bash
+python scripts/scan_execution_violations.py
+pytest server/tests -v
+pytest server/tests/execution -v
+```
+
+---
+
+## 4. Phase 12 Wrap-Up Document
+
+### File: `docs/phase12-wrap-up.md`
+
+#### A. What Phase 12 Achieved
+- Repaired execution architecture
+- Restored ToolRunner invariants
+- Corrected lifecycle state usage
+- Added input/output validation
+- Added structured error envelopes
+- Added job lifecycle system
+- Added synchronous + async execution paths
+- Added execution API routes
+- Added mechanical scanner
+- Added CI enforcement
+- Added documentation + diagrams
+
+#### B. Key Guarantees Now Enforced
+- Single execution path (ToolRunner)
+- No direct plugin.run() calls
+- Lifecycle states are correct and enforced
+- Metrics always updated
+- Validation always applied
+- Errors always wrapped
+- Jobs always tracked
+- Scanner prevents regressions
+- CI blocks violations
+
+#### C. What Changed in the Repo
+- New execution services
+- New API routes
+- New tests
+- New scanner
+- New CI workflow
+- New documentation
+- New diagrams
+
+#### D. Developer Guidance
+- How to add plugins
+- How to add execution features
+- How to run scanner
+- How to interpret job states
+- How to debug execution failures
+
+#### E. Future Enhancements (Optional)
+- Async worker queue
+- Persistent job storage
+- Plugin sandboxing
+- Plugin timeouts
+- Resource limits
+
+---
+
+## 5. Repository Audit Checklist
+
+### File: `docs/repo-audit-checklist.md`
+
+#### A. Directory Structure
+- [ ] No phase‑named folders
+- [ ] Execution code lives in functional directories
+- [ ] Tests live under `server/tests/execution/`
+- [ ] Documentation lives under `docs/`
+
+#### B. Execution Architecture
+- [ ] ToolRunner is the only caller of plugin.run()
+- [ ] PluginExecutionService delegates correctly
+- [ ] JobExecutionService manages lifecycle correctly
+- [ ] AnalysisExecutionService exposes sync + async paths
+- [ ] API routes match service methods
+
+#### C. Lifecycle States
+- [ ] Only LOADED, INITIALIZED, RUNNING, FAILED, UNAVAILABLE
+- [ ] No SUCCESS/ERROR lifecycle states
+- [ ] Registry updates state correctly
+
+#### D. Validation + Error Envelope
+- [ ] Input validation always runs
+- [ ] Output validation always runs
+- [ ] Error envelope always wraps exceptions
+- [ ] API never returns raw exceptions
+
+#### E. Scanner
+- [ ] Scanner exists
+- [ ] Scanner enforces all invariants
+- [ ] Scanner passes locally
+- [ ] Scanner blocks regressions
+
+#### F. CI Pipeline
+- [ ] CI workflow exists
+- [ ] Scanner runs first
+- [ ] Phase 11 tests run
+- [ ] Execution tests run
+- [ ] CI fails on violations
+
+#### G. Documentation
+- [ ] Execution governance doc exists
+- [ ] Architecture diagrams exist
+- [ ] Onboarding guide exists
+- [ ] README updated
+
+#### H. Developer Experience
+- [ ] Running tests is easy
+- [ ] Running scanner is easy
+- [ ] Adding plugins is documented
+- [ ] Adding execution features is documented
+
+---
+
+## 6. Update README.md
+
+Update root `README.md` with:
+
+- Link to execution governance docs (`docs/design/execution-governance.md`)
+- Link to architecture diagrams (`docs/design/execution-architecture.drawio`)
+- Link to onboarding guide (`docs/execution-onboarding.md`)
+- Link to CI workflow (`.github/workflows/execution-ci.yml`)
+- Quickstart for running scanner + tests
+
+---
+
+## 7. Commands to Verify Documentation
+
+```bash
+# Verify documentation files exist
+ls -la docs/design/execution-governance.md
+ls -la docs/design/execution-architecture.drawio
+ls -la docs/execution-onboarding.md
+ls -la docs/phase12-wrap-up.md
+ls -la docs/repo-audit-checklist.md
+
+# Run all verification
+python scripts/scan_execution_violations.py
+pytest server/tests/execution -v
+pytest server/tests -v
+```
+
+---
+
+## 8. Documentation Files Summary
+
+| File | Purpose | Status |
+|------|---------|--------|
+| `docs/design/execution-governance.md` | Single source of truth | Create |
+| `docs/design/execution-architecture.drawio` | Architecture diagrams | Create |
+| `docs/execution-onboarding.md` | Developer quickstart | Create |
+| `docs/phase12-wrap-up.md` | Phase 12 summary | Create |
+| `docs/repo-audit-checklist.md` | Audit checklist | Create |
+| `README.md` | Links to all docs | Update |
+
+---
+
+**This completes Step 7: Documentation + Diagrams.**
 
 ---
 

@@ -1,0 +1,100 @@
+# Step 7 Documentation Update - TODO
+
+## Task
+Update PHASE_12_PLANS.md and PHASE_12_PROGRESS.md with detailed Step 7 documentation content from PHASE_12_STEP7_PLANS.md
+
+## Status: ✅ COMPLETE - ALL 5 FILES CREATED
+
+### Documentation Files Created
+
+| File | Status |
+|------|--------|
+| `docs/design/execution-governance.md` | ✅ Created |
+| `docs/design/execution-architecture.drawio` | ✅ Created |
+| `docs/execution-onboarding.md` | ✅ Created |
+| `docs/phase12-wrap-up.md` | ✅ Created |
+| `docs/repo-audit-checklist.md` | ✅ Created |
+
+---
+
+## Files Updated
+
+- `/home/rogermt/forgesyte/.ampcode/03_PLANS/Phase_12/PHASE_12_PLANS.md` - Step 7 specs updated
+- `/home/rogermt/forgesyte/.ampcode/03_PLANS/Phase_12/PHASE_12_PROGRESS.md` - Step 7 marked complete
+
+---
+
+## Documentation Summary
+
+### 1. docs/design/execution-governance.md
+Single source of truth for execution subsystem including:
+- Overview
+- Plugin Execution Architecture
+- Lifecycle States
+- Job Lifecycle
+- Validation Rules
+- Error Envelope Format
+- Mechanical Scanner Rules
+- CI Enforcement
+- Developer Responsibilities
+- File Locations
+
+### 2. docs/design/execution-architecture.drawio
+XML-based draw.io diagram showing:
+- Execution flow (Client → API → Services → ToolRunner → Plugin)
+- Job lifecycle diagram
+- Registry state transitions
+- Error envelope flow
+- Scanner enforcement flow
+
+### 3. docs/execution-onboarding.md
+Developer quickstart guide with:
+- Core mental model
+- Running tests commands
+- Running scanner commands
+- Where things live (file paths table)
+- Adding/modifying plugins
+- Debugging execution issues
+- Before opening a PR checklist
+
+### 4. docs/phase12-wrap-up.md
+Phase 12 summary document with:
+- What Phase 12 achieved (11 items)
+- Key guarantees enforced (9 items)
+- What changed in the repo (7 categories)
+- Developer guidance (5 areas)
+- Future work suggestions (5 items)
+
+### 5. docs/repo-audit-checklist.md
+8-section audit checklist:
+- Directory Structure (4 checks)
+- Execution Architecture (5 checks)
+- Lifecycle States (5 checks)
+- Validation + Error Envelope (4 checks)
+- Scanner (4 checks)
+- CI Pipeline (5 checks)
+- Documentation (4 checks)
+- Developer Experience (4 checks)
+
+---
+
+## Verification
+
+```bash
+# List created documentation files
+ls -la docs/design/execution-governance.md
+ls -la docs/design/execution-architecture.drawio
+ls -la docs/execution-onboarding.md
+ls -la docs/phase12-wrap-up.md
+ls -la docs/repo-audit-checklist.md
+
+# Run scanner
+python scripts/scan_execution_violations.py
+
+# Run tests
+pytest server/tests/execution -v
+```
+
+---
+
+**Step 7 Documentation Complete**
