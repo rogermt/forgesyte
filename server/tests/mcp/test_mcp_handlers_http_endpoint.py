@@ -64,7 +64,7 @@ class MockPlugin:
     def run_tool(self, tool_name: str, args: dict) -> dict:
         """Execute a tool by name."""
         if tool_name == "default":
-            return self.analyze_image(args["image"], args.get("options", {}))
+            return self.analyze_image(args["image_bytes"], args.get("options", {}))
         raise ValueError(f"Unknown tool: {tool_name}")
 
     def on_unload(self) -> None:

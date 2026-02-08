@@ -108,7 +108,8 @@ class VisionAnalysisService:
             # Use default tool if not specified
             tool_name = data.get("tool", "default")
             result = active_plugin.run_tool(
-                tool_name, {"image": image_bytes, "options": data.get("options", {})}
+                tool_name,
+                {"image_bytes": image_bytes, "options": data.get("options", {})},
             )
             processing_time = (time.time() - start_time) * 1000
 
