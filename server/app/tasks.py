@@ -386,7 +386,7 @@ class TaskProcessor:
             # Use default tool if not specified
             tool_name = options.get("tool", "default")
             tool_args = {
-                "image": image_bytes,
+                "image_bytes": image_bytes,
                 "options": {k: v for k, v in options.items() if k != "tool"},
             }
             result = await loop.run_in_executor(

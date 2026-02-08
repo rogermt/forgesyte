@@ -55,7 +55,7 @@ class TestContentLengthCorrectness:
                 def run_tool(self, tool_name, args):
                     if tool_name == "ocr":
                         return self.analyze_image(
-                            args["image"], args.get("options", {})
+                            args["image_bytes"], args.get("options", {})
                         )
                     raise ValueError(f"Unknown tool: {tool_name}")
 
@@ -127,7 +127,7 @@ class TestContentLengthCorrectness:
                 def run_tool(self, tool_name, args):
                     if tool_name == "ocr":
                         return self.analyze_image(
-                            args["image"], args.get("options", {})
+                            args["image_bytes"], args.get("options", {})
                         )
                     raise ValueError(f"Unknown tool: {tool_name}")
 
@@ -194,7 +194,9 @@ class TestContentLengthCorrectness:
 
             def run_tool(self, tool_name, args):
                 if tool_name == "ocr":
-                    return self.analyze_image(args["image"], args.get("options", {}))
+                    return self.analyze_image(
+                        args["image_bytes"], args.get("options", {})
+                    )
                 raise ValueError(f"Unknown tool: {tool_name}")
 
         pm = PluginRegistry()

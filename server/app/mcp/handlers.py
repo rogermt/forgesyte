@@ -244,7 +244,7 @@ class MCPProtocolHandlers:
             if not tool_to_call:
                 tool_to_call = "default"
 
-            tool_args = {"image": image_bytes, "options": options or {}}
+            tool_args = {"image_bytes": image_bytes, "options": options or {}}
             if hasattr(plugin, "run_tool") and callable(plugin.run_tool):
                 maybe_coro = plugin.run_tool(tool_to_call, tool_args)
                 if inspect.isawaitable(maybe_coro):
