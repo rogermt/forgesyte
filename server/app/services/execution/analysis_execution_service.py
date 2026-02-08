@@ -8,12 +8,13 @@ This service:
 
 Execution Chain:
     API Endpoint → AnalysisExecutionService → JobExecutionService
-                                              ↓
-                                    PluginExecutionService
-                                              ↓
-                                          ToolRunner
+                                               ↓
+                                     PluginExecutionService
+                                               ↓
+                                           ToolRunner
 """
 
+import base64
 import logging
 from typing import Any, Dict, Optional, Tuple
 
@@ -30,6 +31,7 @@ class AnalysisExecutionService:
     Responsibilities:
     - Receive high-level analysis requests from API
     - Validate request shape (not deep validation - that's JobExecutionService's job)
+    - Normalize image input from various formats (raw bytes, base64, file IDs)
     - Create job via JobExecutionService
     - Run job and return result/error
     - Present results in API-friendly format
@@ -51,6 +53,65 @@ class AnalysisExecutionService:
         self._job_execution_service = job_execution_service
         logger.debug("AnalysisExecutionService initialized")
 
+    @staticmethod
+    def normalize_image_input(
+        image_bytes: Optional[bytes] = None,
+        image: Optional[str] = None,
+        frame: Optional[str] = None,
+    ) -> bytes:
+        """Normalize image input from various formats to raw bytes.
+
+        This helper handles multiple image input formats:
+        - image_bytes: Raw bytes (returned as-is)
+        - image: Base64-encoded string (decoded to bytes)
+        - frame: Alternative base64-encoded string (decoded to bytes)
+
+        Priority: image_bytes > image > frame
+
+        Args:
+            image_bytes: Raw image bytes (preferred)
+            image: Base64-encoded image string
+            frame: Base64-encoded frame string (alternative field name)
+
+        Returns:
+            Raw image bytes
+
+        Raises:
+            ValueError: If no valid image source found or base64 decoding fails
+        """
+        # Priority: raw bytes first
+        if image_bytes is not None:
+            if not isinstance(image_bytes, bytes):
+                raise ValueError("image_bytes must be bytes")
+            return image_bytes
+
+        # Try image field (base64)
+        if image is not None:
+            try:
+                decoded = base64.b64decode(image)
+                logger.debug("Decoded image from base64 'image' field")
+                return decoded
+            except Exception as e:
+                raise ValueError(
+                    f"Failed to decode base64 'image' field: {e}"
+                ) from e
+
+        # Try frame field (base64)
+        if frame is not None:
+            try:
+                decoded = base64.b64decode(frame)
+                logger.debug("Decoded image from base64 'frame' field")
+                return decoded
+            except Exception as e:
+                raise ValueError(
+                    f"Failed to decode base64 'frame' field: {e}"
+                ) from e
+
+        # No valid source found
+        raise ValueError(
+            "No valid image source found (provide image_bytes, image, or frame)"
+        )
+
     # -------------------------------------------------------------------------
     # Synchronous execution (for API compatibility)
     # -------------------------------------------------------------------------
@@ -64,33 +125,68 @@ class AnalysisExecutionService:
         Creates a job, runs it immediately, and returns (result, error).
         This is the asynchronous wrapper that API routes expect.
 
+        Normalizes image input: converts base64 strings or other formats to raw bytes,
+        ensuring plugins receive consistently formatted image_bytes.
+
         Args:
             plugin_name: Name of the plugin to execute
-            args: Tool-specific arguments including 'image' and 'mime_type'
+            args: Tool-specific arguments including image data and 'mime_type'
 
         Returns:
             Tuple of (result_dict, error_dict) where error_dict is None on success
         """
+        # Normalize image input: convert base64/other formats to raw bytes
+        try:
+            normalized_args = dict(args)  # Create copy to avoid modifying original
+
+            # Check if image data is present in any form (image_bytes, image, or frame)
+            has_image_bytes = "image_bytes" in normalized_args
+            has_image = "image" in normalized_args
+            has_frame = "frame" in normalized_args
+
+            # If any image field exists, normalize to image_bytes
+            if has_image_bytes or has_image or has_frame:
+                image_bytes = self.normalize_image_input(
+                    image_bytes=normalized_args.get("image_bytes"),
+                    image=normalized_args.get("image"),
+                    frame=normalized_args.get("frame"),
+                )
+                # Replace image/frame with normalized image_bytes
+                normalized_args["image_bytes"] = image_bytes
+                normalized_args.pop("image", None)
+                normalized_args.pop("frame", None)
+                logger.debug("Image input normalized to image_bytes")
+        except ValueError as e:
+            logger.warning(
+                "Image normalization failed",
+                extra={"error": str(e), "plugin": plugin_name},
+            )
+            error_response: dict[str, Any] = {
+                "type": "validation_error",
+                "message": str(e),
+            }
+            return {}, error_response
+
         # Extract tool_name from args if present
         # If not provided, pass None to JobExecutionService which handles tool selection
-        tool_name: Optional[str] = args.get("tool_name")
+        tool_name: Optional[str] = normalized_args.get("tool_name")
 
         # Create and run job asynchronously without asyncio.run()
         # JobExecutionService validates tool_name against plugin manifest
         job_id = await self._job_execution_service.create_job(
             plugin_name=plugin_name,
             tool_name=tool_name or "",  # type: ignore  # JobExecutionService handles validation
-            args=args,
+            args=normalized_args,
         )
         job_result = await self._job_execution_service.run_job(job_id)
 
         # Return (result, error) tuple
         if job_result.get("error"):
-            error_response: dict[str, Any] = {
+            error_response_dict: dict[str, Any] = {
                 "type": "execution_error",
                 "message": job_result["error"],
             }
-            return {}, error_response
+            return {}, error_response_dict
         result_data: dict[str, Any] = job_result.get("result", {})
         return result_data, None
 
