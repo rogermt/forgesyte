@@ -92,9 +92,7 @@ class AnalysisExecutionService:
                 logger.debug("Decoded image from base64 'image' field")
                 return decoded
             except Exception as e:
-                raise ValueError(
-                    f"Failed to decode base64 'image' field: {e}"
-                ) from e
+                raise ValueError(f"Failed to decode base64 'image' field: {e}") from e
 
         # Try frame field (base64)
         if frame is not None:
@@ -103,9 +101,7 @@ class AnalysisExecutionService:
                 logger.debug("Decoded image from base64 'frame' field")
                 return decoded
             except Exception as e:
-                raise ValueError(
-                    f"Failed to decode base64 'frame' field: {e}"
-                ) from e
+                raise ValueError(f"Failed to decode base64 'frame' field: {e}") from e
 
         # No valid source found
         raise ValueError(
