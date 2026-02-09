@@ -392,9 +392,13 @@ class TaskProcessor:
                 else:
                     tool_name = plugin.tools[0]["name"]
 
+            # Include device in tool args (Phase 12 fix: propagate to plugin)
             tool_args = {
                 "image_bytes": image_bytes,
-                "options": {k: v for k, v in options.items() if k != "tool"},
+                "device": options.get("device", "cpu"),
+                "options": {
+                    k: v for k, v in options.items() if k not in ("tool", "device")
+                },
             }
             result = await loop.run_in_executor(
                 self._executor, plugin.run_tool, tool_name, tool_args

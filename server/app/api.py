@@ -183,6 +183,9 @@ async def analyze_image(
                     detail="Invalid JSON in options",
                 ) from e
 
+        # Propagate device selection to plugin pipeline (Phase 12 fix)
+        parsed_options["device"] = device.lower()
+
         # Delegate to service layer for analysis orchestration
         result = await service.process_analysis_request(
             file_bytes=file_bytes,

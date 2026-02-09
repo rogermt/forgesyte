@@ -34,11 +34,20 @@ def normalise_output(raw: dict[str, Any]) -> NormalisedOutput:
     """
     Transform plugin-specific output to canonical schema.
 
-    Input format (plugin output):
+    Supports two formats:
+    1. Legacy format (OCR, image plugins):
         {
             "boxes": [[x1, y1, x2, y2], ...],
             "scores": [float, ...],
             "labels": [str, ...]
+        }
+    2. New YOLO format (Phase 12):
+        {
+            "detections": [
+                {"xyxy": [...], "confidence": float, "class_name": str}, ...
+            ],
+            "count": int,
+            "classes": [str, ...]
         }
 
     Output format (canonical):
@@ -64,17 +73,29 @@ def normalise_output(raw: dict[str, Any]) -> NormalisedOutput:
     Raises:
         ValueError: If validation fails
     """
-    # Validate required fields present
-    if "boxes" not in raw:
-        raise ValueError("Missing required field: 'boxes'")
-    if "scores" not in raw:
-        raise ValueError("Missing required field: 'scores'")
-    if "labels" not in raw:
-        raise ValueError("Missing required field: 'labels'")
+    # NEW: Accept YOLO's "detections" format (Phase 12)
+    if "detections" in raw:
+        detections = raw.get("detections", [])
+        if not detections:
+            raise ValueError("detections list cannot be empty")
 
-    boxes_raw = raw["boxes"]
-    scores = raw["scores"]
-    labels = raw["labels"]
+        boxes_raw = [d["xyxy"] for d in detections]
+        scores = [d["confidence"] for d in detections]
+        labels = [d["class_name"] for d in detections]
+    # Legacy format: OCR and older plugins
+    elif "boxes" in raw:
+        if "scores" not in raw:
+            raise ValueError("Missing required field: 'scores'")
+        if "labels" not in raw:
+            raise ValueError("Missing required field: 'labels'")
+
+        boxes_raw = raw["boxes"]
+        scores = raw["scores"]
+        labels = raw["labels"]
+    else:
+        raise ValueError(
+            "Plugin output missing required fields: expected 'detections' or 'boxes'"
+        )
 
     # Validate not empty
     if not boxes_raw or not scores or not labels:
