@@ -47,17 +47,16 @@ class TestDeviceSelector:
         assert "device" in data["detail"].lower() or "invalid" in data["detail"].lower()
 
     @pytest.mark.asyncio
-    async def test_analyze_defaults_device_to_cpu_if_not_provided(self, client) -> None:
-        """Verify /v1/analyze defaults to device=cpu if not provided."""
+    async def test_analyze_no_device_param_allows_plugin_resolution(self, client) -> None:
+        """Phase 12: Device is optional. If not provided, plugin resolves from models.yaml."""
         response = await client.post(
             "/v1/analyze?plugin=ocr",
             files={"file": ("test.png", b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR")},
         )
         assert response.status_code == 200
         data = response.json()
-        # Either device_requested or device field should default to "cpu"
-        device = data.get("device_requested") or data.get("device")
-        assert device == "cpu"
+        # Device should be "default" (plugin will resolve via models.yaml)
+        assert data.get("device_requested") == "default"
 
     @pytest.mark.asyncio
     async def test_analyze_device_case_insensitive(self, client) -> None:

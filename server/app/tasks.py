@@ -263,10 +263,12 @@ class TaskProcessor:
         image_bytes: bytes,
         plugin_name: str,
         options: Optional[dict[str, Any]] = None,
-        device: str = "cpu",
         callback: Optional[Callable[[dict[str, Any]], Any]] = None,
     ) -> str:
         """Submit a new image analysis job.
+
+        Phase 12 governance: Device is NOT a parameter. It comes from options
+        (if present) or the plugin resolves it from models.yaml.
 
         Creates a job record and dispatches it for asynchronous processing
         in the background. Returns immediately with the job_id.
@@ -274,8 +276,7 @@ class TaskProcessor:
         Args:
             image_bytes: Raw image data (PNG, JPEG, etc.)
             plugin_name: Name of the analysis plugin to use
-            options: Plugin-specific analysis options (optional)
-            device: Device preference ("cpu" or "gpu", default "cpu")
+            options: Plugin-specific analysis options (optional, may contain device)
             callback: Callable invoked when job completes (optional)
 
         Returns:
@@ -293,6 +294,10 @@ class TaskProcessor:
             raise ValueError("plugin_name is required")
 
         job_id = str(uuid.uuid4())
+        opts = options or {}
+        
+        # Extract device from options if present (Phase 12)
+        device_requested = opts.get("device")
 
         # Create job record
         job_data: dict[str, Any] = {
@@ -303,7 +308,7 @@ class TaskProcessor:
             "created_at": datetime.now(timezone.utc),
             "completed_at": None,
             "plugin": plugin_name,
-            "device_requested": device.lower(),
+            "device_requested": device_requested,
             "progress": 0.0,
         }
         await self.job_store.create(job_id, job_data)
@@ -313,7 +318,7 @@ class TaskProcessor:
 
         # Dispatch background task without blocking
         asyncio.create_task(
-            self._process_job(job_id, image_bytes, plugin_name, options or {}, device)
+            self._process_job(job_id, image_bytes, plugin_name, opts, device_requested)
         )
 
         logger.info(
@@ -321,7 +326,7 @@ class TaskProcessor:
             extra={
                 "job_id": job_id,
                 "plugin": plugin_name,
-                "device_requested": device.lower(),
+                "device_requested": device_requested,
                 "has_callback": callback is not None,
             },
         )
@@ -333,9 +338,12 @@ class TaskProcessor:
         image_bytes: bytes,
         plugin_name: str,
         options: dict[str, Any],
-        device: str = "cpu",
+        device_requested: Optional[str] = None,
     ) -> None:
         """Process a job asynchronously.
+
+        Phase 12 governance: Device comes from options (if present).
+        It may be None, in which case the plugin resolves it from models.yaml.
 
         Runs the actual analysis in a thread pool, updates job status,
         handles errors, and invokes completion callbacks.
@@ -344,8 +352,8 @@ class TaskProcessor:
             job_id: Unique job identifier
             image_bytes: Raw image data to analyze
             plugin_name: Name of the plugin to run
-            options: Plugin-specific options
-            device: Device preference ("cpu" or "gpu")
+            options: Plugin-specific options (may contain device)
+            device_requested: Device preference if explicitly provided, else None
 
         Returns:
             None
@@ -359,7 +367,7 @@ class TaskProcessor:
 
         logger.debug(
             "Job processing started",
-            extra={"job_id": job_id, "plugin": plugin_name, "device_requested": device},
+            extra={"job_id": job_id, "plugin": plugin_name, "device_requested": device_requested},
         )
 
         # Get plugin

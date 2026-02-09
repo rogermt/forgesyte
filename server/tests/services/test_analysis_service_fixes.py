@@ -28,13 +28,11 @@ class MockProcessor(TaskProcessor):
         image_bytes: bytes,
         plugin_name: str,
         options: Dict[str, Any],
-        device: str,
     ) -> str:
         self.last_call = {
             "image_bytes": image_bytes,
             "plugin_name": plugin_name,
             "options": options,
-            "device": device,
         }
         return "job-123"
 
@@ -86,8 +84,8 @@ class TestAnalysisServiceDeviceResolution:
     """Test 3: Device resolution priority (param > options > default)."""
 
     @pytest.mark.asyncio
-    async def test_device_resolution_param_over_options(self) -> None:
-        """Test 3: If device=None and options={"device": "cuda"}, submit job with device="cuda"."""
+    async def test_device_resolution_from_options(self) -> None:
+        """Phase 12: Device comes from options['device'], not separate param."""
         proc = MockProcessor()
         svc = AnalysisService(proc, MockAcquirer())
         raw_bytes = b"image"
@@ -99,10 +97,10 @@ class TestAnalysisServiceDeviceResolution:
             body_bytes=None,
             plugin="yolo-tracker",
             options={"image": b64, "device": "cuda"},
-            device=None,
         )
 
-        assert proc.last_call["device"] == "cuda"
+        # Device is now in options dict, not separate submit_job call
+        assert proc.last_call["options"]["device"] == "cuda"
 
 
 class TestAnalysisServiceErrorHandling:
@@ -120,5 +118,4 @@ class TestAnalysisServiceErrorHandling:
                 body_bytes=None,
                 plugin="yolo-tracker",
                 options={},
-                device="cpu",
             )

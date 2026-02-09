@@ -67,7 +67,7 @@ class TestDeviceIntegration:
             image_bytes=b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR",
             plugin_name="ocr",
             options={},
-            device="cpu",
+            device_requested="cpu",
         )
 
         # Verify device tracker was called
@@ -124,7 +124,7 @@ class TestDeviceIntegration:
             image_bytes=b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR",
             plugin_name="ocr",
             options={},
-            device="cpu",
+            device_requested="cpu",
         )
 
         # Verify device_used was stored
@@ -183,7 +183,7 @@ class TestDeviceIntegration:
             image_bytes=b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR",
             plugin_name="ocr",
             options={},
-            device="cpu",
+            device_requested="cpu",
         )
 
         # Job should still be marked as DONE
