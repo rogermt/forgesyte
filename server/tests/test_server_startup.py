@@ -6,6 +6,8 @@ when uvicorn loads the app module string.
 
 from unittest.mock import patch
 
+import pytest
+
 
 def test_uvicorn_app_module_string_is_valid():
     """Test that uvicorn.run() receives valid module import string.
@@ -19,7 +21,8 @@ def test_uvicorn_app_module_string_is_valid():
 
     # Mock uvicorn.run to capture the app string
     with patch("app.main.uvicorn.run") as mock_run:
-        run_server(host="0.0.0.0", port=8000, reload=False)
+        with pytest.raises(SystemExit):
+            run_server(host="0.0.0.0", port=8000, reload=False)
 
         # Verify uvicorn.run was called
         mock_run.assert_called_once()

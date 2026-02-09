@@ -1,8 +1,15 @@
-"""ForgeSyte Core: FastAPI Application Entry Point.
+"""
+ForgeSyte Core: FastAPI Application Entry Point.
 
-This module orchestrates the lifespan, dependency injection, and core routing
-for the ForgeSyte modular vision server. It ensures resilient service
-initialization and graceful plugin unloading.
+This module orchestrates the lifespan, dependency injection, routing,
+logging, and server execution for the ForgeSyte modular vision server.
+It provides:
+- Structured JSON logging
+- Plugin loading and health registry initialization
+- REST + WebSocket routing
+- Dependency injection for analysis, job, and plugin services
+- A clean create_app() factory for import‑safe app creation
+- A CLI entrypoint using run_server()
 """
 
 import logging
@@ -11,7 +18,7 @@ import os
 import uuid
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, NoReturn, Optional
 
 import uvicorn
 from fastapi import (
@@ -27,9 +34,12 @@ from fastapi.responses import RedirectResponse
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+# Routers
 from .api import router as api_router
 from .api_plugins import router as plugins_router
 from .api_routes.routes.execution import router as execution_router
+
+# Services
 from .auth import init_auth_service
 from .mcp import router as mcp_router
 from .plugin_loader import PluginRegistry
@@ -46,16 +56,12 @@ from .tasks import init_task_processor, job_store
 from .websocket_manager import ws_manager
 
 # ---------------------------------------------------------------------------
-# Configuration Layer (Pydantic Settings)
+# Configuration Layer
 # ---------------------------------------------------------------------------
 
 
 class AppSettings(BaseSettings):
-    """Externalized application configuration with validation.
-
-    Uses environment variables and .env files for configuration management,
-    following best practices for 12-factor apps.
-    """
+    """Application configuration loaded from environment variables and .env."""
 
     title: str = "ForgeSyte"
     description: str = (
@@ -72,56 +78,43 @@ class AppSettings(BaseSettings):
 
 settings = AppSettings()
 
+
 # ---------------------------------------------------------------------------
-# Observability & Logging Setup
+# Logging Setup
 # ---------------------------------------------------------------------------
 
 
 def setup_logging() -> None:
-    """Configure JSON structured logging with file output.
-
-    Logs to both console and file. File location:
-    - Kaggle: $KAGGLE_WORKING/forgesyte.log
-    - Local: ./forgesyte.log
-    """
-    # Determine log file path (prefer KAGGLE_WORKING, fallback to server dir)
+    """Configure JSON structured logging for console + file output."""
     working_dir = os.environ.get("KAGGLE_WORKING", os.getcwd())
-    log_dir = Path(working_dir)
-    log_file = log_dir / "forgesyte.log"
+    log_file = Path(working_dir) / "forgesyte.log"
 
     try:
         from pythonjsonlogger import jsonlogger
 
-        # Root logger config
-        root_logger = logging.getLogger()
-        root_logger.setLevel(logging.DEBUG)  # Capture DEBUG level
+        root = logging.getLogger()
+        root.setLevel(logging.DEBUG)
+        root.handlers.clear()
 
-        # Remove any existing handlers
-        root_logger.handlers.clear()
+        fmt = "%(timestamp)s %(level)s %(name)s %(message)s"
+        formatter = jsonlogger.JsonFormatter(fmt=fmt, timestamp=True)
 
-        # Format: timestamp, level, logger name, message, extra fields
-        log_format = "%(timestamp)s %(level)s %(name)s %(message)s"
-        json_formatter = jsonlogger.JsonFormatter(fmt=log_format, timestamp=True)
+        console = logging.StreamHandler()
+        console.setFormatter(formatter)
+        root.addHandler(console)
 
-        # Console handler with JSON formatter
-        console_handler = logging.StreamHandler()
-        console_handler.setFormatter(json_formatter)
-        root_logger.addHandler(console_handler)
-
-        # File handler with JSON formatter (append mode)
         file_handler = logging.handlers.RotatingFileHandler(
             str(log_file), maxBytes=10_000_000, backupCount=5
         )
-        file_handler.setFormatter(json_formatter)
-        root_logger.addHandler(file_handler)
+        file_handler.setFormatter(formatter)
+        root.addHandler(file_handler)
 
         print(f"📝 Logging to: {log_file}")
+
     except ImportError:
-        # Fallback to basic config if pythonjsonlogger not installed
-        log_format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
         logging.basicConfig(
             level=logging.DEBUG,
-            format=log_format,
+            format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
             handlers=[
                 logging.StreamHandler(),
                 logging.handlers.RotatingFileHandler(
@@ -136,191 +129,143 @@ setup_logging()
 logger = logging.getLogger(__name__)
 logger.info("🚀 ForgeSyte server starting...")
 
+
 # ---------------------------------------------------------------------------
-# Lifespan Management (Orchestration)
+# Lifespan Management
 # ---------------------------------------------------------------------------
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Manage system-wide resources during app startup and shutdown.
+    """
+    Manage system-wide resources during startup and shutdown.
 
-    Startup phase:
-        - Initialize authentication service
-        - Dynamic plugin discovery and loading
-        - Service layer instantiation (Analysis, Job, Plugin managers)
-        - Task processor initialization
+    Startup:
+        - Initialize authentication
+        - Load plugins
+        - Register plugins in health registry
+        - Initialize task processor
+        - Initialize REST + WebSocket services
 
-    Shutdown phase:
-        - Graceful plugin unloading to prevent memory leaks
-        - Resource cleanup
+    Shutdown:
+        - Gracefully unload plugins
     """
     logger.info("Initializing ForgeSyte Core...")
 
-    # Initialize authentication service
+    # Authentication
     try:
         init_auth_service()
         logger.debug("Authentication service initialized")
     except Exception as e:
-        logger.error(
-            "Failed to initialize authentication service", extra={"error": str(e)}
-        )
+        logger.error("Failed to initialize authentication", extra={"error": str(e)})
 
-    # Plugin Manager Initialization (entry-point plugins only)
-    logger.info("Initializing plugin manager for entry-point plugins")
+    # Plugin Manager
     plugin_manager = PluginRegistry()
-
-    # Dynamic Plugin Loading
     try:
         load_result = plugin_manager.load_plugins()
-        loaded_list = list(load_result.get("loaded", {}).keys())
-        logger.info(
-            "Plugins loaded successfully",
-            extra={"count": len(loaded_list), "plugins": loaded_list},
-        )
-        if load_result.get("errors"):
-            logger.warning(
-                "Plugin loading errors detected",
-                extra={
-                    "error_count": len(load_result["errors"]),
-                    "errors": load_result["errors"],
-                },
-            )
+        loaded = list(load_result.get("loaded", {}).keys())
+        logger.info("Plugins loaded", extra={"count": len(loaded), "plugins": loaded})
     except Exception as e:
-        logger.error("Critical failure during plugin loading", extra={"error": str(e)})
+        logger.error("Plugin loading failed", extra={"error": str(e)})
         raise
 
     app.state.plugins = plugin_manager
 
-    # Phase 11: Register loaded plugins into health registry (Phase 11 contract)
-    try:
-        from .plugins.loader.plugin_registry import get_registry
-
-        health_registry = get_registry()
-        for plugin_name in loaded_list:
-            plugin = plugin_manager.get(plugin_name)
-            if plugin:
-                # Register plugin in health registry if not already registered
-                if health_registry.get_status(plugin_name) is None:
-                    health_registry.register(
-                        plugin_name,
-                        getattr(plugin, "description", ""),
-                        getattr(plugin, "version", ""),
-                        instance=plugin,
-                    )
-                    health_registry.mark_initialized(plugin_name)
-                    logger.info(f"Registered plugin in health registry: {plugin_name}")
-    except Exception as e:
-        logger.error(
-            "Failed to register plugins in health registry", extra={"error": str(e)}
-        )
-
-    # Phase 11: Startup audit (verify singleton registry consistency)
-    try:
-        from .plugins.loader.startup_audit import run_startup_audit
-
-        run_startup_audit(loaded_list)
-    except Exception as e:
-        logger.error("Startup audit failed", extra={"error": str(e)})
-        if os.getenv("PHASE11_STRICT_AUDIT") == "1":
-            raise
-
-    # Phase 11: Debug logging (print registry state at boot)
+    # Health Registry Registration
     try:
         from .plugins.loader.plugin_registry import get_registry
 
         registry = get_registry()
-        statuses = registry.list_all()
-        logger.info("=" * 50)
-        logger.info("Phase 11 Registry State (Boot)")
-        logger.info("=" * 50)
-        logger.info(f"Total plugins in registry: {len(statuses)}")
-        for s in statuses:
-            state_str = s.state.value if s.state else "NO_STATE"
-            logger.info(f"  - {s.name}: {state_str}")
-        logger.info("=" * 50)
+        for name in loaded:
+            plugin = plugin_manager.get(name)
+            if plugin and registry.get_status(name) is None:
+                registry.register(
+                    name,
+                    getattr(plugin, "description", ""),
+                    getattr(plugin, "version", ""),
+                    instance=plugin,
+                )
+                registry.mark_initialized(name)
     except Exception as e:
-        logger.error("Failed to log registry state", extra={"error": str(e)})
+        logger.error("Health registry registration failed", extra={"error": str(e)})
 
-    # Service & Task Processor Initialization
-    local_task_processor = None
+    # Startup Audit
     try:
-        local_task_processor = init_task_processor(plugin_manager)
-        logger.debug("Task processor initialized")
+        from .plugins.loader.startup_audit import run_startup_audit
 
-        # WebSocket Analysis Service
+        run_startup_audit(loaded)
+    except Exception as e:
+        logger.error("Startup audit failed", extra={"error": str(e)})
+
+    # Task Processor + Services
+    try:
+        processor = init_task_processor(plugin_manager)
         app.state.analysis_service = VisionAnalysisService(plugin_manager, ws_manager)
 
-        # REST API Coordination Services
         image_acquisition = ImageAcquisitionService()
-        app.state.analysis_service_rest = AnalysisService(
-            local_task_processor, image_acquisition  # type: ignore[arg-type]
-        )
-        app.state.job_service = JobManagementService(
-            job_store, local_task_processor  # type: ignore[arg-type]
-        )
+        app.state.analysis_service_rest = AnalysisService(processor, image_acquisition)
+        app.state.job_service = JobManagementService(job_store, processor)
         app.state.plugin_service = PluginManagementService(plugin_manager)
 
-        logger.debug("Core Service Layer initialized successfully")
     except Exception as e:
-        logger.error(
-            "Failed to initialize REST/Vision services", extra={"error": str(e)}
-        )
+        logger.error("Service initialization failed", extra={"error": str(e)})
 
-    yield  # Application runs here
+    yield
 
-    # Shutdown: Graceful cleanup
+    # Shutdown
     logger.info("Shutting down ForgeSyte...")
     for name in plugin_manager.list().keys():
         try:
             plugin = plugin_manager.get(name)
             if plugin and hasattr(plugin, "on_unload"):
                 plugin.on_unload()
-                logger.debug("Plugin unloaded", extra={"plugin": name})
         except Exception as e:
             logger.error(
-                "Error unloading plugin",
-                extra={"plugin": name, "error": str(e)},
+                "Error unloading plugin", extra={"plugin": name, "error": str(e)}
             )
 
 
 # ---------------------------------------------------------------------------
-# FastAPI Application Construction
-# ---------------------------------------------------------------------------
-
-app = FastAPI(
-    title=settings.title,
-    description=settings.description,
-    version=settings.version,
-    lifespan=lifespan,
-)
-
-# CORS Middleware
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=settings.cors_origins,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-# ---------------------------------------------------------------------------
-# Factories
+# Application Factory
 # ---------------------------------------------------------------------------
 
 
-def create_plugin_management_service() -> PluginManagementService:
-    """Factory for PluginManagementService wired to canonical PluginRegistry.
+def create_app() -> FastAPI:
+    """
+    Construct and configure the ForgeSyte FastAPI application.
 
     Returns:
-        PluginManagementService: Service wired to a new PluginRegistry instance
-
-    Raises:
-        RuntimeError: If plugin loading fails unexpectedly
+        FastAPI: Fully initialized application instance.
     """
-    registry = PluginRegistry()
-    registry.load_plugins()
-    return PluginManagementService(registry=registry)
+    app = FastAPI(
+        title=settings.title,
+        description=settings.description,
+        version=settings.version,
+        lifespan=lifespan,
+    )
+
+    # CORS
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=settings.cors_origins,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
+    # Routing
+    app.include_router(api_router, prefix=settings.api_prefix)
+    app.include_router(mcp_router, prefix=settings.api_prefix)
+    app.include_router(plugins_router, prefix="")
+    app.include_router(realtime_router, prefix=settings.api_prefix)
+    app.include_router(health_router)
+    app.include_router(execution_router)
+
+    return app
+
+
+# ASGI app for uvicorn
+app = create_app()
 
 
 # ---------------------------------------------------------------------------
@@ -328,47 +273,39 @@ def create_plugin_management_service() -> PluginManagementService:
 # ---------------------------------------------------------------------------
 
 
-def get_analysis_service() -> VisionAnalysisService:
-    """Retrieve analysis service from app state with safety checks.
+def create_plugin_management_service() -> PluginManagementService:
+    """Factory for PluginManagementService wired to a fresh PluginRegistry.
 
     Returns:
-        VisionAnalysisService: WebSocket analysis service instance
-
-    Raises:
-        HTTPException: If service not initialized (503 Service Unavailable)
+        PluginManagementService instance with loaded plugins
     """
+    registry = PluginRegistry()
+    registry.load_plugins()
+    return PluginManagementService(registry)
+
+
+def get_analysis_service() -> VisionAnalysisService:
+    """Retrieve WebSocket analysis service from app state."""
     service = getattr(app.state, "analysis_service", None)
     if not service:
-        logger.error("VisionAnalysisService retrieval failed - not initialized")
         raise HTTPException(status_code=503, detail="Analysis service unavailable")
     return service
 
 
 # ---------------------------------------------------------------------------
-# Routing
+# Root Endpoints
 # ---------------------------------------------------------------------------
-
-app.include_router(api_router, prefix=settings.api_prefix)
-app.include_router(mcp_router, prefix=settings.api_prefix)
-app.include_router(plugins_router, prefix="")
-app.include_router(realtime_router, prefix=settings.api_prefix)
-app.include_router(health_router)
-app.include_router(execution_router)
 
 
 @app.get("/.well-known/mcp-manifest", include_in_schema=False)
 async def root_mcp_manifest() -> RedirectResponse:
-    """Redirect to versioned MCP discovery endpoint."""
+    """Redirect to versioned MCP manifest."""
     return RedirectResponse(url=f"{settings.api_prefix}/.well-known/mcp-manifest")
 
 
 @app.get("/")
 async def root() -> Dict[str, str]:
-    """System information root endpoint.
-
-    Returns:
-        Dictionary containing API metadata and endpoint information
-    """
+    """Return basic system metadata."""
     return {
         "name": settings.title,
         "version": settings.version,
@@ -379,53 +316,24 @@ async def root() -> Dict[str, str]:
 
 
 # ---------------------------------------------------------------------------
-# WebSocket Streaming Implementation
+# WebSocket Endpoint
 # ---------------------------------------------------------------------------
 
 
 @app.websocket("/v1/stream")
 async def websocket_stream(
     websocket: WebSocket,
-    plugin: str = Query("default", description="Initial plugin to use"),
-    api_key: Optional[str] = Query(None, description="API key for authentication"),
+    plugin: str = Query("default"),
+    api_key: Optional[str] = Query(None),
     service: VisionAnalysisService = Depends(get_analysis_service),
 ) -> None:
-    """WebSocket endpoint for high-frequency frame analysis.
-
-    Handles real-time image frame analysis with plugin switching and error handling.
-    Delegates business logic to VisionAnalysisService.
-
-    WebSocket Message Protocol:
-        Incoming:
-            - {"type": "frame", "data": "<base64>", "options": {...}}
-            - {"type": "ping"}
-            - {"type": "switch_plugin", "plugin": "plugin_name"}
-            - {"type": "subscribe", "topic": "topic_name"}
-
-        Outgoing:
-            - {"type": "connected", "payload": {"client_id": str, "plugin": str}}
-            - {"type": "pong"}
-            - {"type": "plugin_switched", "payload": {"plugin": str}}
-            - {"type": "error", "message": str}
-
-    Args:
-        websocket: FastAPI WebSocket connection
-        plugin: Initial plugin to use for analysis
-        api_key: Optional API key for authentication
-        service: VisionAnalysisService injected dependency
-    """
+    """High-frequency real-time frame analysis WebSocket endpoint."""
     client_id = str(uuid.uuid4())
-    logger.debug(
-        "WebSocket connection attempt",
-        extra={"client_id": client_id, "plugin": plugin},
-    )
 
     if not await ws_manager.connect(websocket, client_id):
-        logger.warning("Failed to connect WebSocket", extra={"client_id": client_id})
         return
 
     try:
-        # Connection Acknowledgment
         await ws_manager.send_personal(
             client_id,
             {
@@ -433,68 +341,37 @@ async def websocket_stream(
                 "payload": {"client_id": client_id, "plugin": plugin},
             },
         )
-        logger.info(
-            "websocket_connection_confirmed",
-            extra={"client_id": client_id, "plugin": plugin},
-        )
 
         while True:
             data = await websocket.receive_json()
             msg_type = data.get("type")
 
             if msg_type == "frame":
-                # Delegate frame processing to service layer
                 await service.handle_frame(client_id, plugin, data)
 
-            elif msg_type == "subscribe":
-                topic = data.get("topic")
-                if topic:
-                    await ws_manager.subscribe(client_id, topic)
-                    logger.debug(
-                        "Client subscribed to topic",
-                        extra={"client_id": client_id, "topic": topic},
-                    )
-
             elif msg_type == "switch_plugin":
-                new_plugin_name: str | None = data.get("plugin")
+                new_plugin = data.get("plugin")
                 registry = getattr(service, "plugins", {})
-
-                # Check for plugin existence robustly (Protocol or Dict)
                 exists = False
-                if new_plugin_name and registry is not None:
-                    if hasattr(registry, "get"):
-                        # Use .get() if available (Protocol recommendation)
-                        try:
-                            exists = registry.get(new_plugin_name) is not None
-                        except (TypeError, AttributeError):
-                            exists = False
-                    else:
-                        # Fallback to 'in' operator for dicts or other objects
-                        try:
-                            exists = new_plugin_name in registry
-                        except TypeError:
-                            exists = False
+
+                if new_plugin:
+                    try:
+                        exists = registry.get(new_plugin) is not None
+                    except Exception:
+                        exists = False
 
                 if exists:
-                    # new_plugin_name is not None here because exists is True
-                    plugin = str(new_plugin_name)
+                    plugin = new_plugin
                     await ws_manager.send_personal(
                         client_id,
-                        {
-                            "type": "plugin_switched",
-                            "payload": {"plugin": plugin},
-                        },
-                    )
-                    logger.debug(
-                        "Plugin switched",
-                        extra={"client_id": client_id, "plugin": plugin},
+                        {"type": "plugin_switched", "payload": {"plugin": plugin}},
                     )
                 else:
                     await ws_manager.send_personal(
                         client_id,
                         {
                             "type": "error",
-                            "message": f"Plugin '{new_plugin_name}' not found",
+                            "message": f"Plugin '{new_plugin}' not found",
                         },
                     )
 
@@ -502,28 +379,26 @@ async def websocket_stream(
                 await ws_manager.send_personal(client_id, {"type": "pong"})
 
     except WebSocketDisconnect:
-        logger.debug("Client disconnected", extra={"client_id": client_id})
-    except Exception as e:
-        logger.exception(
-            "WebSocket error", extra={"client_id": client_id, "error": str(e)}
-        )
+        pass
     finally:
         await ws_manager.disconnect(client_id)
-        logger.debug("Client connection closed", extra={"client_id": client_id})
 
 
 # ---------------------------------------------------------------------------
-# Server Execution Logic
+# Server Execution
 # ---------------------------------------------------------------------------
 
 
-def run_server(host: str = "0.0.0.0", port: int = 8000, reload: bool = False) -> None:
-    """Launch uvicorn server with project-specific logging configuration.
+def run_server(
+    host: str = "0.0.0.0", port: int = 8000, reload: bool = False
+) -> NoReturn:
+    """
+    Launch the ForgeSyte server using uvicorn.
 
     Args:
-        host: Binding host address
-        port: Binding port number
-        reload: Enable auto-reload on code changes (dev only)
+        host: Host interface to bind to.
+        port: TCP port to listen on.
+        reload: Enable auto-reload for development.
     """
     uvicorn.run(
         "app.main:app",
@@ -532,15 +407,16 @@ def run_server(host: str = "0.0.0.0", port: int = 8000, reload: bool = False) ->
         reload=reload,
         log_level="info",
     )
+    raise SystemExit(0)
 
 
 if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(description="ForgeSyte Core Server")
-    parser.add_argument("--host", default="0.0.0.0", help="Binding host")
-    parser.add_argument("--port", type=int, default=8000, help="Binding port")
-    parser.add_argument("--reload", action="store_true", help="Enable dev reload")
+    parser.add_argument("--host", default="0.0.0.0")
+    parser.add_argument("--port", type=int, default=8000)
+    parser.add_argument("--reload", action="store_true")
     args = parser.parse_args()
 
     run_server(args.host, args.port, args.reload)

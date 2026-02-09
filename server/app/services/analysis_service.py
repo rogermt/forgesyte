@@ -72,7 +72,7 @@ class AnalysisService:
         body_bytes: Optional[bytes],
         plugin: str,
         options: Dict[str, Any],
-        device: str = "cpu",
+        device: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Process an image analysis request from multiple possible sources.
 
@@ -104,20 +104,25 @@ class AnalysisService:
             ValueError: If image data is invalid
             ExternalServiceError: If remote image fetch fails after retries
         """
-        # 1. Acquire image from appropriate source
-        image_bytes = await self._acquire_image(file_bytes, image_url, body_bytes)
+        # 1. Acquire image from appropriate source (pass options for JSON base64)
+        image_bytes = await self._acquire_image(
+            file_bytes, image_url, body_bytes, options
+        )
 
         if not image_bytes:
             logger.error("No image data acquired from any source")
             raise ValueError("No valid image provided")
 
-        # 2. Submit job to task processor
+        # 2. Resolve device: request param > options > default cpu
+        resolved_device = device or options.get("device") or "cpu"
+
+        # 3. Submit job to task processor
         try:
             job_id = await self.processor.submit_job(
                 image_bytes=image_bytes,
                 plugin_name=plugin,
                 options=options,
-                device=device,
+                device=resolved_device,
             )
 
             logger.info(
@@ -154,18 +159,21 @@ class AnalysisService:
         file_bytes: Optional[bytes],
         image_url: Optional[str],
         body_bytes: Optional[bytes],
+        options: Dict[str, Any],
     ) -> Optional[bytes]:
         """Acquire image bytes from the first available source.
 
         Tries sources in order:
         1. File upload (file_bytes)
         2. Remote URL (image_url)
-        3. Base64 in request body (body_bytes)
+        3. Base64 in JSON options (options["image"] or options["frame"])
+        4. Base64 in request body (body_bytes)
 
         Args:
             file_bytes: Raw bytes from file upload
             image_url: URL to fetch image from
             body_bytes: Request body containing base64 data
+            options: Plugin options dict potentially containing base64 image fields
 
         Returns:
             Image bytes if successfully acquired, None otherwise
@@ -191,7 +199,22 @@ class AnalysisService:
                 )
                 raise
 
-        # Source 3: Base64 in request body
+        # Source 3: Base64 in JSON options (most common for /v1/analyze)
+        if isinstance(options.get("image"), str):
+            logger.debug("Decoding base64 from JSON field 'image'")
+            try:
+                return base64.b64decode(options["image"])
+            except Exception as e:
+                logger.error("Invalid base64 in options['image']: %s", e)
+
+        if isinstance(options.get("frame"), str):
+            logger.debug("Decoding base64 from JSON field 'frame'")
+            try:
+                return base64.b64decode(options["frame"])
+            except Exception as e:
+                logger.error("Invalid base64 in options['frame']: %s", e)
+
+        # Source 4: Base64 in request body
         if body_bytes:
             logger.debug("Decoding base64 from request body")
             try:

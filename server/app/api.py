@@ -243,6 +243,91 @@ async def analyze_image(
         ) from e
 
 
+@router.post("/analyze/json", response_model=AnalyzeResponse)
+async def analyze_image_json(
+    request: Request,
+    plugin: str = Query(..., description="Vision plugin identifier"),
+    auth: Dict[str, Any] = Depends(require_auth(["analyze"])),
+    service: AnalysisService = Depends(get_analysis_service),
+) -> AnalyzeResponse:
+    """
+    JSON-based analyze endpoint.
+    Accepts base64 image inside JSON instead of multipart or raw body.
+    """
+
+    try:
+        body = await request.json()
+
+        # Validate plugin
+        if not plugin or not plugin.strip():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Plugin name is required",
+            )
+
+        # Extract base64 image from JSON
+        image_b64 = body.get("image") or body.get("frame")
+        if not image_b64:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="JSON must contain 'image' or 'frame' base64 field",
+            )
+
+        # Extract options (optional)
+        options = body.get("options", {})
+        if not isinstance(options, dict):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="'options' must be a JSON object",
+            )
+
+        # Inject image into options so AnalysisService can decode it
+        if image_b64:
+            options["image"] = image_b64
+
+        # Device selection (optional)
+        device = body.get("device")  # may be None → AnalysisService resolves fallback
+
+        # Delegate to AnalysisService
+        result = await service.process_analysis_request(
+            file_bytes=None,
+            image_url=None,
+            body_bytes=None,  # JSON base64 is NOT in body_bytes
+            plugin=plugin,
+            options=options,
+            device=device,
+        )
+
+        logger.info(
+            "JSON analysis request submitted",
+            extra={"job_id": result["job_id"], "plugin": plugin},
+        )
+
+        device_requested = device or options.get("device") or "cpu"
+
+        return AnalyzeResponse(
+            job_id=result["job_id"],
+            device_requested=device_requested,
+            device_used=device_requested,
+            fallback=False,
+            frames=[],
+            result=None,
+        )
+
+    except HTTPException:
+        raise
+
+    except Exception as e:
+        logger.exception(
+            "Unexpected error during JSON analysis submission",
+            extra={"plugin": plugin, "error": str(e)},
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Internal server error",
+        ) from e
+
+
 # ============================================================================
 # Job Management Endpoints
 # ============================================================================

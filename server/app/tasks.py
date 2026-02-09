@@ -523,6 +523,27 @@ class TaskProcessor:
                 extra={"job_id": job_id, "error": str(e)},
             )
 
+    async def get_result(self, job_id: str) -> Optional[dict[str, Any]]:
+        """Get the final result for a completed job.
+
+        Args:
+            job_id: Unique job identifier
+
+        Returns:
+            Job result dictionary if job completed, None if not found
+
+        Raises:
+            RuntimeError: If job has not completed yet
+        """
+        job = await self.job_store.get(job_id)
+        if not job:
+            return None
+        if job.get("status") != JobStatus.DONE:
+            raise RuntimeError(
+                f"Job {job_id} has not completed (status: {job.get('status')})"
+            )
+        return job.get("result")
+
     async def get_job(self, job_id: str) -> Optional[dict[str, Any]]:
         """Get job status and results.
 
