@@ -213,3 +213,6 @@ scratch/
 .pre-commit-config.local.yaml
 .pre-commit-framework/
 server/forgesyte.log*
+
+# Parameter files
+*parameter>*
