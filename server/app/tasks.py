@@ -383,8 +383,15 @@ class TaskProcessor:
             loop = asyncio.get_event_loop()
 
             # Run CPU-intensive work in thread pool
-            # Use default tool if not specified
-            tool_name = options.get("tool", "default")
+            # Determine tool name: use explicit tool or plugin's first available tool
+            tool_name = options.get("tool")
+            if not tool_name:
+                # plugin.tools is either a dict (frame plugins) or list (image plugins)
+                if isinstance(plugin.tools, dict):
+                    tool_name = next(iter(plugin.tools.keys()))
+                else:
+                    tool_name = plugin.tools[0]["name"]
+
             tool_args = {
                 "image_bytes": image_bytes,
                 "options": {k: v for k, v in options.items() if k != "tool"},
