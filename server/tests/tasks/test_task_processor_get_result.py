@@ -201,4 +201,3 @@ class TestTaskProcessorGetResult:
         # Verify return type matches Protocol (Optional[Dict[str, Any]])
         result = await task_processor.get_result(job_id)
         assert result is None or isinstance(result, dict)
-
