@@ -29,9 +29,7 @@ def client(app_with_plugins):
 class TestToolParameter:
     """Test tool parameter in /analyze endpoint."""
 
-    def test_analyze_accepts_tool_query_parameter(
-        self, client: TestClient
-    ) -> None:
+    def test_analyze_accepts_tool_query_parameter(self, client: TestClient) -> None:
         """Test that /analyze accepts tool query parameter.
 
         Verifies tool parameter is accepted and passed to backend.
@@ -52,9 +50,7 @@ class TestToolParameter:
         data = response.json()
         assert "job_id" in data
 
-    def test_analyze_tool_parameter_optional(
-        self, client: TestClient
-    ) -> None:
+    def test_analyze_tool_parameter_optional(self, client: TestClient) -> None:
         """Test that tool parameter is optional.
 
         Tool should not be required; call should work without it.
@@ -83,7 +79,7 @@ class TestToolParameter:
         Verifies that when tool is specified, it's passed in the options
         to the task submission.
         """
-        from unittest.mock import AsyncMock, MagicMock
+        from unittest.mock import MagicMock
 
         # Track the options passed to analyze_image
         captured_options = {}
