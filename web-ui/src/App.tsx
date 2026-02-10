@@ -158,6 +158,12 @@ function App() {
     setSelectedTool(toolName);
   }, []);
 
+  // Reset tool selection when plugin changes (Issue #181)
+  // This allows the auto-select effect to pick the first tool from the new plugin's manifest
+  useEffect(() => {
+    setSelectedTool("");
+  }, [selectedPlugin]);
+
   // Auto-select first tool when manifest loads and no tool is selected
   useEffect(() => {
     if (manifest && !selectedTool && toolList.length > 0) {
