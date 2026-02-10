@@ -175,7 +175,11 @@ function App() {
 
       setIsUploading(true);
       try {
-        const response = await apiClient.analyzeImage(file, selectedPlugin);
+        const response = await apiClient.analyzeImage(
+          file,
+          selectedPlugin,
+          selectedTool
+        );
         const job = await apiClient.pollJob(response.job_id);
         setUploadResult(job);
         setSelectedJob(job);
