@@ -1,13 +1,17 @@
+// web-ui/src/App.tsx
+
 /**
  * Main application component for ForgeSyte
  *
- * Best practices used:
- * - Derived UI state from a single connectionStatus indicator (no contradictory UI).
- * - Functional state updates for toggles.
- * - Stable callbacks with useCallback.
+ * Fixes included:
+ * - Reset selectedTool whenever selectedPlugin changes (prevents sending old tool to new plugin)
+ * - Auto-select first valid tool from the newly loaded manifest
+ *
+ * Notes:
+ * - Assumes your Option 2 API change is live:
+ *   POST /v1/analyze?plugin=...&tool=...
+ * - Assumes apiClient.analyzeImage(file, plugin, tool) exists (as per your working fix)
  */
-
-// New feature branch commit demonstration
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { CameraPreview } from "./components/CameraPreview";
@@ -21,7 +25,8 @@ import { apiClient, Job } from "./api/client";
 import { detectToolType } from "./utils/detectToolType";
 import type { PluginManifest } from "./types/plugin";
 
-const WS_BACKEND_URL = import.meta.env.VITE_WS_BACKEND_URL || "ws://localhost:8000";
+const WS_BACKEND_URL =
+  import.meta.env.VITE_WS_BACKEND_URL || "ws://localhost:8000";
 
 type ViewMode = "stream" | "upload" | "jobs";
 
@@ -29,10 +34,13 @@ function App() {
   const [viewMode, setViewMode] = useState<ViewMode>("stream");
   const [selectedPlugin, setSelectedPlugin] = useState<string>("");
   const [selectedTool, setSelectedTool] = useState<string>("");
+
   const [streamEnabled, setStreamEnabled] = useState(false);
+
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
   const [uploadResult, setUploadResult] = useState<Job | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+
   const [manifest, setManifest] = useState<PluginManifest | null>(null);
   const [manifestError, setManifestError] = useState<string | null>(null);
   const [manifestLoading, setManifestLoading] = useState(false);
@@ -61,10 +69,12 @@ function App() {
     onError: (error: string) => {
       console.error("WebSocket error:", error);
     },
-    // Optional: tune UX (prevents flash; defaults already safe)
     reconnectErrorDisplayDelayMs: 800,
   });
 
+  // -------------------------------------------------------------------------
+  // Load manifest when plugin changes
+  // -------------------------------------------------------------------------
   useEffect(() => {
     if (!selectedPlugin) {
       setManifest(null);
@@ -73,33 +83,81 @@ function App() {
       return;
     }
 
+    let cancelled = false;
+
     async function loadManifest() {
       setManifestLoading(true);
       setManifestError(null);
 
       try {
-        // Use API client for consistent error handling
         const manifestData = await apiClient.getPluginManifest(selectedPlugin);
+        if (cancelled) return;
+
         setManifest(manifestData);
         setManifestError(null);
-        console.log("[App] Manifest loaded successfully for plugin:", selectedPlugin);
+        console.log(
+          "[App] Manifest loaded successfully for plugin:",
+          selectedPlugin
+        );
       } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : "Unknown error loading manifest";
+        if (cancelled) return;
+
+        const errorMessage =
+          err instanceof Error ? err.message : "Unknown error loading manifest";
         console.error("Manifest load failed:", errorMessage);
-        // Check if it's a JSON parse error (HTML response)
-        if (errorMessage.includes("<!DOCTYPE") || errorMessage.includes("Unexpected token")) {
-          setManifestError("Server returned HTML instead of JSON. Check that the server is running and the plugin exists.");
+
+        if (
+          errorMessage.includes("<!DOCTYPE") ||
+          errorMessage.includes("Unexpected token")
+        ) {
+          setManifestError(
+            "Server returned HTML instead of JSON. Check that the server is running and the plugin exists."
+          );
         } else {
           setManifestError(errorMessage);
         }
+
         setManifest(null);
       } finally {
-        setManifestLoading(false);
+        if (!cancelled) setManifestLoading(false);
       }
     }
 
     loadManifest();
+
+    return () => {
+      cancelled = true;
+    };
   }, [selectedPlugin]);
+
+  // -------------------------------------------------------------------------
+  // FIX: Reset tool selection when plugin changes
+  //
+  // Prevents: plugin=ocr&tool=radar (radar was from yolo-tracker)
+  // -------------------------------------------------------------------------
+  useEffect(() => {
+    setSelectedTool("");
+    setUploadResult(null);
+    setSelectedJob(null);
+  }, [selectedPlugin]);
+
+  // -------------------------------------------------------------------------
+  // Ensure we always have a valid tool for the current manifest
+  // - If none selected, select first
+  // - If selected tool doesn't exist in this plugin, select first
+  // -------------------------------------------------------------------------
+  useEffect(() => {
+    if (!manifest) return;
+
+    if (toolList.length === 0) {
+      setSelectedTool("");
+      return;
+    }
+
+    if (!selectedTool || !toolList.includes(selectedTool)) {
+      setSelectedTool(toolList[0]);
+    }
+  }, [manifest, toolList, selectedTool]);
 
   const statusText = useMemo(() => {
     switch (connectionStatus) {
@@ -108,7 +166,9 @@ function App() {
       case "connecting":
         return "Connecting...";
       case "reconnecting":
-        return attempt > 0 ? `Reconnecting... (attempt ${attempt})` : "Reconnecting...";
+        return attempt > 0
+          ? `Reconnecting... (attempt ${attempt})`
+          : "Reconnecting...";
       case "failed":
         return "Connection failed";
       case "disconnected":
@@ -125,7 +185,7 @@ function App() {
       case "connecting":
         return "#ffc107";
       case "reconnecting":
-        return "#fd7e14"; // orange distinct from connecting
+        return "#fd7e14";
       case "failed":
         return "#dc3545";
       case "disconnected":
@@ -138,6 +198,7 @@ function App() {
   const handleFrame = useCallback(
     (imageData: string) => {
       if (isConnected && streamEnabled) {
+        // Tool is carried in the WS payload so server can route to correct tool
         sendFrame(imageData, undefined, { tool: selectedTool });
       }
     },
@@ -147,6 +208,8 @@ function App() {
   const handlePluginChange = useCallback(
     (pluginName: string) => {
       setSelectedPlugin(pluginName);
+
+      // If already connected, tell WS server to switch plugin too
       if (isConnected) {
         switchPlugin(pluginName);
       }
@@ -158,20 +221,6 @@ function App() {
     setSelectedTool(toolName);
   }, []);
 
-  // Reset tool selection when plugin changes (Issue #181)
-  // This allows the auto-select effect to pick the first tool from the new plugin's manifest
-  useEffect(() => {
-    setSelectedTool("");
-  }, [selectedPlugin]);
-
-  // Auto-select first tool when manifest loads and no tool is selected
-  useEffect(() => {
-    if (manifest && !selectedTool && toolList.length > 0) {
-      // Auto-select the first tool from the manifest
-      setSelectedTool(toolList[0]);
-    }
-  }, [manifest, selectedTool, toolList]);
-
   const handleFileUpload = useCallback(
     async (event: React.ChangeEvent<HTMLInputElement>) => {
       const file = event.target.files?.[0];
@@ -181,6 +230,7 @@ function App() {
 
       setIsUploading(true);
       try {
+        // Option 2 fix: backend accepts tool as a first-class query parameter
         const response = await apiClient.analyzeImage(
           file,
           selectedPlugin,
@@ -337,7 +387,6 @@ function App() {
             />
           </div>
 
-
           {viewMode === "jobs" && (
             <div style={styles.panel}>
               <JobList onJobSelect={setSelectedJob} />
@@ -391,10 +440,7 @@ function App() {
           {viewMode === "upload" && manifest && selectedTool && (
             <>
               {detectToolType(manifest, selectedTool) === "frame" ? (
-                <VideoTracker
-                  pluginId={selectedPlugin}
-                  toolName={selectedTool}
-                />
+                <VideoTracker pluginId={selectedPlugin} toolName={selectedTool} />
               ) : (
                 <div style={styles.panel}>
                   <p>Upload image for analysis</p>
@@ -421,9 +467,7 @@ function App() {
                   {manifestError}
                   <br />
                   <br />
-                  <small>
-                    Check that the plugin is loaded and the server is running.
-                  </small>
+                  <small>Check that the plugin is loaded and the server is running.</small>
                 </div>
               ) : manifestLoading ? (
                 <p>Loading manifest...</p>
@@ -449,7 +493,8 @@ function App() {
           {wsError && (
             <div style={styles.errorBox} data-testid="ws-error-box">
               WebSocket Error: {wsError}
-              {(connectionStatus === "failed" || connectionStatus === "disconnected") && (
+              {(connectionStatus === "failed" ||
+                connectionStatus === "disconnected") && (
                 <div style={{ marginTop: 12 }}>
                   <button
                     onClick={reconnect}
