@@ -4,7 +4,7 @@ Validates manifest.json files loaded from plugins, enforcing
 allowed plugin types and tool schema structure.
 """
 
-from typing import Any, Dict, List
+from typing import Any, List
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
