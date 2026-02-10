@@ -19,24 +19,44 @@ def job_store():
 
 
 @pytest.fixture
-def plugin_manager():
-    """Mock plugin manager."""
+def ocr_plugin_manager():
+    """Mock OCR plugin manager."""
     manager = MagicMock()
     # Mock plugin with OCR-like output
     plugin = MagicMock()
     plugin.run_tool.return_value = {
-        "boxes": [[10, 20, 30, 40]],
-        "scores": [0.95],
-        "labels": ["text"],
+        "text": "hello world",
+        "confidence": 0.95,
+    }
+    manager.get.return_value = plugin
+    return manager
+
+
+@pytest.fixture
+def yolo_plugin_manager():
+    """Mock YOLO plugin manager."""
+    manager = MagicMock()
+    # Mock plugin with YOLO output
+    plugin = MagicMock()
+    plugin.run_tool.return_value = {
+        "detections": [
+            {
+                "xyxy": [10, 20, 30, 40],
+                "confidence": 0.95,
+                "class_name": "player",
+            }
+        ]
     }
     manager.get.return_value = plugin
     return manager
 
 
 @pytest.mark.asyncio
-async def test_job_pipeline_normalises_plugin_output(job_store, plugin_manager):
-    """Verify plugin output is normalised before storage."""
-    processor = TaskProcessor(job_store=job_store, plugin_manager=plugin_manager)
+async def test_job_pipeline_ocr_output_bypasses_normalisation(
+    job_store, ocr_plugin_manager
+):
+    """Verify OCR output bypasses normalisation (passthrough)."""
+    processor = TaskProcessor(job_store=job_store, plugin_manager=ocr_plugin_manager)
 
     # Submit job
     job_id = await processor.submit_job(
@@ -54,9 +74,38 @@ async def test_job_pipeline_normalises_plugin_output(job_store, plugin_manager):
     # Verify job completed
     assert job["status"] == JobStatus.DONE
 
+    # Verify result is passthrough (NOT normalised)
+    result = job["result"]
+    assert "text" in result, "OCR output must be passthrough"
+    assert "confidence" in result
+    # Should NOT have frames[] structure
+    assert "frames" not in result
+
+
+@pytest.mark.asyncio
+async def test_job_pipeline_normalises_yolo_output(job_store, yolo_plugin_manager):
+    """Verify YOLO output is normalised to canonical schema."""
+    processor = TaskProcessor(job_store=job_store, plugin_manager=yolo_plugin_manager)
+
+    # Submit job
+    job_id = await processor.submit_job(
+        image_bytes=b"fake_image_data",
+        plugin_name="forgesyte-yolo-tracker",
+        options={},
+    )
+
+    # Wait for processing to complete
+    await asyncio.sleep(1.0)
+
+    # Retrieve job
+    job = await job_store.get(job_id)
+
+    # Verify job completed
+    assert job["status"] == JobStatus.DONE
+
     # Verify result is normalised (has frames[] structure)
     result = job["result"]
-    assert "frames" in result, "Result must be normalised with frames[] structure"
+    assert "frames" in result, "YOLO output must be normalised with frames[] structure"
     assert isinstance(result["frames"], list)
     assert len(result["frames"]) > 0
 
