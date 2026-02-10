@@ -110,13 +110,17 @@ export class ForgeSyteAPIClient {
 
     async analyzeImage(
         file: File,
-        plugin: string
+        plugin: string,
+        tool?: string
     ): Promise<AnalysisResult> {
         const formData = new FormData();
         formData.append("file", file);
 
         const url = new URL(`${this.baseUrl}/analyze`, window.location.origin);
         url.searchParams.append("plugin", plugin);
+        if (tool) {
+            url.searchParams.append("tool", tool);
+        }
 
         const headers: HeadersInit = {};
 

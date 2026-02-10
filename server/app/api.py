@@ -119,6 +119,9 @@ async def analyze_image(
     request: Request,
     file: Optional[UploadFile] = None,
     plugin: str = Query(..., description="Vision plugin identifier"),
+    tool: Optional[str] = Query(
+        None, description="Specific tool within plugin to execute (optional)"
+    ),
     image_url: Optional[str] = Query(None, description="URL of image to analyze"),
     options: Optional[str] = Query(None, description="JSON string of plugin options"),
     device: Optional[str] = Query(
@@ -141,6 +144,8 @@ async def analyze_image(
     Args:
         request: FastAPI request context with body and app state.
         file: Optional file upload containing image data.
+        plugin: Vision plugin identifier (required).
+        tool: Optional specific tool within plugin to execute.
         image_url: Optional HTTP(S) URL to fetch image from.
         options: Optional JSON string with plugin-specific configuration.
         device: Optional device to use ('cpu' or 'cuda'). If not provided,
@@ -196,6 +201,10 @@ async def analyze_image(
         if device:
             parsed_options["device"] = device.lower()
 
+        # Include tool selection in options if specified (Issue #179)
+        if tool:
+            parsed_options["tool"] = tool
+
         # Delegate to service layer for analysis orchestration
         result = await service.process_analysis_request(
             file_bytes=file_bytes,
@@ -207,7 +216,12 @@ async def analyze_image(
 
         logger.info(
             "Analysis request submitted",
-            extra={"job_id": result["job_id"], "plugin": plugin, "device": device},
+            extra={
+                "job_id": result["job_id"],
+                "plugin": plugin,
+                "tool": tool,
+                "device": device,
+            },
         )
 
         # Return typed response with device info and frame tracking
