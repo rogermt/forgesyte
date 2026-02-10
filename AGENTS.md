@@ -150,6 +150,9 @@ cd web-ui && npm run lint && npm run type-check
 # or simply:
 npm run check
 
+# IMPORTANT: vitest tests do NOT catch TypeScript type errors.
+# Always run `npm run type-check` in addition to tests.
+
 # Build for production
 npm run build
 
@@ -230,14 +233,23 @@ For any feature or bug fix, follow Test-Driven Development:
 6. **Commit** - Only after all above pass
 
 **Before committing, run the full verification suite:**
+
+> **CRITICAL: `npm run type-check` is MANDATORY for ALL web-ui changes.**
+> Vitest does NOT enforce TypeScript strict type checking — tests can pass
+> even when `tsc --noEmit` fails. CI runs `tsc --noEmit` and WILL reject
+> commits that skip this step. NEVER commit web-ui changes without running
+> `npm run type-check` first.
+
 ```bash
 # For Python/Server changes:
 uv run pre-commit run --all-files          # black/ruff/mypy
 cd server && uv run pytest tests/ -v       # all tests
 python scripts/scan_execution_violations.py # governance check
 
-# For TypeScript/Web-UI changes:
-npm run lint && npm run type-check         # eslint/tsc
+# For TypeScript/Web-UI changes (ALL THREE are required):
+cd web-ui
+npm run lint                               # eslint
+npm run type-check                         # tsc --noEmit (MANDATORY)
 npm run test -- --run                      # vitest
 ```
 

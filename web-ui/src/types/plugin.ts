@@ -5,6 +5,8 @@ export interface ToolParameter {
 }
 
 export interface Tool {
+  id?: string;
+  title?: string;
   description?: string;
   inputs: Record<string, ToolParameter>;
   outputs: Record<string, ToolParameter>;
