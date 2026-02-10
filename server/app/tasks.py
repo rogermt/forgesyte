@@ -426,7 +426,9 @@ class TaskProcessor:
 
             # Normalise plugin output to canonical schema
             try:
-                normalised_result = normalise_output(result_dict)
+                normalised_result = normalise_output(
+                    result_dict, plugin_name=plugin_name
+                )
             except ValueError as e:
                 logger.warning(
                     "Plugin output normalisation failed",

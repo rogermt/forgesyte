@@ -1,9 +1,12 @@
 """Canonical normalisation layer for all plugin outputs.
 
 Transforms plugin-specific outputs into a unified schema.
+Supports multi-plugin architectures by routing based on plugin type.
 """
 
-from typing import Any, TypedDict
+from typing import Any, Optional, TypedDict
+
+from .plugin_types import is_yolo_plugin
 
 
 class Box(TypedDict):
@@ -30,9 +33,14 @@ class NormalisedOutput(TypedDict):
     frames: list[Frame]
 
 
-def normalise_output(raw: dict[str, Any]) -> NormalisedOutput:
+def normalise_output(
+    raw: dict[str, Any], plugin_name: Optional[str] = None
+) -> dict[str, Any] | NormalisedOutput:
     """
     Transform plugin-specific output to canonical schema.
+
+    Non-YOLO plugins (OCR, Whisper, etc.) are passed through as-is.
+    YOLO plugins are transformed to canonical schema.
 
     Supports two formats:
     1. Legacy format (OCR, image plugins):
@@ -50,7 +58,7 @@ def normalise_output(raw: dict[str, Any]) -> NormalisedOutput:
             "classes": [str, ...]
         }
 
-    Output format (canonical):
+    Output format (canonical for YOLO):
         {
             "frames": [
                 {
@@ -66,13 +74,19 @@ def normalise_output(raw: dict[str, Any]) -> NormalisedOutput:
 
     Args:
         raw: Plugin-specific output dict
+        plugin_name: Name of the plugin producing this output (optional for routing)
 
     Returns:
-        Normalised output in canonical schema
+        Normalised output in canonical schema (YOLO) or passthrough dict (non-YOLO)
 
     Raises:
         ValueError: If validation fails
     """
+    # Non-YOLO plugins (OCR, Whisper, etc.) bypass normalisation
+    if plugin_name and not is_yolo_plugin(plugin_name):
+        return raw
+
+    # YOLO plugins: strict schema enforcement
     # NEW: Accept YOLO's "detections" format (Phase 12)
     if "detections" in raw:
         detections = raw.get("detections", [])

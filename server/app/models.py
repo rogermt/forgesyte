@@ -304,18 +304,21 @@ class AnalyzeResponse(BaseModel):
 
     Attributes:
         job_id: Unique job identifier for tracking the analysis request
-        device_requested: Device requested by the client (e.g., "gpu", "cpu", "nvidia")
-        device_used: Actual device allocated for processing
+        device_requested: Device requested by the client (may be null for CPU-only plugins)
+        device_used: Actual device allocated for processing (may be null for CPU-only plugins)
         fallback: Whether fallback to a different device occurred
         frames: List of frames to be processed or being processed
         result: Optional analysis result (populated when analysis completes)
     """
 
     job_id: str = Field(..., description="Unique job identifier")
-    device_requested: str = Field(
-        ..., description="Device requested (e.g., 'gpu', 'cpu', 'nvidia')"
+    device_requested: Optional[str] = Field(
+        default=None, description="Device requested (may be null for CPU-only plugins)"
     )
-    device_used: str = Field(..., description="Actual device used for processing")
+    device_used: Optional[str] = Field(
+        default=None,
+        description="Actual device used (may be null for CPU-only plugins)",
+    )
     fallback: bool = Field(
         ..., description="Whether fallback to a different device occurred"
     )
@@ -335,16 +338,18 @@ class JobStatusResponse(BaseModel):
     Attributes:
         job_id: Unique job identifier
         status: Current job status (queued, running, done, error, not_found)
-        device_requested: Device requested for the job
-        device_used: Actual device allocated for processing
+        device_requested: Device requested for the job (nullable)
+        device_used: Actual device allocated for processing (nullable)
     """
 
     job_id: str = Field(..., description="Unique job identifier")
     status: JobStatus = Field(..., description="Current job status")
-    device_requested: str = Field(
-        ..., description="Device requested (e.g., 'gpu', 'cpu', 'nvidia')"
+    device_requested: Optional[str] = Field(
+        default=None, description="Requested device (nullable)"
     )
-    device_used: str = Field(..., description="Actual device used for processing")
+    device_used: Optional[str] = Field(
+        default=None, description="Actual device used (nullable)"
+    )
 
 
 class JobResultResponse(BaseModel):
@@ -354,18 +359,20 @@ class JobResultResponse(BaseModel):
 
     Attributes:
         job_id: Unique job identifier
-        device_requested: Device requested for the job
-        device_used: Actual device allocated for processing
+        device_requested: Device requested for the job (nullable)
+        device_used: Actual device allocated for processing (nullable)
         fallback: Whether fallback to a different device occurred
         frames: List of processed frames with their analysis data
         result: Analysis results dictionary (optional for partial results)
     """
 
     job_id: str = Field(..., description="Unique job identifier")
-    device_requested: str = Field(
-        ..., description="Device requested (e.g., 'gpu', 'cpu', 'nvidia')"
+    device_requested: Optional[str] = Field(
+        default=None, description="Requested device (nullable)"
     )
-    device_used: str = Field(..., description="Actual device used for processing")
+    device_used: Optional[str] = Field(
+        default=None, description="Actual device used (nullable)"
+    )
     fallback: bool = Field(
         ..., description="Whether fallback to a different device occurred"
     )
