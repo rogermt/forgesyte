@@ -158,12 +158,29 @@ export function ToolSelector({
   // -------------------------------------------------------------------------
   const toolList = useMemo(() => {
     if (!manifest) return [];
-    return Object.entries(manifest.tools).map(([name]) => name);
+    // Handle both Phase-12 array format and legacy object format
+    if (Array.isArray(manifest.tools)) {
+      // Phase-12: tools is an array
+      return manifest.tools;
+    } else {
+      // Legacy: tools is an object, convert to array of objects
+      return Object.entries(manifest.tools).map(([name]) => ({
+        id: name,
+        title: name,
+      }));
+    }
   }, [manifest]);
 
   const selectedToolData = useMemo<Tool | null>(() => {
     if (!manifest) return null;
-    return manifest.tools[selectedTool] ?? null;
+    // Handle both Phase-12 array format and legacy object format
+    if (Array.isArray(manifest.tools)) {
+      // Phase-12: find tool by id in array
+      return manifest.tools.find((tool) => tool.id === selectedTool) ?? null;
+    } else {
+      // Legacy: access tool by key
+      return manifest.tools[selectedTool] ?? null;
+    }
   }, [manifest, selectedTool]);
 
   const selectStyles = useMemo(
@@ -257,9 +274,9 @@ export function ToolSelector({
           style={selectStyles}
           aria-describedby={selectedToolData ? `${selectId}-desc` : undefined}
         >
-          {toolList.map((toolName) => (
-            <option key={toolName} value={toolName}>
-              {toolName}
+          {toolList.map((tool) => (
+            <option key={tool.id} value={tool.id}>
+              {tool.title ?? tool.id}
             </option>
           ))}
         </select>
@@ -274,7 +291,9 @@ export function ToolSelector({
           aria-label={`${selectedTool} tool details`}
         >
           <div style={styles.infoHeader}>
-            <span style={styles.infoName}>{selectedTool}</span>
+            <span style={styles.infoName}>
+              {selectedToolData.title ?? selectedTool}
+            </span>
           </div>
 
           {selectedToolData.description && (

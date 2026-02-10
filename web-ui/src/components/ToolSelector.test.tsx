@@ -21,7 +21,54 @@ const mockUseManifest = useManifestModule.useManifest as ReturnType<
 // Test Fixtures
 // ============================================================================
 
-const mockManifest = {
+// Phase-12 format: tools as array with id, title, description, inputs, outputs
+const mockManifestPhase12 = {
+  id: "test-plugin",
+  name: "Test Plugin",
+  version: "1.0.0",
+  description: "Test plugin",
+  tools: [
+    {
+      id: "detect_players",
+      title: "Detect Players",
+      description: "Detect player objects",
+      inputs: [
+        {
+          name: "frame_base64",
+          type: "string",
+          description: "Base64 encoded frame",
+        },
+      ],
+      outputs: [
+        {
+          name: "detections",
+          type: "array",
+          description: "Detected players",
+        },
+      ],
+    },
+    {
+      id: "detect_ball",
+      title: "Detect Ball",
+      description: "Detect ball object",
+      inputs: [
+        {
+          name: "frame_base64",
+          type: "string",
+        },
+      ],
+      outputs: [
+        {
+          name: "detections",
+          type: "array",
+        },
+      ],
+    },
+  ],
+};
+
+// Legacy format: tools as object (for backward compatibility testing)
+const mockManifestLegacy = {
   id: "test-plugin",
   name: "Test Plugin",
   version: "1.0.0",
@@ -66,6 +113,68 @@ describe("ToolSelector", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
+
+  // ========================================================================
+  // Phase-12 Format Tests (Array-based tools)
+  // ========================================================================
+
+  it("renders tool titles from Phase-12 array format", () => {
+    mockUseManifest.mockReturnValue({
+      manifest: mockManifestPhase12,
+      loading: false,
+      error: null,
+      clearCache: vi.fn(),
+    });
+
+    render(
+      <ToolSelector
+        pluginId="test-plugin"
+        selectedTool="detect_players"
+        onToolChange={vi.fn()}
+      />
+    );
+
+    // Verify dropdown shows tool titles, not indices
+    expect(screen.getByDisplayValue("Detect Players")).toBeInTheDocument();
+
+    const options = screen.getAllByRole("option");
+    const optionValues = options.map((opt) =>
+      opt.getAttribute("value")
+    );
+
+    // Should contain tool IDs, not array indices
+    expect(optionValues).toContain("detect_players");
+    expect(optionValues).toContain("detect_ball");
+    expect(optionValues).not.toContain("0");
+    expect(optionValues).not.toContain("1");
+  });
+
+  it("displays Phase-12 tool title in selected state", () => {
+    mockUseManifest.mockReturnValue({
+      manifest: mockManifestPhase12,
+      loading: false,
+      error: null,
+      clearCache: vi.fn(),
+    });
+
+    render(
+      <ToolSelector
+        pluginId="test-plugin"
+        selectedTool="detect_players"
+        onToolChange={vi.fn()}
+      />
+    );
+
+    // Dropdown option should show title "Detect Players"
+    expect(screen.getByDisplayValue("Detect Players")).toBeInTheDocument();
+    
+    // Info box should show title "Detect Players" with description
+    expect(screen.getByText("Detect player objects")).toBeInTheDocument();
+  });
+
+  // ========================================================================
+  // Legacy Format Tests (Object-based tools)
+  // ========================================================================
 
   it("renders loading state when manifest is loading", () => {
     mockUseManifest.mockReturnValue({
@@ -124,10 +233,10 @@ describe("ToolSelector", () => {
     expect(screen.getByText("Select a plugin first")).toBeInTheDocument();
   });
 
-  it("renders empty state when manifest has no tools", () => {
+  it("renders empty state when manifest has no tools (legacy format)", () => {
     mockUseManifest.mockReturnValue({
       manifest: {
-        ...mockManifest,
+        ...mockManifestLegacy,
         tools: {},
       },
       loading: false,
@@ -148,9 +257,9 @@ describe("ToolSelector", () => {
     ).toBeInTheDocument();
   });
 
-  it("renders tool list from manifest", () => {
+  it("renders tool list from legacy manifest format", () => {
     mockUseManifest.mockReturnValue({
-      manifest: mockManifest,
+      manifest: mockManifestLegacy,
       loading: false,
       error: null,
       clearCache: vi.fn(),
@@ -175,9 +284,9 @@ describe("ToolSelector", () => {
     expect(optionValues).toContain("detect_ball");
   });
 
-  it("displays selected tool details", () => {
+  it("displays selected tool details (legacy format)", () => {
     mockUseManifest.mockReturnValue({
-      manifest: mockManifest,
+      manifest: mockManifestLegacy,
       loading: false,
       error: null,
       clearCache: vi.fn(),
@@ -200,7 +309,7 @@ describe("ToolSelector", () => {
     const onToolChange = vi.fn();
 
     mockUseManifest.mockReturnValue({
-      manifest: mockManifest,
+      manifest: mockManifestLegacy,
       loading: false,
       error: null,
       clearCache: vi.fn(),
@@ -229,7 +338,7 @@ describe("ToolSelector", () => {
 
   it("disables selector when disabled prop is true", () => {
     mockUseManifest.mockReturnValue({
-      manifest: mockManifest,
+      manifest: mockManifestLegacy,
       loading: false,
       error: null,
       clearCache: vi.fn(),
@@ -251,7 +360,7 @@ describe("ToolSelector", () => {
 
   it("hides details in compact mode", () => {
     mockUseManifest.mockReturnValue({
-      manifest: mockManifest,
+      manifest: mockManifestLegacy,
       loading: false,
       error: null,
       clearCache: vi.fn(),
@@ -272,9 +381,9 @@ describe("ToolSelector", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("displays tool inputs and outputs in info box", () => {
+  it("displays tool inputs and outputs in info box (legacy format)", () => {
     mockUseManifest.mockReturnValue({
-      manifest: mockManifest,
+      manifest: mockManifestLegacy,
       loading: false,
       error: null,
       clearCache: vi.fn(),
