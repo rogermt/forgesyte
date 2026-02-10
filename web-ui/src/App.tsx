@@ -31,6 +31,9 @@ const WS_BACKEND_URL =
 type ViewMode = "stream" | "upload" | "jobs";
 
 function App() {
+  // -------------------------------------------------------------------------
+  // State
+  // -------------------------------------------------------------------------
   const [viewMode, setViewMode] = useState<ViewMode>("stream");
   const [selectedPlugin, setSelectedPlugin] = useState<string>("");
   const [selectedTool, setSelectedTool] = useState<string>("");
@@ -45,12 +48,25 @@ function App() {
   const [manifestError, setManifestError] = useState<string | null>(null);
   const [manifestLoading, setManifestLoading] = useState(false);
 
+  // -------------------------------------------------------------------------
   // Compute tool list from manifest
+  // FIX: Handle both Phase-12 array and legacy object formats
+  // -------------------------------------------------------------------------
   const toolList = useMemo(() => {
     if (!manifest) return [];
+
+    // Phase-12 format: tools is an array of objects with id property
+    if (Array.isArray(manifest.tools)) {
+      return manifest.tools.map((tool: { id: string }) => tool.id);
+    }
+
+    // Legacy format: tools is an object where keys are tool names
     return Object.keys(manifest.tools);
   }, [manifest]);
 
+  // -------------------------------------------------------------------------
+  // WebSocket connection
+  // -------------------------------------------------------------------------
   const {
     isConnected,
     connectionStatus,
@@ -195,6 +211,9 @@ function App() {
     }
   }, [connectionStatus]);
 
+  // -------------------------------------------------------------------------
+  // Event handlers
+  // -------------------------------------------------------------------------
   const handleFrame = useCallback(
     (imageData: string) => {
       if (isConnected && streamEnabled) {
@@ -248,6 +267,9 @@ function App() {
     [selectedPlugin, selectedTool]
   );
 
+  // -------------------------------------------------------------------------
+  // Styles
+  // -------------------------------------------------------------------------
   const styles: Record<string, React.CSSProperties> = {
     app: {
       minHeight: "100vh",
@@ -327,6 +349,9 @@ function App() {
     },
   };
 
+  // -------------------------------------------------------------------------
+  // Render
+  // -------------------------------------------------------------------------
   return (
     <div style={styles.app}>
       <header style={styles.header}>

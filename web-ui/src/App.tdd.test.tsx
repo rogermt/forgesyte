@@ -16,7 +16,10 @@ import userEvent from "@testing-library/user-event";
 // ---------------------------------------------------------------------------
 
 vi.mock("./components/CameraPreview", () => ({
-  CameraPreview: (props: { enabled: boolean; onFrame: (data: string) => void }) => (
+  CameraPreview: (props: {
+    enabled: boolean;
+    onFrame: (data: string) => void;
+  }) => (
     <div data-testid="camera-preview">
       <button
         data-testid="emit-frame"
