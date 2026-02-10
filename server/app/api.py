@@ -296,8 +296,10 @@ async def analyze_image_json(
         if image_b64:
             options["image"] = image_b64
 
-        # Device selection (optional)
-        device = body.get("device")  # may be None → AnalysisService resolves fallback
+        # Device selection (optional, Phase 12 governance)
+        device = body.get("device")  # may be None → plugin resolves via models.yaml
+        if device:
+            options["device"] = device
 
         # Delegate to AnalysisService
         result = await service.process_analysis_request(
@@ -306,7 +308,6 @@ async def analyze_image_json(
             body_bytes=None,  # JSON base64 is NOT in body_bytes
             plugin=plugin,
             options=options,
-            device=device,
         )
 
         logger.info(

@@ -283,24 +283,25 @@ class JobStore(Protocol):
 class TaskProcessor(Protocol):
     """Structural contract for background task processing.
 
-    Abstracts job queue implementation so API endpoints can submit work
-    without caring how it's executed.
+    Phase 12 governance:
+    - Device is NOT a separate parameter
+    - Device comes from options dict (if present)
+    - Abstracts job queue implementation so API endpoints can submit work
+      without caring how it's executed.
     """
 
     async def submit_job(
         self,
         image_bytes: bytes,
         plugin_name: str,
-        options: Dict[str, Any],
-        device: str = "cpu",
+        options: Optional[Dict[str, Any]] = None,
     ) -> str:
         """Submit an analysis job.
 
         Args:
             image_bytes: Raw image bytes to analyze
             plugin_name: Plugin to use for analysis
-            options: Plugin-specific options
-            device: Device preference ("cpu" or "gpu", default "cpu")
+            options: Plugin-specific options (may contain 'device' key)
 
         Returns:
             Job ID for tracking
