@@ -121,7 +121,10 @@ async def analyze_image(
     plugin: str = Query(..., description="Vision plugin identifier"),
     image_url: Optional[str] = Query(None, description="URL of image to analyze"),
     options: Optional[str] = Query(None, description="JSON string of plugin options"),
-    device: Optional[str] = Query(None, description="Device to use: 'cpu' or 'cuda' (optional, defaults to models.yaml)"),
+    device: Optional[str] = Query(
+        None,
+        description="Device to use: 'cpu' or 'cuda' (optional, defaults to models.yaml)",
+    ),
     auth: Dict[str, Any] = Depends(require_auth(["analyze"])),
     service: AnalysisService = Depends(get_analysis_service),
 ) -> AnalyzeResponse:

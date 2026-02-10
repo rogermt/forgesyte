@@ -47,7 +47,9 @@ class TestDeviceSelector:
         assert "device" in data["detail"].lower() or "invalid" in data["detail"].lower()
 
     @pytest.mark.asyncio
-    async def test_analyze_no_device_param_allows_plugin_resolution(self, client) -> None:
+    async def test_analyze_no_device_param_allows_plugin_resolution(
+        self, client
+    ) -> None:
         """Phase 12: Device is optional. If not provided, plugin resolves from models.yaml."""
         response = await client.post(
             "/v1/analyze?plugin=ocr",

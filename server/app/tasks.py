@@ -295,7 +295,7 @@ class TaskProcessor:
 
         job_id = str(uuid.uuid4())
         opts = options or {}
-        
+
         # Extract device from options if present (Phase 12)
         device_requested = opts.get("device")
 
@@ -367,7 +367,11 @@ class TaskProcessor:
 
         logger.debug(
             "Job processing started",
-            extra={"job_id": job_id, "plugin": plugin_name, "device_requested": device_requested},
+            extra={
+                "job_id": job_id,
+                "plugin": plugin_name,
+                "device_requested": device_requested,
+            },
         )
 
         # Get plugin
