@@ -61,9 +61,7 @@ class TestTaskToolRoutingWarning:
             },
         )
 
-        image_bytes = base64.b64decode(
-            base64.b64encode(b"fake-image")
-        )
+        image_bytes = base64.b64decode(base64.b64encode(b"fake-image"))
         options_without_tool = {"device": "cpu"}
 
         with caplog.at_level(logging.WARNING):
@@ -77,9 +75,7 @@ class TestTaskToolRoutingWarning:
         ), f"Expected warning about missing tool, got: {[r.message for r in caplog.records]}"
 
     @pytest.mark.asyncio
-    async def test_no_warning_when_tool_provided(
-        self, processor, job_store, caplog
-    ):
+    async def test_no_warning_when_tool_provided(self, processor, job_store, caplog):
         """When options include tool, should NOT log missing-tool warning."""
         job_id = "job-with-tool"
         await job_store.create(
@@ -100,12 +96,11 @@ class TestTaskToolRoutingWarning:
         options_with_tool = {"tool": "ball_detection", "device": "cpu"}
 
         with caplog.at_level(logging.WARNING):
-            await processor._process_job(
-                job_id, "yolo", image_bytes, options_with_tool
-            )
+            await processor._process_job(job_id, "yolo", image_bytes, options_with_tool)
 
         missing_tool_warnings = [
-            r for r in caplog.records
+            r
+            for r in caplog.records
             if "missing" in r.message.lower() and "tool" in r.message.lower()
         ]
         assert len(missing_tool_warnings) == 0
