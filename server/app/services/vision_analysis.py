@@ -23,6 +23,8 @@ from ..protocols import PluginRegistry, WebSocketProvider
 
 logger = logging.getLogger(__name__)
 
+FALLBACK_TOOL = "default"
+
 
 class VisionAnalysisService:
     """Orchestrates real-time image analysis using registered plugins.
@@ -105,8 +107,13 @@ class VisionAnalysisService:
 
             # Time the analysis execution
             start_time = time.time()
-            # Use default tool if not specified
-            tool_name = data.get("tool", "default")
+            tool_name = data.get("tool")
+            if not tool_name:
+                logger.warning(
+                    "WebSocket frame missing 'tool' field, defaulting to '%s'",
+                    FALLBACK_TOOL,
+                )
+                tool_name = FALLBACK_TOOL
             result = active_plugin.run_tool(
                 tool_name,
                 {"image_bytes": image_bytes, "options": data.get("options", {})},

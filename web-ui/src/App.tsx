@@ -138,10 +138,10 @@ function App() {
   const handleFrame = useCallback(
     (imageData: string) => {
       if (isConnected && streamEnabled) {
-        sendFrame(imageData);
+        sendFrame(imageData, undefined, { tool: selectedTool });
       }
     },
-    [isConnected, streamEnabled, sendFrame]
+    [isConnected, streamEnabled, sendFrame, selectedTool]
   );
 
   const handlePluginChange = useCallback(

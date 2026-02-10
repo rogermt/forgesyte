@@ -335,7 +335,10 @@ class PluginManagementService:
                 f"Available: {available_tools}"
             )
 
-        logger.debug(f"Found tool: {plugin}.{tool_name}")
+        logger.info(
+            "Executing plugin tool",
+            extra={"plugin_id": plugin_id, "tool_name": tool_name},
+        )
 
         # 3. Get tool function
         tool_func = getattr(plugin, tool_name)

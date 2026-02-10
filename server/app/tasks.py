@@ -398,11 +398,14 @@ class TaskProcessor:
             # Determine tool name: use explicit tool or plugin's first available tool
             tool_name = options.get("tool")
             if not tool_name:
-                # plugin.tools is either a dict (frame plugins) or list (image plugins)
                 if isinstance(plugin.tools, dict):
                     tool_name = next(iter(plugin.tools.keys()))
                 else:
                     tool_name = plugin.tools[0]["name"]
+                logger.warning(
+                    "Background task missing 'tool' option, defaulting to '%s'",
+                    tool_name,
+                )
 
             # Include device in tool args (Phase 12 fix: propagate to plugin)
             tool_args = {
