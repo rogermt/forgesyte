@@ -121,11 +121,19 @@ async def analyze_image(
     plugin: str = Query(..., description="Vision plugin identifier"),
     image_url: Optional[str] = Query(None, description="URL of image to analyze"),
     options: Optional[str] = Query(None, description="JSON string of plugin options"),
-    device: str = Query("cpu", description="Device to use: 'cpu' or 'gpu'"),
+    device: Optional[str] = Query(
+        None,
+        description="Device to use: 'cpu' or 'cuda' (optional, defaults to models.yaml)",
+    ),
     auth: Dict[str, Any] = Depends(require_auth(["analyze"])),
     service: AnalysisService = Depends(get_analysis_service),
 ) -> AnalyzeResponse:
     """Submit an image for analysis using specified vision plugin.
+
+    Phase 12 device governance:
+    - If device is explicitly provided, it must be 'cpu' or 'cuda'
+    - If not provided, the plugin and models.yaml will resolve device
+    - API does not invent a default; that's the plugin's responsibility
 
     Supports multiple image sources: file upload, remote URL, or raw body bytes.
     Returns job ID for asynchronous result tracking via GET /jobs/{job_id}.
@@ -133,10 +141,10 @@ async def analyze_image(
     Args:
         request: FastAPI request context with body and app state.
         file: Optional file upload containing image data.
-                Defaults to "ocr".
         image_url: Optional HTTP(S) URL to fetch image from.
         options: Optional JSON string with plugin-specific configuration.
-        device: Device to use ("cpu" or "gpu", default "cpu").
+        device: Optional device to use ('cpu' or 'cuda'). If not provided,
+                the plugin resolves device from models.yaml.
         auth: Authentication credentials (required, "analyze" permission).
         service: Injected AnalysisService for orchestration.
 
@@ -147,7 +155,7 @@ async def analyze_image(
         HTTPException: 400 Bad Request if options JSON is invalid.
         HTTPException: 400 Bad Request if image URL fetch fails.
         HTTPException: 400 Bad Request if image data is invalid.
-        HTTPException: 400 Bad Request if device parameter is invalid.
+        HTTPException: 400 Bad Request if device parameter is invalid (if provided).
         HTTPException: 500 Internal Server Error if unexpected failure occurs.
     """
     try:
@@ -158,11 +166,11 @@ async def analyze_image(
                 detail="Plugin name is required",
             )
 
-        # Validate device parameter
-        if not validate_device(device):
+        # Validate device parameter if provided (Phase 12 - strict)
+        if device and not validate_device(device):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Invalid device: '{device}'. Must be 'cpu' or 'gpu'.",
+                detail=f"Invalid device: '{device}'. Must be 'cpu' or 'cuda'.",
             )
 
         # Read uploaded file if provided
@@ -183,8 +191,10 @@ async def analyze_image(
                     detail="Invalid JSON in options",
                 ) from e
 
-        # Propagate device selection to plugin pipeline (Phase 12 fix)
-        parsed_options["device"] = device.lower()
+        # Propagate device selection to plugin pipeline (Phase 12)
+        # Device comes from either query param or models.yaml (via plugin)
+        if device:
+            parsed_options["device"] = device.lower()
 
         # Delegate to service layer for analysis orchestration
         result = await service.process_analysis_request(
@@ -193,20 +203,18 @@ async def analyze_image(
             body_bytes=await request.body() if not file else None,
             plugin=plugin,
             options=parsed_options,
-            device=device.lower(),
         )
 
         logger.info(
             "Analysis request submitted",
-            extra={"job_id": result["job_id"], "plugin": plugin},
+            extra={"job_id": result["job_id"], "plugin": plugin, "device": device},
         )
 
         # Return typed response with device info and frame tracking
-        device_requested = device.lower()
         return AnalyzeResponse(
             job_id=result["job_id"],
-            device_requested=device_requested,
-            device_used=device_requested,  # Will be updated when job completes
+            device_requested=device or "default",
+            device_used=device or "default",  # Will be updated when job completes
             fallback=False,  # Will be updated if fallback occurs
             frames=[],  # Will be populated as frames are processed
             result=None,  # Will be populated when analysis completes
@@ -288,8 +296,10 @@ async def analyze_image_json(
         if image_b64:
             options["image"] = image_b64
 
-        # Device selection (optional)
-        device = body.get("device")  # may be None → AnalysisService resolves fallback
+        # Device selection (optional, Phase 12 governance)
+        device = body.get("device")  # may be None → plugin resolves via models.yaml
+        if device:
+            options["device"] = device
 
         # Delegate to AnalysisService
         result = await service.process_analysis_request(
@@ -298,7 +308,6 @@ async def analyze_image_json(
             body_bytes=None,  # JSON base64 is NOT in body_bytes
             plugin=plugin,
             options=options,
-            device=device,
         )
 
         logger.info(

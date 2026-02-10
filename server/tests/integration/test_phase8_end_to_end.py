@@ -95,7 +95,7 @@ class TestPhase8Pipeline:
             image_bytes=b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR",
             plugin_name="ocr",
             options={},
-            device="cpu",
+            device_requested="cpu",
         )
 
         # Verify job completed with normalised result
@@ -153,7 +153,7 @@ class TestPhase8Pipeline:
             image_bytes=b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR",
             plugin_name="ocr",
             options={},
-            device="gpu",
+            device_requested="gpu",
         )
 
         # Verify device tracker was called
@@ -164,8 +164,8 @@ class TestPhase8Pipeline:
         assert call["device_used"] == "gpu"
 
     @pytest.mark.asyncio
-    async def test_end_to_end_device_default_cpu(self, client) -> None:
-        """Verify device defaults to CPU when not specified."""
+    async def test_end_to_end_device_default_when_not_specified(self, client) -> None:
+        """Phase 12: Device defaults to 'default' when not specified (plugin resolves via models.yaml)."""
         response = await client.post(
             "/v1/analyze?plugin=ocr",
             files={"file": ("test.png", b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR")},
@@ -173,7 +173,7 @@ class TestPhase8Pipeline:
 
         assert response.status_code == 200
         data = response.json()
-        assert data["device_requested"] == "cpu"
+        assert data["device_requested"] == "default"
 
     @pytest.mark.asyncio
     async def test_end_to_end_case_insensitive_device(self, client) -> None:
@@ -229,7 +229,7 @@ class TestPhase8Pipeline:
             image_bytes=b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR",
             plugin_name="ocr",
             options={},
-            device="cpu",
+            device_requested="cpu",
         )
 
         # Verify result was processed

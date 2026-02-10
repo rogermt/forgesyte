@@ -72,15 +72,18 @@ class AnalysisService:
         body_bytes: Optional[bytes],
         plugin: str,
         options: Dict[str, Any],
-        device: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Process an image analysis request from multiple possible sources.
+
+        Phase 12 governance: Device is NOT resolved here. It's passed through
+        in options (if present) and the plugin/models.yaml are responsible for
+        final resolution.
 
         Orchestrates the complete flow:
         1. Determine image source (file, URL, or base64 body)
         2. Acquire image bytes using appropriate method
         3. Validate options JSON
-        4. Submit job to task processor with device preference
+        4. Submit job to task processor
         5. Return job tracking information
 
         Args:
@@ -88,8 +91,7 @@ class AnalysisService:
             image_url: URL to fetch image from (optional)
             body_bytes: Raw request body containing base64 image (optional)
             plugin: Name of plugin to execute
-            options: Dict of plugin-specific options (already parsed)
-            device: Device preference ("cpu" or "gpu", default "cpu")
+            options: Dict of plugin-specific options (already parsed, may contain device)
 
         Returns:
             Dictionary with:
@@ -97,7 +99,6 @@ class AnalysisService:
                 - status: Job status (queued, processing, completed, error)
                 - plugin: Plugin name used
                 - image_size: Size of image in bytes
-                - device_requested: Requested device ("cpu" or "gpu")
 
         Raises:
             ValueError: If no valid image source provided
@@ -113,16 +114,12 @@ class AnalysisService:
             logger.error("No image data acquired from any source")
             raise ValueError("No valid image provided")
 
-        # 2. Resolve device: request param > options > default cpu
-        resolved_device = device or options.get("device") or "cpu"
-
-        # 3. Submit job to task processor
+        # 2. Submit job to task processor (device is in options if provided)
         try:
             job_id = await self.processor.submit_job(
                 image_bytes=image_bytes,
                 plugin_name=plugin,
                 options=options,
-                device=resolved_device,
             )
 
             logger.info(
@@ -131,7 +128,7 @@ class AnalysisService:
                     "job_id": job_id,
                     "plugin": plugin,
                     "image_size": len(image_bytes),
-                    "device_requested": device,
+                    "device": options.get("device"),
                 },
             )
 
@@ -140,7 +137,6 @@ class AnalysisService:
                 "status": "queued",
                 "plugin": plugin,
                 "image_size": len(image_bytes),
-                "device_requested": device,
             }
 
         except Exception:
@@ -149,7 +145,7 @@ class AnalysisService:
                 extra={
                     "plugin": plugin,
                     "image_size": len(image_bytes),
-                    "device_requested": device,
+                    "device": options.get("device"),
                 },
             )
             raise
