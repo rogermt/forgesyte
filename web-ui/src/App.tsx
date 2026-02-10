@@ -1,15 +1,16 @@
+// web-ui/src/App.tsx
+
 /**
  * Main application component for ForgeSyte
  *
- * Best practices used:
- * - Derived UI state from a single connectionStatus indicator (no contradictory UI).
- * - Functional state updates for toggles.
- * - Stable callbacks with useCallback.
- *
  * Fixes included:
- * - Reset selectedTool when plugin changes (prevents sending old tool to new plugin)
- * - Handle both Phase-12 array and legacy object manifest formats for toolList
+ * - Reset selectedTool whenever selectedPlugin changes (prevents sending old tool to new plugin)
  * - Auto-select first valid tool from the newly loaded manifest
+ *
+ * Notes:
+ * - Assumes your Option 2 API change is live:
+ *   POST /v1/analyze?plugin=...&tool=...
+ * - Assumes apiClient.analyzeImage(file, plugin, tool) exists (as per your working fix)
  */
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
@@ -147,7 +148,8 @@ function App() {
 
   // -------------------------------------------------------------------------
   // FIX: Reset tool selection when plugin changes
-  // Prevents sending tool from old plugin to new plugin (e.g., ocr+radar bug)
+  //
+  // Prevents: plugin=ocr&tool=radar (radar was from yolo-tracker)
   // -------------------------------------------------------------------------
   useEffect(() => {
     setSelectedTool("");
@@ -156,7 +158,9 @@ function App() {
   }, [selectedPlugin]);
 
   // -------------------------------------------------------------------------
-  // Auto-select first tool when manifest loads or validate current selection
+  // Ensure we always have a valid tool for the current manifest
+  // - If none selected, select first
+  // - If selected tool doesn't exist in this plugin, select first
   // -------------------------------------------------------------------------
   useEffect(() => {
     if (!manifest) return;
@@ -166,16 +170,11 @@ function App() {
       return;
     }
 
-    // If no tool selected or current tool doesn't exist in new plugin, select first
     if (!selectedTool || !toolList.includes(selectedTool)) {
-      console.log("[App] Auto-selecting first tool:", toolList[0]);
       setSelectedTool(toolList[0]);
     }
   }, [manifest, toolList, selectedTool]);
 
-  // -------------------------------------------------------------------------
-  // Memoized UI values
-  // -------------------------------------------------------------------------
   const statusText = useMemo(() => {
     switch (connectionStatus) {
       case "connected":
@@ -218,6 +217,7 @@ function App() {
   const handleFrame = useCallback(
     (imageData: string) => {
       if (isConnected && streamEnabled) {
+        // Tool is carried in the WS payload so server can route to correct tool
         sendFrame(imageData, undefined, { tool: selectedTool });
       }
     },
@@ -228,6 +228,7 @@ function App() {
     (pluginName: string) => {
       setSelectedPlugin(pluginName);
 
+      // If already connected, tell WS server to switch plugin too
       if (isConnected) {
         switchPlugin(pluginName);
       }
@@ -491,9 +492,7 @@ function App() {
                   {manifestError}
                   <br />
                   <br />
-                  <small>
-                    Check that the plugin is loaded and the server is running.
-                  </small>
+                  <small>Check that the plugin is loaded and the server is running.</small>
                 </div>
               ) : manifestLoading ? (
                 <p>Loading manifest...</p>
