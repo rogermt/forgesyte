@@ -24,6 +24,8 @@ import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from pydantic import ValidationError
+
 from ..plugins.loader.plugin_registry import get_registry
 from ..plugins.sandbox import run_plugin_sandboxed
 from ..protocols import PluginRegistry
@@ -251,17 +253,29 @@ class PluginManagementService:
                 return None
 
             with open(manifest_path, "r") as f:
-                manifest = json.load(f)
+                raw_manifest = json.load(f)
+
+            from ..models_manifest import PluginManifest
+
+            manifest_model = PluginManifest(**raw_manifest)
+            manifest = manifest_model.model_dump()
+
+            for key in raw_manifest:
+                if key not in manifest:
+                    manifest[key] = raw_manifest[key]
 
             logger.debug(
                 f"Loaded manifest for plugin '{plugin_id}': "
-                f"{len(manifest.get('tools', {}))} tools"
+                f"{len(manifest.get('tools', []))} tools"
             )
 
             return manifest
 
         except json.JSONDecodeError as e:
             logger.error(f"Invalid JSON in manifest for '{plugin_id}': {e}")
+            raise
+        except ValidationError as e:
+            logger.error(f"Manifest validation failed for '{plugin_id}': {e}")
             raise
         except Exception as e:
             logger.error(f"Error reading manifest for plugin '{plugin_id}': {e}")

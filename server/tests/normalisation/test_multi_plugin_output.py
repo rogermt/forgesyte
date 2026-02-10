@@ -9,11 +9,7 @@ from app.schemas.normalisation import normalise_output
 
 def test_ocr_output_bypasses_yolo_schema():
     """OCR output must passthrough without YOLO schema enforcement."""
-    ocr_output = {
-        "text": "hello world",
-        "confidence": 0.99,
-        "blocks": []
-    }
+    ocr_output = {"text": "hello world", "confidence": 0.99, "blocks": []}
 
     # OCR output should be passed through as-is
     # (normalisation layer routes based on plugin type)

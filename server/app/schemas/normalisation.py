@@ -6,7 +6,7 @@ Supports multi-plugin architectures by routing based on plugin type.
 
 from typing import Any, Optional, TypedDict
 
-from .plugin_types import is_yolo_plugin
+from .plugin_types import is_yolo_plugin as _is_yolo_plugin_legacy
 
 
 class Box(TypedDict):
@@ -34,7 +34,9 @@ class NormalisedOutput(TypedDict):
 
 
 def normalise_output(
-    raw: dict[str, Any], plugin_name: Optional[str] = None
+    raw: dict[str, Any],
+    plugin_name: Optional[str] = None,
+    plugin_type: Optional[str] = None,
 ) -> dict[str, Any] | NormalisedOutput:
     """
     Transform plugin-specific output to canonical schema.
@@ -82,8 +84,12 @@ def normalise_output(
     Raises:
         ValueError: If validation fails
     """
-    # Non-YOLO plugins (OCR, Whisper, etc.) bypass normalisation
-    if plugin_name and not is_yolo_plugin(plugin_name):
+    # Route based on manifest plugin_type (Phase 12)
+    # Falls back to plugin_name for backward compatibility
+    if plugin_type is not None:
+        if plugin_type != "yolo":
+            return raw
+    elif plugin_name and not _is_yolo_plugin_legacy(plugin_name):
         return raw
 
     # YOLO plugins: strict schema enforcement
