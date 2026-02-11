@@ -89,18 +89,9 @@ repos:
             pass_filenames: false
 
             - id: check-illegal-filenames
-            name: Check for illegal filenames (control characters)
-            entry: bash
-            args:
-            - -c
-            - |
-            if git ls-files | grep -E "[[:cntrl:]]"; then
-              echo "❌ Error: Control characters detected in filenames."
-              echo "❌ This happens when LLM agents fail to create files properly."
-              echo "❌ Please remove these files and try again."
-              exit 1
-            fi
-            language: system
-            pass_filenames: false
-            stages: [pre-commit, commit-msg]
+              name: Check for illegal filenames (control characters)
+              entry: .git-hooks/prevent-illegal-filenames
+              language: script
+              pass_filenames: false
+              stages: [pre-commit, commit-msg]
 
