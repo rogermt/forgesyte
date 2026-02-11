@@ -36,7 +36,7 @@ function App() {
   // -------------------------------------------------------------------------
   const [viewMode, setViewMode] = useState<ViewMode>("stream");
   const [selectedPlugin, setSelectedPlugin] = useState<string>("");
-  const [selectedTool, setSelectedTool] = useState<string>("");
+  const [selectedTools, setSelectedTools] = useState<string[]>([]);
 
   const [streamEnabled, setStreamEnabled] = useState(false);
 
@@ -79,6 +79,7 @@ function App() {
   } = useWebSocket({
     url: `${WS_BACKEND_URL}/v1/stream`,
     plugin: selectedPlugin,
+    tools: selectedTools,
     onResult: (result: FrameResult) => {
       console.log("Frame result:", result);
     },
@@ -152,7 +153,7 @@ function App() {
   // Prevents: plugin=ocr&tool=radar (radar was from yolo-tracker)
   // -------------------------------------------------------------------------
   useEffect(() => {
-    setSelectedTool("");
+    setSelectedTools([]);
     setUploadResult(null);
     setSelectedJob(null);
   }, [selectedPlugin]);
@@ -166,14 +167,14 @@ function App() {
     if (!manifest) return;
 
     if (toolList.length === 0) {
-      setSelectedTool("");
+      setSelectedTools([]);
       return;
     }
 
-    if (!selectedTool || !toolList.includes(selectedTool)) {
-      setSelectedTool(toolList[0]);
+    if (selectedTools.length === 0 || !selectedTools.every((t) => toolList.includes(t))) {
+      setSelectedTools([toolList[0]]);
     }
-  }, [manifest, toolList, selectedTool]);
+  }, [manifest, toolList, selectedTools]);
 
   const statusText = useMemo(() => {
     switch (connectionStatus) {
@@ -217,11 +218,11 @@ function App() {
   const handleFrame = useCallback(
     (imageData: string) => {
       if (isConnected && streamEnabled) {
-        // Tool is carried in the WS payload so server can route to correct tool
-        sendFrame(imageData, undefined, { tool: selectedTool });
+        // Tools are passed via useWebSocket options, no need for extra payload
+        sendFrame(imageData);
       }
     },
-    [isConnected, streamEnabled, sendFrame, selectedTool]
+    [isConnected, streamEnabled, sendFrame]
   );
 
   const handlePluginChange = useCallback(
@@ -236,8 +237,8 @@ function App() {
     [isConnected, switchPlugin]
   );
 
-  const handleToolChange = useCallback((toolName: string) => {
-    setSelectedTool(toolName);
+  const handleToolChange = useCallback((toolNames: string[]) => {
+    setSelectedTools(toolNames);
   }, []);
 
   const handleFileUpload = useCallback(
@@ -245,7 +246,7 @@ function App() {
       const file = event.target.files?.[0];
       if (!file) return;
       if (!selectedPlugin) return;
-      if (!selectedTool) return;
+      if (selectedTools.length === 0) return;
 
       setIsUploading(true);
       try {
@@ -253,7 +254,7 @@ function App() {
         const response = await apiClient.analyzeImage(
           file,
           selectedPlugin,
-          selectedTool
+          selectedTools[0]
         );
         const job = await apiClient.pollJob(response.job_id);
         setUploadResult(job);
@@ -264,7 +265,7 @@ function App() {
         setIsUploading(false);
       }
     },
-    [selectedPlugin, selectedTool]
+    [selectedPlugin, selectedTools]
   );
 
   // -------------------------------------------------------------------------
@@ -406,7 +407,7 @@ function App() {
           <div style={styles.panel}>
             <ToolSelector
               pluginId={selectedPlugin}
-              selectedTool={selectedTool}
+              selectedTools={selectedTools}
               onToolChange={handleToolChange}
               disabled={streamEnabled}
             />
@@ -462,10 +463,10 @@ function App() {
             </div>
           )}
 
-          {viewMode === "upload" && manifest && selectedTool && (
+          {viewMode === "upload" && manifest && selectedTools.length > 0 && (
             <>
-              {detectToolType(manifest, selectedTool) === "frame" ? (
-                <VideoTracker pluginId={selectedPlugin} tools={[selectedTool]} />
+              {detectToolType(manifest, selectedTools[0]) === "frame" ? (
+                <VideoTracker pluginId={selectedPlugin} tools={selectedTools} />
               ) : (
                 <div style={styles.panel}>
                   <p>Upload image for analysis</p>
@@ -473,7 +474,7 @@ function App() {
                     type="file"
                     accept="image/*"
                     onChange={handleFileUpload}
-                    disabled={isUploading || !selectedPlugin || !selectedTool}
+                    disabled={isUploading || !selectedPlugin || selectedTools.length === 0}
                   />
                   {isUploading && <p>Analyzing...</p>}
                 </div>
@@ -481,7 +482,7 @@ function App() {
             </>
           )}
 
-          {viewMode === "upload" && (!manifest || !selectedTool) && (
+          {viewMode === "upload" && (!manifest || selectedTools.length === 0) && (
             <div style={styles.panel}>
               {!selectedPlugin ? (
                 <p>Select a plugin first</p>
@@ -498,7 +499,7 @@ function App() {
                 <p>Loading manifest...</p>
               ) : !manifest ? (
                 <p>Manifest not available</p>
-              ) : !selectedTool ? (
+              ) : selectedTools.length === 0 ? (
                 <p>Select a tool</p>
               ) : null}
             </div>

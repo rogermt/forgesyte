@@ -79,6 +79,7 @@ export interface ErrorInfo {
 export interface UseWebSocketOptions {
   url?: string;
   plugin?: string;
+  tools?: string[];
   apiKey?: string;
 
   onResult?: (result: FrameResult) => void;
@@ -275,6 +276,7 @@ export function useWebSocket(options: UseWebSocketOptions): UseWebSocketReturn {
   const {
     url = DEFAULT_WS_URL,
     plugin = "",
+    tools = [],
     apiKey = DEFAULT_WS_API_KEY,
 
     onResult,
@@ -662,11 +664,13 @@ export function useWebSocket(options: UseWebSocketOptions): UseWebSocketReturn {
           type: "frame",
           frame_id: frameId ?? makeFrameId(),
           image_data: imageData,
+          plugin_id: plugin,
+          tools: tools,
           ...(extra ?? {}),
         })
       );
     },
-    []
+    [plugin, tools]
   );
 
   const switchPlugin = useCallback((pluginName: string) => {

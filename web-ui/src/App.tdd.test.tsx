@@ -2,9 +2,11 @@
  * TDD tests for tool routing + plugin-switch tool reset (Issue #181).
  *
  * Verifies:
- * 1) sendFrame receives the currently selected tool in its "extra" payload
- * 2) changing tool updates the tool sent to sendFrame
- * 3) changing plugin resets tool to the new plugin’s first tool (prevents ocr+radar)
+ * 1) tools are passed to useWebSocket options
+ * 2) changing tools updates the tools passed to useWebSocket
+ * 3) changing plugin resets tools to the new plugin's first tool (prevents ocr+radar)
+ * 4) Multiple tools can be selected and sent together
+ * 5) sendFrame is called without extra parameter (tools are in useWebSocket options)
  */
 
 import { describe, it, expect, beforeEach, vi } from "vitest";
@@ -60,25 +62,37 @@ vi.mock("./components/PluginSelector", () => ({
 vi.mock("./components/ToolSelector", () => ({
   ToolSelector: (props: {
     pluginId: string | null;
-    selectedTool: string;
-    onToolChange: (t: string) => void;
+    selectedTools: string[];
+    onToolChange: (t: string[]) => void;
     disabled: boolean;
   }) => (
     <div data-testid="tool-selector">
-      <span data-testid="selected-tool">{props.selectedTool}</span>
+      <span data-testid="selected-tools">{props.selectedTools.join(",")}</span>
 
       <button
         data-testid="select-ball-detection"
-        onClick={() => props.onToolChange("ball_detection")}
+        onClick={() => {
+          const current = props.selectedTools;
+          const newTools = current.includes("ball_detection")
+            ? current.filter((t) => t !== "ball_detection")
+            : [...current, "ball_detection"];
+          props.onToolChange(newTools);
+        }}
       >
-        Select Ball Detection
+        Toggle Ball Detection
       </button>
 
       <button
         data-testid="select-extract-text"
-        onClick={() => props.onToolChange("extract_text")}
+        onClick={() => {
+          const current = props.selectedTools;
+          const newTools = current.includes("extract_text")
+            ? current.filter((t) => t !== "extract_text")
+            : [...current, "extract_text"];
+          props.onToolChange(newTools);
+        }}
       >
-        Select Extract Text
+        Toggle Extract Text
       </button>
     </div>
   ),
@@ -93,7 +107,12 @@ vi.mock("./components/ResultsPanel", () => ({
 }));
 
 vi.mock("./components/VideoTracker", () => ({
-  VideoTracker: () => <div data-testid="video-tracker">VideoTracker</div>,
+  VideoTracker: (props: { pluginId: string; tools: string[] }) => (
+    <div data-testid="video-tracker">
+      <span data-testid="video-tracker-plugin">{props.pluginId}</span>
+      <span data-testid="video-tracker-tools">{props.tools.join(",")}</span>
+    </div>
+  ),
 }));
 
 vi.mock("./api/client", () => ({
@@ -111,17 +130,17 @@ vi.mock("./api/client", () => ({
           tools: {
             // Object key order is insertion order: first tool becomes default
             player_detection: {
-              inputs: {},
+              inputs: { frame_base64: { type: "string" } },
               outputs: {},
               description: "Detect players",
             },
             ball_detection: {
-              inputs: {},
+              inputs: { frame_base64: { type: "string" } },
               outputs: {},
               description: "Detect ball",
             },
             radar: {
-              inputs: {},
+              inputs: { frame_base64: { type: "string" } },
               outputs: {},
               description: "Radar overlay",
             },
@@ -137,7 +156,7 @@ vi.mock("./api/client", () => ({
           entrypoint: "plugin.py",
           tools: {
             extract_text: {
-              inputs: {},
+              inputs: { image: { type: "string" } },
               outputs: {},
               description: "Extract text",
             },
@@ -203,12 +222,12 @@ async function startStreaming(user: ReturnType<typeof userEvent.setup>) {
 // Tests
 // ---------------------------------------------------------------------------
 
-describe("App - Tool Routing via sendFrame", () => {
+describe("App - Tool Routing via sendFrame (Multi-Tool Support)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it("passes auto-selected first tool in sendFrame extra payload when streaming", async () => {
+  it("passes auto-selected first tool in useWebSocket options when streaming", async () => {
     const { mockSendFrame } = setupHook();
     const user = userEvent.setup();
 
@@ -218,8 +237,15 @@ describe("App - Tool Routing via sendFrame", () => {
     await user.click(screen.getByTestId("select-yolo"));
 
     await waitFor(() => {
-      expect(screen.getByTestId("selected-tool")).toHaveTextContent("player_detection");
+      expect(screen.getByTestId("selected-tools")).toHaveTextContent("player_detection");
     });
+
+    // Verify useWebSocket was called with tools option
+    expect(mockUseWebSocket).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tools: ["player_detection"],
+      })
+    );
 
     await startStreaming(user);
 
@@ -228,12 +254,12 @@ describe("App - Tool Routing via sendFrame", () => {
 
     expect(mockSendFrame).toHaveBeenCalledTimes(1);
 
-    const [imageData, , extra] = mockSendFrame.mock.calls[0];
+    // sendFrame should be called without extra parameter (tools are in useWebSocket options)
+    const [imageData] = mockSendFrame.mock.calls[0];
     expect(imageData).toBe("base64imagedata");
-    expect(extra).toEqual(expect.objectContaining({ tool: "player_detection" }));
   });
 
-  it("passes updated tool when user switches tool", async () => {
+  it("passes updated tools when user toggles tools", async () => {
     const { mockSendFrame } = setupHook();
     const user = userEvent.setup();
 
@@ -242,15 +268,22 @@ describe("App - Tool Routing via sendFrame", () => {
     await user.click(screen.getByTestId("select-yolo"));
 
     await waitFor(() => {
-      expect(screen.getByTestId("selected-tool")).toHaveTextContent("player_detection");
+      expect(screen.getByTestId("selected-tools")).toHaveTextContent("player_detection");
     });
 
-    // Switch tool to ball_detection
+    // Toggle ball_detection to add it
     await user.click(screen.getByTestId("select-ball-detection"));
 
     await waitFor(() => {
-      expect(screen.getByTestId("selected-tool")).toHaveTextContent("ball_detection");
+      expect(screen.getByTestId("selected-tools")).toHaveTextContent("player_detection,ball_detection");
     });
+
+    // Verify useWebSocket was called with updated tools option
+    expect(mockUseWebSocket).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tools: ["player_detection", "ball_detection"],
+      })
+    );
 
     await startStreaming(user);
 
@@ -258,45 +291,126 @@ describe("App - Tool Routing via sendFrame", () => {
 
     expect(mockSendFrame).toHaveBeenCalledTimes(1);
 
-    const [, , extra] = mockSendFrame.mock.calls[0];
-    expect(extra).toEqual(expect.objectContaining({ tool: "ball_detection" }));
+    // sendFrame should be called without extra parameter
+    const [imageData] = mockSendFrame.mock.calls[0];
+    expect(imageData).toBe("base64imagedata");
   });
 
-  it("resets tool when plugin changes (yolo -> ocr) and uses new plugin default", async () => {
+  it("resets tools when plugin changes (yolo -> ocr) and uses new plugin default", async () => {
     const { mockSendFrame, mockSwitchPlugin } = setupHook();
     const user = userEvent.setup();
 
     render(<App />);
 
-    // Start on YOLO and choose a non-OCR tool
+    // Start on YOLO and select multiple tools
     await user.click(screen.getByTestId("select-yolo"));
 
     await waitFor(() => {
-      expect(screen.getByTestId("selected-tool")).toHaveTextContent("player_detection");
+      expect(screen.getByTestId("selected-tools")).toHaveTextContent("player_detection");
     });
 
     await user.click(screen.getByTestId("select-ball-detection"));
 
     await waitFor(() => {
-      expect(screen.getByTestId("selected-tool")).toHaveTextContent("ball_detection");
+      expect(screen.getByTestId("selected-tools")).toHaveTextContent("player_detection,ball_detection");
     });
 
-    // Switch plugin to OCR -> App should reset selectedTool -> auto-select OCR's first tool ("extract_text")
+    // Switch plugin to OCR -> App should reset selectedTools -> auto-select OCR's first tool ("extract_text")
     await user.click(screen.getByTestId("select-ocr"));
 
     // When connected, App should also call switchPlugin on the websocket
     expect(mockSwitchPlugin).toHaveBeenCalledWith("ocr");
 
     await waitFor(() => {
-      expect(screen.getByTestId("selected-tool")).toHaveTextContent("extract_text");
+      expect(screen.getByTestId("selected-tools")).toHaveTextContent("extract_text");
     });
 
-    // Start streaming and emit frame -> must use extract_text, not previous yolo tool
+    // Verify useWebSocket was called with reset tools option
+    expect(mockUseWebSocket).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tools: ["extract_text"],
+      })
+    );
+
+    // Start streaming and emit frame -> must use extract_text, not previous yolo tools
     await startStreaming(user);
     await user.click(screen.getByTestId("emit-frame"));
 
     expect(mockSendFrame).toHaveBeenCalledTimes(1);
-    const [, , extra] = mockSendFrame.mock.calls[0];
-    expect(extra).toEqual(expect.objectContaining({ tool: "extract_text" }));
+    // sendFrame should be called without extra parameter
+    const [imageData] = mockSendFrame.mock.calls[0];
+    expect(imageData).toBe("base64imagedata");
+  });
+
+  it("can remove tools by toggling them again", async () => {
+    const { mockSendFrame } = setupHook();
+    const user = userEvent.setup();
+
+    render(<App />);
+
+    await user.click(screen.getByTestId("select-yolo"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("selected-tools")).toHaveTextContent("player_detection");
+    });
+
+    // Add ball_detection
+    await user.click(screen.getByTestId("select-ball-detection"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("selected-tools")).toHaveTextContent("player_detection,ball_detection");
+    });
+
+    // Remove ball_detection by toggling again
+    await user.click(screen.getByTestId("select-ball-detection"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("selected-tools")).toHaveTextContent("player_detection");
+    });
+
+    // Verify useWebSocket was called with updated tools option
+    expect(mockUseWebSocket).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tools: ["player_detection"],
+      })
+    );
+
+    await startStreaming(user);
+    await user.click(screen.getByTestId("emit-frame"));
+
+    expect(mockSendFrame).toHaveBeenCalledTimes(1);
+    // sendFrame should be called without extra parameter
+    const [imageData] = mockSendFrame.mock.calls[0];
+    expect(imageData).toBe("base64imagedata");
+  });
+
+  it("passes tools array to VideoTracker component", async () => {
+    setupHook();
+    const user = userEvent.setup();
+
+    render(<App />);
+
+    await user.click(screen.getByTestId("select-yolo"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("selected-tools")).toHaveTextContent("player_detection");
+    });
+
+    // Add ball_detection
+    await user.click(screen.getByTestId("select-ball-detection"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("selected-tools")).toHaveTextContent("player_detection,ball_detection");
+    });
+
+    // Switch to upload mode to see VideoTracker
+    await user.click(screen.getByRole("button", { name: "Upload" }));
+
+    await waitFor(() => {
+      const videoTracker = screen.getByTestId("video-tracker");
+      expect(videoTracker).toBeInTheDocument();
+      expect(screen.getByTestId("video-tracker-plugin")).toHaveTextContent("yolo-tracker");
+      expect(screen.getByTestId("video-tracker-tools")).toHaveTextContent("player_detection,ball_detection");
+    });
   });
 });

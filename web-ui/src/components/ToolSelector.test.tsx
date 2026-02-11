@@ -1,9 +1,9 @@
 /**
- * Tests for ToolSelector component
+ * Tests for ToolSelector component (multi-select with toggle buttons)
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import { ToolSelector } from "./ToolSelector";
 import * as useManifestModule from "../hooks/useManifest";
 
@@ -32,37 +32,33 @@ const mockManifestPhase12 = {
       id: "detect_players",
       title: "Detect Players",
       description: "Detect player objects",
-      inputs: [
-        {
-          name: "frame_base64",
+      inputs: {
+        frame_base64: {
           type: "string",
           description: "Base64 encoded frame",
         },
-      ],
-      outputs: [
-        {
-          name: "detections",
+      },
+      outputs: {
+        detections: {
           type: "array",
           description: "Detected players",
         },
-      ],
+      },
     },
     {
       id: "detect_ball",
       title: "Detect Ball",
       description: "Detect ball object",
-      inputs: [
-        {
-          name: "frame_base64",
+      inputs: {
+        frame_base64: {
           type: "string",
         },
-      ],
-      outputs: [
-        {
-          name: "detections",
+      },
+      outputs: {
+        detections: {
           type: "array",
         },
-      ],
+      },
     },
   ],
 };
@@ -129,24 +125,14 @@ describe("ToolSelector", () => {
     render(
       <ToolSelector
         pluginId="test-plugin"
-        selectedTool="detect_players"
+        selectedTools={["detect_players"]}
         onToolChange={vi.fn()}
       />
     );
 
-    // Verify dropdown shows tool titles, not indices
-    expect(screen.getByDisplayValue("Detect Players")).toBeInTheDocument();
-
-    const options = screen.getAllByRole("option");
-    const optionValues = options.map((opt) =>
-      opt.getAttribute("value")
-    );
-
-    // Should contain tool IDs, not array indices
-    expect(optionValues).toContain("detect_players");
-    expect(optionValues).toContain("detect_ball");
-    expect(optionValues).not.toContain("0");
-    expect(optionValues).not.toContain("1");
+    // Verify buttons show tool titles (use getAllByText since text appears in button and info box)
+    expect(screen.getAllByText("Detect Players")).toHaveLength(2);
+    expect(screen.getByText("Detect Ball")).toBeInTheDocument();
   });
 
   it("displays Phase-12 tool title in selected state", () => {
@@ -160,15 +146,15 @@ describe("ToolSelector", () => {
     render(
       <ToolSelector
         pluginId="test-plugin"
-        selectedTool="detect_players"
+        selectedTools={["detect_players"]}
         onToolChange={vi.fn()}
       />
     );
 
-    // Dropdown option should show title "Detect Players"
-    expect(screen.getByDisplayValue("Detect Players")).toBeInTheDocument();
-    
-    // Info box should show title "Detect Players" with description
+    // Button and info box should show title "Detect Players"
+    expect(screen.getAllByText("Detect Players")).toHaveLength(2);
+
+    // Info box should show description
     expect(screen.getByText("Detect player objects")).toBeInTheDocument();
   });
 
@@ -187,7 +173,7 @@ describe("ToolSelector", () => {
     render(
       <ToolSelector
         pluginId="test-plugin"
-        selectedTool="detect_players"
+        selectedTools={["detect_players"]}
         onToolChange={vi.fn()}
       />
     );
@@ -206,7 +192,7 @@ describe("ToolSelector", () => {
     render(
       <ToolSelector
         pluginId="test-plugin"
-        selectedTool="detect_players"
+        selectedTools={["detect_players"]}
         onToolChange={vi.fn()}
       />
     );
@@ -225,7 +211,7 @@ describe("ToolSelector", () => {
     render(
       <ToolSelector
         pluginId={null}
-        selectedTool="detect_players"
+        selectedTools={[]}
         onToolChange={vi.fn()}
       />
     );
@@ -247,7 +233,7 @@ describe("ToolSelector", () => {
     render(
       <ToolSelector
         pluginId="test-plugin"
-        selectedTool=""
+        selectedTools={[]}
         onToolChange={vi.fn()}
       />
     );
@@ -268,20 +254,13 @@ describe("ToolSelector", () => {
     render(
       <ToolSelector
         pluginId="test-plugin"
-        selectedTool="detect_players"
+        selectedTools={["detect_players"]}
         onToolChange={vi.fn()}
       />
     );
 
-    expect(screen.getByDisplayValue("detect_players")).toBeInTheDocument();
-
-    const options = screen.getAllByRole("option");
-    const optionValues = options.map((opt) =>
-      opt.getAttribute("value")
-    );
-
-    expect(optionValues).toContain("detect_players");
-    expect(optionValues).toContain("detect_ball");
+    expect(screen.getAllByText("detect_players")).toHaveLength(2);
+    expect(screen.getByText("detect_ball")).toBeInTheDocument();
   });
 
   it("displays selected tool details (legacy format)", () => {
@@ -295,17 +274,17 @@ describe("ToolSelector", () => {
     render(
       <ToolSelector
         pluginId="test-plugin"
-        selectedTool="detect_players"
+        selectedTools={["detect_players"]}
         onToolChange={vi.fn()}
       />
     );
 
     expect(screen.getByText("Detect player objects")).toBeInTheDocument();
     expect(screen.getByText("frame_base64")).toBeInTheDocument();
-    expect(screen.getByDisplayValue("detect_players")).toBeInTheDocument();
+    expect(screen.getAllByText("detect_players")).toHaveLength(2);
   });
 
-  it("calls onToolChange when tool selection changes", async () => {
+  it("calls onToolChange when tool selection changes (toggle on)", () => {
     const onToolChange = vi.fn();
 
     mockUseManifest.mockReturnValue({
@@ -318,25 +297,21 @@ describe("ToolSelector", () => {
     render(
       <ToolSelector
         pluginId="test-plugin"
-        selectedTool="detect_players"
+        selectedTools={["detect_players"]}
         onToolChange={onToolChange}
       />
     );
 
-    const select = screen.getByRole("combobox");
-    
-    // Wait for the select to be available
-    await waitFor(() => {
-      expect(select).toBeInTheDocument();
-    }, { timeout: 10000 });
+    // Click on detect_ball button to add it
+    const ballButton = screen.getByText("detect_ball");
+    fireEvent.click(ballButton);
 
-    // Then change the selection
-    fireEvent.change(select, { target: { value: "detect_ball" } });
-
-    expect(onToolChange).toHaveBeenCalledWith("detect_ball");
+    expect(onToolChange).toHaveBeenCalledWith(["detect_players", "detect_ball"]);
   });
 
-  it("disables selector when disabled prop is true", () => {
+  it("calls onToolChange when tool selection changes (toggle off)", () => {
+    const onToolChange = vi.fn();
+
     mockUseManifest.mockReturnValue({
       manifest: mockManifestLegacy,
       loading: false,
@@ -347,15 +322,65 @@ describe("ToolSelector", () => {
     render(
       <ToolSelector
         pluginId="test-plugin"
-        selectedTool="detect_players"
+        selectedTools={["detect_players", "detect_ball"]}
+        onToolChange={onToolChange}
+      />
+    );
+
+    // Click on detect_ball button to remove it
+    const ballButton = screen.getByText("detect_ball");
+    fireEvent.click(ballButton);
+
+    expect(onToolChange).toHaveBeenCalledWith(["detect_players"]);
+  });
+
+  it("does not allow removing the last selected tool", () => {
+    const onToolChange = vi.fn();
+
+    mockUseManifest.mockReturnValue({
+      manifest: mockManifestLegacy,
+      loading: false,
+      error: null,
+      clearCache: vi.fn(),
+    });
+
+    render(
+      <ToolSelector
+        pluginId="test-plugin"
+        selectedTools={["detect_players"]}
+        onToolChange={onToolChange}
+      />
+    );
+
+    // Click on detect_players button (only selected tool) - should not call onToolChange
+    const playerButtons = screen.getAllByText("detect_players");
+    fireEvent.click(playerButtons[0]);
+
+    expect(onToolChange).not.toHaveBeenCalled();
+  });
+
+  it("disables buttons when disabled prop is true", () => {
+    mockUseManifest.mockReturnValue({
+      manifest: mockManifestLegacy,
+      loading: false,
+      error: null,
+      clearCache: vi.fn(),
+    });
+
+    render(
+      <ToolSelector
+        pluginId="test-plugin"
+        selectedTools={["detect_players"]}
         onToolChange={vi.fn()}
         disabled={true}
       />
     );
 
-    const select = screen.getByRole("combobox");
-    expect(select).toBeDisabled();
-    expect(screen.getByText("Stop streaming to change tool")).toBeInTheDocument();
+    const buttons = screen.getAllByRole("button");
+    buttons.forEach((button) => {
+      expect(button).toBeDisabled();
+    });
+    expect(screen.getByText("Stop streaming to change tools")).toBeInTheDocument();
   });
 
   it("hides details in compact mode", () => {
@@ -369,13 +394,13 @@ describe("ToolSelector", () => {
     render(
       <ToolSelector
         pluginId="test-plugin"
-        selectedTool="detect_players"
+        selectedTools={["detect_players"]}
         onToolChange={vi.fn()}
         compact={true}
       />
     );
 
-    expect(screen.getByDisplayValue("detect_players")).toBeInTheDocument();
+    expect(screen.getByText("detect_players")).toBeInTheDocument();
     expect(
       screen.queryByText("Detect player objects")
     ).not.toBeInTheDocument();
@@ -392,7 +417,7 @@ describe("ToolSelector", () => {
     render(
       <ToolSelector
         pluginId="test-plugin"
-        selectedTool="detect_players"
+        selectedTools={["detect_players"]}
         onToolChange={vi.fn()}
       />
     );
@@ -401,5 +426,47 @@ describe("ToolSelector", () => {
     expect(screen.getByText("Outputs:")).toBeInTheDocument();
     expect(screen.getByText("frame_base64")).toBeInTheDocument();
     expect(screen.getByText("detections")).toBeInTheDocument();
+  });
+
+  it("shows first tool indicator when multiple tools are selected", () => {
+    mockUseManifest.mockReturnValue({
+      manifest: mockManifestPhase12,
+      loading: false,
+      error: null,
+      clearCache: vi.fn(),
+    });
+
+    render(
+      <ToolSelector
+        pluginId="test-plugin"
+        selectedTools={["detect_players", "detect_ball"]}
+        onToolChange={vi.fn()}
+      />
+    );
+
+    // First tool should have a star indicator
+    expect(screen.getAllByText("Detect Players")).toHaveLength(2);
+    expect(screen.getByText("Detect Ball")).toBeInTheDocument();
+    expect(screen.getByText("★")).toBeInTheDocument();
+  });
+
+  it("shows count of additional selected tools", () => {
+    mockUseManifest.mockReturnValue({
+      manifest: mockManifestPhase12,
+      loading: false,
+      error: null,
+      clearCache: vi.fn(),
+    });
+
+    render(
+      <ToolSelector
+        pluginId="test-plugin"
+        selectedTools={["detect_players", "detect_ball"]}
+        onToolChange={vi.fn()}
+      />
+    );
+
+    // Info box should show "+1 more" when 2 tools are selected
+    expect(screen.getByText("+1 more")).toBeInTheDocument();
   });
 });

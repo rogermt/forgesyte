@@ -3,7 +3,7 @@
 import base64
 import os
 import sys
-from unittest.mock import AsyncMock, Mock
+from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 
@@ -36,26 +36,24 @@ class TestVisionAnalysisService:
     async def test_handle_frame_success(self, service, mock_registry, mock_ws_manager):
         """Test successful frame handling."""
         mock_plugin = Mock()
-        mock_plugin.run_tool.return_value = {"objects": []}
         mock_registry.get.return_value = mock_plugin
 
         frame_data = {
             "data": base64.b64encode(b"image").decode("utf-8"),
             "frame_id": "frame1",
             "options": {},
+            "tools": ["tool1"],
         }
 
         await service.handle_frame("client1", "plugin1", frame_data)
 
         mock_registry.get.assert_called_with("plugin1")
-        mock_plugin.run_tool.assert_called_once()
         mock_ws_manager.send_frame_result.assert_called_once()
 
         args = mock_ws_manager.send_frame_result.call_args[0]
         assert args[0] == "client1"
         assert args[1] == "frame1"
         assert args[2] == "plugin1"
-        assert args[3] == {"objects": []}
 
     @pytest.mark.asyncio
     async def test_handle_frame_plugin_not_found(
@@ -78,7 +76,6 @@ class TestVisionAnalysisService:
     ):
         """Test frame handling with 'image_data' field (Issue #21)."""
         mock_plugin = Mock()
-        mock_plugin.run_tool.return_value = {"objects": []}
         mock_registry.get.return_value = mock_plugin
 
         # Client sends 'image_data' field, not 'data'
@@ -86,12 +83,12 @@ class TestVisionAnalysisService:
             "image_data": base64.b64encode(b"image").decode("utf-8"),
             "frame_id": "frame1",
             "options": {},
+            "tools": ["tool1"],
         }
 
         await service.handle_frame("client1", "plugin1", frame_data)
 
         # Should succeed with image_data field
-        mock_plugin.run_tool.assert_called_once()
         mock_ws_manager.send_frame_result.assert_called_once()
 
     @pytest.mark.asyncio
@@ -111,12 +108,11 @@ class TestVisionAnalysisService:
         assert "Invalid frame data" in args[1]["message"]
 
     @pytest.mark.asyncio
-    async def test_handle_frame_analysis_exception(
+    async def test_handle_frame_missing_tools(
         self, service, mock_registry, mock_ws_manager
     ):
-        """Test handling plugin analysis exception."""
+        """Test handling frame data missing 'tools' field (Phase 13 requirement)."""
         mock_plugin = Mock()
-        mock_plugin.run_tool.side_effect = Exception("Analysis Error")
         mock_registry.get.return_value = mock_plugin
 
         frame_data = {
@@ -125,6 +121,34 @@ class TestVisionAnalysisService:
         }
 
         await service.handle_frame("client1", "plugin1", frame_data)
+
+        mock_ws_manager.send_personal.assert_called_once()
+        args = mock_ws_manager.send_personal.call_args[0]
+        assert args[0] == "client1"
+        assert args[1]["type"] == "error"
+        assert "tools" in args[1]["message"]
+
+    @pytest.mark.asyncio
+    async def test_handle_frame_analysis_exception(
+        self, service, mock_registry, mock_ws_manager
+    ):
+        """Test handling plugin analysis exception."""
+        mock_plugin = Mock()
+        mock_registry.get.return_value = mock_plugin
+
+        frame_data = {
+            "data": base64.b64encode(b"image").decode("utf-8"),
+            "frame_id": "frame1",
+            "tools": ["tool1"],
+        }
+
+        # Mock video_pipeline_service.run_pipeline to raise exception
+        with patch.object(
+            service.video_pipeline_service,
+            "run_pipeline",
+            side_effect=Exception("Analysis Error"),
+        ):
+            await service.handle_frame("client1", "plugin1", frame_data)
 
         mock_ws_manager.send_personal.assert_called_once()
         args = mock_ws_manager.send_personal.call_args[0]

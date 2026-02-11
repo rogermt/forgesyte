@@ -11,7 +11,7 @@
  * - [BP-6] Tool information display with inputs/outputs
  */
 
-import { useId, useMemo, useCallback } from "react";
+import { useMemo, useCallback } from "react";
 import { useManifest } from "../hooks/useManifest";
 import type { Tool } from "../types/plugin";
 
@@ -22,10 +22,10 @@ import type { Tool } from "../types/plugin";
 export interface ToolSelectorProps {
   /** Currently selected plugin ID */
   pluginId: string | null;
-  /** Currently selected tool name */
-  selectedTool: string;
+  /** Currently selected tool names (multi-select) */
+  selectedTools: string[];
   /** Callback when tool selection changes */
-  onToolChange: (toolName: string) => void;
+  onToolChange: (toolNames: string[]) => void;
   /** Whether the selector is disabled (e.g., during streaming) */
   disabled?: boolean;
   /** Optional: Show compact version without description */
@@ -55,14 +55,30 @@ const styles = {
     fontWeight: 500,
     color: "var(--text-secondary)",
   },
-  selectBase: {
-    width: "100%",
+  buttonList: {
+    display: "flex",
+    flexDirection: "column" as const,
+    gap: "6px",
+  },
+  toolButton: {
     padding: "10px 12px",
     borderRadius: "4px",
     fontSize: "13px",
     fontWeight: 500,
     transition: "all 0.2s",
     outline: "none" as const,
+    border: "1px solid var(--border-light)",
+    backgroundColor: "var(--bg-tertiary)",
+    color: "var(--text-primary)",
+    cursor: "pointer",
+    textAlign: "left" as const,
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  firstIndicator: {
+    fontSize: "11px",
+    marginLeft: "8px",
   },
   loading: {
     color: "var(--text-muted)",
@@ -142,14 +158,11 @@ const styles = {
 
 export function ToolSelector({
   pluginId,
-  selectedTool,
+  selectedTools = [],
   onToolChange,
   disabled = false,
   compact = false,
 }: ToolSelectorProps) {
-  // Generate unique ID for accessibility
-  const selectId = useId();
-
   // Load manifest for the selected plugin
   const { manifest, loading, error } = useManifest(pluginId);
 
@@ -172,39 +185,35 @@ export function ToolSelector({
   }, [manifest]);
 
   const selectedToolData = useMemo<Tool | null>(() => {
-    if (!manifest) return null;
+    if (!manifest || selectedTools.length === 0) return null;
+    // Show info for first selected tool
+    const firstToolId = selectedTools[0];
     // Handle both Phase-12 array format and legacy object format
     if (Array.isArray(manifest.tools)) {
       // Phase-12: find tool by id in array
-      return manifest.tools.find((tool) => tool.id === selectedTool) ?? null;
+      return manifest.tools.find((tool) => tool.id === firstToolId) ?? null;
     } else {
       // Legacy: access tool by key
-      return manifest.tools[selectedTool] ?? null;
+      return manifest.tools[firstToolId] ?? null;
     }
-  }, [manifest, selectedTool]);
-
-  const selectStyles = useMemo(
-    () => ({
-      ...styles.selectBase,
-      backgroundColor: disabled ? "var(--bg-hover)" : "var(--bg-tertiary)",
-      color: disabled ? "var(--text-muted)" : "var(--text-primary)",
-      border: `1px solid ${
-        disabled ? "var(--border-color)" : "var(--border-light)"
-      }`,
-      cursor: disabled ? "not-allowed" as const : ("pointer" as const),
-    }),
-    [disabled]
-  );
+  }, [manifest, selectedTools]);
 
   // -------------------------------------------------------------------------
-  // [BP-3] Stable event handler
+  // [BP-3] Stable event handler - toggle tool in array
   // -------------------------------------------------------------------------
-  const handleChange = useCallback(
-    (event: React.ChangeEvent<HTMLSelectElement>) => {
-      const newTool = event.target.value;
-      onToolChange(newTool);
+  const handleToggleTool = useCallback(
+    (toolId: string) => {
+      if (selectedTools.includes(toolId)) {
+        // Remove tool if already selected (but keep at least one)
+        if (selectedTools.length > 1) {
+          onToolChange(selectedTools.filter((t) => t !== toolId));
+        }
+      } else {
+        // Add tool
+        onToolChange([...selectedTools, toolId]);
+      }
     },
-    [onToolChange]
+    [selectedTools, onToolChange]
   );
 
   // -------------------------------------------------------------------------
@@ -263,37 +272,63 @@ export function ToolSelector({
   return (
     <div style={styles.container}>
       <div>
-        <label htmlFor={selectId} style={styles.label}>
-          Tool
+        <label style={styles.label}>
+          Tool{selectedTools.length > 1 ? "s" : ""}
         </label>
-        <select
-          id={selectId}
-          value={selectedTool}
-          onChange={handleChange}
-          disabled={disabled}
-          style={selectStyles}
-          aria-describedby={selectedToolData ? `${selectId}-desc` : undefined}
-        >
-          {toolList.map((tool) => (
-            <option key={tool.id} value={tool.id}>
-              {tool.title ?? tool.id}
-            </option>
-          ))}
-        </select>
+        <div style={styles.buttonList}>
+          {toolList.map((tool) => {
+            const isSelected = selectedTools.includes(tool.id);
+            const isFirstSelected = selectedTools[0] === tool.id;
+            return (
+              <button
+                key={tool.id}
+                onClick={() => handleToggleTool(tool.id)}
+                disabled={disabled}
+                style={{
+                  ...styles.toolButton,
+                  backgroundColor: isSelected
+                    ? "var(--accent-orange)"
+                    : "var(--bg-tertiary)",
+                  color: isSelected
+                    ? "white"
+                    : "var(--text-primary)",
+                  borderColor: isSelected
+                    ? "var(--accent-orange)"
+                    : "var(--border-light)",
+                  cursor: disabled
+                    ? "not-allowed"
+                    : "pointer",
+                  opacity: disabled ? 0.6 : 1,
+                }}
+                aria-pressed={isSelected}
+                title={tool.description ?? tool.title ?? tool.id}
+              >
+                {tool.title ?? tool.id}
+                {isSelected && selectedTools.length > 1 && isFirstSelected && (
+                  <span style={styles.firstIndicator}>★</span>
+                )}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {/* Tool Info Box */}
       {!compact && selectedToolData && (
         <div
           style={styles.infoBox}
-          id={`${selectId}-desc`}
           role="region"
-          aria-label={`${selectedTool} tool details`}
+          aria-label={`${selectedTools[0]} tool details`}
         >
           <div style={styles.infoHeader}>
             <span style={styles.infoName}>
-              {selectedToolData.title ?? selectedTool}
+              {selectedToolData.title ?? selectedTools[0]}
             </span>
+            {selectedTools.length > 1 && (
+              <span style={{ fontSize: "11px", color: "var(--text-muted)" }}>
+                +{selectedTools.length - 1} more
+              </span>
+            )}
           </div>
 
           {selectedToolData.description && (
@@ -362,7 +397,7 @@ export function ToolSelector({
             fontStyle: "italic",
           }}
         >
-          Stop streaming to change tool
+          Stop streaming to change tools
         </p>
       )}
     </div>
