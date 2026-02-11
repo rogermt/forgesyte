@@ -85,13 +85,13 @@ repos:
                 exit 1;
               fi
             fi
-            language: system
-            pass_filenames: false
+        language: system
+        pass_filenames: false
 
-            - id: check-illegal-filenames
-              name: Check for illegal filenames (control characters)
-              entry: .git-hooks/prevent-illegal-filenames
-              language: script
-              pass_filenames: false
-              stages: [pre-commit, commit-msg]
+      - id: check-illegal-filenames
+        name: Check for illegal filenames (control characters)
+        entry: .git-hooks/prevent-illegal-filenames
+        language: script
+        pass_filenames: false
+        stages: [pre-commit, commit-msg]
 
