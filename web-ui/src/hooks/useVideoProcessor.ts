@@ -14,7 +14,7 @@ export type { FrameResult };
 export function useVideoProcessor({
   videoRef,
   pluginId,
-  toolName,
+  tools,
   fps,
   device,
   enabled,
@@ -66,11 +66,11 @@ export function useVideoProcessor({
   const processFrame = async () => {
     if (requestInFlight.current) return;
 
-    // Guard against empty pluginId or toolName
-    if (!pluginId || !toolName) {
-      console.error("Frame processing aborted: pluginId or toolName missing", {
+    // Guard against empty pluginId or tools
+    if (!pluginId || !tools || tools.length === 0) {
+      console.error("Frame processing aborted: pluginId or tools missing", {
         pluginId,
-        toolName,
+        tools,
       });
       return;
     }
@@ -85,9 +85,12 @@ export function useVideoProcessor({
     setLastTickTime(Date.now());
 
     // Use unified runTool with logging and retry
+    // Phase 13: For now, execute ONLY the first tool
+    const firstTool = tools[0];
+
     const { result, success, error: runToolError } = await runTool({
       pluginId,
-      toolName,
+      toolName: firstTool,
       args: {
         frame_base64: frameBase64,
         device,
@@ -123,7 +126,7 @@ export function useVideoProcessor({
       {
         timestamp: Date.now(),
         pluginId,
-        toolName,
+        tools,
         durationMs,
         success,
         error: runToolError,
@@ -160,7 +163,7 @@ export function useVideoProcessor({
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [enabled, fps, device, pluginId, toolName]);
+  }, [enabled, fps, device, pluginId, tools]);
 
   return {
     latestResult,

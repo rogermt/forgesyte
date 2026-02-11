@@ -15,7 +15,7 @@ For EVERY commit:
 
 ---
 
-## Overall Status: IN PROGRESS (3/10 completed)
+## Overall Status: IN PROGRESS (5/10 completed)
 
 ## 5 Key Decisions (Canonical Answers)
 | Question | Answer |
@@ -35,8 +35,8 @@ For EVERY commit:
 | 1 | ✅ | VideoPipelineService Skeleton | Done |
 | 2 | ✅ | REST Pipeline Endpoint | Done |
 | 3 | ✅ | Artifact Cleanup | Done |
-| 4 | ❌ | Update useVideoProcessor Hook | NOT DONE - Frontend Only |
-| 5 | ❌ | Patch VideoTracker Component | NOT DONE |
+| 4 | ✅ | Update useVideoProcessor Hook | Done | - Frontend Only |
+| 5 | ✅ | Patch VideoTracker Component | Done | |
 | 6 | ❌ | UI Tool Selector (optional) | NOT DONE |
 | 7 | ❌ | Add Pipeline Logging to VideoPipelineService | NOT DONE |
 | 8 | ❌ | Add Regression Test Suite | NOT DONE |
@@ -46,26 +46,22 @@ For EVERY commit:
 ---
 
 ## Summary: Completed vs Not Completed
-
-### ✅ COMPLETED (3 commits)
+### ✅ COMPLETED (5 commits)
 | # | Commit | Status |
 |---|--------|--------|
 | 1 | VideoPipelineService Skeleton | ✅ Done |
 | 2 | REST Pipeline Endpoint | ✅ Done |
 | 3 | Artifact Cleanup | ✅ Done |
+| 4 | Update useVideoProcessor hook (toolName → tools[]) | ✅ Done |
+| 5 | Patch VideoTracker component | ✅ Done |
 
-### ❌ NOT COMPLETED (7 commits)
+### ❌ NOT COMPLETED (5 commits)
 | # | Commit | Status |
 |---|--------|--------|
-| 4 | Update useVideoProcessor hook (toolName → tools[]) | ❌ NOT DONE |
-| 5 | Patch VideoTracker component | ❌ NOT DONE |
 | 6 | UI Tool Selector (optional) | ❌ NOT DONE |
 | 7 | Add pipeline logging to VideoPipelineService | ❌ NOT DONE |
 | 8 | Add regression test suite | ❌ NOT DONE |
 | 9 | Add plugin validation tools | ❌ NOT DONE |
-| 10 | Remove fallback logic from VisionAnalysisService | ❌ NOT DONE |
-
----
 
 ## 🔴 CRITICAL MISSING ITEMS
 These must be completed to finish Phase 13:
@@ -250,9 +246,9 @@ These must be completed to finish Phase 13:
 
 ## Notes
 
-- **Commits 1-3 COMPLETED** - VideoPipelineService, REST endpoint, artifact cleanup done
-- **Commit 4 IN PROGRESS** - Frontend-only changes to useVideoProcessor hook
-- **Commits 5-10 NOT DONE** - Web-UI and VisionAnalysisService updates pending
+- **Commits 1-5 COMPLETED** - VideoPipelineService, REST endpoint, artifact cleanup, useVideoProcessor hook done
+- **Commit 4 COMPLETED** - Frontend-only changes to useVideoProcessor hook
+- **Commits 5-10 NOT DONE** - VisionAnalysisService and remaining Web-UI updates pending
 - Each commit must pass pre-commit checklist before proceeding
 - Tests must be written BEFORE implementation (TDD)
 - Progress tracker updated after each commit
@@ -261,6 +257,11 @@ These must be completed to finish Phase 13:
 
 ## Current Working Files (Evidence of Completion)
 
+### Web UI Files (Evidence of Commits 4-5)
+| File | Status |
+|------|--------|
+| `web-ui/src/hooks/useVideoProcessor.ts` | ✅ Updated: toolName → tools[] |
+| `web-ui/src/hooks/useVideoProcessor.types.ts` | ✅ Updated: tools[] type |
 ### Server Files (Evidence of Commits 1-3)
 | File | Status |
 |------|--------|
@@ -271,15 +272,19 @@ These must be completed to finish Phase 13:
 | `server/tests/test_pipeline_rest.py` | ✅ Created |
 | `server/tests/helpers.py` | ✅ Updated |
 
-### Files Pending Update (Commit 4+)
+### Files Pending Update (Commit 6+)
 | File | Status |
 |------|--------|
-| `web-ui/src/hooks/useVideoProcessor.types.ts` | ❌ Update: toolName → tools[] |
-| `web-ui/src/hooks/useVideoProcessor.ts` | ❌ Update: toolName → tools |
-| `web-ui/src/hooks/useVideoProcessor.test.ts` | ❌ Create new file |
+| `server/app/services/vision_analysis.py` | ❌ Patch to inject VideoPipelineService + tools[] |
+| `web-ui/src/components/PipelineToolSelector.tsx` | ❌ Create in Commit 6 (optional) |
+| `server/tests/test_pipeline_rest.py` | ✅ Created |
+| `server/tests/helpers.py` | ✅ Updated |
+
+### Files Pending Update (Commit 5+)
+| File | Status |
+|------|--------|
 | `web-ui/src/components/VideoTracker.tsx` | ❌ Update in Commit 5 |
 | `web-ui/src/App.tsx` | ❌ Update in Commit 6 |
-
 ---
 
 ## Last Updated

@@ -465,7 +465,7 @@ function App() {
           {viewMode === "upload" && manifest && selectedTool && (
             <>
               {detectToolType(manifest, selectedTool) === "frame" ? (
-                <VideoTracker pluginId={selectedPlugin} toolName={selectedTool} />
+                <VideoTracker pluginId={selectedPlugin} tools={[selectedTool]} />
               ) : (
                 <div style={styles.panel}>
                   <p>Upload image for analysis</p>
