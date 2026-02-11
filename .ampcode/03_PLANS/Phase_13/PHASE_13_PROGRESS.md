@@ -15,7 +15,7 @@ For EVERY commit:
 
 ---
 
-## Overall Status: NOT STARTED
+## Overall Status: IN PROGRESS (3/10 completed)
 
 ## 5 Key Decisions (Canonical Answers)
 | Question | Answer |
@@ -30,357 +30,181 @@ For EVERY commit:
 
 ## 10-Commit Implementation Order (TDD)
 
-| # | Status | Commit | TDD Status |
-|---|--------|--------|------------|
-| 1 | ⬜ | VideoPipelineService Skeleton | Test written → Implement |
-| 2 | ⬜ | Patch VisionAnalysisService (WS) | Test written → Implement |
-| 3 | ⬜ | REST Pipeline Endpoint | Test written → Implement |
-| 4 | ⬜ | Update useVideoProcessor Hook | Test written → Implement |
-| 5 | ⬜ | Patch VideoTracker Component | Test written → Implement |
-| 6 | ⬜ | UI Tool Selector | Test written → Implement |
-| 7 | ⬜ | Add Pipeline Logging | Test written → Implement |
-| 8 | ⬜ | Add Regression Test Suite | Test written → Implement |
-| 9 | ⬜ | Add Plugin Validation Tools | Test written → Implement |
-| 10 | ⬜ | Remove Fallback Logic | Test written → Implement |
+| # | Status | Commit | Notes |
+|---|--------|--------|-------|
+| 1 | ✅ | VideoPipelineService Skeleton | Done |
+| 2 | ✅ | REST Pipeline Endpoint | Done |
+| 3 | ✅ | Artifact Cleanup | Done |
+| 4 | ❌ | Update useVideoProcessor Hook | NOT DONE - Frontend Only |
+| 5 | ❌ | Patch VideoTracker Component | NOT DONE |
+| 6 | ❌ | UI Tool Selector (optional) | NOT DONE |
+| 7 | ❌ | Add Pipeline Logging to VideoPipelineService | NOT DONE |
+| 8 | ❌ | Add Regression Test Suite | NOT DONE |
+| 9 | ❌ | Add Plugin Validation Tools | NOT DONE |
+| 10 | ❌ | Remove Fallback Logic from VisionAnalysisService | NOT DONE |
 
 ---
 
-## Current State
+## Summary: Completed vs Not Completed
 
-### ✅ Files That Exist
-| File | Status |
-|------|--------|
-| `server/app/services/vision_analysis.py` | Class: `VisionAnalysisService(plugins, ws_manager)` |
-| `server/app/plugin_loader.py` | Class: `PluginRegistry` with `get()`, `list()` |
-| `web-ui/src/hooks/useVideoProcessor.ts` | Params: `videoRef, pluginId, toolName, fps, device, enabled` |
-| `web-ui/src/App.tsx` | Uses: `<VideoTracker pluginId={selectedPlugin} toolName={selectedTool} />` |
-| `server/tests/helpers.py` | EXISTS - Check contents |
+### ✅ COMPLETED (3 commits)
+| # | Commit | Status |
+|---|--------|--------|
+| 1 | VideoPipelineService Skeleton | ✅ Done |
+| 2 | REST Pipeline Endpoint | ✅ Done |
+| 3 | Artifact Cleanup | ✅ Done |
 
-### ❌ Files to Create (Commit 1)
-| File | Purpose |
-|------|---------|
-| `server/app/services/video_pipeline_service.py` | Pipeline executor service |
-| `server/app/schemas/pipeline.py` | PipelineRequest model |
-| `server/app/routes_pipeline.py` | REST endpoint `POST /video/pipeline` |
-| `server/tests/test_video_pipeline_service.py` | Service unit tests |
+### ❌ NOT COMPLETED (7 commits)
+| # | Commit | Status |
+|---|--------|--------|
+| 4 | Update useVideoProcessor hook (toolName → tools[]) | ❌ NOT DONE |
+| 5 | Patch VideoTracker component | ❌ NOT DONE |
+| 6 | UI Tool Selector (optional) | ❌ NOT DONE |
+| 7 | Add pipeline logging to VideoPipelineService | ❌ NOT DONE |
+| 8 | Add regression test suite | ❌ NOT DONE |
+| 9 | Add plugin validation tools | ❌ NOT DONE |
+| 10 | Remove fallback logic from VisionAnalysisService | ❌ NOT DONE |
+
+---
+
+## 🔴 CRITICAL MISSING ITEMS
+These must be completed to finish Phase 13:
+
+1. **VisionAnalysisService NOT patched** - Must inject VideoPipelineService and switch from single tool → tools[]
+2. **No WS integration** - VisionAnalysisService still uses old single-tool path
+3. **Web-UI not updated** - useVideoProcessor, VideoTracker, App.tsx still use old toolName/selectedTool
 
 ---
 
 ## Progress by Commit (TDD)
 
 ### COMMIT 1: VideoPipelineService Skeleton
-**Status:** NOT STARTED
+**Status:** ✅ DONE
 
-**TDD Steps:**
-1. [ ] Write test: `server/tests/test_video_pipeline_service.py`
-2. [ ] Run test → FAIL (class doesn't exist)
-3. [ ] Create: `server/app/services/video_pipeline_service.py` with stubs
-4. [ ] Run test → PASS
-5. [ ] Pre-commit checks:
-   - [ ] Server tests pass
-   - [ ] Black lint pass
-   - [ ] Ruff lint pass
-   - [ ] MyPy pass
-6. [ ] Commit: `"feat(phase13): add VideoPipelineService skeleton"`
+**Completed:**
+- Test: `server/tests/test_video_pipeline_service.py` ✅
+- Implementation: `server/app/services/video_pipeline_service.py` ✅
+- Helpers: `server/tests/helpers.py` (FakeRegistry, FakePlugin) ✅
+- Pre-commit checks passed ✅
 
-**Test Content:**
-```python
-# server/tests/test_video_pipeline_service.py
-import pytest
-from app.services.video_pipeline_service import VideoPipelineService
+### COMMIT 2: REST Pipeline Endpoint
+**Status:** ✅ DONE
 
-def test_import():
-    """Test service can be imported."""
-    assert VideoPipelineService is not None
+**Completed:**
+- Schema: `server/app/schemas/pipeline.py` (PipelineRequest) ✅
+- Route: `server/app/routes_pipeline.py` (`POST /video/pipeline`) ✅
+- Test: `server/tests/test_pipeline_rest.py` ✅
+- Pre-commit checks passed ✅
 
-def test_instantiation():
-    """Test service can be instantiated."""
-    from tests.helpers import FakeRegistry
-    registry = FakeRegistry(plugin=None)
-    service = VideoPipelineService(plugins=registry)
-    assert service is not None
+### COMMIT 3: Artifact Cleanup
+**Status:** ✅ DONE
 
-def test_run_pipeline_method_exists():
-    """Test run_pipeline method exists."""
-    from tests.helpers import FakeRegistry
-    registry = FakeRegistry(plugin=None)
-    service = VideoPipelineService(plugins=registry)
-    assert hasattr(service, 'run_pipeline')
-    assert callable(service.run_pipeline)
-
-def test_validate_method_exists():
-    """Test _validate method exists."""
-    from tests.helpers import FakeRegistry
-    registry = FakeRegistry(plugin=None)
-    service = VideoPipelineService(plugins=registry)
-    assert hasattr(service, '_validate')
-    assert callable(service._validate)
-```
-
-**Implementation:**
-```python
-# server/app/services/video_pipeline_service.py
-import logging
-from typing import Any, Dict, List
-
-from ..protocols import PluginRegistry
-
-logger = logging.getLogger(__name__)
-
-
-class VideoPipelineService:
-    """Executes linear multi-tool pipelines for VideoTracker."""
-
-    def __init__(self, plugins: PluginRegistry) -> None:
-        self.plugins = plugins
-
-    def run_pipeline(
-        self,
-        plugin_id: str,
-        tools: List[str],
-        payload: Dict[str, Any]
-    ) -> Dict[str, Any]:
-        """Execute tools sequentially, chaining outputs."""
-        pass
-
-    def _validate(self, plugin_id: str, tools: List[str]) -> None:
-        """Validate plugin_id and tools[] exist."""
-        pass
-```
+**Completed:**
+- Removed `<parameter*` files from git tracking ✅
 
 ---
 
-### COMMIT 2: Patch VisionAnalysisService (WebSocket)
-**Status:** NOT STARTED
+### COMMIT 4: Update useVideoProcessor Hook (Frontend Only)
+**Status:** ❌ NOT STARTED
 
-**TDD Steps:**
-1. [ ] Write test: `server/tests/test_vision_analysis_pipeline.py`
-2. [ ] Run test → FAIL
-3. [ ] Modify: `server/app/services/vision_analysis.py`
-4. [ ] Run test → PASS
-5. [ ] Pre-commit checks
-6. [ ] Commit
+**Source of Truth:** `.ampcode/04_PHASE_NOTES/Phase_13/PHASE_13_COMMIT_4.md`
 
-**Test Content:**
-```python
-# server/tests/test_vision_analysis_pipeline.py
-import pytest
-from unittest.mock import MagicMock
-from app.services.vision_analysis import VisionAnalysisService
-from tests.helpers import FakeRegistry, FakePlugin
+**FILES TO MODIFY (3 total):**
 
-def test_ws_frame_with_tools_executes_pipeline():
-    """Test WS frame with tools[] executes pipeline."""
-    fake_plugin = FakePlugin()
-    registry = FakeRegistry(plugin=fake_plugin)
-    ws_manager = MagicMock()
-    
-    service = VisionAnalysisService(plugins=registry, ws_manager=ws_manager)
-    
-    frame_data = {
-        "image_data": "base64encodeddata",
-        "tools": ["detect_players", "track_players"],
-        "frame_id": "test-frame-1"
-    }
-    
-    import asyncio
-    asyncio.run(service.handle_frame("client-1", "test-plugin", frame_data))
-    
----
+1. **`web-ui/src/hooks/useVideoProcessor.types.ts`**
+   - Change `toolName: string` → `tools: string[]` in `UseVideoProcessorArgs`
+   - Change `toolName: string` → `tools: string[]` in `ProcessFrameLogEntry`
 
-### COMMIT 4: Update useVideoProcessor Hook
-**Status:** NOT STARTED
+2. **`web-ui/src/hooks/useVideoProcessor.ts`**
+   - Function signature: `toolName` → `tools`
+   - Guard clause: `!toolName` → `!tools || tools.length === 0`
+   - runTool call: Extract `firstTool = tools[0]` and pass to runTool
+   - Log entry: `toolName` → `tools`
+   - useEffect dependency: `toolName` → `tools`
 
-**Tasks:**
-- [ ] Create test: `web-ui/scripts/test_websocket_hook.py`
-- [ ] Modify `web-ui/src/hooks/useVideoProcessor.ts`:
-  - [ ] **REPLACE** param:
-    ```typescript
-    // OLD:
-    toolName: string,
-    
-    // NEW:
-    tools: string[],
-    ```
-  - [ ] **UPDATE** guard:
-    ```typescript
-    if (!pluginId || !tools || tools.length === 0) {
-      console.error("Frame processing aborted: pluginId or tools missing", {...});
-      return;
-    }
-    ```
-  - [ ] **UPDATE** WS frame in `runTool()` call:
-    ```typescript
-    // Send tools[] instead of toolName
-    ```
-- [ ] Tests verify: hook sends `tools[]` in WS frames
-- [ ] Run pre-commit checks (eslint, etc.)
-- [ ] Commit
+3. **`web-ui/src/hooks/useVideoProcessor.test.ts`** (NEW FILE)
+   - 7 test cases as specified in PHASE_13_COMMIT_4.md
+
+**FILES NOT MODIFIED IN COMMIT 4:**
+- VideoTracker.tsx → Commit 5
+- App.tsx → Commit 6
+- Backend files → Not this commit
 
 ---
 
 ### COMMIT 5: Patch VideoTracker Component
-**Status:** NOT STARTED
+**Status:** ❌ NOT STARTED
 
-**Tasks:**
-- [ ] Create test: `web-ui/scripts/test_components.py` (add VideoTracker tests)
-- [ ] Modify `web-ui/src/components/VideoTracker.tsx`:
-  - [ ] **REPLACE** interface:
-    ```typescript
-    // OLD:
-    export interface VideoTrackerProps {
-      pluginId: string;
-      toolName: string;
-    }
-    
-    // NEW:
-    export interface VideoTrackerProps {
-      pluginId: string;
-      tools: string[];
-    }
-    ```
-  - [ ] **REPLACE** props destructuring:
-    ```typescript
-    // OLD:
-    export function VideoTracker({ pluginId, toolName }: VideoTrackerProps) {...}
-    
-    // NEW:
-    export function VideoTracker({ pluginId, tools }: VideoTrackerProps) {...}
-    ```
-  - [ ] **UPDATE** header display:
-    ```typescript
-    // OLD:
-    Plugin: <strong>{pluginId}</strong> | Tool: <strong>{toolName}</strong>
-    
-    // NEW:
-    Plugin: <strong>{pluginId}</strong> | Tools: <strong>{tools.join(", ")}</strong>
-    ```
-  - [ ] **UPDATE** `useVideoProcessor` call:
-    ```typescript
-    // Pass tools[] instead of toolName
-    ```
-- [ ] Tests verify: props accepted, header displays tools
-- [ ] Run pre-commit checks
-- [ ] Commit
+**TDD Steps:**
+1. [ ] Write test: `web-ui/scripts/test_components.py`
+2. [ ] Run test → FAIL
+3. [ ] Modify: `web-ui/src/components/VideoTracker.tsx`
+   - Update props interface: `toolName` → `tools[]`
+   - Update header display
+4. [ ] Run test → PASS
+5. [ ] Pre-commit checks
+6. [ ] Commit
 
 ---
 
 ### COMMIT 6: (Optional) UI Tool Selector
-**Status:** NOT STARTED (Optional)
+**Status:** ❌ NOT STARTED (Optional)
 
-**Tasks:**
-- [ ] Create `web-ui/src/components/PipelineToolSelector.tsx`
-- [ ] Modify `web-ui/src/App.tsx`:
-  - [ ] **REPLACE** state:
-    ```typescript
-    // OLD:
-    const [selectedTool, setSelectedTool] = useState<string>("");
-    
-    // NEW:
-    const [selectedTools, setSelectedTools] = useState<string[]>([]);
-    ```
-  - [ ] **UPDATE** VideoTracker usage:
-    ```typescript
-    // OLD:
-    <VideoTracker pluginId={selectedPlugin} toolName={selectedTool} />
-    
-    // NEW:
-    <VideoTracker pluginId={selectedPlugin} tools={selectedTools} />
-    ```
-- [ ] Tests verify: selector works, state updates
-- [ ] Run pre-commit checks
-- [ ] Commit
+**TDD Steps:**
+1. [ ] Create `web-ui/src/components/PipelineToolSelector.tsx`
+2. [ ] Modify `web-ui/src/App.tsx`
+   - Replace `selectedTool` → `selectedTools[]`
+3. [ ] Tests verify selector works
+4. [ ] Pre-commit checks
+5. [ ] Commit
 
 ---
 
 ### COMMIT 7: Add Pipeline Logging
-**Status:** NOT STARTED
+**Status:** ❌ NOT STARTED
 
-**Tasks:**
-- [ ] Modify `VideoPipelineService.run_pipeline()`:
-  ```python
-  result = payload
-  for idx, tool_name in enumerate(tools):
-      logger.info(
-          "Running pipeline step",
-          extra={
-              "step": idx,
-              "tool": tool_name,
-              "plugin_id": plugin_id,
-              "args_keys": list(payload.keys()),
-          }
-      )
-      result = plugin.run_tool(tool_name, result)
-  return result
-  ```
-- [ ] Tests verify: logs contain correct information
-- [ ] Run pre-commit checks
-- [ ] Commit
+**TDD Steps:**
+1. [ ] Write test for logging
+2. [ ] Modify: `VideoPipelineService.run_pipeline()` to add structured logging
+3. [ ] Run test → PASS
+4. [ ] Pre-commit checks
+5. [ ] Commit
 
 ---
 
 ### COMMIT 8: Add Regression Test Suite
-**Status:** NOT STARTED
+**Status:** ❌ NOT STARTED
 
-**Tasks:**
-- [ ] Create `server/tests/test_pipeline_regression.py`:
-  - [ ] Test: tools execute in order
-  - [ ] Test: output of last tool is returned
-  - [ ] Test: validation edge cases:
-    - Missing plugin_id → ValueError
-    - Missing tools[] → ValueError
-    - Empty tools[] → ValueError
-    - Plugin not found → ValueError
-    - Tool not found → ValueError
-  - [ ] Test: WS + REST integration
-- [ ] Tests pass
-- [ ] Run pre-commit checks
-- [ ] Commit
+**TDD Steps:**
+1. [ ] Create `server/tests/test_pipeline_regression.py`
+2. [ ] Test tools execute in order, output chaining, validation edge cases
+3. [ ] Run tests → PASS
+4. [ ] Pre-commit checks
+5. [ ] Commit
 
 ---
 
 ### COMMIT 9: Add Plugin Validation Tools
-**Status:** NOT STARTED
+**Status:** ❌ NOT STARTED
 
-**Tasks:**
-- [ ] Create `server/scripts/validate_plugin_manifest.py`:
-  ```python
-  """
-  Phase-13 Plugin Manifest Validator
-  
-  Usage:
-      python validate_plugin_manifest.py path.to.plugin:ClassName
-  """
-  import importlib
-  import inspect
-  from typing import Any, Dict
-  
-  def validate_plugin(plugin) -> Dict[str, Any]:
-      # Validate: manifest ↔ class alignment
-      # Validate: tools exist and are callable
-      # Validate: tools accept **payload and return dict
-      ...
-  ```
-- [ ] Tests verify: validator catches common issues
-- [ ] Run pre-commit checks
-- [ ] Commit
+**TDD Steps:**
+1. [ ] Create `server/scripts/validate_plugin_manifest.py`
+2. [ ] Tests verify validator catches common issues
+3. [ ] Pre-commit checks
+4. [ ] Commit
 
 ---
 
-### COMMIT 10: Remove Fallback Logic (Final Cleanup)
-**Status:** NOT STARTED
+### COMMIT 10: Remove Fallback Logic
+**Status:** ❌ NOT STARTED
 
-**Tasks:**
-- [ ] Create test: verify no fallback exists
-- [ ] Modify `vision_analysis.py`:
-  - [ ] Remove: `FALLBACK_TOOL = "default"` constant
-  - [ ] Remove: all fallback code paths
-  - [ ] Remove: warnings about missing `tool`
-- [ ] Modify `tasks.py` (if exists):
-  - [ ] Remove: "first tool" fallback
-- [ ] Tests verify: fallback logic completely removed
-- [ ] Run pre-commit checks
-- [ ] Commit with message: `"feat(phase13): remove fallback logic, enforce explicit tools"`
+**TDD Steps:**
+1. [ ] Write test verifying no fallback exists
+2. [ ] Modify: `vision_analysis.py` - remove fallback code
+3. [ ] Modify: `tasks.py` - remove fallback code
+4. [ ] Run test → PASS
+5. [ ] Pre-commit checks
+6. [ ] Commit
 
 ---
 
@@ -390,11 +214,11 @@ def test_ws_frame_with_tools_executes_pipeline():
 |----------|---------|
 | `PHASE_13_PLANS.md` | Authoritative plan with all specifications |
 | `PHASE_13_CHECKLIST.md` | Apply-in-this-order checklist |
+| `PHASE_13_COMMIT_4.md` | Detailed Commit 4 analysis - Frontend |
 | `PHASE_13_NOTES_01.md` | Developer specifications |
 | `PHASE_13_NOTES_02.md` | Integration specs |
 | `PHASE_13_NOTES_03.md` | Plugin developer pack, troubleshooting |
-| `PHASE_13_NOTES_04.md` | **Canonical answers to 5 key questions** |
-| `PHASE_13_PLUGIN_TEMPLATE.md` | Example plugin code |
+| `PHASE_13_NOTES_05.md` | Canonical answers to 5 key questions |
 | `TDD_PLAN.md` | TDD methodology |
 
 ---
@@ -426,13 +250,40 @@ def test_ws_frame_with_tools_executes_pipeline():
 
 ## Notes
 
-- **Commit 1 is NOT done** - `video_pipeline_service.py` does not exist
+- **Commits 1-3 COMPLETED** - VideoPipelineService, REST endpoint, artifact cleanup done
+- **Commit 4 IN PROGRESS** - Frontend-only changes to useVideoProcessor hook
+- **Commits 5-10 NOT DONE** - Web-UI and VisionAnalysisService updates pending
 - Each commit must pass pre-commit checklist before proceeding
 - Tests must be written BEFORE implementation (TDD)
 - Progress tracker updated after each commit
 
 ---
 
+## Current Working Files (Evidence of Completion)
+
+### Server Files (Evidence of Commits 1-3)
+| File | Status |
+|------|--------|
+| `server/app/services/video_pipeline_service.py` | ✅ Created |
+| `server/app/schemas/pipeline.py` | ✅ Created |
+| `server/app/routes_pipeline.py` | ✅ Created |
+| `server/tests/test_video_pipeline_service.py` | ✅ Created |
+| `server/tests/test_pipeline_rest.py` | ✅ Created |
+| `server/tests/helpers.py` | ✅ Updated |
+
+### Files Pending Update (Commit 4+)
+| File | Status |
+|------|--------|
+| `web-ui/src/hooks/useVideoProcessor.types.ts` | ❌ Update: toolName → tools[] |
+| `web-ui/src/hooks/useVideoProcessor.ts` | ❌ Update: toolName → tools |
+| `web-ui/src/hooks/useVideoProcessor.test.ts` | ❌ Create new file |
+| `web-ui/src/components/VideoTracker.tsx` | ❌ Update in Commit 5 |
+| `web-ui/src/App.tsx` | ❌ Update in Commit 6 |
+
+---
+
 ## Last Updated
+Last Updated: [Current Session] - Progress updated with Commit 4 details from PHASE_13_COMMIT_4.md
 PHASE_13_PROGRESS.md and PHASE_13_PLANS.md are now the single source of truth.
 Reference documents in `.ampcode/04_PHASE_NOTES/Phase_13/` are supporting documents.
+
