@@ -1,7 +1,8 @@
 """Pipeline schemas for Phase 13 - Multi-Tool Linear Pipelines."""
 
-from pydantic import BaseModel
 from typing import Any, Dict, List
+
+from pydantic import BaseModel
 
 
 class PipelineRequest(BaseModel):
@@ -10,4 +11,3 @@ class PipelineRequest(BaseModel):
     plugin_id: str
     tools: List[str]
     payload: Dict[str, Any]
-

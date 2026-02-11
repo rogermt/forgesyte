@@ -3,12 +3,13 @@
 This module provides REST endpoints for video pipeline execution.
 """
 
-from fastapi import APIRouter, Depends, Request
 from typing import Any, Dict
 
-from ..protocols import PluginRegistry
-from ..services.video_pipeline_service import VideoPipelineService
-from ..schemas.pipeline import PipelineRequest
+from fastapi import APIRouter, Depends, Request
+
+from .protocols import PluginRegistry
+from .schemas.pipeline import PipelineRequest
+from .services.video_pipeline_service import VideoPipelineService
 
 
 def get_plugin_registry(request: Request) -> PluginRegistry:
@@ -16,7 +17,9 @@ def get_plugin_registry(request: Request) -> PluginRegistry:
     return request.state.plugins
 
 
-def get_pipeline_service(plugins: PluginRegistry = Depends(get_plugin_registry)) -> VideoPipelineService:
+def get_pipeline_service(
+    plugins: PluginRegistry = Depends(get_plugin_registry),
+) -> VideoPipelineService:
     """Dependency to get the VideoPipelineService."""
     return VideoPipelineService(plugins)
 
@@ -39,4 +42,3 @@ def init_pipeline_routes() -> APIRouter:
         return {"result": result}
 
     return router
-

@@ -38,7 +38,6 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from .api import router as api_router
 from .api_plugins import router as plugins_router
 from .api_routes.routes.execution import router as execution_router
-from .routes_pipeline import init_pipeline_routes
 
 # Services
 from .auth import init_auth_service
@@ -46,6 +45,7 @@ from .mcp import router as mcp_router
 from .plugin_loader import PluginRegistry
 from .plugins.health.health_router import router as health_router
 from .realtime import websocket_router as realtime_router
+from .routes_pipeline import init_pipeline_routes
 from .services import (
     AnalysisService,
     ImageAcquisitionService,

@@ -1,0 +1,50 @@
+Tests that WS frames with tools[] execute through VideoPipelineService.
+"""
+
+import pytest
+from unittest.mock import MagicMock
+from app.services.vision_analysis import VisionAnalysisService
+from tests.helpers import FakeRegistry, FakePlugin
+
+
+def test_ws_frame_with_tools_executes_pipeline():
+    """Test WS frame with tools[] executes pipeline."""
+    fake_plugin = FakePlugin()
+    registry = FakeRegistry(plugin=fake_plugin)
+    ws_manager = MagicMock()
+    
+    service = VisionAnalysisService(plugins=registry, ws_manager=ws_manager)
+    
+    frame_data = {
+        "image_data": "base64encodeddata",
+        "tools": ["detect_players", "track_players"],
+        "frame_id": "test-frame-1"
+    }
+    
+    import asyncio
+    asyncio.run(service.handle_frame("client-1", "test-plugin", frame_data))
+    
+    ws_manager.send_frame_result.assert_called_once()
+
+
+def test_ws_frame_missing_tools_returns_error():
+    """Test WS frame missing tools returns error frame."""
+    registry = FakeRegistry(plugin=None)
+    ws_manager = MagicMock()
+    
+    service = VisionAnalysisService(plugins=registry, ws_manager=ws_manager)
+    
+    frame_data = {
+        "image_data": "base64encodeddata",
+        "frame_id": "test-frame-1"
+    }
+    
+    import asyncio
+    asyncio.run(service.handle_frame("client-1", "test-plugin", frame_data))
+    
+    ws_manager.send_personal.assert_called_once()
+    error_call = ws_manager.send_personal.call_args[0][1]
+    assert error_call["type"] == "error"
+    assert "tools" in error_call["message"]
+</parameter>
+<parameter name="path">/home/rogermt/forgesyte/server/tests/test_vision_analysis_pipeline.py</parameter>

@@ -35,7 +35,8 @@ class VideoPipelineService:
         Returns:
             Result from the last tool execution
         """
-        pass
+        self._validate(plugin_id, tools)
+        return payload
 
     def _validate(self, plugin_id: str, tools: List[str]) -> None:
         """Validate plugin_id and tools[] exist.

@@ -38,4 +38,3 @@ def test_validate_method_exists():
     service = VideoPipelineService(plugins=registry)
     assert hasattr(service, "_validate")
     assert callable(service._validate)
-
