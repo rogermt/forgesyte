@@ -1,0 +1,87 @@
+"""Tests for REST Pipeline Endpoint.
+
+Phase 13 - Multi-Tool Linear Pipelines
+"""
+
+import pytest
+from fastapi.testclient import TestClient
+
+
+def test_post_video_pipeline():
+    """Test POST /video/pipeline returns 200 with result."""
+    from app.main import app
+    from tests.helpers import FakeRegistry, FakePlugin
+
+    fake_plugin = FakePlugin()
+    registry = FakeRegistry(plugin=fake_plugin)
+
+    # Override registry
+    from app.main import plugin_registry
+
+    original_get = plugin_registry.get
+    plugin_registry.get = lambda name: fake_plugin
+
+    client = TestClient(app)
+    response = client.post(
+        "/video/pipeline",
+        json={
+            "plugin_id": "test-plugin",
+            "tools": ["detect_players"],
+            "payload": {"test": "data"},
+        },
+    )
+
+    assert response.status_code == 200
+    assert "result" in response.json()
+
+    plugin_registry.get = original_get
+
+
+def test_pipeline_missing_plugin_id_returns_422():
+    """Test validation error when plugin_id is missing."""
+    from app.main import app
+
+    client = TestClient(app)
+    response = client.post(
+        "/video/pipeline",
+        json={
+            "tools": ["detect_players"],
+            "payload": {"test": "data"},
+        },
+    )
+
+    assert response.status_code == 422
+
+
+def test_pipeline_missing_tools_returns_422():
+    """Test validation error when tools is missing."""
+    from app.main import app
+
+    client = TestClient(app)
+    response = client.post(
+        "/video/pipeline",
+        json={
+            "plugin_id": "test-plugin",
+            "payload": {"test": "data"},
+        },
+    )
+
+    assert response.status_code == 422
+
+
+def test_pipeline_empty_tools_returns_422():
+    """Test validation error when tools is empty list."""
+    from app.main import app
+
+    client = TestClient(app)
+    response = client.post(
+        "/video/pipeline",
+        json={
+            "plugin_id": "test-plugin",
+            "tools": [],
+            "payload": {"test": "data"},
+        },
+    )
+
+    assert response.status_code == 422
+

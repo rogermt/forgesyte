@@ -38,6 +38,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from .api import router as api_router
 from .api_plugins import router as plugins_router
 from .api_routes.routes.execution import router as execution_router
+from .routes_pipeline import init_pipeline_routes
 
 # Services
 from .auth import init_auth_service
@@ -260,6 +261,7 @@ def create_app() -> FastAPI:
     app.include_router(realtime_router, prefix=settings.api_prefix)
     app.include_router(health_router)
     app.include_router(execution_router)
+    app.include_router(init_pipeline_routes())
 
     return app
 
