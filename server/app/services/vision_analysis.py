@@ -20,6 +20,7 @@ import uuid
 from typing import Any, Dict
 
 from ..protocols import PluginRegistry, WebSocketProvider
+from .video_pipeline_service import VideoPipelineService
 
 logger = logging.getLogger(__name__)
 
@@ -49,6 +50,10 @@ class VisionAnalysisService:
         """
         self.plugins = plugins
         self.ws_manager = ws_manager
+
+        # Phase‑13: Inject pipeline executor
+        self.video_pipeline_service = VideoPipelineService(plugins)
+
         logger.debug("VisionAnalysisService initialized")
 
     async def handle_frame(
@@ -107,17 +112,27 @@ class VisionAnalysisService:
 
             # Time the analysis execution
             start_time = time.time()
-            tool_name = data.get("tool")
-            if not tool_name:
-                logger.warning(
-                    "WebSocket frame missing 'tool' field, defaulting to '%s'",
-                    FALLBACK_TOOL,
-                )
-                tool_name = FALLBACK_TOOL
-            result = active_plugin.run_tool(
-                tool_name,
-                {"image_bytes": image_bytes, "options": data.get("options", {})},
+
+            # -----------------------------------------
+            # PHASE‑13 MULTI‑TOOL PIPELINE EXECUTION
+            # -----------------------------------------
+            tools = data.get("tools")
+            if not tools:
+                raise ValueError("WebSocket frame missing 'tools' field")
+
+            payload = {
+                "image_bytes": image_bytes,
+                "options": data.get("options", {}),
+                "frame_id": frame_id,
+            }
+
+            # Execute pipeline via VideoPipelineService
+            result = self.video_pipeline_service.run_pipeline(
+                plugin_id=plugin_name,
+                tools=tools,
+                payload=payload,
             )
+
             processing_time = (time.time() - start_time) * 1000
 
             # Send results back to client
