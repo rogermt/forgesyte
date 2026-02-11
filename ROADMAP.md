@@ -107,11 +107,55 @@ This is a rewritten, modern view of your roadmap, aligned with the **current ser
 ### Milestone 7 — VideoTracker Full Implementation
 
 - **Backend**
-  - Video ingestion, frame extraction, YOLO tracking, and aggregated job results
+   - Video ingestion, frame extraction, YOLO tracking, and aggregated job results
 - **Job model**
-  - Progress, cancellation, and timeouts tuned for video workloads
+   - Progress, cancellation, and timeouts tuned for video workloads
 - **Web‑UI**
-  - Video upload, job‑aware VideoTracker component, overlays, playback controls
+   - Video upload, job‑aware VideoTracker component, overlays, playback controls
 - **Guardrails**
-  - Integration tests from upload → job → UI
-  - CI checks for YOLO tracker correctness and schema stability
+   - Integration tests from upload → job → UI
+   - CI checks for YOLO tracker correctness and schema stability
+
+---
+
+### Milestone 8 — Phase 13: VideoTracker Multi‑Tool Pipelines
+
+- **Architecture**
+  - Ordered pipelines of tools within a single plugin
+  - REST endpoint `/video/pipeline` for frame-based execution
+  - WebSocket support for streaming pipeline execution
+  - Pipeline validation (plugin_id, tool existence, same-plugin constraint)
+
+- **Backend Services**
+  - `VideoPipelineService` for ordered tool execution
+  - Pipeline models and validation
+  - Pipeline logging (step index, tool name, duration)
+  - Update `VisionAnalysisService` to use pipeline model
+
+- **Web‑UI**
+  - `PipelineToolSelector` component for multi-select tools
+  - WebSocket frame payload includes `plugin_id + tools[]`
+  - REST endpoint payload includes `plugin_id + tools[]`
+  - No silent fallback to default tools
+
+- **Governance**
+  - `PHASE_13_FOLDER_STRUCTURE.md` (mandatory file placement)
+  - `PHASE_13_PR_TEMPLATE.md` (PR format and review checklist)
+  - `PHASE_13_MIGRATION_CHECKLIST.md` (step-by-step implementation)
+  - `PHASE_13_DEV_ONBOARDING.md` (developer guide)
+  - `pipeline_rules.md` (pipeline governance rules)
+
+- **Testing**
+  - REST pipeline tests
+  - WebSocket pipeline tests
+  - Pipeline validation tests
+  - Logging tests (step information captured)
+  - No cross-plugin pipelines possible
+  - All tests must pass in CI
+
+- **Sign-Off**
+  - All pipelines execute tools in order
+  - No silent fallbacks
+  - Full coverage of pipeline scenarios
+  - Logging shows each pipeline step
+  - Phase 13 locked in repo structure
