@@ -52,7 +52,7 @@ class VideoPipelineService:
         steps: List[Dict[str, Any]] = []
         current_payload = payload
 
-        for idx, tool_name in enumerate(tools):
+        for tool_name in tools:
             # Validate tool exists
             if tool_name not in plugin.tools:
                 raise ValueError(
@@ -62,16 +62,9 @@ class VideoPipelineService:
             # Execute tool
             output = plugin.run_tool(tool_name, current_payload)
 
-            # -----------------------------------------
-            # PHASE‑13 COMMIT 8: Logging for observability
-            # -----------------------------------------
-            logger.info(
-                "Video pipeline step",
-                extra={
-                    "plugin_id": plugin_id,
-                    "tool_name": tool_name,
-                    "step": idx,
-                },
+            # Minimal debug logging
+            logger.debug(
+                f"[Pipeline] Executed {plugin_id}:{tool_name}, output keys={list(output.keys())}"
             )
 
             # Record step

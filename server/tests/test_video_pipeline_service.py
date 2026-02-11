@@ -3,6 +3,8 @@
 Phase 13 - Multi-Tool Linear Pipelines
 """
 
+import logging
+
 import pytest
 
 from app.services.video_pipeline_service import VideoPipelineService
@@ -168,3 +170,36 @@ class TestRunPipelineSequentialExecution:
 
         # Result should be the last tool's output
         assert result["result"] == result["steps"][-1]["output"]
+
+
+class TestPipelineLogging:
+    """Test logging in pipeline execution (Commit 8)."""
+
+    def test_logs_each_pipeline_step(self, caplog):
+        """Test run_pipeline logs each step with plugin_id, tool_name, step."""
+        plugin = FakePlugin()
+        registry = FakeRegistry(plugin=plugin)
+        service = VideoPipelineService(plugins=registry)
+
+        with caplog.at_level(logging.INFO):
+            service.run_pipeline(
+                plugin_id="test-plugin",
+                tools=["detect_players", "track_players"],
+                payload={"image_bytes": b"test"},
+            )
+
+        # Should have 2 INFO log entries (one per step)
+        info_logs = [r for r in caplog.records if r.levelname == "INFO"]
+        assert len(info_logs) == 2
+
+        # First step should log step 0
+        assert info_logs[0].message == "Video pipeline step"
+        assert info_logs[0].plugin_id == "test-plugin"
+        assert info_logs[0].tool_name == "detect_players"
+        assert info_logs[0].step == 0
+
+        # Second step should log step 1
+        assert info_logs[1].message == "Video pipeline step"
+        assert info_logs[1].plugin_id == "test-plugin"
+        assert info_logs[1].tool_name == "track_players"
+        assert info_logs[1].step == 1
