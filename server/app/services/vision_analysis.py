@@ -133,11 +133,15 @@ class VisionAnalysisService:
                 payload=payload,
             )
 
+            # Extract final output from pipeline result
+            # Pipeline returns {"result": final_output, "steps": [...]}
+            final_output = result["result"]
+
             processing_time = (time.time() - start_time) * 1000
 
             # Send results back to client
             await self.ws_manager.send_frame_result(
-                client_id, frame_id, plugin_name, result, processing_time
+                client_id, frame_id, plugin_name, final_output, processing_time
             )
 
             logger.info(

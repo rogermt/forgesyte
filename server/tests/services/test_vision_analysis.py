@@ -36,6 +36,8 @@ class TestVisionAnalysisService:
     async def test_handle_frame_success(self, service, mock_registry, mock_ws_manager):
         """Test successful frame handling."""
         mock_plugin = Mock()
+        mock_plugin.tools = {"tool1": {}}
+        mock_plugin.run_tool.return_value = {"objects": []}
         mock_registry.get.return_value = mock_plugin
 
         frame_data = {
@@ -54,6 +56,8 @@ class TestVisionAnalysisService:
         assert args[0] == "client1"
         assert args[1] == "frame1"
         assert args[2] == "plugin1"
+        # Should receive the final output, not the wrapped pipeline result
+        assert args[3] == {"objects": []}
 
     @pytest.mark.asyncio
     async def test_handle_frame_plugin_not_found(
@@ -76,6 +80,8 @@ class TestVisionAnalysisService:
     ):
         """Test frame handling with 'image_data' field (Issue #21)."""
         mock_plugin = Mock()
+        mock_plugin.tools = {"tool1": {}}
+        mock_plugin.run_tool.return_value = {"objects": []}
         mock_registry.get.return_value = mock_plugin
 
         # Client sends 'image_data' field, not 'data'
@@ -113,6 +119,7 @@ class TestVisionAnalysisService:
     ):
         """Test handling frame data missing 'tools' field (Phase 13 requirement)."""
         mock_plugin = Mock()
+        mock_plugin.tools = {"tool1": {}}
         mock_registry.get.return_value = mock_plugin
 
         frame_data = {
@@ -134,6 +141,8 @@ class TestVisionAnalysisService:
     ):
         """Test handling plugin analysis exception."""
         mock_plugin = Mock()
+        mock_plugin.tools = {"tool1": {}}
+        mock_plugin.run_tool.side_effect = Exception("Analysis Error")
         mock_registry.get.return_value = mock_plugin
 
         frame_data = {
