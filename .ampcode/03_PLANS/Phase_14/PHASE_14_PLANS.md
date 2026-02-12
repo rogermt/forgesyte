@@ -1,513 +1,367 @@
-# PHASE 13 — FINAL IMPLEMENTATION PLAN (LOCKED)
+# ⭐ PHASE 14 — PLANS (Single Source of Truth)
 
-**VideoTracker Multi-Tool Linear Pipelines (Single-Plugin)**
-
----
-
-## TDD WORKFLOW (MANDATORY)
-
-For EVERY commit:
-1. ✅ **WRITE TEST FIRST** - Test must FAIL (red)
-2. ✅ **RUN TEST** - Verify it fails
-3. ✅ **IMPLEMENT CODE** - Make test pass (green)
-4. ✅ **RUN TEST** - Verify it passes
-5. ✅ **RUN PRE-COMMIT** - All checks pass
-6. ✅ **COMMIT** - With passing tests
-
-**NO EXCEPTIONS. NO SHORTCUTS. TESTS FIRST.**
+**Cross‑Plugin DAG Pipelines with Typed Edges**
 
 ---
 
-## CANONICAL ANSWERS (7 Questions Answered)
+## 🎯 Vision
 
-| # | Question | Final Answer |
-|---|----------|--------------|
-| 1 | `protocols.py` PluginRegistry | Exists; methods: `get(plugin_id)`, `list()` |
-| 2 | `main.py` router registration | `app.include_router(init_pipeline_routes(plugin_registry))` |
-| 3 | `tests/helpers.py` | FakeRegistry MUST be created; FakePlugin pattern exists |
-| 4 | `useVideoProcessor.ts` | Sends WS frames; must send `tools[]` |
-| 5 | `plugin_management_service` | Do NOT use; use `plugin.run_tool()` |
-| 6 | `FALLBACK_TOOL` | Exists at top of file; remove fallback logic only |
-| 7 | WS error handling | Error frame = `{type:"error", message, frame_id}` |
+Transform ForgeSyte from **linear, single-plugin pipelines** to **graph-based, cross-plugin workflows with explicit type contracts**.
+
+This is the moment the system becomes a **workflow engine**, not just a plugin runner.
 
 ---
 
-## 10-COMMIT WORKFLOW
+## 📋 What Changes
 
-| # | Commit | Status |
-|---|--------|--------|
-| 1 | VideoPipelineService skeleton | Test → Code |
-| 2 | REST endpoint /video/pipeline | Test → Code |
-| 3 | Wire pipeline into VisionAnalysisService | Test → Code |
-| 4 | Add validation stubs | Test → Code |
-| 5 | UI state for selectedTools[] | Test → Code |
-| 6 | Send pipeline via REST + WS | Test → Code |
-| 7 | Implement pipeline execution | Test → Code |
-| 8 | Add pipeline logging | Test → Code |
-| 9 | Add Phase 13 tests | Test → Code |
-| 10 | Remove fallback logic | Test → Code |
+### Before (Phase 13)
+```
+User Input → OCR Plugin (detect_text) → Result
+User Input → YOLO Plugin (detect_players) → Result
+```
+Each plugin runs independently. No composition.
 
----
-
-## FILE CHANGES SUMMARY
-
-### Server — Create
-| File | Purpose |
-|------|---------|
-| `server/app/services/video_pipeline_service.py` | Pipeline executor |
-| `server/app/routes_pipeline.py` | REST endpoint |
-| `server/app/schemas/pipeline.py` | PipelineRequest model |
-| `server/tests/test_video_pipeline_service.py` | Service unit tests |
-| `server/tests/test_pipeline_rest.py` | REST endpoint tests |
-| `server/tests/test_vision_analysis_pipeline.py` | WS integration tests |
-| `server/tests/helpers.py` | FakeRegistry (create if not exists) |
-
-### Server — Modify
-| File | Change |
-|------|--------|
-| `server/app/services/vision_analysis.py` | Inject VideoPipelineService, require `tools[]`, remove fallback |
-| `server/app/main.py` | Register: `app.include_router(init_pipeline_routes(plugin_registry))` |
-
-### UI — Create
-| File | Purpose |
-|------|---------|
-| `web-ui/src/components/PipelineToolSelector.tsx` | Tool selector component |
-
-### UI — Modify
-| File | Change |
-|------|--------|
-| `web-ui/src/hooks/useVideoProcessor.ts` | Replace `toolName` with `tools[]` |
-| `web-ui/src/components/VideoTracker.tsx` | Replace `toolName` prop with `tools[]`, update header |
-| `web-ui/src/App.tsx` | Replace `selectedTool` with `selectedTools[]` |
+### After (Phase 14)
+```
+Video Frame
+    ↓
+YOLO.detect_players
+    ↓
+ReID.track_ids
+    ↓
+Viz.render_overlay
+    ↓
+Output Frame
+```
+Plugins work **together** in a graph.
 
 ---
 
-## CONCRETE IMPLEMENTATIONS
+## 🏗️ Key Capabilities
 
-### 1. VideoPipelineService (Commit 1)
+| Capability | Description |
+|------------|-------------|
+| **DAG Pipelines** | Workflows are directed acyclic graphs |
+| **Tool Metadata** | Each tool declares inputs/outputs/capabilities |
+| **Pipeline Registry** | Named pipelines stored server-side |
+| **Type Validation** | Explicit type contracts on edges |
+| **Execution Engine** | Topological sort → Execute → Merge → Return |
 
+---
+
+## 📅 10-Commit Migration Plan
+
+### COMMIT 1: Add Pipeline Graph Models
+**Goal**: Define core data structures
+
+**Changes**:
+- Create `app/models/pipeline_graph_models.py`
+- Define `PipelineNode`, `PipelineEdge`, `Pipeline`
+- Define `ToolMetadata`, `PipelineValidationResult`
+- Add Pydantic validation
+
+**Files**:
+- ✨ `app/models/pipeline_graph_models.py`
+
+**Tests**:
+- `tests/pipelines/test_pipeline_models.py`
+
+**Acceptance**:
 ```python
-# server/app/services/video_pipeline_service.py
-import logging
-from typing import Any, Dict, List
-
-from ..protocols import PluginRegistry
-
-logger = logging.getLogger(__name__)
-
-
-class VideoPipelineService:
-    """Executes linear, single-plugin tool pipelines for Phase 13."""
-
-    def __init__(self, plugins: PluginRegistry) -> None:
-        self.plugins = plugins
-
-    def run_pipeline(
-        self,
-        plugin_id: str,
-        tools: List[str],
-        payload: Dict[str, Any],
-    ) -> Dict[str, Any]:
-        """Run a linear pipeline of tools for a single plugin."""
-        self._validate(plugin_id, tools)
-
-        plugin = self.plugins.get(plugin_id)
-        result: Dict[str, Any] = payload
-
-        for idx, tool_name in enumerate(tools):
-            logger.info(
-                "Video pipeline step",
-                extra={
-                    "plugin": plugin_id,
-                    "tool": tool_name,
-                    "step": idx,
-                },
-            )
-
-            step_payload = dict(result)
-            result = plugin.run_tool(tool_name, step_payload)
-
-            if not isinstance(result, dict):
-                raise ValueError(
-                    f"Tool '{tool_name}' in plugin '{plugin_id}' "
-                    f"returned non-dict result of type {type(result)}"
-                )
-
-        return result
-
-    def _validate(self, plugin_id: str, tools: List[str]) -> None:
-        if not plugin_id:
-            raise ValueError("Pipeline missing 'plugin_id'")
-
-        if not tools:
-            raise ValueError("Pipeline must contain at least one tool")
-
-        plugin = self.plugins.get(plugin_id)
-        if not plugin:
-            raise ValueError(f"Plugin '{plugin_id}' not found")
+node = PipelineNode(id="n1", plugin_id="ocr", tool_id="detect")
+assert node.plugin_id == "ocr"
 ```
 
 ---
 
-### 2. REST Endpoint (Commit 2)
+### COMMIT 2: Add Tool Capability Metadata
+**Goal**: Allow plugins to declare input/output types
 
-```python
-# server/app/schemas/pipeline.py
-from pydantic import BaseModel
-from typing import Any, Dict, List
+**Changes**:
+- Add `input_types`, `output_types`, `capabilities` to plugin manifests
+- Update plugin registry to read metadata
+- Document in developer guide
 
+**Files**:
+- 🔧 `app/plugins/plugin_manager.py`
+- 🔧 `plugins/*/manifest.json`
+- 📝 `docs/phases/PHASE_14_DEVELOPER_GUIDE.md`
 
-class PipelineRequest(BaseModel):
-    plugin_id: str
-    tools: List[str]
-    payload: Dict[str, Any]
-```
-
-```python
-# server/app/routes_pipeline.py
-from fastapi import APIRouter
-from typing import Any, Dict, List
-
-from ..protocols import PluginRegistry
-from ..services.video_pipeline_service import VideoPipelineService
-from ..schemas.pipeline import PipelineRequest
-
-
-def init_pipeline_routes(plugins: PluginRegistry) -> APIRouter:
-    """Initialize pipeline routes with dependency injection."""
-    pipeline_service = VideoPipelineService(plugins)
-    router = APIRouter()
-
-    @router.post("/video/pipeline")
-    async def run_video_pipeline(req: PipelineRequest) -> Dict[str, Any]:
-        """Execute a linear pipeline of tools for a single plugin."""
-        result = pipeline_service.run_pipeline(
-            plugin_id=req.plugin_id,
-            tools=req.tools,
-            payload=req.payload,
-        )
-        return {"result": result}
-
-    return router
-```
-
----
-
-### 3. VisionAnalysisService Patch (Commit 3)
-
-**Add import at top:**
-```python
-from .video_pipeline_service import VideoPipelineService
-```
-
-**Add in `__init__`:**
-```python
-self.pipeline_service = VideoPipelineService(plugins)
-```
-
-**Replace single-tool execution (remove this):**
-```python
-tool_name = data.get("tool")
-if not tool_name:
-    logger.warning("WebSocket frame missing 'tool', defaulting to '%s'", FALLBACK_TOOL)
-    tool_name = FALLBACK_TOOL
-result = active_plugin.run_tool(
-    tool_name,
-    {"image_bytes": image_bytes, "options": data.get("options", {})},
-)
-```
-
-**With this:**
-```python
-tools = data.get("tools")
-if not tools:
-    raise ValueError("WebSocket frame missing 'tools' field")
-
-payload = {
-    "image_bytes": image_bytes,
-    "options": data.get("options", {}),
-    "frame_id": frame_id,
-}
-
-result = self.pipeline_service.run_pipeline(
-    plugin_id=plugin_name,
-    tools=tools,
-    payload=payload,
-)
-```
-
----
-
-### 4. FakeRegistry Helper (Commit 1)
-
-```python
-# server/tests/helpers.py
-from typing import Any, Dict, Optional
-
-
-class FakePlugin:
-    """Fake plugin for testing."""
-
-    def __init__(self):
-        self.id = "test-plugin"
-        self.name = "Test Plugin"
-        self.tools = {
-            "detect_players": "detect_players",
-            "track_players": "track_players",
-            "annotate_frame": "annotate_frame",
-        }
-
-    def run_tool(self, tool_name: str, args: Dict) -> Dict:
-        """Execute a tool and return result."""
-        return {"tool": tool_name, "step_completed": tool_name, **args}
-
-
-class FakeRegistry:
-    """Fake plugin registry for testing."""
-
-    def __init__(self, plugin: Optional[FakePlugin] = None):
-        self._plugin = plugin
-
-    def get(self, plugin_id: str) -> Optional[FakePlugin]:
-        """Get a plugin by name."""
-        return self._plugin
-
-    def list(self) -> Dict[str, Dict[str, Any]]:
-        """List all plugins."""
-        if self._plugin:
-            return {
-                self._plugin.id: {
-                    "name": self._plugin.name,
-                    "tools": self._plugin.tools,
-                }
-            }
-        return {}
-```
-
----
-
-### 5. UI Changes (Commits 4-6)
-
-**useVideoProcessor.ts - WS frame:**
-```ts
-sendJsonMessage({
-  type: "frame",
-  frame_id,
-  image_data,
-  plugin_id: pluginId,
-  tools,  // Replace: toolName
-});
-```
-
-**VideoTracker.tsx - Props:**
-```ts
-export interface VideoTrackerProps {
-  pluginId: string;
-  tools: string[];  // Replace: toolName
-}
-```
-
-**VideoTracker.tsx - Header:**
-```tsx
-Plugin: <strong>{pluginId}</strong> | Tools: <strong>{tools.join(", ")}</strong>
-```
-
-**App.tsx - State:**
-```ts
-const [selectedTools, setSelectedTools] = useState<string[]>([]);
-// Replace: selectedTool
-```
-
----
-
-### 6. WebSocket Frame Structure (Confirmed)
-
+**Example Manifest**:
 ```json
 {
-  "type": "frame",
-  "frame_id": "abc123",
-  "image_data": "<base64>",
-  "plugin_id": "forgesyte-yolo-tracker",
-  "tools": ["detect_players", "track_players"]
+  "tools": {
+    "detect_players": {
+      "input_types": ["video_frame"],
+      "output_types": ["detections"],
+      "capabilities": ["player_detection"]
+    }
+  }
 }
 ```
 
-**Error Frame:**
-```json
-{
-  "type": "error",
-  "message": "WebSocket frame missing 'tools' field",
-  "frame_id": "abc123"
-}
-```
+**Tests**:
+- `tests/pipelines/test_tool_metadata.py`
 
 ---
 
-## TEST PATTERNS (TDD)
+### COMMIT 3: Add Pipeline Registry Service
+**Goal**: Load and manage named pipelines
 
-### Commit 1 Test: VideoPipelineService
+**Changes**:
+- Create `app/services/pipeline_registry_service.py`
+- Load all `.json` files from `app/pipelines/`
+- Implement `list()`, `get()`, `get_info()`
+- Create `app/pipelines/` directory
+- Add example pipelines
+
+**Files**:
+- ✨ `app/services/pipeline_registry_service.py`
+- ✨ `app/pipelines/` (directory)
+- ✨ `app/pipelines/player_tracking_v1.json`
+- ✨ `app/pipelines/ball_tracking_v1.json`
+
+**Tests**:
+- `tests/pipelines/test_pipeline_registry.py`
+
+**Acceptance**:
 ```python
-# server/tests/test_video_pipeline_service.py
-import pytest
-from app.services.video_pipeline_service import VideoPipelineService
-from tests.helpers import FakeRegistry, FakePlugin
-
-
-def test_import():
-    assert VideoPipelineService is not None
-
-
-def test_instantiation():
-    registry = FakeRegistry(plugin=None)
-    service = VideoPipelineService(plugins=registry)
-    assert service is not None
-
-
-def test_run_pipeline_method_exists():
-    registry = FakeRegistry(plugin=None)
-    service = VideoPipelineService(plugins=registry)
-    assert hasattr(service, 'run_pipeline')
-
-
-def test_validate_method_exists():
-    registry = FakeRegistry(plugin=None)
-    service = VideoPipelineService(plugins=registry)
-    assert hasattr(service, '_validate')
+registry = PipelineRegistry("app/pipelines")
+pipeline = registry.get("player_tracking_v1")
+assert pipeline.id == "player_tracking_v1"
 ```
 
-### Commit 2 Test: REST Endpoint
+---
+
+### COMMIT 4: Add DAG Pipeline Service
+**Goal**: Core pipeline execution engine
+
+**Changes**:
+- Create `app/services/dag_pipeline_service.py`
+- Implement `validate()` method
+- Implement `execute()` method (async)
+- Add topological sort algorithm
+- Add cycle detection
+
+**Files**:
+- ✨ `app/services/dag_pipeline_service.py`
+
+**Core Methods**:
 ```python
-# server/tests/test_pipeline_rest.py
-from fastapi.testclient import TestClient
-from app.main import app
-from tests.helpers import FakeRegistry, FakePlugin
-
-
-def test_post_video_pipeline():
-    fake_plugin = FakePlugin()
-    registry = FakeRegistry(plugin=fake_plugin)
-
-    # Override registry
-    from app.main import plugin_registry
-    original_get = plugin_registry.get
-    plugin_registry.get = lambda name: fake_plugin
-
-    client = TestClient(app)
-    response = client.post("/video/pipeline", json={
-        "plugin_id": "test-plugin",
-        "tools": ["detect_players"],
-        "payload": {"test": "data"}
-    })
-
-    assert response.status_code == 200
-    assert "result" in response.json()
-
-    plugin_registry.get = original_get
+class DAGPipelineService:
+    def validate(self, pipeline: Pipeline) -> PipelineValidationResult
+    async def execute(self, pipeline, payload, plugin_manager) -> PipelineExecutionResult
 ```
 
-### Commit 3 Test: WS Integration
+**Tests**:
+- `tests/pipelines/test_dag_pipeline.py`
+
+---
+
+### COMMIT 5: Add Topological Sort & DAG Validation
+**Goal**: Ensure deterministic execution order
+
+**Changes**:
+- Implement topological sort (Kahn's algorithm)
+- Implement cycle detection (DFS)
+- Add validation for entry/output nodes
+- Add validation for reachability
+
+**Files**:
+- 🔧 `app/services/dag_pipeline_service.py`
+
+**Validation Rules**:
+1. Graph is acyclic
+2. All nodes exist
+3. All entry nodes exist and have no predecessors
+4. All output nodes exist and are reachable
+5. No unreachable nodes
+
+**Tests**:
+- `tests/pipelines/test_dag_validation.py`
+
+---
+
+### COMMIT 6: Add Type Compatibility Validation
+**Goal**: Ensure output/input types match
+
+**Changes**:
+- Implement type intersection algorithm
+- Add validation for each edge
+- Report type mismatches clearly
+
+**Files**:
+- ✨ `app/services/type_validator.py`
+- 🔧 `app/services/dag_pipeline_service.py`
+
+**Validation**:
 ```python
-# server/tests/test_vision_analysis_pipeline.py
-import pytest
-from unittest.mock import MagicMock
-from app.services.vision_analysis import VisionAnalysisService
-from tests.helpers import FakeRegistry, FakePlugin
+for edge in pipeline.edges:
+    from_outputs = node[edge.from_node].output_types
+    to_inputs = node[edge.to_node].input_types
+    if not (from_outputs & to_inputs):
+        raise TypeError(f"Type mismatch: {edge.from_node} → {edge.to_node}")
+```
 
+**Tests**:
+- `tests/pipelines/test_type_validation.py`
 
-def test_ws_frame_with_tools_executes_pipeline():
-    fake_plugin = FakePlugin()
-    registry = FakeRegistry(plugin=fake_plugin)
-    ws_manager = MagicMock()
+---
 
-    service = VisionAnalysisService(plugins=registry, ws_manager=ws_manager)
+### COMMIT 7: Add REST Pipeline Endpoints
+**Goal**: Expose pipelines via HTTP API
 
-    frame_data = {
-        "image_data": "base64encodeddata",
-        "tools": ["detect_players", "track_players"],
-        "frame_id": "test-frame-1"
-    }
+**Changes**:
+- Create `app/routes/routes_pipelines.py`
+- Implement `/pipelines/list`
+- Implement `/pipelines/{id}/info`
+- Implement `/pipelines/{id}/run`
+- Implement `/pipelines/validate`
+- Mount routes in `app/main.py`
 
-    import asyncio
-    asyncio.run(service.handle_frame("client-1", "test-plugin", frame_data))
+**Files**:
+- ✨ `app/routes/routes_pipelines.py`
+- 🔧 `app/main.py`
 
-    ws_manager.send_frame_result.assert_called_once()
+**Endpoints**:
+| Method | Path | Purpose |
+|--------|------|---------|
+| GET | `/pipelines/list` | List all pipelines |
+| GET | `/pipelines/{id}/info` | Get pipeline metadata |
+| POST | `/pipelines/{id}/run` | Execute pipeline |
+| POST | `/pipelines/validate` | Validate pipeline spec |
 
+**Tests**:
+- `tests/pipelines/test_pipeline_endpoints.py`
 
-def test_ws_frame_missing_tools_returns_error():
-    registry = FakeRegistry(plugin=None)
-    ws_manager = MagicMock()
+---
 
-    service = VisionAnalysisService(plugins=registry, ws_manager=ws_manager)
+### COMMIT 8: Add UI Pipeline Selector
+**Goal**: User selects which pipeline to run
 
-    frame_data = {
-        "image_data": "base64encodeddata",
-        "frame_id": "test-frame-1"
-    }
+**Changes**:
+- Create `web-ui/src/types/pipeline_graph.ts`
+- Create `web-ui/src/api/pipelines.ts`
+- Create `web-ui/src/components/VideoTracker/PipelineSelector.tsx`
+- Integrate with VideoTracker component
 
-    import asyncio
-    asyncio.run(service.handle_frame("client-1", "test-plugin", frame_data))
+**Files**:
+- ✨ `web-ui/src/types/pipeline_graph.ts`
+- ✨ `web-ui/src/api/pipelines.ts`
+- ✨ `web-ui/src/components/VideoTracker/PipelineSelector.tsx`
+- 🔧 `web-ui/src/components/VideoTracker/VideoTracker.tsx`
 
-    ws_manager.send_personal.assert_called_once()
-    error_call = ws_manager.send_personal.call_args[0][1]
-    assert error_call["type"] == "error"
-    assert "tools" in error_call["message"]
+**Tests**:
+- `web-ui/src/tests/PipelineSelector.test.tsx`
+
+---
+
+### COMMIT 9: Add Acceptance Tests
+**Goal**: E2E tests for full workflow
+
+**Changes**:
+- Create `tests/pipelines/test_pipeline_integration.py`
+- Test full workflow: validate → execute → verify output
+- Test with real plugins
+- Test error cases
+
+**Files**:
+- ✨ `tests/pipelines/test_pipeline_integration.py`
+- ✨ `tests/integration/test_pipeline_with_plugins.py`
+
+**Test Cases**:
+```python
+@pytest.mark.asyncio
+async def test_e2e_player_tracking_pipeline():
+    pipeline = registry.get("player_tracking_v1")
+    validation = service.validate(pipeline)
+    assert validation.valid
+    result = await service.execute(pipeline, image_bytes, plugin_manager)
+    assert result.status == "success"
+    assert "detections" in result.output
 ```
 
 ---
 
-## PRE-COMMIT CHECKLIST (Run Before Each Commit)
+### COMMIT 10: Remove Single-Plugin Assumptions
+**Goal**: Finalize Phase 14 migration
 
-| # | Check | Command |
-|---|-------|---------|
-| 1 | Server tests pass | `cd server && uv run pytest -q` |
-| 2 | Web-UI tests pass | `cd web-ui && npm install && npm test` |
-| 3 | Black lint pass | `cd server && black --check .` |
-| 4 | Ruff lint pass | `cd server && ruff check .` |
-| 5 | MyPy typecheck pass | `cd server && mypy .` |
-| 6 | ESLint pass | `cd web-ui && npx eslint src --ext ts,tsx --max-warnings=0` |
-| 7 | No skipped tests | Verify no `it.skip`, `describe.skip`, `test.skip` |
+**Changes**:
+- Update all code to use Phase 14 patterns
+- Remove any remaining fallback to single-plugin
+- Ensure all tests use explicit pipelines
+- Update documentation
 
----
+**Files Modified**:
+- 🔧 Any files still assuming single-plugin execution
+- 🔧 Test files (update patterns)
 
-## VALIDATION RULES (Non-Negotiable)
-
-- `plugin_id` must exist
-- `tools[]` must be non-empty
-- All tools must exist in the plugin manifest
-- All tools must belong to the same plugin
-- Server must reject cross-plugin pipelines
+**Verification**:
+- ✅ All 1100+ tests pass
+- ✅ Type checking passes
+- ✅ Linting passes
+- ✅ Pre-commit hooks pass
+- ✅ No regressions
 
 ---
 
-## OUT OF SCOPE (Do NOT Implement)
+## ⏱️ Timeline
 
-- Cross-plugin pipelines
-- Parallel pipelines
-- Conditional branching
-- Tool graphs (DAGs)
-- Tool parameter UIs
-- Tool-specific UI panels
-- Model selection
-- Timeline scrubbing
-- Video export
-- Heatmaps, analytics, charts
+| Commit | Task | Est. Time | Cumulative |
+|--------|------|-----------|------------|
+| 1 | Models | 2h | 2h |
+| 2 | Metadata | 2h | 4h |
+| 3 | Registry | 3h | 7h |
+| 4 | DAG Engine | 4h | 11h |
+| 5 | Validation | 3h | 14h |
+| 6 | Type Checking | 2h | 16h |
+| 7 | REST API | 3h | 19h |
+| 8 | UI | 4h | 23h |
+| 9 | Tests | 3h | 26h |
+| 10 | Cleanup | 2h | 28h |
 
----
-
-## REFERENCE DOCUMENTS
-
-| Document | Purpose |
-|----------|---------|
-| PHASE_13_NOTES_01.md | Developer specs + examples |
-| PHASE_13_NOTES_02.md | Implementation patches |
-| PHASE_13_NOTES_03.md | Plugin dev guide + troubleshooting |
-| PHASE_13_NOTES_04.md | 5 Key decisions |
-| PHASE_13_NOTES_05.md | 10 Implementation Q&A |
-| PHASE_13_NOTES_06.md | 7 Final questions answered |
-| PHASE_13_TESTS.md | Acceptance tests |
-| PHASE_13_CHECKLIST.md | Implementation + review checklist |
-| PHASE_13_ARCHITECTURE.md | ASCII diagrams |
+**Total**: ~28 hours of development
 
 ---
 
+## ✅ Success Metrics
 
+- ✅ All 10 commits merged to main
+- ✅ 1200+ tests passing
+- ✅ Zero type errors
+- ✅ Zero linting errors
+- ✅ All pre-commit hooks pass
+- ✅ Documentation complete
+- ✅ UI functional
+- ✅ No regressions vs Phase 13
+
+---
+
+## 🔄 Rollback Plan
+
+If any commit fails:
+1. Revert to previous commit
+2. Identify issue
+3. Fix and re-test
+4. Retry commit
+
+Each commit is self-contained, so rollback is clean.
+
+---
+
+## 🚀 Next Phase
+
+Once Phase 14 is locked:
+- Phase 15: Job queuing for pipelines
+- Phase 16: Pipeline performance metrics
+- Phase 17: Pipeline versioning and history
+
+---
+
+## 📖 References
+
+- **Overview**: `.ampcode/04_PHASE_NOTES/Phase_14/PHASE_14_OVERVIEW.md`
+- **Architecture**: `.ampcode/04_PHASE_NOTES/Phase_14/PHASE_14_ARCHITECTURE.md`
+- **Developer Guide**: `.ampcode/04_PHASE_NOTES/Phase_14/PHASE_14_DEVELOPER_GUIDE.md`
+- **Governance Rules**: `.ampcode/04_PHASE_NOTES/Phase_14/PHASE_14_GOVERNANCE_RULES.md`
+- **Acceptance Criteria**: `.ampcode/04_PHASE_NOTES/Phase_14/PHASE_14_ACCEPTANCE_CRITERIA.md`

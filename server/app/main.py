@@ -18,7 +18,7 @@ import os
 import uuid
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Dict, List, NoReturn, Optional
+from typing import Any, Dict, NoReturn, Optional
 
 import uvicorn
 from fastapi import (
@@ -31,7 +31,6 @@ from fastapi import (
 )
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
-from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # Routers
@@ -45,6 +44,7 @@ from .mcp import router as mcp_router
 from .plugin_loader import PluginRegistry
 from .plugins.health.health_router import router as health_router
 from .realtime import websocket_router as realtime_router
+from .routes.routes_pipelines import router as pipelines_router
 from .routes_pipeline import init_pipeline_routes
 from .services import (
     AnalysisService,
@@ -53,6 +53,9 @@ from .services import (
     PluginManagementService,
     VisionAnalysisService,
 )
+
+# Phase 14 Settings
+from .settings import get_settings
 from .tasks import init_task_processor, job_store
 from .websocket_manager import ws_manager
 
@@ -69,14 +72,13 @@ class AppSettings(BaseSettings):
         "ForgeSyte: A modular AI-vision MCP server engineered for developers"
     )
     version: str = "0.1.0"
-    cors_origins: List[str] = Field(
-        default_factory=lambda: ["*"], validation_alias="CORS_ORIGINS"
-    )
     api_prefix: str = "/v1"
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
 
+# Phase 14 Settings
+phase14_settings = get_settings()
 settings = AppSettings()
 
 
@@ -208,6 +210,13 @@ async def lifespan(app: FastAPI):
         app.state.job_service = JobManagementService(job_store, processor)
         app.state.plugin_service = PluginManagementService(plugin_manager)
 
+        # Phase 14: Pipeline Services
+        from .services.pipeline_registry_service import PipelineRegistryService
+
+        pipelines_dir = Path(__file__).parent.parent / "app" / "pipelines"
+        app.state.pipeline_registry = PipelineRegistryService(str(pipelines_dir))
+        app.state.plugin_manager_for_pipelines = plugin_manager
+
     except Exception as e:
         logger.error("Service initialization failed", extra={"error": str(e)})
 
@@ -248,7 +257,7 @@ def create_app() -> FastAPI:
     # CORS
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=settings.cors_origins,
+        allow_origins=phase14_settings.cors_origins,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
@@ -262,6 +271,7 @@ def create_app() -> FastAPI:
     app.include_router(health_router)
     app.include_router(execution_router)
     app.include_router(init_pipeline_routes())
+    app.include_router(pipelines_router, prefix=settings.api_prefix)
 
     return app
 
@@ -314,6 +324,19 @@ async def root() -> Dict[str, str]:
         "docs": "/docs",
         "mcp_manifest": "/.well-known/mcp-manifest",
         "gemini_extension": f"{settings.api_prefix}/gemini-extension",
+    }
+
+
+@app.get("/v1/debug/cors")
+async def debug_cors() -> Dict[str, Any]:
+    """Return CORS configuration for debugging.
+
+    This endpoint provides runtime introspection of the CORS configuration,
+    which is invaluable for debugging tunnels and cross-origin issues.
+    """
+    return {
+        "allowed_origins": phase14_settings.cors_origins,
+        "raw_env": phase14_settings.cors_origins_raw,
     }
 
 

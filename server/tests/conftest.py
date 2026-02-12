@@ -69,6 +69,56 @@ def pytest_configure(config):
     config.option.asyncio_mode = "auto"
 
 
+@pytest.fixture(scope="session", autouse=True)
+def install_plugins():
+    """Install plugins once per test session for integration tests."""
+    import subprocess
+
+    # Try multiple locations where forgesyte-plugins might be
+    possible_paths = [
+        # Local development
+        os.path.join(os.path.expanduser("~"), "forgesyte-plugins", "plugins", "ocr"),
+        # CI: sibling directory (GitHub Actions workspace structure)
+        os.path.abspath(
+            os.path.join(
+                os.path.dirname(__file__),
+                "..",
+                "..",
+                "forgesyte-plugins",
+                "plugins",
+                "ocr",
+            )
+        ),
+        # CI: relative from repo root
+        os.path.abspath(
+            os.path.join(
+                os.path.dirname(__file__),
+                "..",
+                "..",
+                "..",
+                "forgesyte-plugins",
+                "plugins",
+                "ocr",
+            )
+        ),
+    ]
+
+    for ocr_plugin_path in possible_paths:
+        ocr_plugin_path = os.path.abspath(ocr_plugin_path)
+        if os.path.isdir(ocr_plugin_path):
+            try:
+                subprocess.run(
+                    ["uv", "pip", "install", "-e", ocr_plugin_path],
+                    check=True,
+                    timeout=60,
+                )
+                return  # Success, stop trying
+            except Exception:
+                continue  # Try next path
+
+    # If we get here, plugin wasn't found - this is OK for some CI environments
+
+
 @pytest.fixture
 def app_with_plugins():
     """Create app with plugins and services initialized.
@@ -95,7 +145,7 @@ def app_with_plugins():
     # Initialize auth service FIRST (needed for API endpoints)
     init_auth_service()
 
-    # Load plugins via entry-points
+    # Load plugins via entry-points (OCR plugin installed by install_plugins fixture)
     plugin_manager = PluginRegistry()
     load_result = plugin_manager.load_plugins()
     loaded_list = list(load_result.get("loaded", {}).keys())
