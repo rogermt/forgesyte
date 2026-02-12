@@ -7,7 +7,7 @@ Manages loading and retrieval of named pipeline definitions from JSON files.
 import json
 import logging
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 from app.pipeline_models.pipeline_graph_models import Pipeline
 

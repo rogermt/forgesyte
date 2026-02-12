@@ -11,6 +11,8 @@ import pytest
 # Import models for mocking even if service doesn't exist
 from app.pipeline_models.pipeline_graph_models import (
     Pipeline,
+    PipelineEdge,
+    PipelineNode,
     PipelineValidationResult,
 )
 

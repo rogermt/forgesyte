@@ -10,6 +10,8 @@ import pytest
 try:
     from app.pipeline_models.pipeline_graph_models import (
         Pipeline,
+        PipelineEdge,
+        PipelineNode,
     )
     from app.services.pipeline_registry_service import PipelineRegistryService
 

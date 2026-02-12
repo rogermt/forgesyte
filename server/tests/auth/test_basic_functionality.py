@@ -5,6 +5,7 @@ Following TDD: Write tests first, then implement code to make them pass.
 
 import os
 import sys
+from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
