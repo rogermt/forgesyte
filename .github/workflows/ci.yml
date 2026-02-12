@@ -49,6 +49,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Clone forgesyte-plugins (for integration tests)
+        run: |
+          cd ..
+          git clone --depth 1 https://github.com/rogermt/forgesyte-plugins.git forgesyte-plugins
+
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v4
         with:
