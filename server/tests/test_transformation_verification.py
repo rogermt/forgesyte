@@ -5,7 +5,6 @@ This verifies that the vision-mcp code has been successfully transformed to Forg
 
 import os
 import sys
-from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient

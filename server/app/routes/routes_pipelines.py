@@ -132,8 +132,8 @@ async def run_pipeline(
             "output": output,
         }
     except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(status_code=404, detail=str(e)) from None
     except Exception as e:
         raise HTTPException(
             status_code=500, detail=f"Pipeline execution failed: {str(e)}"
-        )
+        ) from None

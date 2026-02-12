@@ -7,7 +7,6 @@ These tests verify the get_result() method which retrieves final job results.
 import asyncio
 import sys
 from datetime import datetime, timezone
-from typing import Any
 from unittest.mock import MagicMock
 
 import pytest

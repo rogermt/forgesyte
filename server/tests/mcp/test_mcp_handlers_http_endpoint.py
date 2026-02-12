@@ -2,7 +2,7 @@
 
 import os
 import sys
-from typing import Any, Dict, Optional
+from typing import Dict, Optional
 
 import pytest
 from fastapi.testclient import TestClient

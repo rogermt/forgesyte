@@ -3,7 +3,6 @@ Tests for pipeline Type Compatibility Validation.
 TDD: Write failing tests first, then implement validator.
 """
 
-
 import pytest
 
 try:

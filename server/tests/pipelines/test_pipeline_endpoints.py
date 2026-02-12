@@ -3,7 +3,6 @@ Tests for pipeline REST Pipeline Endpoints.
 TDD: Write failing tests first, then implement endpoints.
 """
 
-
 import pytest
 from fastapi.testclient import TestClient
 

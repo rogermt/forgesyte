@@ -1,7 +1,5 @@
 """Test: ensure plugin management service uses canonical PluginRegistry."""
 
-from typing import Any
-
 from app.main import create_plugin_management_service
 from app.plugin_loader import PluginRegistry
 from app.services.plugin_management_service import PluginManagementService
