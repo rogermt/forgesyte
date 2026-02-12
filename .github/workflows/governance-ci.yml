@@ -56,7 +56,7 @@ jobs:
       # -----------------------------
       - name: Check capability matrix is up to date
         run: |
-          git diff --exit-code docs/phase_14_plugin_capability_matrix.md
+          git diff --exit-code docs/plugin_capability_matrix_generated.md
 
       # -----------------------------
       # 5. Run Phase 14 DAG tests

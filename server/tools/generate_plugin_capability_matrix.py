@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Phase 14 Plugin Capability Matrix Generator.
+"""Phase Plugin Capability Matrix Generator.
 
 This script generates a Markdown table documenting all plugins, tools,
 and their declared input/output types and capabilities.
@@ -8,7 +8,7 @@ Usage:
     python tools/generate_plugin_capability_matrix.py
 
 Output:
-    docs/phase_14_plugin_capability_matrix.md
+    docs/"plugin_capability_matrix_generated.md
 """
 
 import json
@@ -16,7 +16,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 PLUGINS_DIR = ROOT / ".." / "plugins"
-OUT = ROOT / ".." / "docs" / "phase_14_plugin_capability_matrix.md"
+OUT = ROOT / ".." / "docs" / "plugin_capability_matrix_generated.md"
 
 
 def main():
@@ -40,7 +40,7 @@ def main():
             )
 
     lines = []
-    lines.append("# Phase 14 Plugin Capability Matrix\n")
+    lines.append("# Plugin Capability Matrix\n")
     lines.append("| Plugin | Tool | Input Types | Output Types | Capabilities |")
     lines.append("|--------|------|-------------|--------------|--------------|")
 
