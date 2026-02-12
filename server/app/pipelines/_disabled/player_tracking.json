@@ -1,0 +1,27 @@
+{
+  "id": "player_tracking",
+  "name": "Player Tracking Pipeline",
+  "nodes": [
+    {
+      "id": "detect",
+      "plugin_id": "yolo",
+      "tool_id": "detect_players"
+    },
+    {
+      "id": "track",
+      "plugin_id": "reid",
+      "tool_id": "track_ids"
+    },
+    {
+      "id": "render",
+      "plugin_id": "viz",
+      "tool_id": "render_overlay"
+    }
+  ],
+  "edges": [
+    { "from_node": "detect", "to_node": "track" },
+    { "from_node": "track",  "to_node": "render" }
+  ],
+  "entry_nodes": ["detect"],
+  "output_nodes": ["render"]
+}
