@@ -69,6 +69,24 @@ def pytest_configure(config):
     config.option.asyncio_mode = "auto"
 
 
+@pytest.fixture(scope="session", autouse=True)
+def install_plugins():
+    """Install plugins once per test session for integration tests."""
+    import subprocess
+    
+    ocr_plugin_path = os.path.abspath(
+        os.path.join(os.path.expanduser("~"), "forgesyte-plugins", "plugins", "ocr")
+    )
+    try:
+        subprocess.run(
+            ["uv", "pip", "install", "-e", ocr_plugin_path],
+            check=True,
+            timeout=60,
+        )
+    except Exception:
+        pass  # Plugin installation optional for some test environments
+
+
 @pytest.fixture
 def app_with_plugins():
     """Create app with plugins and services initialized.
@@ -95,7 +113,7 @@ def app_with_plugins():
     # Initialize auth service FIRST (needed for API endpoints)
     init_auth_service()
 
-    # Load plugins via entry-points
+    # Load plugins via entry-points (OCR plugin installed by install_plugins fixture)
     plugin_manager = PluginRegistry()
     load_result = plugin_manager.load_plugins()
     loaded_list = list(load_result.get("loaded", {}).keys())

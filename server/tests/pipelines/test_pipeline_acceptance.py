@@ -1,25 +1,24 @@
 """
-Phase 14 Acceptance Tests - E2E tests for full pipeline workflow.
-These tests verify the complete Phase 14 functionality end-to-end.
+ Pipeline Acceptance Tests - E2E tests for full pipeline workflow.
+These tests verify the complete pipeline functionality end-to-end.
 """
-import pytest
-import json
-from pathlib import Path
 
-from app.services.pipeline_registry_service import PipelineRegistryService
-from app.services.dag_pipeline_service import DagPipelineService
-from app.services.type_validator import TypeValidator
+import json
+
 from app.pipeline_models.pipeline_graph_models import (
     Pipeline,
-    PipelineNode,
     PipelineEdge,
+    PipelineNode,
     ToolMetadata,
 )
+from app.services.dag_pipeline_service import DagPipelineService
+from app.services.pipeline_registry_service import PipelineRegistryService
+from app.services.type_validator import TypeValidator
 from tests.pipelines.test_dag_pipeline_service import MockPlugin, MockPluginManager
 
 
-class TestPhase14Acceptance:
-    """Phase 14 acceptance tests."""
+class TestPipelineAcceptance:
+    """Pipeline acceptance tests."""
 
     def test_e2e_linear_pipeline_execution(self, tmp_path):
         """Test end-to-end execution of a linear pipeline."""

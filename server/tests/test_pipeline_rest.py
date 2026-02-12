@@ -10,28 +10,37 @@ import pytest
 from fastapi.testclient import TestClient
 
 
-@pytest.mark.skip(
-    reason="Phase 13: Endpoints will be implemented when VideoPipelineService is ready"
-)
 def test_post_video_pipeline(app_with_plugins):
     """Test POST /video/pipeline returns 200 with result."""
+    from unittest.mock import patch
+
     client = TestClient(app_with_plugins)
-    response = client.post(
-        "/video/pipeline",
-        json={
-            "plugin_id": "test-plugin",
-            "tools": ["detect_players"],
-            "payload": {"test": "data"},
-        },
-    )
 
-    assert response.status_code == 200
-    assert "result" in response.json()
+    expected_result = {
+        "result": {"tool": "detect_players", "step_completed": "detect_players"},
+        "steps": [
+            {"tool": "detect_players", "output": {"tool": "detect_players", "step_completed": "detect_players"}}
+        ],
+    }
+
+    with patch("app.services.video_pipeline_service.VideoPipelineService.run_pipeline") as mock_run:
+        mock_run.return_value = expected_result
+
+        response = client.post(
+            "/video/pipeline",
+            json={
+                "plugin_id": "test-plugin",
+                "tools": ["detect_players"],
+                "payload": {"test": "data"},
+            },
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert "result" in data
+        assert data == expected_result
 
 
-@pytest.mark.skip(
-    reason="Phase 13: Validation will be tested when endpoint is implemented"
-)
 def test_pipeline_missing_plugin_id_returns_422(app_with_plugins):
     """Test validation error when plugin_id is missing."""
     client = TestClient(app_with_plugins)
@@ -46,9 +55,6 @@ def test_pipeline_missing_plugin_id_returns_422(app_with_plugins):
     assert response.status_code == 422
 
 
-@pytest.mark.skip(
-    reason="Phase 13: Validation will be tested when endpoint is implemented"
-)
 def test_pipeline_missing_tools_returns_422(app_with_plugins):
     """Test validation error when tools is missing."""
     client = TestClient(app_with_plugins)
@@ -63,19 +69,23 @@ def test_pipeline_missing_tools_returns_422(app_with_plugins):
     assert response.status_code == 422
 
 
-@pytest.mark.skip(
-    reason="Phase 13: Validation will be tested when endpoint is implemented"
-)
-def test_pipeline_empty_tools_returns_422(app_with_plugins):
+def test_pipeline_empty_tools_returns_400(app_with_plugins):
     """Test validation error when tools is empty list."""
-    client = TestClient(app_with_plugins)
-    response = client.post(
-        "/video/pipeline",
-        json={
-            "plugin_id": "test-plugin",
-            "tools": [],
-            "payload": {"test": "data"},
-        },
-    )
+    from unittest.mock import patch
 
-    assert response.status_code == 422
+    client = TestClient(app_with_plugins)
+
+    with patch("app.services.video_pipeline_service.VideoPipelineService.run_pipeline") as mock_run:
+        mock_run.side_effect = ValueError("Pipeline requires a non-empty tools[] array")
+
+        response = client.post(
+            "/video/pipeline",
+            json={
+                "plugin_id": "test-plugin",
+                "tools": [],
+                "payload": {"test": "data"},
+            },
+        )
+
+        assert response.status_code == 400
+        assert "Pipeline requires a non-empty tools" in response.json()["detail"]

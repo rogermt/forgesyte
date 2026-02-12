@@ -1,5 +1,5 @@
 """
-Tests for Phase 14 REST Pipeline Endpoints.
+Tests for pipeline REST Pipeline Endpoints.
 TDD: Write failing tests first, then implement endpoints.
 """
 import pytest

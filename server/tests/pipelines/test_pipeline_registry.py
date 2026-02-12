@@ -1,5 +1,5 @@
 """
-Tests for Phase 14 Pipeline Registry Service.
+Tests for pipeline Pipeline Registry Service.
 TDD: Write failing tests first, then implement service.
 """
 import pytest

@@ -1,5 +1,5 @@
 """
-Tests for Phase 14 pipeline graph models.
+Tests for pipeline pipeline graph models.
 TDD: Write failing tests first, then implement models.
 """
 import pytest

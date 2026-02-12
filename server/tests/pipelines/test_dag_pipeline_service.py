@@ -1,5 +1,5 @@
 """
-Tests for Phase 14 DAG Pipeline Service.
+Tests for pipeline DAG Pipeline Service.
 TDD: Write failing tests first, then implement service.
 """
 import pytest

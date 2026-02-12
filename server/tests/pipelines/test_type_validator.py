@@ -1,5 +1,5 @@
 """
-Tests for Phase 14 Type Compatibility Validation.
+Tests for pipeline Type Compatibility Validation.
 TDD: Write failing tests first, then implement validator.
 """
 import pytest

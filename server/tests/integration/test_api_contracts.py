@@ -292,6 +292,8 @@ class TestFixtureConsistency:
 
         TEST-CHANGE (Phase 11): Updated for flat list health schema.
         Endpoint returns list directly (not wrapped in {plugins: [...], count: ...})
+        
+        TEST-CHANGE (Phase 14): OCR plugin installed via conftest.py fixture
         """
         fixtures = self.load_fixtures()
         fixture_plugins = fixtures["plugins_list"]
@@ -300,8 +302,9 @@ class TestFixtureConsistency:
         response = await client.get("/v1/plugins")
         real_plugins = response.json()
 
-        if not fixture_plugins or not real_plugins:
-            pytest.skip("No plugins to compare")
+        # Both should have plugins after OCR installation
+        assert fixture_plugins, "Fixture has no plugins"
+        assert real_plugins, "Real response has no plugins (OCR plugin not installed?)"
 
         # Compare field names (both are flat lists)
         fixture_fields = set(fixture_plugins[0].keys())
