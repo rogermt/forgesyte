@@ -57,7 +57,7 @@ def check_rest():
             data = r.json()
             print(f"  Allowed origins: {data.get('allowed_origins', [])}")
         else:
-            print(f"  ⚠️  CORS diagnostic endpoint not available")
+            print("  ⚠️  CORS diagnostic endpoint not available")
 
     except requests.exceptions.RequestException as e:
         print(f"  ❌ REST check failed: {e}")

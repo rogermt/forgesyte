@@ -13,8 +13,6 @@ The test will:
 
 from typing import Any, Dict
 
-import pytest
-
 from app.pipeline_models.pipeline_graph_models import (
     Pipeline,
     PipelineEdge,

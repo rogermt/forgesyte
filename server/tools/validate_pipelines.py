@@ -84,7 +84,9 @@ def detect_cycle(nodes: List[dict], edges: List[dict]) -> bool:
     return any(dfs(n["id"]) for n in nodes)
 
 
-def validate_pipeline_file(path: Path, plugins: Dict[str, Dict[str, dict]]) -> List[str]:
+def validate_pipeline_file(
+    path: Path, plugins: Dict[str, Dict[str, dict]]
+) -> List[str]:
     """Validate a single pipeline file.
 
     Args:

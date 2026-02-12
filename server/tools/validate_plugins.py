@@ -45,10 +45,14 @@ def validate_manifest(path: Path):
                 errors.append(f"{path}: tool '{tool_name}' missing '{field}'")
 
             elif not isinstance(tool[field], list):
-                errors.append(f"{path}: tool '{tool_name}' field '{field}' must be a list")
+                errors.append(
+                    f"{path}: tool '{tool_name}' field '{field}' must be a list"
+                )
 
             elif not tool[field]:
-                errors.append(f"{path}: tool '{tool_name}' field '{field}' cannot be empty")
+                errors.append(
+                    f"{path}: tool '{tool_name}' field '{field}' cannot be empty"
+                )
 
     return errors
 
