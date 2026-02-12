@@ -394,18 +394,22 @@ class TaskProcessor:
             start_time = time.perf_counter()
             loop = asyncio.get_event_loop()
 
-            # Run CPU-intensive work in thread pool
-            # Determine tool name: use explicit tool or plugin's first available tool
+            # Determine tool name: explicit tool required for Phase 13
             tool_name = options.get("tool")
             if not tool_name:
-                if isinstance(plugin.tools, dict):
-                    tool_name = next(iter(plugin.tools.keys()))
-                else:
-                    tool_name = plugin.tools[0]["name"]
-                logger.warning(
-                    "Background task missing 'tool' option, defaulting to '%s'",
-                    tool_name,
+                error_msg = (
+                    "Background task requires 'tool' option for Phase 13 pipelines"
                 )
+                logger.error(
+                    "Background task missing required 'tool' option",
+                    extra={"job_id": job_id, "plugin": plugin_name},
+                )
+                await self.job_store.update(
+                    job_id,
+                    {"status": JobStatus.ERROR, "error": error_msg},
+                )
+                await self._notify_callback(job_id)
+                return
 
             # Include device in tool args (Phase 12 fix: propagate to plugin)
             tool_args = {

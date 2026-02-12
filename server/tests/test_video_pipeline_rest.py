@@ -64,7 +64,9 @@ async def test_rest_pipeline_unknown_tool(client):
     with patch(
         "app.services.video_pipeline_service.VideoPipelineService.run_pipeline"
     ) as mock_run:
-        mock_run.side_effect = ValueError("Tool 'does_not_exist' not found in plugin 'test-plugin'")
+        mock_run.side_effect = ValueError(
+            "Tool 'does_not_exist' not found in plugin 'test-plugin'"
+        )
 
         resp = await client.post(
             "/video/pipeline",

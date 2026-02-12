@@ -6,6 +6,7 @@ These tests validate VideoPipelineService validation rules.
 """
 
 import pytest
+
 from tests.helpers import FakePlugin, FakeRegistry
 
 

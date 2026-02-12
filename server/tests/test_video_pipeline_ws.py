@@ -23,13 +23,15 @@ def test_ws_pipeline_executes_in_order(ws_client):
         assert connected_msg["type"] == "connected"
 
         # Send frame with tools
-        ws.send_json({
-            "type": "frame",
-            "frame_id": "1",
-            "plugin_id": "test-plugin",
-            "image_data": "AAA",
-            "tools": ["detect_players", "track_players"],
-        })
+        ws.send_json(
+            {
+                "type": "frame",
+                "frame_id": "1",
+                "plugin_id": "test-plugin",
+                "image_data": "AAA",
+                "tools": ["detect_players", "track_players"],
+            }
+        )
 
         # Receive result or error (plugin may not exist in test env)
         msg = ws.receive_json()
@@ -47,12 +49,14 @@ def test_ws_pipeline_missing_tools(ws_client):
         assert connected_msg["type"] == "connected"
 
         # Send frame without tools
-        ws.send_json({
-            "type": "frame",
-            "frame_id": "1",
-            "plugin_id": "test-plugin",
-            "image_data": "AAA",
-        })
+        ws.send_json(
+            {
+                "type": "frame",
+                "frame_id": "1",
+                "plugin_id": "test-plugin",
+                "image_data": "AAA",
+            }
+        )
 
         msg = ws.receive_json()
         assert msg["type"] == "error"

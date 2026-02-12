@@ -24,8 +24,6 @@ from .video_pipeline_service import VideoPipelineService
 
 logger = logging.getLogger(__name__)
 
-FALLBACK_TOOL = "default"
-
 
 class VisionAnalysisService:
     """Orchestrates real-time image analysis using registered plugins.
