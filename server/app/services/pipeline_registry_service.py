@@ -3,6 +3,7 @@ Phase 14: Pipeline Registry Service
 
 Manages loading and retrieval of named pipeline definitions from JSON files.
 """
+
 import json
 import logging
 from pathlib import Path
@@ -16,7 +17,7 @@ logger = logging.getLogger("pipelines.registry")
 class PipelineRegistryService:
     """
     Loads and manages named pipeline definitions from JSON files.
-    
+
     Pipelines are stored as JSON files in a directory. Each file represents
     one pipeline with a unique ID. The registry loads all JSON files on
     initialization and provides methods to list, get, and get info about pipelines.
@@ -25,7 +26,7 @@ class PipelineRegistryService:
     def __init__(self, pipelines_dir: str) -> None:
         """
         Initialize the registry by loading all pipeline JSON files.
-        
+
         Args:
             pipelines_dir: Path to directory containing pipeline JSON files
         """
@@ -53,7 +54,7 @@ class PipelineRegistryService:
     def list(self) -> List[Dict[str, str]]:
         """
         List all registered pipelines.
-        
+
         Returns:
             List of pipeline metadata dictionaries with keys: id, name
         """
@@ -65,10 +66,10 @@ class PipelineRegistryService:
     def get(self, pipeline_id: str) -> Optional[Pipeline]:
         """
         Get a pipeline by ID.
-        
+
         Args:
             pipeline_id: Unique pipeline identifier
-            
+
         Returns:
             Pipeline object if found, None otherwise
         """
@@ -77,22 +78,22 @@ class PipelineRegistryService:
     def get_pipeline(self, pipeline_id: str) -> Optional[Pipeline]:
         """
         Get a pipeline by ID (alias for get()).
-        
+
         Args:
             pipeline_id: Unique pipeline identifier
-            
+
         Returns:
             Pipeline object if found, None otherwise
         """
         return self.get(pipeline_id)
 
-    def get_info(self, pipeline_id: str) -> Optional[Dict[str, any]]:
+    def get_info(self, pipeline_id: str) -> Optional[Dict[str, Any]]:
         """
         Get metadata about a pipeline.
-        
+
         Args:
             pipeline_id: Unique pipeline identifier
-            
+
         Returns:
             Dictionary with pipeline metadata if found, None otherwise
         """

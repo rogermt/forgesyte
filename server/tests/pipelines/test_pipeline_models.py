@@ -2,18 +2,20 @@
 Tests for pipeline pipeline graph models.
 TDD: Write failing tests first, then implement models.
 """
+
 import pytest
 from pydantic import ValidationError
 
 # These imports will fail initially - models don't exist yet
 try:
     from app.pipeline_models.pipeline_graph_models import (
-        PipelineNode,
-        PipelineEdge,
         Pipeline,
-        ToolMetadata,
+        PipelineEdge,
+        PipelineNode,
         PipelineValidationResult,
+        ToolMetadata,
     )
+
     MODELS_EXIST = True
 except ImportError:
     MODELS_EXIST = False

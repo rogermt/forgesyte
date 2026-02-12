@@ -4,10 +4,11 @@ Phase 14: DAG Pipeline Service
 Core execution engine for DAG-based cross-plugin pipelines.
 Includes observability logging for all pipeline events.
 """
+
 import logging
 import time
 import uuid
-from typing import Dict, Any, List
+from typing import Any, Dict, List
 
 from app.pipeline_models.pipeline_graph_models import (
     Pipeline,
@@ -20,7 +21,7 @@ logger = logging.getLogger("pipelines.dag")
 class DagPipelineService:
     """
     Executes DAG-based pipelines with observability logging.
-    
+
     This service:
     - Validates pipeline structure (cycles, reachability)
     - Executes nodes in topological order
@@ -31,7 +32,7 @@ class DagPipelineService:
     def __init__(self, registry, plugin_manager) -> None:
         """
         Initialize the DAG pipeline service.
-        
+
         Args:
             registry: PipelineRegistryService instance
             plugin_manager: Plugin manager with get_plugin() method
@@ -39,17 +40,19 @@ class DagPipelineService:
         self._registry = registry
         self._plugin_manager = plugin_manager
 
-    def run_pipeline(self, pipeline_id: str, initial_payload: Dict[str, Any]) -> Dict[str, Any]:
+    def run_pipeline(
+        self, pipeline_id: str, initial_payload: Dict[str, Any]
+    ) -> Dict[str, Any]:
         """
         Execute a pipeline by ID.
-        
+
         Args:
             pipeline_id: Unique pipeline identifier
             initial_payload: Initial input data for the pipeline
-            
+
         Returns:
             Merged output from all output nodes
-            
+
         Raises:
             Exception: If pipeline execution fails
         """
@@ -65,19 +68,29 @@ class DagPipelineService:
         try:
             # Get topological order
             order = self._topological_order(pipeline)
-            
+
             # Execute nodes in order
             context: Dict[str, Dict[str, Any]] = {}
-            
+
             for step_index, node_id in enumerate(order):
                 node = next(n for n in pipeline.nodes if n.id == node_id)
                 preds = [e.from_node for e in pipeline.edges if e.to_node == node_id]
 
-                self._log_node_started(pipeline, run_id, node.id, node.plugin_id, node.tool_id, step_index, preds)
+                self._log_node_started(
+                    pipeline,
+                    run_id,
+                    node.id,
+                    node.plugin_id,
+                    node.tool_id,
+                    step_index,
+                    preds,
+                )
                 node_started_at = time.time()
 
                 # Merge predecessor outputs
-                payload = self._merge_predecessor_outputs(node_id, pipeline, context, initial_payload)
+                payload = self._merge_predecessor_outputs(
+                    node_id, pipeline, context, initial_payload
+                )
 
                 # Execute tool
                 plugin = self._plugin_manager.get_plugin(node.plugin_id)
@@ -86,15 +99,29 @@ class DagPipelineService:
                 except Exception as exc:
                     duration_ms = (time.time() - node_started_at) * 1000
                     self._log_node_failed(
-                        pipeline, run_id, node.id, node.plugin_id, node.tool_id, step_index, duration_ms,
-                        type(exc).__name__, str(exc)
+                        pipeline,
+                        run_id,
+                        node.id,
+                        node.plugin_id,
+                        node.tool_id,
+                        step_index,
+                        duration_ms,
+                        type(exc).__name__,
+                        str(exc),
                     )
                     raise
 
                 duration_ms = (time.time() - node_started_at) * 1000
                 context[node_id] = output or {}
                 self._log_node_completed(
-                    pipeline, run_id, node.id, node.plugin_id, node.tool_id, step_index, duration_ms, list((output or {}).keys())
+                    pipeline,
+                    run_id,
+                    node.id,
+                    node.plugin_id,
+                    node.tool_id,
+                    step_index,
+                    duration_ms,
+                    list((output or {}).keys()),
                 )
 
             # Merge all node outputs into final result
@@ -105,13 +132,15 @@ class DagPipelineService:
 
             duration_ms = (time.time() - started_at) * 1000
             self._log_pipeline_completed(pipeline, run_id, duration_ms)
-            
+
             return final
 
         except Exception as exc:
             duration_ms = (time.time() - started_at) * 1000
             self._log_pipeline_failed(
-                pipeline, run_id, duration_ms,
+                pipeline,
+                run_id,
+                duration_ms,
                 error_type=type(exc).__name__,
                 error_message=str(exc),
             )
@@ -120,10 +149,10 @@ class DagPipelineService:
     def validate(self, pipeline: Pipeline) -> PipelineValidationResult:
         """
         Validate a pipeline structure.
-        
+
         Args:
             pipeline: Pipeline to validate
-            
+
         Returns:
             PipelineValidationResult with validation status and errors
         """
@@ -154,10 +183,10 @@ class DagPipelineService:
     def _topological_order(self, pipeline: Pipeline) -> List[str]:
         """
         Get nodes in topological order using Kahn's algorithm.
-        
+
         Args:
             pipeline: Pipeline to sort
-            
+
         Returns:
             List of node IDs in topological order
         """
@@ -192,15 +221,15 @@ class DagPipelineService:
     ) -> Dict[str, Any]:
         """
         Merge initial payload with outputs of all predecessor nodes.
-        
+
         Uses last-wins rule for key conflicts.
-        
+
         Args:
             node_id: Current node ID
             pipeline: Pipeline definition
             context: Context with outputs from executed nodes
             initial_payload: Initial input payload
-            
+
         Returns:
             Merged payload dictionary
         """
@@ -221,10 +250,10 @@ class DagPipelineService:
     def _has_cycle(self, pipeline: Pipeline) -> bool:
         """
         Check if pipeline contains a cycle using DFS.
-        
+
         Args:
             pipeline: Pipeline to check
-            
+
         Returns:
             True if cycle detected, False otherwise
         """
@@ -258,10 +287,10 @@ class DagPipelineService:
     def _get_reachable_nodes(self, pipeline: Pipeline) -> set:
         """
         Get all nodes reachable from entry nodes.
-        
+
         Args:
             pipeline: Pipeline to analyze
-            
+
         Returns:
             Set of reachable node IDs
         """
@@ -299,7 +328,9 @@ class DagPipelineService:
             },
         )
 
-    def _log_pipeline_completed(self, pipeline: Pipeline, run_id: str, duration_ms: float) -> None:
+    def _log_pipeline_completed(
+        self, pipeline: Pipeline, run_id: str, duration_ms: float
+    ) -> None:
         """Log pipeline completed event."""
         logger.info(
             "pipeline_completed",

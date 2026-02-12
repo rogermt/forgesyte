@@ -73,17 +73,36 @@ def pytest_configure(config):
 def install_plugins():
     """Install plugins once per test session for integration tests."""
     import subprocess
-    
+
     # Try multiple locations where forgesyte-plugins might be
     possible_paths = [
         # Local development
         os.path.join(os.path.expanduser("~"), "forgesyte-plugins", "plugins", "ocr"),
         # CI: sibling directory (GitHub Actions workspace structure)
-        os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "forgesyte-plugins", "plugins", "ocr")),
+        os.path.abspath(
+            os.path.join(
+                os.path.dirname(__file__),
+                "..",
+                "..",
+                "forgesyte-plugins",
+                "plugins",
+                "ocr",
+            )
+        ),
         # CI: relative from repo root
-        os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "forgesyte-plugins", "plugins", "ocr")),
+        os.path.abspath(
+            os.path.join(
+                os.path.dirname(__file__),
+                "..",
+                "..",
+                "..",
+                "forgesyte-plugins",
+                "plugins",
+                "ocr",
+            )
+        ),
     ]
-    
+
     for ocr_plugin_path in possible_paths:
         ocr_plugin_path = os.path.abspath(ocr_plugin_path)
         if os.path.isdir(ocr_plugin_path):
@@ -96,7 +115,7 @@ def install_plugins():
                 return  # Success, stop trying
             except Exception:
                 continue  # Try next path
-    
+
     # If we get here, plugin wasn't found - this is OK for some CI environments
 
 

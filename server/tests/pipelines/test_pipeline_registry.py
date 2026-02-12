@@ -2,19 +2,25 @@
 Tests for pipeline Pipeline Registry Service.
 TDD: Write failing tests first, then implement service.
 """
-import pytest
+
 import json
-from pathlib import Path
+
+import pytest
 
 try:
+    from app.pipeline_models.pipeline_graph_models import (
+        Pipeline,
+    )
     from app.services.pipeline_registry_service import PipelineRegistryService
-    from app.pipeline_models.pipeline_graph_models import Pipeline, PipelineNode, PipelineEdge
+
     SERVICE_EXISTS = True
 except ImportError:
     SERVICE_EXISTS = False
 
 
-@pytest.mark.skipif(not SERVICE_EXISTS, reason="PipelineRegistryService not implemented yet")
+@pytest.mark.skipif(
+    not SERVICE_EXISTS, reason="PipelineRegistryService not implemented yet"
+)
 class TestPipelineRegistryService:
     """Test PipelineRegistryService functionality."""
 
@@ -33,17 +39,17 @@ class TestPipelineRegistryService:
             "entry_nodes": ["n1"],
             "output_nodes": ["n2"],
         }
-        
+
         pipeline_file = tmp_path / "test_pipeline.json"
         pipeline_file.write_text(json.dumps(pipeline_data))
-        
+
         return tmp_path
 
     def test_list_returns_all_pipelines(self, temp_pipeline_dir):
         """Test that list() returns all registered pipelines."""
         registry = PipelineRegistryService(str(temp_pipeline_dir))
         pipelines = registry.list()
-        
+
         assert len(pipelines) == 1
         assert pipelines[0]["id"] == "test_pipeline"
 
@@ -51,7 +57,7 @@ class TestPipelineRegistryService:
         """Test that get() returns a specific pipeline."""
         registry = PipelineRegistryService(str(temp_pipeline_dir))
         pipeline = registry.get("test_pipeline")
-        
+
         assert pipeline is not None
         assert pipeline.id == "test_pipeline"
         assert len(pipeline.nodes) == 2
@@ -60,14 +66,14 @@ class TestPipelineRegistryService:
         """Test that get() returns None for unknown pipeline ID."""
         registry = PipelineRegistryService(str(temp_pipeline_dir))
         pipeline = registry.get("nonexistent")
-        
+
         assert pipeline is None
 
     def test_get_info_returns_pipeline_metadata(self, temp_pipeline_dir):
         """Test that get_info() returns pipeline metadata."""
         registry = PipelineRegistryService(str(temp_pipeline_dir))
         info = registry.get_info("test_pipeline")
-        
+
         assert info is not None
         assert info["id"] == "test_pipeline"
         assert info["name"] == "Test Pipeline"
@@ -78,7 +84,7 @@ class TestPipelineRegistryService:
         """Test that get_info() returns None for unknown pipeline ID."""
         registry = PipelineRegistryService(str(temp_pipeline_dir))
         info = registry.get_info("nonexistent")
-        
+
         assert info is None
 
     def test_loads_multiple_pipelines(self, tmp_path):
@@ -93,7 +99,7 @@ class TestPipelineRegistryService:
             "output_nodes": ["n1"],
         }
         (tmp_path / "pipeline1.json").write_text(json.dumps(pipeline1_data))
-        
+
         # Create second pipeline
         pipeline2_data = {
             "id": "pipeline2",
@@ -104,10 +110,10 @@ class TestPipelineRegistryService:
             "output_nodes": ["n1"],
         }
         (tmp_path / "pipeline2.json").write_text(json.dumps(pipeline2_data))
-        
+
         registry = PipelineRegistryService(str(tmp_path))
         pipelines = registry.list()
-        
+
         assert len(pipelines) == 2
         pipeline_ids = {p["id"] for p in pipelines}
         assert pipeline_ids == {"pipeline1", "pipeline2"}
@@ -124,13 +130,13 @@ class TestPipelineRegistryService:
             "output_nodes": ["n1"],
         }
         (tmp_path / "test_pipeline.json").write_text(json.dumps(pipeline_data))
-        
+
         # Create non-JSON file
         (tmp_path / "README.md").write_text("# Pipeline documentation")
-        
+
         registry = PipelineRegistryService(str(tmp_path))
         pipelines = registry.list()
-        
+
         assert len(pipelines) == 1
 
     def test_handles_invalid_json_gracefully(self, tmp_path):
@@ -145,12 +151,12 @@ class TestPipelineRegistryService:
             "output_nodes": ["n1"],
         }
         (tmp_path / "valid_pipeline.json").write_text(json.dumps(pipeline_data))
-        
+
         # Create invalid JSON file
         (tmp_path / "invalid.json").write_text("{ invalid json }")
-        
+
         registry = PipelineRegistryService(str(tmp_path))
         pipelines = registry.list()
-        
+
         assert len(pipelines) == 1
         assert pipelines[0]["id"] == "valid_pipeline"

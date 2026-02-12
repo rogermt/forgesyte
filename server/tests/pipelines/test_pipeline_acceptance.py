@@ -250,7 +250,11 @@ class TestPipelineAcceptance:
             "nodes": [
                 {"id": "n1", "plugin_id": "plugin_a", "tool_id": "tool1"},
                 {"id": "n2", "plugin_id": "plugin_b", "tool_id": "tool2"},
-                {"id": "n3", "plugin_id": "plugin_c", "tool_id": "tool3"},  # Unreachable
+                {
+                    "id": "n3",
+                    "plugin_id": "plugin_c",
+                    "tool_id": "tool3",
+                },  # Unreachable
             ],
             "edges": [{"from_node": "n1", "to_node": "n2"}],
             "entry_nodes": ["n1"],
@@ -294,8 +298,12 @@ class TestPipelineAcceptance:
         # Setup registry and plugin manager
         registry = PipelineRegistryService(str(tmp_path))
         plugin_manager = MockPluginManager()
-        plugin_manager.add_plugin(MockPlugin("plugin_a", {"key1": "value1", "shared": "from_n1"}))
-        plugin_manager.add_plugin(MockPlugin("plugin_b", {"key2": "value2", "shared": "from_n2"}))
+        plugin_manager.add_plugin(
+            MockPlugin("plugin_a", {"key1": "value1", "shared": "from_n1"})
+        )
+        plugin_manager.add_plugin(
+            MockPlugin("plugin_b", {"key2": "value2", "shared": "from_n2"})
+        )
         plugin_manager.add_plugin(MockPlugin("plugin_c", {"final": "result"}))
 
         # Execute pipeline

@@ -3,6 +3,7 @@ Pipeline E2E Test - Cross-plugin DAG execution via REST
 
 This test verifies complete E2E pipeline execution via REST API
 """
+
 import json
 from pathlib import Path
 
@@ -11,8 +12,7 @@ from fastapi.testclient import TestClient
 
 from app.main import create_app
 from app.services.pipeline_registry_service import PipelineRegistryService
-from app.services.dag_pipeline_service import DagPipelineService
-from tests.pipelines.test_dag_pipeline_service import MockPluginManager, MockPlugin
+from tests.pipelines.test_dag_pipeline_service import MockPlugin, MockPluginManager
 
 
 @pytest.fixture
@@ -36,7 +36,9 @@ def app_with_pipeline(tmp_path: Path):
     app = create_app()
     registry = PipelineRegistryService(str(tmp_path))
     plugin_manager = MockPluginManager()
-    plugin_manager.add_plugin(MockPlugin("yolo", {"detections": ["player1", "player2"]}))
+    plugin_manager.add_plugin(
+        MockPlugin("yolo", {"detections": ["player1", "player2"]})
+    )
     plugin_manager.add_plugin(MockPlugin("reid", {"tracks": ["track1", "track2"]}))
 
     app.state.pipeline_registry = registry

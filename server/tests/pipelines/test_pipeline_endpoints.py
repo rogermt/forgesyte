@@ -2,25 +2,23 @@
 Tests for pipeline REST Pipeline Endpoints.
 TDD: Write failing tests first, then implement endpoints.
 """
+
+
 import pytest
 from fastapi.testclient import TestClient
 
-# Import models for mocking even if service doesn't exist
-from app.pipeline_models.pipeline_graph_models import (
-    Pipeline,
-    PipelineNode,
-    PipelineEdge,
-)
-
 from app.main import create_app
+
+# Import models for mocking even if service doesn't exist
 from app.services.pipeline_registry_service import PipelineRegistryService
-from app.services.dag_pipeline_service import DagPipelineService
-from tests.pipelines.test_dag_pipeline_service import MockPluginManager, MockPlugin
+from tests.pipelines.test_dag_pipeline_service import MockPlugin, MockPluginManager
 
 ENDPOINTS_EXIST = True
 
 
-@pytest.mark.skipif(not ENDPOINTS_EXIST, reason="Pipeline endpoints not implemented yet")
+@pytest.mark.skipif(
+    not ENDPOINTS_EXIST, reason="Pipeline endpoints not implemented yet"
+)
 class TestPipelineEndpoints:
     """Test pipeline REST endpoints."""
 
@@ -28,7 +26,7 @@ class TestPipelineEndpoints:
     def app_with_state(self, tmp_path):
         """Create app with initialized state for testing."""
         app = create_app()
-        
+
         # Create test pipeline
         pipeline_data = {
             "id": "test_pipeline",
@@ -38,16 +36,18 @@ class TestPipelineEndpoints:
             "entry_nodes": ["n1"],
             "output_nodes": ["n1"],
         }
-        (tmp_path / "test_pipeline.json").write_text(__import__("json").dumps(pipeline_data))
-        
+        (tmp_path / "test_pipeline.json").write_text(
+            __import__("json").dumps(pipeline_data)
+        )
+
         # Initialize pipeline services
         registry = PipelineRegistryService(str(tmp_path))
         plugin_manager = MockPluginManager()
         plugin_manager.add_plugin(MockPlugin("plugin_a", {"result": "test"}))
-        
+
         app.state.pipeline_registry = registry
         app.state.plugin_manager_for_pipelines = plugin_manager
-        
+
         return app
 
     @pytest.fixture
@@ -58,7 +58,7 @@ class TestPipelineEndpoints:
     def test_list_pipelines(self, client):
         """Test GET /pipelines/list returns all pipelines."""
         response = client.get("/v1/pipelines/list")
-        
+
         assert response.status_code == 200
         data = response.json()
         assert "pipelines" in data
@@ -68,7 +68,7 @@ class TestPipelineEndpoints:
     def test_get_pipeline_info(self, client):
         """Test GET /pipelines/{id}/info returns pipeline metadata."""
         response = client.get("/v1/pipelines/test_pipeline/info")
-        
+
         assert response.status_code == 200
         data = response.json()
         assert data["id"] == "test_pipeline"
@@ -78,7 +78,7 @@ class TestPipelineEndpoints:
     def test_get_pipeline_info_not_found(self, client):
         """Test GET /pipelines/{id}/info returns 404 for unknown pipeline."""
         response = client.get("/v1/pipelines/nonexistent/info")
-        
+
         assert response.status_code == 404
 
     def test_validate_pipeline_success(self, client):
@@ -91,9 +91,9 @@ class TestPipelineEndpoints:
             "entry_nodes": ["n1"],
             "output_nodes": ["n1"],
         }
-        
+
         response = client.post("/v1/pipelines/validate", json=pipeline_data)
-        
+
         assert response.status_code == 200
         data = response.json()
         assert data["valid"] is True
@@ -115,9 +115,9 @@ class TestPipelineEndpoints:
             "entry_nodes": ["n1"],
             "output_nodes": ["n2"],
         }
-        
+
         response = client.post("/v1/pipelines/validate", json=pipeline_data)
-        
+
         assert response.status_code == 200
         data = response.json()
         assert data["valid"] is False
@@ -126,8 +126,10 @@ class TestPipelineEndpoints:
 
     def test_run_pipeline(self, client):
         """Test POST /pipelines/{id}/run executes pipeline."""
-        response = client.post("/v1/pipelines/test_pipeline/run", json={"input": "test"})
-        
+        response = client.post(
+            "/v1/pipelines/test_pipeline/run", json={"input": "test"}
+        )
+
         assert response.status_code == 200
         data = response.json()
         assert data["status"] == "success"
@@ -136,5 +138,5 @@ class TestPipelineEndpoints:
     def test_run_pipeline_not_found(self, client):
         """Test POST /pipelines/{id}/run returns 404 for unknown pipeline."""
         response = client.post("/v1/pipelines/nonexistent/run", json={"input": "test"})
-        
+
         assert response.status_code == 404

@@ -6,7 +6,6 @@ These tests verify that the /video/pipeline endpoint validates request structure
 The endpoint will execute pipelines via VideoPipelineService in Phase 13.
 """
 
-import pytest
 from fastapi.testclient import TestClient
 
 
@@ -19,11 +18,19 @@ def test_post_video_pipeline(app_with_plugins):
     expected_result = {
         "result": {"tool": "detect_players", "step_completed": "detect_players"},
         "steps": [
-            {"tool": "detect_players", "output": {"tool": "detect_players", "step_completed": "detect_players"}}
+            {
+                "tool": "detect_players",
+                "output": {
+                    "tool": "detect_players",
+                    "step_completed": "detect_players",
+                },
+            }
         ],
     }
 
-    with patch("app.services.video_pipeline_service.VideoPipelineService.run_pipeline") as mock_run:
+    with patch(
+        "app.services.video_pipeline_service.VideoPipelineService.run_pipeline"
+    ) as mock_run:
         mock_run.return_value = expected_result
 
         response = client.post(
@@ -75,7 +82,9 @@ def test_pipeline_empty_tools_returns_400(app_with_plugins):
 
     client = TestClient(app_with_plugins)
 
-    with patch("app.services.video_pipeline_service.VideoPipelineService.run_pipeline") as mock_run:
+    with patch(
+        "app.services.video_pipeline_service.VideoPipelineService.run_pipeline"
+    ) as mock_run:
         mock_run.side_effect = ValueError("Pipeline requires a non-empty tools[] array")
 
         response = client.post(

@@ -8,7 +8,9 @@ Defines core data structures for DAG-based cross-plugin pipelines:
 - ToolMetadata: Tool capability metadata
 - PipelineValidationResult: Validation output
 """
+
 from typing import List
+
 from pydantic import BaseModel, Field
 
 

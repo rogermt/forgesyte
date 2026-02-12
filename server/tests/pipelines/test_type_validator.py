@@ -2,16 +2,19 @@
 Tests for pipeline Type Compatibility Validation.
 TDD: Write failing tests first, then implement validator.
 """
+
+
 import pytest
 
 try:
-    from app.services.type_validator import TypeValidator
     from app.pipeline_models.pipeline_graph_models import (
         Pipeline,
-        PipelineNode,
         PipelineEdge,
+        PipelineNode,
         ToolMetadata,
     )
+    from app.services.type_validator import TypeValidator
+
     VALIDATOR_EXISTS = True
 except ImportError:
     VALIDATOR_EXISTS = False
@@ -24,7 +27,7 @@ class TestTypeValidator:
     def test_valid_type_compatibility(self):
         """Test that compatible types pass validation."""
         validator = TypeValidator()
-        
+
         # Create tool metadata with compatible types
         tools = {
             "n1": ToolMetadata(
@@ -40,7 +43,7 @@ class TestTypeValidator:
                 output_types=["tracks"],
             ),
         }
-        
+
         pipeline = Pipeline(
             id="test",
             name="Test",
@@ -52,15 +55,15 @@ class TestTypeValidator:
             entry_nodes=["n1"],
             output_nodes=["n2"],
         )
-        
+
         errors = validator.validate_types(pipeline, tools)
-        
+
         assert len(errors) == 0
 
     def test_type_mismatch_rejected(self):
         """Test that incompatible types are rejected."""
         validator = TypeValidator()
-        
+
         # Create tool metadata with incompatible types
         tools = {
             "n1": ToolMetadata(
@@ -76,7 +79,7 @@ class TestTypeValidator:
                 output_types=["tracks"],
             ),
         }
-        
+
         pipeline = Pipeline(
             id="test",
             name="Test",
@@ -88,16 +91,16 @@ class TestTypeValidator:
             entry_nodes=["n1"],
             output_nodes=["n2"],
         )
-        
+
         errors = validator.validate_types(pipeline, tools)
-        
+
         assert len(errors) > 0
         assert any("type mismatch" in error.lower() for error in errors)
 
     def test_multiple_compatible_types(self):
         """Test that multiple compatible types are accepted."""
         validator = TypeValidator()
-        
+
         # Create tool metadata with multiple compatible types
         tools = {
             "n1": ToolMetadata(
@@ -113,7 +116,7 @@ class TestTypeValidator:
                 output_types=["overlay"],
             ),
         }
-        
+
         pipeline = Pipeline(
             id="test",
             name="Test",
@@ -125,15 +128,15 @@ class TestTypeValidator:
             entry_nodes=["n1"],
             output_nodes=["n2"],
         )
-        
+
         errors = validator.validate_types(pipeline, tools)
-        
+
         assert len(errors) == 0
 
     def test_partial_type_overlap_accepted(self):
         """Test that partial type overlap is accepted."""
         validator = TypeValidator()
-        
+
         # Create tool metadata with partial type overlap
         tools = {
             "n1": ToolMetadata(
@@ -149,7 +152,7 @@ class TestTypeValidator:
                 output_types=["tracks"],
             ),
         }
-        
+
         pipeline = Pipeline(
             id="test",
             name="Test",
@@ -161,15 +164,15 @@ class TestTypeValidator:
             entry_nodes=["n1"],
             output_nodes=["n2"],
         )
-        
+
         errors = validator.validate_types(pipeline, tools)
-        
+
         assert len(errors) == 0
 
     def test_empty_types_allowed(self):
         """Test that empty type lists are allowed (no validation)."""
         validator = TypeValidator()
-        
+
         # Create tool metadata with empty types
         tools = {
             "n1": ToolMetadata(
@@ -185,7 +188,7 @@ class TestTypeValidator:
                 output_types=[],
             ),
         }
-        
+
         pipeline = Pipeline(
             id="test",
             name="Test",
@@ -197,8 +200,8 @@ class TestTypeValidator:
             entry_nodes=["n1"],
             output_nodes=["n2"],
         )
-        
+
         errors = validator.validate_types(pipeline, tools)
-        
+
         # Empty types should not cause errors
         assert len(errors) == 0

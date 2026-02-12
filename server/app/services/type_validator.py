@@ -3,6 +3,7 @@ Phase 14: Type Validator
 
 Validates type compatibility between pipeline nodes using intersection-based matching.
 """
+
 from typing import Dict, List
 
 from app.pipeline_models.pipeline_graph_models import (
@@ -14,7 +15,7 @@ from app.pipeline_models.pipeline_graph_models import (
 class TypeValidator:
     """
     Validates type compatibility between connected pipeline nodes.
-    
+
     Uses intersection-based matching: an edge is valid if the output types
     of the source node intersect with the input types of the destination node.
     """
@@ -24,18 +25,20 @@ class TypeValidator:
     ) -> List[str]:
         """
         Validate type compatibility for all edges in a pipeline.
-        
+
         Args:
             pipeline: Pipeline to validate
             tools: Dictionary mapping node IDs to ToolMetadata
-            
+
         Returns:
             List of error messages (empty if all edges are compatible)
         """
         errors = []
 
         for edge in pipeline.edges:
-            from_node = next((n for n in pipeline.nodes if n.id == edge.from_node), None)
+            from_node = next(
+                (n for n in pipeline.nodes if n.id == edge.from_node), None
+            )
             to_node = next((n for n in pipeline.nodes if n.id == edge.to_node), None)
 
             if from_node is None or to_node is None:
@@ -61,11 +64,11 @@ class TypeValidator:
     ) -> bool:
         """
         Check if two tools have compatible types.
-        
+
         Args:
             from_metadata: Tool metadata for source node
             to_metadata: Tool metadata for destination node
-            
+
         Returns:
             True if types are compatible (intersection non-empty), False otherwise
         """

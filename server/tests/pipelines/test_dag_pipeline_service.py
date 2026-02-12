@@ -2,20 +2,21 @@
 Tests for pipeline DAG Pipeline Service.
 TDD: Write failing tests first, then implement service.
 """
-import pytest
+
 import logging
-from typing import Dict, Any
+from typing import Any, Dict
+
+import pytest
 
 # Import models for mocking even if service doesn't exist
 from app.pipeline_models.pipeline_graph_models import (
     Pipeline,
-    PipelineNode,
-    PipelineEdge,
     PipelineValidationResult,
 )
 
 try:
     from app.services.dag_pipeline_service import DagPipelineService
+
     SERVICE_EXISTS = True
 except ImportError:
     SERVICE_EXISTS = False
@@ -24,11 +25,11 @@ except ImportError:
 # Mock plugin and plugin manager for testing
 class MockPlugin:
     """Mock plugin for testing."""
-    
-    def __init__(self, plugin_id: str, outputs: Dict[str, Any] = None):
+
+    def __init__(self, plugin_id: str, outputs: Dict[str, Any] | None = None):
         self.id = plugin_id
         self._outputs = outputs or {}
-    
+
     def run_tool(self, tool_id: str, payload: Dict[str, Any]) -> Dict[str, Any]:
         """Run a tool and return mock output."""
         return {
@@ -40,14 +41,14 @@ class MockPlugin:
 
 class MockPluginManager:
     """Mock plugin manager for testing."""
-    
+
     def __init__(self):
         self._plugins = {}
-    
+
     def add_plugin(self, plugin: MockPlugin):
         """Add a plugin to the manager."""
         self._plugins[plugin.id] = plugin
-    
+
     def get_plugin(self, plugin_id: str) -> MockPlugin:
         """Get a plugin by ID."""
         return self._plugins.get(plugin_id)
@@ -55,10 +56,10 @@ class MockPluginManager:
 
 class MockRegistry:
     """Mock pipeline registry for testing."""
-    
+
     def __init__(self, pipeline: Pipeline):
         self._pipeline = pipeline
-    
+
     def get_pipeline(self, pipeline_id: str) -> Pipeline:
         """Get a pipeline by ID."""
         return self._pipeline
@@ -82,18 +83,18 @@ class TestDagPipelineService:
             entry_nodes=["n1"],
             output_nodes=["n2"],
         )
-        
+
         # Setup mock plugins
         plugin_manager = MockPluginManager()
         plugin_manager.add_plugin(MockPlugin("plugin_a", {"output_a": "value_a"}))
         plugin_manager.add_plugin(MockPlugin("plugin_b", {"output_b": "value_b"}))
-        
+
         registry = MockRegistry(pipeline)
         dag_service = DagPipelineService(registry, plugin_manager)
-        
+
         # Execute pipeline
         result = dag_service.run_pipeline("linear", {"input": "test"})
-        
+
         # Verify result contains outputs from both nodes
         assert "output_a" in result
         assert "output_b" in result
@@ -118,19 +119,19 @@ class TestDagPipelineService:
             entry_nodes=["n1", "n2"],
             output_nodes=["n3"],
         )
-        
+
         # Setup mock plugins
         plugin_manager = MockPluginManager()
         plugin_manager.add_plugin(MockPlugin("plugin_a", {"key1": "value1"}))
         plugin_manager.add_plugin(MockPlugin("plugin_b", {"key2": "value2"}))
         plugin_manager.add_plugin(MockPlugin("plugin_c", {"final": "result"}))
-        
+
         registry = MockRegistry(pipeline)
         dag_service = DagPipelineService(registry, plugin_manager)
-        
+
         # Execute pipeline
         result = dag_service.run_pipeline("merge", {"input": "test"})
-        
+
         # Verify result contains merged outputs
         assert "key1" in result
         assert "key2" in result
@@ -146,18 +147,18 @@ class TestDagPipelineService:
             entry_nodes=["n1"],
             output_nodes=["n1"],
         )
-        
+
         plugin_manager = MockPluginManager()
         plugin_manager.add_plugin(MockPlugin("plugin_a", {"output": "value"}))
-        
+
         registry = MockRegistry(pipeline)
         dag_service = DagPipelineService(registry, plugin_manager)
-        
+
         caplog.set_level(logging.INFO, logger="pipelines.dag")
-        
+
         # Execute pipeline
         dag_service.run_pipeline("test", {"input": "test"})
-        
+
         # Verify observability events were logged
         event_types = [getattr(record, "event_type", None) for record in caplog.records]
         assert "pipeline_started" in event_types
@@ -167,10 +168,11 @@ class TestDagPipelineService:
 
     def test_execute_handles_node_failure(self, caplog):
         """Test that execution handles node failure gracefully."""
+
         class FailingPlugin(MockPlugin):
             def run_tool(self, tool_id: str, payload: Dict[str, Any]) -> Dict[str, Any]:
                 raise RuntimeError("Tool execution failed")
-        
+
         pipeline = Pipeline(
             id="failing",
             name="Failing Pipeline",
@@ -179,19 +181,19 @@ class TestDagPipelineService:
             entry_nodes=["n1"],
             output_nodes=["n1"],
         )
-        
+
         plugin_manager = MockPluginManager()
         plugin_manager.add_plugin(FailingPlugin("plugin_a"))
-        
+
         registry = MockRegistry(pipeline)
         dag_service = DagPipelineService(registry, plugin_manager)
-        
+
         caplog.set_level(logging.INFO, logger="pipelines.dag")
-        
+
         # Execute pipeline should raise exception
         with pytest.raises(RuntimeError, match="Tool execution failed"):
             dag_service.run_pipeline("failing", {"input": "test"})
-        
+
         # Verify failure events were logged
         event_types = [getattr(record, "event_type", None) for record in caplog.records]
         assert "pipeline_started" in event_types
@@ -208,13 +210,13 @@ class TestDagPipelineService:
             entry_nodes=["n1"],
             output_nodes=["n1"],
         )
-        
+
         plugin_manager = MockPluginManager()
         registry = MockRegistry(pipeline)
         dag_service = DagPipelineService(registry, plugin_manager)
-        
+
         result = dag_service.validate(pipeline)
-        
+
         assert isinstance(result, PipelineValidationResult)
         assert hasattr(result, "valid")
         assert hasattr(result, "errors")
