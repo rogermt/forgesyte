@@ -74,6 +74,18 @@ class PipelineRegistryService:
         """
         return self._pipelines.get(pipeline_id)
 
+    def get_pipeline(self, pipeline_id: str) -> Optional[Pipeline]:
+        """
+        Get a pipeline by ID (alias for get()).
+        
+        Args:
+            pipeline_id: Unique pipeline identifier
+            
+        Returns:
+            Pipeline object if found, None otherwise
+        """
+        return self.get(pipeline_id)
+
     def get_info(self, pipeline_id: str) -> Optional[Dict[str, any]]:
         """
         Get metadata about a pipeline.
