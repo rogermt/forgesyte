@@ -1,0 +1,67 @@
+name: Governance CI Gate
+
+on:
+  pull_request:
+    branches: [main, master]
+  push:
+    branches: [main, master]
+
+jobs:
+  phase14-governance:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v2
+
+      - name: Install dependencies
+        run: |
+          cd server
+          uv sync
+
+      # -----------------------------
+      # 1. Plugin metadata validator
+      # -----------------------------
+      - name: Validate plugin metadata
+        run: |
+          cd server
+          uv run python tools/validate_plugins.py
+
+      # -----------------------------
+      # 2. Pipeline validator
+      # -----------------------------
+      - name: Validate pipelines
+        run: |
+          cd server
+          uv run python tools/validate_pipelines.py
+
+      # -----------------------------
+      # 3. Regenerate capability matrix
+      # -----------------------------
+      - name: Generate capability matrix
+        run: |
+          cd server
+          uv run python tools/generate_plugin_capability_matrix.py
+
+      # -----------------------------
+      # 4. Ensure capability matrix is committed
+      # -----------------------------
+      - name: Check capability matrix is up to date
+        run: |
+          git diff --exit-code docs/phase_14_plugin_capability_matrix.md
+
+      # -----------------------------
+      # 5. Run Phase 14 DAG tests
+      # -----------------------------
+      - name: Run tests
+        run: |
+          cd server
+          uv run pytest -q --disable-warnings --maxfail=1
