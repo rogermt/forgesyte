@@ -5,7 +5,7 @@ This module provides REST endpoints for video pipeline execution.
 
 from typing import Any, Dict
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 
 from .protocols import PluginRegistry
 from .schemas.pipeline import PipelineRequest
@@ -14,7 +14,7 @@ from .services.video_pipeline_service import VideoPipelineService
 
 def get_plugin_registry(request: Request) -> PluginRegistry:
     """Dependency to get the plugin registry from app state."""
-    return request.state.plugins
+    return request.app.state.plugins
 
 
 def get_pipeline_service(
@@ -34,11 +34,14 @@ def init_pipeline_routes() -> APIRouter:
         pipeline_service: VideoPipelineService = Depends(get_pipeline_service),
     ) -> Dict[str, Any]:
         """Execute a linear pipeline of tools for a single plugin."""
-        result = pipeline_service.run_pipeline(
-            plugin_id=req.plugin_id,
-            tools=req.tools,
-            payload=req.payload,
-        )
-        return {"result": result}
+        try:
+            result = pipeline_service.run_pipeline(
+                plugin_id=req.plugin_id,
+                tools=req.tools,
+                payload=req.payload,
+            )
+            return result
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e)) from e
 
     return router
