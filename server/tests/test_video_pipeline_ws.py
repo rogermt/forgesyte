@@ -48,7 +48,7 @@ def test_ws_pipeline_missing_tools(ws_client):
         connected_msg = ws.receive_json()
         assert connected_msg["type"] == "connected"
 
-        # Send frame without tools
+        # Send frame without tools (should cause error in new schema)
         ws.send_json(
             {
                 "type": "frame",

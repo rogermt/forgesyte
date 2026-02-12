@@ -121,7 +121,7 @@ class TestToolsCallHandler:
             request = JSONRPCRequest(
                 jsonrpc="2.0",
                 method="tools/call",
-                params={"name": "ocr", "arguments": {}},
+                params={"name": "ocr", "arguments": {"options": {"tool": "ocr"}}},
                 id=5,
             )
 
@@ -160,7 +160,7 @@ class TestToolsCallHandler:
             transport = MCPTransport()
 
             class FakePlugin:
-                name = "test_plugin"
+                name = "ocr"
                 tools = {
                     "ocr": {
                         "handler": "analyze_image",
@@ -195,7 +195,10 @@ class TestToolsCallHandler:
                 method="tools/call",
                 params={
                     "name": "ocr",
-                    "arguments": {"image": "dGVzdF9kYXRh"},  # base64 of "test_data"
+                    "arguments": {
+                        "image": "dGVzdF9kYXRh",  # base64 of "test_data"
+                        "options": {"tool": "ocr"},  # Phase 13: explicit tool selection
+                    },
                 },
                 id=7,
             )
@@ -226,7 +229,7 @@ class TestToolsCallHandler:
             transport = MCPTransport()
 
             class FailingPlugin:
-                name = "failing_plugin"
+                name = "ocr"
                 tools = {
                     "ocr": {
                         "handler": "analyze_image",
@@ -257,7 +260,10 @@ class TestToolsCallHandler:
                 method="tools/call",
                 params={
                     "name": "ocr",
-                    "arguments": {"image": "dGVzdF9kYXRh"},
+                    "arguments": {
+                        "image": "dGVzdF9kYXRh",
+                        "options": {"tool": "ocr"},
+                    },
                 },
                 id=8,
             )
@@ -277,7 +283,7 @@ class TestToolsCallHandler:
             transport = MCPTransport()
 
             class UnicodePlugin:
-                name = "unicode_plugin"
+                name = "ocr"
                 tools = {
                     "ocr": {
                         "handler": "analyze_image",
@@ -312,7 +318,10 @@ class TestToolsCallHandler:
                 method="tools/call",
                 params={
                     "name": "ocr",
-                    "arguments": {"image": "dGVzdF9kYXRh"},
+                    "arguments": {
+                        "image": "dGVzdF9kYXRh",
+                        "options": {"tool": "ocr"},
+                    },
                 },
                 id=9,
             )
@@ -360,6 +369,7 @@ class TestToolsCallHandler:
                 params={
                     "name": "ocr",
                     "arguments": {"image": "dGVzdF9kYXRh"},
+                    "options": {"tool": "ocr"},
                 },
                 id=10,
             )
@@ -384,7 +394,7 @@ class TestToolsCallHandler:
                 blocks: list
 
             class PydanticPlugin:
-                name = "pydantic_plugin"
+                name = "ocr"
                 tools = {
                     "ocr": {
                         "handler": "analyze_image",
@@ -419,7 +429,10 @@ class TestToolsCallHandler:
                 method="tools/call",
                 params={
                     "name": "ocr",
-                    "arguments": {"image": "dGVzdF9kYXRh"},
+                    "arguments": {
+                        "image": "dGVzdF9kYXRh",
+                        "options": {"tool": "ocr"},
+                    },
                 },
                 id=11,
             )
@@ -455,7 +468,7 @@ class TestToolsCallHandler:
             app.include_router(router)
 
             class LargePlugin:
-                name = "large_plugin"
+                name = "ocr"
                 tools = {
                     "ocr": {
                         "handler": "analyze_image",
@@ -500,7 +513,10 @@ class TestToolsCallHandler:
                     "method": "tools/call",
                     "params": {
                         "name": "ocr",
-                        "arguments": {"image": "dGVzdF9kYXRh"},
+                        "arguments": {
+                            "image": "dGVzdF9kYXRh",
+                            "options": {"tool": "ocr"},
+                        },
                     },
                     "id": 14,
                 },

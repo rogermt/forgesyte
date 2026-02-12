@@ -20,7 +20,10 @@ async def test_run_plugin_tool_success(client):
 
         response = await client.post(
             "/v1/plugins/test-plugin/tools/detect/run",
-            json={"args": {"frame_base64": "iVBORw0K...", "device": "cpu"}},
+            json={
+                "tools": ["detect"],
+                "args": {"frame_base64": "iVBORw0K...", "device": "cpu"},
+            },
         )
 
         assert response.status_code == 200
@@ -40,7 +43,10 @@ async def test_run_plugin_tool_not_found(client):
 
         response = await client.post(
             "/v1/plugins/nonexistent/tools/detect/run",
-            json={"args": {"frame_base64": "iVBORw0K..."}},
+            json={
+                "tools": ["detect"],
+                "args": {"frame_base64": "iVBORw0K..."},
+            },
         )
 
         assert response.status_code == 400
@@ -55,7 +61,10 @@ async def test_run_plugin_tool_invalid_args(client):
 
         response = await client.post(
             "/v1/plugins/test-plugin/tools/detect/run",
-            json={"args": {"missing_required_arg": "value"}},
+            json={
+                "tools": ["detect"],
+                "args": {"missing_required_arg": "value"},
+            },
         )
 
         assert response.status_code == 400
@@ -70,7 +79,10 @@ async def test_run_plugin_tool_timeout(client):
 
         response = await client.post(
             "/v1/plugins/test-plugin/tools/slow_detect/run",
-            json={"args": {"frame_base64": "iVBORw0K..."}},
+            json={
+                "tools": ["slow_detect"],
+                "args": {"frame_base64": "iVBORw0K..."},
+            },
         )
 
         assert response.status_code == 408
@@ -85,7 +97,10 @@ async def test_run_plugin_tool_unexpected_error(client):
 
         response = await client.post(
             "/v1/plugins/test-plugin/tools/detect/run",
-            json={"args": {"frame_base64": "iVBORw0K..."}},
+            json={
+                "tools": ["detect"],
+                "args": {"frame_base64": "iVBORw0K..."},
+            },
         )
 
         assert response.status_code == 500
@@ -103,11 +118,12 @@ async def test_run_plugin_tool_response_schema(client):
         response = await client.post(
             "/v1/plugins/yolo-tracker/tools/player_detection/run",
             json={
+                "tools": ["player_detection"],
                 "args": {
                     "frame_base64": "iVBORw0K...",
                     "device": "cpu",
                     "annotated": False,
-                }
+                },
             },
         )
 

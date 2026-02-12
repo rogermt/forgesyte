@@ -27,8 +27,8 @@ async def test_rest_pipeline_executes_two_tools(client):
         resp = await client.post(
             "/video/pipeline",
             json={
-                "plugin_id": "test-plugin",
                 "tools": ["detect_players", "track_players"],
+                "plugin_id": "test-plugin",
                 "payload": {"image_bytes": "AAA"},
             },
         )

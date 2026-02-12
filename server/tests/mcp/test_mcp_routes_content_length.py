@@ -35,7 +35,7 @@ class TestContentLengthCorrectness:
             app.include_router(router)
 
             class LargePlugin:
-                name = "large_plugin"
+                name = "ocr"
                 tools = {
                     "ocr": {
                         "handler": "analyze_image",
@@ -74,7 +74,13 @@ class TestContentLengthCorrectness:
                 json={
                     "jsonrpc": "2.0",
                     "method": "tools/call",
-                    "params": {"name": "ocr", "arguments": {"image": "dGVzdA=="}},
+                    "params": {
+                        "name": "ocr",
+                        "arguments": {
+                            "image": "dGVzdA==",
+                            "options": {"tool": "ocr"},
+                        },
+                    },
                     "id": 1,
                 },
             )
@@ -108,7 +114,7 @@ class TestContentLengthCorrectness:
             app.include_router(router)
 
             class UnicodePlugin:
-                name = "unicode_plugin"
+                name = "ocr"
                 tools = {
                     "ocr": {
                         "handler": "analyze_image",
@@ -146,7 +152,13 @@ class TestContentLengthCorrectness:
                 json={
                     "jsonrpc": "2.0",
                     "method": "tools/call",
-                    "params": {"name": "ocr", "arguments": {"image": "dGVzdA=="}},
+                    "params": {
+                        "name": "ocr",
+                        "arguments": {
+                            "image": "dGVzdA==",
+                            "options": {"tool": "ocr"},
+                        },
+                    },
                     "id": 2,
                 },
             )
@@ -176,7 +188,7 @@ class TestContentLengthCorrectness:
         app.include_router(router)
 
         class BigPlugin:
-            name = "big_plugin"
+            name = "ocr"
             tools = {
                 "ocr": {
                     "handler": "analyze_image",
@@ -223,7 +235,13 @@ class TestContentLengthCorrectness:
                     json={
                         "jsonrpc": "2.0",
                         "method": "tools/call",
-                        "params": {"name": "ocr", "arguments": {"image": "dGVzdA=="}},
+                        "params": {
+                            "name": "ocr",
+                            "arguments": {
+                                "image": "dGVzdA==",
+                                "options": {"tool": "ocr"},
+                            },
+                        },
                         "id": 99,
                     },
                     timeout=10,

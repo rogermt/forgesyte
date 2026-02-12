@@ -56,10 +56,11 @@ class TestPluginsRunYoloPlayerDetection:
             response = await client.post(
                 "/v1/plugins/yolo-tracker/tools/player_detection/run",
                 json={
+                    "tools": ["player_detection"],
                     "args": {
                         "frame_base64": frame_base64,
                         "device": "cpu",
-                    }
+                    },
                 },
             )
 
@@ -108,11 +109,12 @@ class TestPluginsRunYoloPlayerDetection:
             response = await client.post(
                 "/v1/plugins/yolo-tracker/tools/player_detection/run",
                 json={
+                    "tools": ["player_detection"],
                     "args": {
                         "frame_base64": frame_base64,
                         "device": "cpu",
                         "annotated": True,
-                    }
+                    },
                 },
             )
 
@@ -132,7 +134,10 @@ class TestPluginsRunYoloPlayerDetection:
 
             response = await client.post(
                 "/v1/plugins/yolo-tracker/tools/player_detection/run",
-                json={"args": {"device": "cpu"}},  # Missing frame_base64
+                json={
+                    "tools": ["player_detection"],
+                    "args": {"device": "cpu"},  # Missing frame_base64
+                },
             )
 
             assert response.status_code == 400
@@ -165,10 +170,11 @@ class TestPluginsRunYoloBallDetection:
             response = await client.post(
                 "/v1/plugins/yolo-tracker/tools/ball_detection/run",
                 json={
+                    "tools": ["ball_detection"],
                     "args": {
                         "frame_base64": frame_base64,
                         "device": "cpu",
-                    }
+                    },
                 },
             )
 
@@ -204,10 +210,11 @@ class TestPluginsRunYoloBallDetection:
             response = await client.post(
                 "/v1/plugins/yolo-tracker/tools/ball_detection/run",
                 json={
+                    "tools": ["ball_detection"],
                     "args": {
                         "frame_base64": frame_base64,
                         "device": "cpu",
-                    }
+                    },
                 },
             )
 
@@ -244,10 +251,11 @@ class TestPluginsRunYoloPitchDetection:
             response = await client.post(
                 "/v1/plugins/yolo-tracker/tools/pitch_detection/run",
                 json={
+                    "tools": ["pitch_detection"],
                     "args": {
                         "frame_base64": frame_base64,
                         "device": "cpu",
-                    }
+                    },
                 },
             )
 
@@ -313,10 +321,11 @@ class TestPluginsRunYoloRadar:
             response = await client.post(
                 "/v1/plugins/yolo-tracker/tools/radar/run",
                 json={
+                    "tools": ["radar"],
                     "args": {
                         "frame_base64": frame_base64,
                         "device": "cpu",
-                    }
+                    },
                 },
             )
 
@@ -353,10 +362,11 @@ class TestPluginsRunYoloRadar:
             response = await client.post(
                 "/v1/plugins/yolo-tracker/tools/radar/run",
                 json={
+                    "tools": ["radar"],
                     "args": {
                         "frame_base64": frame_base64,
                         "device": "cpu",
-                    }
+                    },
                 },
             )
 
@@ -401,11 +411,12 @@ class TestPluginsRunYoloTeamClassification:
             response = await client.post(
                 "/v1/plugins/yolo-tracker/tools/team_classification/run",
                 json={
+                    "tools": ["team_classification"],
                     "args": {
                         "frame_base64": frame_base64,
                         "device": "cpu",
                         "player_detections": [],
-                    }
+                    },
                 },
             )
 
@@ -456,11 +467,12 @@ class TestPluginsRunYoloPlayerTracking:
             response = await client.post(
                 "/v1/plugins/yolo-tracker/tools/player_tracking/run",
                 json={
+                    "tools": ["player_tracking"],
                     "args": {
                         "frame_base64": frame_base64,
                         "device": "cpu",
                         "frame_num": 1,
-                    }
+                    },
                 },
             )
 
@@ -499,11 +511,12 @@ class TestPluginsRunYoloPlayerTracking:
             response = await client.post(
                 "/v1/plugins/yolo-tracker/tools/player_tracking/run",
                 json={
+                    "tools": ["player_tracking"],
                     "args": {
                         "frame_base64": frame_base64,
                         "device": "cpu",
                         "frame_num": 1,
-                    }
+                    },
                 },
             )
 
@@ -528,7 +541,10 @@ class TestPluginsRunYoloToolsErrorHandling:
 
             response = await client.post(
                 "/v1/plugins/yolo-tracker/tools/player_detection/run",
-                json={"args": {"frame_base64": "invalid!!!base64", "device": "cpu"}},
+                json={
+                    "tools": ["player_detection"],
+                    "args": {"frame_base64": "invalid!!!base64", "device": "cpu"},
+                },
             )
 
             assert response.status_code == 400
@@ -546,7 +562,10 @@ class TestPluginsRunYoloToolsErrorHandling:
 
             response = await client.post(
                 "/v1/plugins/yolo-tracker/tools/player_detection/run",
-                json={"args": {"frame_base64": frame_base64, "device": "cpu"}},
+                json={
+                    "tools": ["player_detection"],
+                    "args": {"frame_base64": frame_base64, "device": "cpu"},
+                },
             )
 
             assert response.status_code == 408
@@ -564,7 +583,10 @@ class TestPluginsRunYoloToolsErrorHandling:
 
             response = await client.post(
                 "/v1/plugins/yolo-tracker/tools/player_detection/run",
-                json={"args": {"frame_base64": frame_base64, "device": "cpu"}},
+                json={
+                    "tools": ["player_detection"],
+                    "args": {"frame_base64": frame_base64, "device": "cpu"},
+                },
             )
 
             assert response.status_code == 500
