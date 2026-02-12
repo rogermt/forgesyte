@@ -8,7 +8,7 @@ export type FrameResult = Record<string, unknown>;
 export interface UseVideoProcessorArgs {
   videoRef: React.RefObject<HTMLVideoElement>;
   pluginId: string;
-  toolName: string;
+  tools: string[];
   fps: number;
   device: string;
   enabled: boolean;
@@ -32,7 +32,7 @@ export interface UseVideoProcessorReturn {
 export interface ProcessFrameLogEntry {
   timestamp: number;
   pluginId: string;
-  toolName: string;
+  tools: string[];
   durationMs: number;
   success: boolean;
   error?: string;

@@ -57,6 +57,7 @@ class TestSyncExecution:
         response = client.post(
             "/v1/analyze-execution",
             json={
+                "tools": ["analyze"],
                 "plugin": "good",
                 "image": "test_image_data",
                 "mime_type": "image/png",
@@ -80,6 +81,7 @@ class TestSyncExecution:
         response = client.post(
             "/v1/analyze-execution",
             json={
+                "tools": ["analyze"],
                 "plugin": "bad",
                 "image": "test_image_data",
                 "mime_type": "image/png",
@@ -98,7 +100,11 @@ class TestSyncExecution:
 
         response = client.post(
             "/v1/analyze-execution",
-            json={"image": "test_data", "mime_type": "image/png"},
+            json={
+                "tools": ["analyze"],
+                "image": "test_data",
+                "mime_type": "image/png",
+            },
             headers={"X-API-Key": "test-user-key"},
         )
 
@@ -113,6 +119,7 @@ class TestAsyncExecution:
         response = client.post(
             "/v1/analyze-execution/async",
             json={
+                "tools": ["analyze"],
                 "plugin": "good",
                 "image": "test_image_data",
                 "mime_type": "image/png",
@@ -131,6 +138,7 @@ class TestAsyncExecution:
         response = client.post(
             "/v1/analyze-execution/async",
             json={
+                "tools": ["analyze"],
                 "plugin": "test_plugin",
                 "image": "test_data",
                 "mime_type": "image/png",
@@ -372,6 +380,7 @@ class TestAsyncWorkflow:
         create_response = client.post(
             "/v1/analyze-execution/async",
             json={
+                "tools": ["analyze"],
                 "plugin": "yolo_football",
                 "image": "frame_data",
                 "mime_type": "image/png",
@@ -414,6 +423,7 @@ class TestAsyncWorkflow:
         create_response = client.post(
             "/v1/analyze-execution/async",
             json={
+                "tools": ["analyze"],
                 "plugin": "yolo_football",
                 "image": "frame_data",
                 "mime_type": "image/png",
@@ -448,7 +458,12 @@ class TestAuthentication:
         """Test that endpoints require authentication."""
         response = client.post(
             "/v1/analyze-execution",
-            json={"plugin": "test", "image": "data", "mime_type": "image/png"},
+            json={
+                "tools": ["analyze"],
+                "plugin": "test",
+                "image": "data",
+                "mime_type": "image/png",
+            },
         )
 
         # Should fail without auth header
@@ -458,7 +473,12 @@ class TestAuthentication:
         """Test that wrong API key is rejected."""
         response = client.post(
             "/v1/analyze-execution",
-            json={"plugin": "test", "image": "data", "mime_type": "image/png"},
+            json={
+                "tools": ["analyze"],
+                "plugin": "test",
+                "image": "data",
+                "mime_type": "image/png",
+            },
             headers={"X-API-Key": "wrong-key"},
         )
 

@@ -186,7 +186,12 @@ def test_websocket_stream_frame_handling(mock_vision_service):
             # Service handle_frame is called but we don't await response
             # Just verify endpoint handles frame without error
             websocket.send_json(
-                {"type": "frame", "data": "base64data==", "options": {}}
+                {
+                    "type": "frame",
+                    "tools": ["detect"],
+                    "data": "base64data==",
+                    "options": {},
+                }
             )
     finally:
         if hasattr(app.state, "analysis_service"):

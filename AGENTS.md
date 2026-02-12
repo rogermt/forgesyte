@@ -4,8 +4,13 @@ This document defines essential commands and conventions for agents working on t
 
 ## Project Overview
 
+ForgeSyte is a modular AI-vision MCP server engineered for developers, featuring:
 - **Server (Python/FastAPI)**: `/server` - Backend API, plugin management, job processing
 - **Web-UI (React/TypeScript)**: `/web-ui` - Frontend client application
+- **Plugin Architecture**: Modular vision analysis plugins (OCR, YOLO tracker, etc.)
+- **Job-Based Pipeline**: Async job processing with `/v1/analyze` endpoint
+- **MCP Integration**: Model Context Protocol for tool exposure
+- **WebSocket Streaming**: Real-time video processing via `/v1/stream`
 
 ---
 
@@ -18,7 +23,7 @@ All commands run from the `server/` directory.
 ```bash
 cd server
 
-# Sync dependencies
+# Sync dependencies with uv
 uv sync
 
 # Install pre-commit hooks
@@ -53,6 +58,12 @@ uv run pytest tests/contract/ -v
 
 # GPU (Kaggle): Tests all plugins including YOLO
 RUN_MODEL_TESTS=1 uv run pytest tests/contract/ -v
+
+# Run execution governance tests
+uv run pytest tests/execution -v
+
+# Run plugin registry tests
+uv run pytest tests/plugins -v
 ```
 
 ### Linting and Formatting
@@ -87,17 +98,43 @@ python scripts/scan_execution_violations.py
 # 2. Run plugin registry tests
 cd server && uv run pytest tests/plugins -v
 
-# 3. Run execution governance tests  
+# 3. Run execution governance tests
 cd server && uv run pytest tests/execution -v
 
 # 4. Run all core tests (full suite - matches CI)
 cd server && uv run pytest tests/ -v --tb=short
 ```
 
-**All four MUST PASS before committing.** 
+**All four MUST PASS before committing.**
 
-These are the exact same checks that `.github/workflows/execution-ci.yml` runs on every PR and push to `main`. 
+These are the exact same checks that `.github/workflows/execution-ci.yml` runs on every PR and push to `main`.
 If any step fails locally, it will also fail in CI — do not commit until all pass.
+
+### Server Structure
+
+```
+server/
+├── app/
+│   ├── api_routes/       # API route handlers
+│   ├── core/             # Core application logic
+│   ├── examples/         # Example usage code
+│   ├── logging/          # Logging configuration
+│   ├── mcp/              # MCP (Model Context Protocol) implementation
+│   ├── observability/    # Observability features
+│   ├── plugins/          # Plugin system core
+│   ├── realtime/         # Real-time processing
+│   ├── schemas/          # Pydantic schemas
+│   ├── services/         # Business logic services
+│   ├── main.py           # FastAPI application entry point
+│   ├── models.py         # Database models
+│   ├── routes_pipeline.py # Pipeline REST endpoints
+│   └── websocket_manager.py # WebSocket handling
+└── tests/
+    ├── api/              # API endpoint tests
+    ├── contract/         # Contract validation tests
+    ├── execution/        # Execution governance tests
+    └── plugins/          # Plugin tests
+```
 
 ### Code Style (Python)
 
@@ -130,7 +167,7 @@ npm install
 ### Testing
 
 ```bash
-# Run all tests
+# Run all tests (vitest with watch mode)
 npm run test
 
 # Run tests once (no watch mode)
@@ -139,7 +176,13 @@ npm run test -- --run
 # Run a single test file
 npm run test -- src/api/client.test.ts
 
-# Type check
+# Run tests with UI
+npm run test:ui
+
+# Run tests with coverage
+npm run test:coverage
+
+# Type check (MANDATORY - see below)
 npm run type-check
 
 # Lint
@@ -150,9 +193,6 @@ cd web-ui && npm run lint && npm run type-check
 # or simply:
 npm run check
 
-# IMPORTANT: vitest tests do NOT catch TypeScript type errors.
-# Always run `npm run type-check` in addition to tests.
-
 # Build for production
 npm run build
 
@@ -161,6 +201,35 @@ npm run test:integration
 
 # Run dev server
 npm run dev
+
+# Preview production build
+npm run preview
+```
+
+**CRITICAL:** `npm run type-check` is MANDATORY for ALL web-ui changes.
+Vitest does NOT enforce TypeScript strict type checking — tests can pass
+even when `tsc --noEmit` fails. CI runs `tsc --noEmit` and WILL reject
+commits that skip this step. NEVER commit web-ui changes without running
+`npm run type-check` first.
+
+### Web-UI Structure
+
+```
+web-ui/
+├── src/
+│   ├── api/              # API client and types
+│   ├── components/       # React components
+│   ├── hooks/            # Custom React hooks
+│   ├── integration/      # Integration tests
+│   ├── realtime/         # Real-time (WebSocket) logic
+│   ├── stories/          # Storybook stories
+│   ├── test/             # Test utilities and setup
+│   ├── tests/            # Test files
+│   ├── types/            # TypeScript type definitions
+│   ├── utils/            # Utility functions
+│   ├── App.tsx           # Main application component
+│   └── main.tsx          # Application entry point
+└── tests/                # Additional test files
 ```
 
 ### Code Style (TypeScript/React)
@@ -185,6 +254,33 @@ npm run dev
 
 ---
 
+## CI/CD Workflows
+
+The project uses two GitHub Actions workflows:
+
+### 1. CI Workflow (`.github/workflows/ci.yml`)
+
+Runs on every push and pull request to `main` or `develop`:
+
+- **Lint Job**: Runs pre-commit hooks (black, ruff, mypy, eslint)
+- **Server Tests Job**: Runs pytest with coverage on Python 3.8-3.11
+- **Web-UI Job**: Runs eslint, type-check, and vitest
+- **E2E Job**: Runs full end-to-end tests
+- **Test Integrity Job**: Enforces test coverage doesn't decrease (PR only)
+- **Skipped Test Policy Job**: Validates skipped tests have APPROVED comments (PR only)
+- **Server Health Job**: Runtime validation of plugins, analyze, jobs, websocket
+
+### 2. Execution Governance CI (`.github/workflows/execution-ci.yml`)
+
+Runs on every PR and push to `main`:
+
+- Execution governance scanner
+- Plugin registry tests
+- Execution governance tests
+- All core tests
+
+---
+
 ## GPU/CPU Setup Note
 
 - **Server + GPU plugins**: Run on Kaggle (server and plugins cloned there)
@@ -206,8 +302,10 @@ This means:
 |------|---------|
 | `server/pyproject.toml` | Python dependencies, pytest, mypy, ruff config |
 | `web-ui/package.json` | Node dependencies, npm scripts, vitest config |
-| `.pre-commit-config.yaml` | Pre-commit hooks (black, ruff, mypy) |
+| `.pre-commit-config.yaml` | Pre-commit hooks (black, ruff, mypy, eslint) |
 | `web-ui/tsconfig.json` | TypeScript strict mode config |
+| `web-ui/vitest.config.ts` | Vitest test configuration |
+| `web-ui/.eslintrc.cjs` | ESLint configuration |
 | `e2e.test.sh` | Full E2E test script |
 
 ---
@@ -233,12 +331,6 @@ For any feature or bug fix, follow Test-Driven Development:
 6. **Commit** - Only after all above pass
 
 **Before committing, run the full verification suite:**
-
-> **CRITICAL: `npm run type-check` is MANDATORY for ALL web-ui changes.**
-> Vitest does NOT enforce TypeScript strict type checking — tests can pass
-> even when `tsc --noEmit` fails. CI runs `tsc --noEmit` and WILL reject
-> commits that skip this step. NEVER commit web-ui changes without running
-> `npm run type-check` first.
 
 ```bash
 # For Python/Server changes:
@@ -304,6 +396,9 @@ Pre-commit hooks enforce quality standards:
 - **black**: Code formatting
 - **ruff**: Linting
 - **mypy**: Type checking
+- **eslint**: JavaScript/TypeScript linting
+- **server-tests**: Runs pytest before commit
+- **validate-skipped-tests**: Ensures skipped tests have APPROVED comments
 - **prevent-test-changes-without-justification**: Ensures test changes are documented
 
 If a hook fails:
@@ -335,6 +430,19 @@ required for Web-UI dynamic form generation and MCP manifest creation.
 - Safety checks protect code quality and stability
 - If you bypass a hook, the same issue will fail CI/CD anyway
 
+### Skipped Tests Policy (Phase 7)
+
+Skipped tests require APPROVAL with `APPROVED` comment on the next line:
+
+```typescript
+it.skip('some test description', () => {
+  // APPROVED: Reason for skipping
+  // ...
+});
+```
+
+**Forbidden:** Never use `.only` in tests - it will be blocked by CI.
+
 ### Commit Message Format
 
 ```
@@ -351,4 +459,30 @@ Types:
 
 ---
 
-For latest progress in the project see issues list to recoveer the project from LLM agents who never follow instruction just maake things up and expect things to work  /home/rogermt/forgesyte/docs/issues/ISSUES_LIST.md
+## Project Milestones & Status
+
+See `.ampcode/07_PROJECT_RECOVERY/ISSUES_LIST.md` for the latest project milestones and status.
+
+**Current Active Milestones:**
+- Milestone 1.5: YOLO Tracker Operational Baseline
+- Milestone 2: Real Integration Tests
+- Milestone 3: Unified Tool Execution (Frontend + Backend)
+- Milestone 4: MCP Adapter Rewrite
+- Milestone 5: Governance & Guardrails
+- Milestone 6: Job-Based Pipeline & Web-UI Migration (Current Architecture)
+- Milestone 7: VideoTracker Full Implementation (Job-Based Architecture)
+- Milestone 8: Phase 7: CSS Modules Migration (NEW - Blocked until Phase 7 complete)
+
+---
+
+## Documentation Reference
+
+Key documentation files for understanding the project:
+
+- `ARCHITECTURE.md` - Overall system architecture
+- `PLUGIN_DEVELOPMENT.md` - Plugin development guide
+- `docs/design/execution-architecture.md` - Execution architecture details
+- `docs/design/MCP.md` - MCP integration details
+- `docs/design/PLUGIN_WEB_UI.md` - Plugin and Web-UI integration
+- `docs/development/PYTHON_STANDARDS.md` - Python coding standards
+- `docs/guides/PLUGIN_IMPLEMENTATION.md` - Plugin implementation guide

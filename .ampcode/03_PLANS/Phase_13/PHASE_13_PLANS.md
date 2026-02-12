@@ -510,6 +510,4 @@ def test_ws_frame_missing_tools_returns_error():
 
 ---
 
-**PLAN LOCKED. READY FOR APPROVAL.**
 
-Reply `"APPROVED"` to begin Commit 1: VideoPipelineService skeleton with TDD.

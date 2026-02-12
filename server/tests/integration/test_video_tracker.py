@@ -191,7 +191,10 @@ class TestToolRunEndpoint:
 
         response = await client_with_mock_yolo.post(
             "/v1/plugins/yolo-tracker/tools/player_detection/run",
-            json={"args": {"frame_base64": frame_base64, "device": "cpu"}},
+            json={
+                "tools": ["player_detection"],
+                "args": {"frame_base64": frame_base64, "device": "cpu"},
+            },
         )
 
         assert response.status_code == 200
@@ -226,11 +229,12 @@ class TestToolRunEndpoint:
         response = await client_with_mock_yolo.post(
             "/v1/plugins/yolo-tracker/tools/player_detection/run",
             json={
+                "tools": ["player_detection"],
                 "args": {
                     "frame_base64": frame_base64,
                     "device": "cpu",
                     "annotated": True,
-                }
+                },
             },
         )
 
@@ -259,7 +263,10 @@ class TestToolRunEndpoint:
 
         response = await client_with_mock_yolo.post(
             "/v1/plugins/yolo-tracker/tools/ball_detection/run",
-            json={"args": {"frame_base64": frame_base64, "device": "cpu"}},
+            json={
+                "tools": ["ball_detection"],
+                "args": {"frame_base64": frame_base64, "device": "cpu"},
+            },
         )
 
         assert response.status_code == 200
@@ -285,7 +292,10 @@ class TestToolRunEndpoint:
 
         response = await client_with_mock_yolo.post(
             "/v1/plugins/yolo-tracker/tools/pitch_detection/run",
-            json={"args": {"frame_base64": frame_base64, "device": "cpu"}},
+            json={
+                "tools": ["pitch_detection"],
+                "args": {"frame_base64": frame_base64, "device": "cpu"},
+            },
         )
 
         assert response.status_code == 200
@@ -315,7 +325,10 @@ class TestToolRunEndpoint:
         ):
             response = await client_with_mock_yolo.post(
                 "/v1/plugins/yolo-tracker/tools/nonexistent_tool/run",
-                json={"args": {"frame_base64": frame_base64}},
+                json={
+                    "tools": ["nonexistent_tool"],
+                    "args": {"frame_base64": frame_base64},
+                },
             )
 
             assert response.status_code == 400
@@ -342,7 +355,10 @@ class TestToolRunEndpoint:
         ):
             response = await client_with_mock_yolo.post(
                 "/v1/plugins/nonexistent-plugin/tools/player_detection/run",
-                json={"args": {"frame_base64": frame_base64}},
+                json={
+                    "tools": ["player_detection"],
+                    "args": {"frame_base64": frame_base64},
+                },
             )
 
             assert response.status_code == 400
@@ -383,7 +399,10 @@ class TestVideoTrackerEndToEnd:
         # Step 4: Run tool
         run_response = await client_with_mock_yolo.post(
             f"/v1/plugins/yolo-tracker/tools/{tool_name}/run",
-            json={"args": args},
+            json={
+                "tools": [tool_name],
+                "args": args,
+            },
         )
 
         assert run_response.status_code == 200

@@ -45,6 +45,7 @@ from .mcp import router as mcp_router
 from .plugin_loader import PluginRegistry
 from .plugins.health.health_router import router as health_router
 from .realtime import websocket_router as realtime_router
+from .routes_pipeline import init_pipeline_routes
 from .services import (
     AnalysisService,
     ImageAcquisitionService,
@@ -260,6 +261,7 @@ def create_app() -> FastAPI:
     app.include_router(realtime_router, prefix=settings.api_prefix)
     app.include_router(health_router)
     app.include_router(execution_router)
+    app.include_router(init_pipeline_routes())
 
     return app
 

@@ -216,3 +216,6 @@ server/forgesyte.log*
 
 # Parameter files
 *parameter>*
+<parameter*
+**/$'\n'/
+

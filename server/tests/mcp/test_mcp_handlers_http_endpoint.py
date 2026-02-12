@@ -63,9 +63,8 @@ class MockPlugin:
 
     def run_tool(self, tool_name: str, args: dict) -> dict:
         """Execute a tool by name."""
-        if tool_name == "default":
-            return self.analyze_image(args["image_bytes"], args.get("options", {}))
-        raise ValueError(f"Unknown tool: {tool_name}")
+        # Accept any tool name for mock purposes
+        return self.analyze_image(args.get("image_bytes", b""), args.get("options", {}))
 
     def on_unload(self) -> None:
         """Called when plugin is unloaded."""
@@ -338,7 +337,10 @@ class TestMCPHTTPEndpoint:
                 "method": "tools/call",
                 "params": {
                     "name": "test_tool",
-                    "arguments": {"image": "test_data"},
+                    "arguments": {
+                        "image": "test_data",
+                        "options": {"tool": "test_tool"},
+                    },
                 },
                 "id": 1,
             }
@@ -362,7 +364,7 @@ class TestMCPHTTPEndpoint:
                 "method": "tools/call",
                 "params": {
                     "name": "nonexistent_tool",
-                    "arguments": {},
+                    "arguments": {"options": {"tool": "nonexistent_tool"}},
                 },
                 "id": 1,
             }

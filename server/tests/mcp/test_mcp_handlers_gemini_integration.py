@@ -67,9 +67,8 @@ class MockPlugin:
 
     def run_tool(self, tool_name: str, args: dict) -> dict:
         """Execute a tool by name."""
-        if tool_name == "default":
-            return self.analyze_image(args["image_bytes"], args.get("options", {}))
-        raise ValueError(f"Unknown tool: {tool_name}")
+        # Accept any tool name for mock purposes
+        return self.analyze_image(args.get("image_bytes", b""), args.get("options", {}))
 
     def on_unload(self) -> None:
         """Called when plugin is unloaded."""
@@ -350,7 +349,10 @@ class TestGeminiCLIToolInvocationWorkflow:
                 "method": "tools/call",
                 "params": {
                     "name": "ocr",
-                    "arguments": {"image": "base64_encoded_image"},
+                    "arguments": {
+                        "image": "base64_encoded_image",
+                        "options": {"tool": "ocr"},
+                    },
                 },
                 "id": 3,
             }
@@ -375,7 +377,10 @@ class TestGeminiCLIToolInvocationWorkflow:
                 "method": "tools/call",
                 "params": {
                     "name": "motion_detector",
-                    "arguments": {"image": "frame_data"},
+                    "arguments": {
+                        "image": "frame_data",
+                        "options": {"tool": "motion_detector"},
+                    },
                 },
                 "id": 3,
             }
@@ -400,7 +405,7 @@ class TestGeminiCLIToolInvocationWorkflow:
                 "method": "tools/call",
                 "params": {
                     "name": "nonexistent_tool",
-                    "arguments": {},
+                    "arguments": {"options": {"tool": "nonexistent_tool"}},
                 },
                 "id": 3,
             }
@@ -506,7 +511,7 @@ class TestGeminiCLIMultipleSequentialRequests:
                 "method": "tools/call",
                 "params": {
                     "name": plugin_name,
-                    "arguments": {},
+                    "arguments": {"options": {"tool": plugin_name}},
                 },
                 "id": 3,
             }
@@ -690,7 +695,7 @@ class TestGeminiCLILargePayloads:
                 "method": "tools/call",
                 "params": {
                     "name": "ocr",
-                    "arguments": {"image": large_data},
+                    "arguments": {"image": large_data, "options": {"tool": "ocr"}},
                 },
                 "id": 1,
             }

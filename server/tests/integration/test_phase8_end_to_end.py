@@ -94,7 +94,7 @@ class TestPhase8Pipeline:
             job_id="test-job",
             image_bytes=b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR",
             plugin_name="ocr",
-            options={},
+            options={"tool": "ocr"},
             device_requested="cpu",
         )
 
@@ -152,7 +152,7 @@ class TestPhase8Pipeline:
             job_id="test-job",
             image_bytes=b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR",
             plugin_name="ocr",
-            options={},
+            options={"tool": "ocr"},
             device_requested="gpu",
         )
 
@@ -228,7 +228,7 @@ class TestPhase8Pipeline:
             job_id="test-job",
             image_bytes=b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR",
             plugin_name="ocr",
-            options={},
+            options={"tool": "ocr"},
             device_requested="cpu",
         )
 

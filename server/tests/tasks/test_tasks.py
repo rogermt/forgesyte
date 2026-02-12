@@ -696,7 +696,9 @@ class TestTaskProcessorSubmitJob:
         self, task_processor: TaskProcessor
     ) -> None:
         """Test that submit_job returns a job ID."""
-        job_id = await task_processor.submit_job(b"image_data", "plugin1")
+        job_id = await task_processor.submit_job(
+            b"image_data", "plugin1", options={"tool": "plugin1"}
+        )
         assert job_id is not None
         assert isinstance(job_id, str)
         assert len(job_id) > 0
@@ -704,7 +706,9 @@ class TestTaskProcessorSubmitJob:
     @pytest.mark.asyncio
     async def test_submit_job_stores_job(self, task_processor: TaskProcessor) -> None:
         """Test that submit_job stores the job."""
-        job_id = await task_processor.submit_job(b"image_data", "plugin1")
+        job_id = await task_processor.submit_job(
+            b"image_data", "plugin1", options={"tool": "plugin1"}
+        )
         job = await task_processor.job_store.get(job_id)
         assert job is not None
         assert job["job_id"] == job_id
@@ -713,7 +717,7 @@ class TestTaskProcessorSubmitJob:
     @pytest.mark.asyncio
     async def test_submit_job_with_options(self, task_processor: TaskProcessor) -> None:
         """Test submit_job with options."""
-        options = {"threshold": 0.5, "mode": "fast"}
+        options = {"threshold": 0.5, "mode": "fast", "tool": "plugin1"}
         job_id = await task_processor.submit_job(
             b"image_data", "plugin1", options=options
         )
@@ -732,7 +736,7 @@ class TestTaskProcessorSubmitJob:
             callback_called.append(job)
 
         job_id = await task_processor.submit_job(
-            b"image_data", "plugin1", callback=callback
+            b"image_data", "plugin1", options={"tool": "plugin1"}, callback=callback
         )
         assert job_id in task_processor._callbacks
 
@@ -741,7 +745,9 @@ class TestTaskProcessorSubmitJob:
         self, task_processor: TaskProcessor
     ) -> None:
         """Test submit_job without options uses empty dict."""
-        job_id = await task_processor.submit_job(b"image_data", "plugin1")
+        job_id = await task_processor.submit_job(
+            b"image_data", "plugin1", options={"tool": "plugin1"}
+        )
         assert job_id is not None
 
 
@@ -751,7 +757,9 @@ class TestTaskProcessorGetJob:
     @pytest.mark.asyncio
     async def test_get_job_existing(self, task_processor: TaskProcessor) -> None:
         """Test getting an existing job."""
-        job_id = await task_processor.submit_job(b"image_data", "plugin1")
+        job_id = await task_processor.submit_job(
+            b"image_data", "plugin1", options={"tool": "plugin1"}
+        )
         job = await task_processor.get_job(job_id)
         assert job is not None
         assert job["job_id"] == job_id
@@ -769,7 +777,9 @@ class TestTaskProcessorCancelJob:
     @pytest.mark.asyncio
     async def test_cancel_queued_job(self, task_processor: TaskProcessor) -> None:
         """Test cancelling a queued job."""
-        job_id = await task_processor.submit_job(b"image_data", "plugin1")
+        job_id = await task_processor.submit_job(
+            b"image_data", "plugin1", options={"tool": "plugin1"}
+        )
         result = await task_processor.cancel_job(job_id)
         assert result is True
 
@@ -781,7 +791,9 @@ class TestTaskProcessorCancelJob:
     @pytest.mark.asyncio
     async def test_cancel_running_job(self, task_processor: TaskProcessor) -> None:
         """Test cancelling a running job (can't cancel)."""
-        job_id = await task_processor.submit_job(b"image_data", "plugin1")
+        job_id = await task_processor.submit_job(
+            b"image_data", "plugin1", options={"tool": "plugin1"}
+        )
         await task_processor.job_store.update(job_id, {"status": JobStatus.RUNNING})
         result = await task_processor.cancel_job(job_id)
         assert result is False
@@ -795,7 +807,9 @@ class TestTaskProcessorCancelJob:
     @pytest.mark.asyncio
     async def test_cancel_completed_job(self, task_processor: TaskProcessor) -> None:
         """Test cancelling a completed job."""
-        job_id = await task_processor.submit_job(b"image_data", "plugin1")
+        job_id = await task_processor.submit_job(
+            b"image_data", "plugin1", options={"tool": "plugin1"}
+        )
         await task_processor.job_store.update(job_id, {"status": JobStatus.DONE})
         result = await task_processor.cancel_job(job_id)
         assert result is False
@@ -809,7 +823,9 @@ class TestTaskProcessorProcessing:
         self, task_processor: TaskProcessor
     ) -> None:
         """Test processing when plugin is not found."""
-        job_id = await task_processor.submit_job(b"image_data", "nonexistent")
+        job_id = await task_processor.submit_job(
+            b"image_data", "nonexistent", options={"tool": "nonexistent"}
+        )
         # Give async task time to process
         await asyncio.sleep(0.1)
 
@@ -827,7 +843,9 @@ class TestTaskProcessorProcessing:
         mock_plugin.run_tool = MagicMock(return_value={"objects": [1, 2, 3]})
         mock_plugin_manager.get = MagicMock(return_value=mock_plugin)
 
-        job_id = await task_processor.submit_job(b"image_data", "test_plugin")
+        job_id = await task_processor.submit_job(
+            b"image_data", "test_plugin", options={"tool": "test_plugin"}
+        )
         # Give async task time to process
         await asyncio.sleep(0.2)
 
@@ -846,7 +864,9 @@ class TestTaskProcessorProcessing:
         mock_plugin.run_tool = MagicMock(side_effect=Exception("Analysis failed"))
         mock_plugin_manager.get = MagicMock(return_value=mock_plugin)
 
-        job_id = await task_processor.submit_job(b"image_data", "test_plugin")
+        job_id = await task_processor.submit_job(
+            b"image_data", "test_plugin", options={"tool": "test_plugin"}
+        )
         await asyncio.sleep(0.1)
 
         job = await task_processor.get_job(job_id)
@@ -863,7 +883,9 @@ class TestTaskProcessorProcessing:
         mock_plugin.run_tool = MagicMock(return_value={"data": "test"})
         mock_plugin_manager.get = MagicMock(return_value=mock_plugin)
 
-        job_id = await task_processor.submit_job(b"image_data", "test_plugin")
+        job_id = await task_processor.submit_job(
+            b"image_data", "test_plugin", options={"tool": "test_plugin"}
+        )
         await asyncio.sleep(0.2)
 
         job = await task_processor.get_job(job_id)
@@ -889,7 +911,10 @@ class TestTaskProcessorCallbacks:
         mock_plugin_manager.get = MagicMock(return_value=mock_plugin)
 
         job_id = await task_processor.submit_job(
-            b"image_data", "test_plugin", callback=callback
+            b"image_data",
+            "test_plugin",
+            options={"tool": "test_plugin"},
+            callback=callback,
         )
         await asyncio.sleep(0.2)
 
@@ -911,7 +936,10 @@ class TestTaskProcessorCallbacks:
         mock_plugin_manager.get = MagicMock(return_value=mock_plugin)
 
         job_id = await task_processor.submit_job(
-            b"image_data", "test_plugin", callback=async_callback
+            b"image_data",
+            "test_plugin",
+            options={"tool": "test_plugin"},
+            callback=async_callback,
         )
         await asyncio.sleep(0.2)
 
@@ -932,7 +960,10 @@ class TestTaskProcessorCallbacks:
         mock_plugin_manager.get = MagicMock(return_value=mock_plugin)
 
         job_id = await task_processor.submit_job(
-            b"image_data", "test_plugin", callback=failing_callback
+            b"image_data",
+            "test_plugin",
+            options={"tool": "test_plugin"},
+            callback=failing_callback,
         )
         # Should not crash
         await asyncio.sleep(0.2)
@@ -955,7 +986,10 @@ class TestTaskProcessorCallbacks:
         mock_plugin_manager.get = MagicMock(return_value=mock_plugin)
 
         job_id = await task_processor.submit_job(
-            b"image_data", "test_plugin", callback=callback
+            b"image_data",
+            "test_plugin",
+            options={"tool": "test_plugin"},
+            callback=callback,
         )
         await asyncio.sleep(0.2)
 
@@ -969,13 +1003,15 @@ class TestEdgeCases:
     async def test_empty_image_bytes(self, task_processor: TaskProcessor) -> None:
         """Test submitting empty image bytes."""
         with pytest.raises(ValueError, match="image_bytes cannot be empty"):
-            await task_processor.submit_job(b"", "plugin1")
+            await task_processor.submit_job(b"", "plugin1", options={"tool": "plugin1"})
 
     @pytest.mark.asyncio
     async def test_large_image_bytes(self, task_processor: TaskProcessor) -> None:
         """Test submitting large image bytes."""
         large_image = b"x" * (10 * 1024 * 1024)  # 10MB
-        job_id = await task_processor.submit_job(large_image, "plugin1")
+        job_id = await task_processor.submit_job(
+            large_image, "plugin1", options={"tool": "plugin1"}
+        )
         assert job_id is not None
 
     @pytest.mark.asyncio
@@ -985,7 +1021,9 @@ class TestEdgeCases:
         """Test submitting multiple jobs concurrently."""
         jobs = await asyncio.gather(
             *[
-                task_processor.submit_job(b"image_data", f"plugin{i % 3}")
+                task_processor.submit_job(
+                    b"image_data", f"plugin{i % 3}", options={"tool": f"plugin{i % 3}"}
+                )
                 for i in range(10)
             ]
         )
@@ -1005,7 +1043,9 @@ class TestTaskProcessorErrorHandling:
         mock_plugin.run_tool = MagicMock(return_value={"data": "test"})
         mock_plugin_manager.get = MagicMock(return_value=mock_plugin)
 
-        job_id = await task_processor.submit_job(b"image_data", "test_plugin")
+        job_id = await task_processor.submit_job(
+            b"image_data", "test_plugin", options={"tool": "test_plugin"}
+        )
         await asyncio.sleep(0.2)
 
         job = await task_processor.get_job(job_id)
@@ -1022,7 +1062,9 @@ class TestTaskProcessorErrorHandling:
         mock_plugin.run_tool = MagicMock(return_value={"data": "test"})
         mock_plugin_manager.get = MagicMock(return_value=mock_plugin)
 
-        job_id = await task_processor.submit_job(b"image_data", "test_plugin")
+        job_id = await task_processor.submit_job(
+            b"image_data", "test_plugin", options={"tool": "test_plugin"}
+        )
         await asyncio.sleep(0.2)
 
         job = await task_processor.get_job(job_id)
@@ -1038,7 +1080,9 @@ class TestTaskProcessorErrorHandling:
         mock_plugin.run_tool = MagicMock(side_effect=Exception("Failed"))
         mock_plugin_manager.get = MagicMock(return_value=mock_plugin)
 
-        job_id = await task_processor.submit_job(b"image_data", "test_plugin")
+        job_id = await task_processor.submit_job(
+            b"image_data", "test_plugin", options={"tool": "test_plugin"}
+        )
         await asyncio.sleep(0.1)
 
         job = await task_processor.get_job(job_id)
@@ -1071,7 +1115,9 @@ class TestTaskProcessorErrorHandling:
         mock_plugin_manager.get.return_value = mock_plugin
 
         # Submit and process job
-        job_id = await task_processor.submit_job(b"image_data", "test_plugin")
+        job_id = await task_processor.submit_job(
+            b"image_data", "test_plugin", options={"tool": "test_plugin"}
+        )
         await asyncio.sleep(0.1)
 
         # Verify job completed successfully

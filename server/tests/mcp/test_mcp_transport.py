@@ -216,7 +216,7 @@ class TestMCPTransportEdgeCases:
                 "name": "ocr",
                 "arguments": {
                     "image": "/path/to/image.png",
-                    "options": {"lang": "en"},
+                    "options": {"lang": "en", "tool": "ocr"},
                 },
             },
             id=1,

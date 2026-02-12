@@ -128,7 +128,10 @@ class TestJSONRPCRequest:
             "method": "tools/call",
             "params": {
                 "name": "ocr",
-                "arguments": {"image": "/path/to/image.png", "options": {"lang": "en"}},
+                "arguments": {
+                    "image": "/path/to/image.png",
+                    "options": {"lang": "en", "tool": "ocr"},
+                },
             },
             "id": 1,
         }

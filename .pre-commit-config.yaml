@@ -88,3 +88,10 @@ repos:
         language: system
         pass_filenames: false
 
+      - id: check-illegal-filenames
+        name: Check for illegal filenames (control characters)
+        entry: .git-hooks/prevent-illegal-filenames
+        language: script
+        pass_filenames: false
+        stages: [pre-commit, commit-msg]
+

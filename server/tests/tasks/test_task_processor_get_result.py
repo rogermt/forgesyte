@@ -55,7 +55,9 @@ class TestTaskProcessorGetResult:
         mock_plugin_manager.get = MagicMock(return_value=mock_plugin)
 
         # Submit a job and wait for completion
-        job_id = await task_processor.submit_job(b"image_data", "test_plugin")
+        job_id = await task_processor.submit_job(
+            b"image_data", "test_plugin", options={"tool": "test_plugin"}
+        )
         await asyncio.sleep(0.2)
 
         # Verify get_result returns the result
@@ -78,7 +80,9 @@ class TestTaskProcessorGetResult:
     ) -> None:
         """Test that get_result raises RuntimeError for incomplete job."""
         # Submit a job but don't wait for completion
-        job_id = await task_processor.submit_job(b"image_data", "plugin1")
+        job_id = await task_processor.submit_job(
+            b"image_data", "plugin1", options={"tool": "plugin1"}
+        )
 
         # get_result should raise since job is still queued/running
         with pytest.raises(RuntimeError, match="has not completed"):
@@ -161,7 +165,9 @@ class TestTaskProcessorGetResult:
         mock_plugin.run_tool = MagicMock(return_value={"data": "test"})
         mock_plugin_manager.get = MagicMock(return_value=mock_plugin)
 
-        job_id = await task_processor.submit_job(b"image_data", "test_plugin")
+        job_id = await task_processor.submit_job(
+            b"image_data", "test_plugin", options={"tool": "test_plugin"}
+        )
         await asyncio.sleep(0.2)
 
         result = await task_processor.get_result(job_id)
@@ -175,7 +181,9 @@ class TestTaskProcessorGetResult:
     ) -> None:
         """Test that get_result raises for cancelled job."""
         # Create a cancelled job
-        job_id = await task_processor.submit_job(b"image_data", "plugin1")
+        job_id = await task_processor.submit_job(
+            b"image_data", "plugin1", options={"tool": "plugin1"}
+        )
         await task_processor.cancel_job(job_id)
 
         # Cancelled jobs have ERROR status, so get_result should raise
@@ -191,7 +199,9 @@ class TestTaskProcessorGetResult:
         mock_plugin.run_tool = MagicMock(return_value={"result": "test"})
         mock_plugin_manager.get = MagicMock(return_value=mock_plugin)
 
-        job_id = await task_processor.submit_job(b"image_data", "test_plugin")
+        job_id = await task_processor.submit_job(
+            b"image_data", "test_plugin", options={"tool": "test_plugin"}
+        )
         await asyncio.sleep(0.2)
 
         # Verify method exists and is callable

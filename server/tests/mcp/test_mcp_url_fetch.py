@@ -96,7 +96,10 @@ class TestToolsCallURLFetch:
                 method="tools/call",
                 params={
                     "name": "ocr",
-                    "arguments": {"image": "https://example.com/test.png"},
+                    "arguments": {
+                        "image": "https://example.com/test.png",
+                        "options": {"tool": "ocr"},
+                    },
                 },
                 id=1,
             )
@@ -151,7 +154,10 @@ class TestToolsCallURLFetch:
                 method="tools/call",
                 params={
                     "name": "ocr",
-                    "arguments": {"image": "https://example.com/notfound.png"},
+                    "arguments": {
+                        "image": "https://example.com/notfound.png",
+                        "options": {"tool": "ocr"},
+                    },
                 },
                 id=2,
             )
@@ -204,7 +210,10 @@ class TestToolsCallURLFetch:
                 method="tools/call",
                 params={
                     "name": "ocr",
-                    "arguments": {"image": "https://unreachable.test/img.png"},
+                    "arguments": {
+                        "image": "https://unreachable.test/img.png",
+                        "options": {"tool": "ocr"},
+                    },
                 },
                 id=3,
             )
@@ -224,7 +233,7 @@ class TestToolsCallURLFetch:
             received_bytes = []
 
             class InspectorPlugin:
-                name = "inspector_plugin"
+                name = "ocr"
                 tools = {
                     "ocr": {
                         "handler": "analyze_image",
@@ -258,7 +267,10 @@ class TestToolsCallURLFetch:
                 method="tools/call",
                 params={
                     "name": "ocr",
-                    "arguments": {"image": b64_image},
+                    "arguments": {
+                        "image": b64_image,
+                        "options": {"tool": "ocr"},
+                    },
                 },
                 id=4,
             )
@@ -280,7 +292,7 @@ class TestToolsCallURLFetch:
             received_bytes = []
 
             class InspectorPlugin:
-                name = "inspector_plugin"
+                name = "ocr"
                 tools = {
                     "ocr": {
                         "handler": "analyze_image",
@@ -315,7 +327,10 @@ class TestToolsCallURLFetch:
                 method="tools/call",
                 params={
                     "name": "ocr",
-                    "arguments": {"image": data_url},
+                    "arguments": {
+                        "image": data_url,
+                        "options": {"tool": "ocr"},
+                    },
                 },
                 id=5,
             )
@@ -337,7 +352,7 @@ class TestToolsCallURLFetch:
             fetched_urls = []
 
             class DummyPlugin:
-                name = "dummy_plugin"
+                name = "ocr"
                 tools = {
                     "ocr": {
                         "handler": "analyze_image",
@@ -393,7 +408,10 @@ class TestToolsCallURLFetch:
                 method="tools/call",
                 params={
                     "name": "ocr",
-                    "arguments": {"image": "http://example.com/test.png"},
+                    "arguments": {
+                        "image": "http://example.com/test.png",
+                        "options": {"tool": "ocr"},
+                    },
                 },
                 id=6,
             )

@@ -1,0 +1,5 @@
+#!/bin/sh
+if git ls-files | grep -E "[[:cntrl:]]"; then
+  echo "Error: Control characters detected in filenames."
+  exit 1
+fi

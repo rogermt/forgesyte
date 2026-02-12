@@ -21,7 +21,7 @@ import type { Detection } from "../types/plugin";
 
 export interface VideoTrackerProps {
   pluginId: string;   // routing only
-  toolName: string;   // routing only
+  tools: string[];   // routing only
 }
 
 // ============================================================================
@@ -182,7 +182,7 @@ const OVERLAY_KEYS = ["players", "tracking", "ball", "pitch", "radar"] as const;
 // Component
 // ============================================================================
 
-export function VideoTracker({ pluginId, toolName }: VideoTrackerProps) {
+export function VideoTracker({ pluginId, tools }: VideoTrackerProps) {
   // -------------------------------------------------------------------------
   // Refs
   // -------------------------------------------------------------------------
@@ -217,7 +217,7 @@ export function VideoTracker({ pluginId, toolName }: VideoTrackerProps) {
   } = useVideoProcessor({
     videoRef,
     pluginId,
-    toolName,
+    tools,
     fps,
     device,
     enabled: running,
@@ -315,7 +315,7 @@ export function VideoTracker({ pluginId, toolName }: VideoTrackerProps) {
       <div style={styles.header}>
         <h1 style={styles.title}>VideoTracker</h1>
         <div style={styles.subtitle}>
-          Plugin: <strong>{pluginId}</strong> | Tool: <strong>{toolName}</strong>
+          Plugin: <strong>{pluginId}</strong> | Tools: <strong>{tools.join(", ")}</strong>
         </div>
       </div>
 

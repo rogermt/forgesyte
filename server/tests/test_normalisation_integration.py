@@ -62,7 +62,7 @@ async def test_job_pipeline_ocr_output_bypasses_normalisation(
     job_id = await processor.submit_job(
         image_bytes=b"fake_image_data",
         plugin_name="ocr",
-        options={},
+        options={"tool": "ocr"},
     )
 
     # Wait for processing to complete
@@ -91,7 +91,7 @@ async def test_job_pipeline_normalises_yolo_output(job_store, yolo_plugin_manage
     job_id = await processor.submit_job(
         image_bytes=b"fake_image_data",
         plugin_name="forgesyte-yolo-tracker",
-        options={},
+        options={"tool": "ocr"},
     )
 
     # Wait for processing to complete
