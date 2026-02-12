@@ -61,7 +61,7 @@ def detect_cycle(nodes: List[dict], edges: List[dict]) -> bool:
     Returns:
         True if cycle detected, False otherwise
     """
-    graph = {n["id"]: [] for n in nodes}
+    graph: dict[str, list[str]] = {n["id"]: [] for n in nodes}
     for e in edges:
         graph[e["from_node"]].append(e["to_node"])
 
@@ -139,7 +139,7 @@ def validate_pipeline_file(
     # no unreachable nodes (from entry nodes)
     reachable: Set[str] = set()
 
-    graph = {n["id"]: [] for n in nodes}
+    graph: dict[str, list[str]] = {n["id"]: [] for n in nodes}
     for e in edges:
         graph[e["from_node"]].append(e["to_node"])
 
