@@ -1,221 +1,190 @@
-# **PHASE 13 — PR DESCRIPTION (CANONICAL)**  
-Save as:  
-`docs/phases/phase_13_pr_description.md`
+# Phase 13 PR Template — VideoTracker Multi‑Tool Pipelines
+
+Use this template for all Phase 13 pull requests.  
+Copy the entire template into your PR description.
 
 ---
 
-## **Title**  
-**Phase 13 — VideoTracker Multi‑Tool Linear Pipelines (Single‑Plugin)**
-
----
-
-## **Summary**  
-This PR implements **Phase 13**, introducing **linear multi‑tool pipelines** for VideoTracker.  
-Instead of executing a single tool per frame or per background job, VideoTracker can now execute an **ordered sequence of tools** inside a single plugin:
+## PR Title Format
 
 ```
-[ detect_players → track_players → annotate_frames ]
+feat(phase-13): <specific feature description>
 ```
 
-Each tool receives the output of the previous tool, enabling richer, multi‑stage video analysis.
-
-This PR includes:
-
-- A new `VideoPipelineService`  
-- REST endpoint `/video/pipeline`  
-- WebSocket pipeline execution  
-- UI support for selecting multiple tools  
-- Removal of all fallback logic  
-- Logging for each pipeline step  
-- Full test suite for REST, WS, and validation  
+Examples:
+- `feat(phase-13): Add pipeline execution service`
+- `feat(phase-13): Add PipelineToolSelector component`
+- `feat(phase-13): Add REST /video/pipeline endpoint`
 
 ---
 
-## **Scope (Required)**  
+## PR Description
+
+```markdown
+# Phase 13 PR — VideoTracker Multi‑Tool Pipelines
+
+## Summary
+[Describe the pipeline-related feature implemented in this PR]
+
+## Scope (Required)
 This PR includes ONLY:
+- [ ] Multi‑tool pipeline support
+- [ ] UI pipeline selector
+- [ ] REST pipeline endpoint
+- [ ] WebSocket pipeline execution
+- [ ] Logging for each pipeline step
+- [ ] Validation for plugin_id + tools[]
 
-- Linear pipelines inside a single plugin  
-- Ordered tool execution  
-- REST + WebSocket integration  
-- UI multi‑tool selection  
-- Validation of plugin_id + tools[]  
-- Logging for each pipeline step  
-- Tests for REST, WS, and validation  
+## Out of Scope (Must NOT appear)
+- [ ] Cross‑plugin pipelines (FORBIDDEN)
+- [ ] Tool parameter UI
+- [ ] Model selection
+- [ ] Video export
+- [ ] Timeline scrubbing
+- [ ] Analytics, heatmaps, charts
+- [ ] Any UI beyond the canonical VideoTracker spec
 
----
+## Files Added / Updated
 
-## **Out of Scope (Must NOT appear)**  
-- Cross‑plugin pipelines  
-- DAG pipelines  
-- Tool capability matching  
-- Pipeline registry  
-- UI DAG editors  
-- Model selection  
-- Video export  
-- Timeline scrubbing  
-- Analytics, heatmaps, charts  
-- Any UI beyond the canonical VideoTracker spec  
+### Server Services
+- [ ] `server/app/services/video_pipeline_service.py` (NEW/UPDATED)
+- [ ] `server/app/services/vision_analysis_service.py` (UPDATED)
 
-Any PR containing these must be rejected.
+### Server Models
+- [ ] `server/app/models/pipeline_models.py` (NEW/UPDATED)
 
----
+### Server Routes
+- [ ] `server/app/routes_video.py` (NEW/UPDATED)
 
-## **Implementation Details**
+### Server Tests
+- [ ] `server/app/tests/test_video_pipeline_rest.py` (NEW)
+- [ ] `server/app/tests/test_video_pipeline_ws.py` (NEW)
+- [ ] `server/app/tests/test_pipeline_validation.py` (NEW)
 
-### **Server**
-- Added `VideoPipelineService`  
-- Added `/video/pipeline` REST endpoint  
-- Updated `VisionAnalysisService` to accept `plugin_id` + `tools[]`  
-- Removed fallback to `"default"` tool  
-- Removed fallback to first tool in `tasks.py`  
-- Added logging for each pipeline step  
+### UI Components
+- [ ] `web-ui/src/components/VideoTracker/VideoTracker.tsx` (UPDATED)
+- [ ] `web-ui/src/components/VideoTracker/PipelineToolSelector.tsx` (NEW)
 
-### **UI**
-- Added `selectedTools[]` state  
-- Added `PipelineToolSelector`  
-- Updated REST + WebSocket payloads to include `plugin_id` + `tools[]`  
+### UI Hooks
+- [ ] `web-ui/src/hooks/useWebSocket.ts` (UPDATED)
 
-### **Tests**
-- `test_video_pipeline_rest.py`  
-- `test_video_pipeline_ws.py`  
-- `test_pipeline_validation.py`  
+### UI API
+- [ ] `web-ui/src/api/videoPipeline.ts` (NEW)
 
----
+### UI Types
+- [ ] `web-ui/src/types/pipeline.ts` (NEW)
 
-## **Validation Checklist**
-- [ ] Pipeline executes tools in order  
-- [ ] WebSocket frames include plugin_id + tools[]  
-- [ ] REST endpoint rejects invalid pipelines  
-- [ ] Logging shows each pipeline step  
-- [ ] No fallback logic remains  
-- [ ] All tools belong to the same plugin  
+### Docs
+- [ ] `docs/governance/pipeline_rules.md` (NEW/UPDATED)
 
----
+## Pipeline Validation Checklist
 
-## **Reviewer Notes**
-- Ensure no implicit tool selection  
-- Ensure no cross‑plugin execution  
-- Ensure UI sends correct pipeline structure  
-- Ensure server rejects empty or invalid pipelines  
+- [ ] Pipeline executes tools in order
+- [ ] WebSocket frames include plugin_id + tools[]
+- [ ] REST endpoint rejects invalid pipelines
+- [ ] Logging shows each pipeline step
+- [ ] All tools belong to the same plugin
+- [ ] No fallback to default tools
+- [ ] No cross‑plugin pipelines allowed
 
----
+## Testing
 
-# **PHASE 13 — COMMIT MESSAGES (ALL 10 COMMITS)**  
-Use these exact messages.
+- [ ] Unit tests for video_pipeline_service.py
+- [ ] REST endpoint tests (POST /video/pipeline)
+- [ ] WebSocket pipeline tests (frame processing)
+- [ ] Validation tests (invalid plugin_id, invalid tools)
+- [ ] Logging tests (step index, tool name)
+- [ ] All tests pass: `pytest tests/`
+- [ ] UI tests pass: `npm run test -- --run`
 
----
+## Code Quality
 
-### **Commit 1 — Add VideoPipelineService skeleton**
+- [ ] Pre-commit hooks pass: `uv run pre-commit run --all-files`
+- [ ] Lint clean: `npm run lint` (web-ui)
+- [ ] Type-check clean: `npm run type-check` (web-ui)
+- [ ] MyPy clean: `uv run mypy app/` (server)
+- [ ] No console errors in browser dev tools
 
-```
-feat(phase13): add VideoPipelineService skeleton
+## Reviewer Notes
 
-- Create video_pipeline_service.py
-- Add run_pipeline() and _validate() stubs
-- No logic yet
-```
+**Critical Checks:**
+- Ensure no silent fallbacks exist (no default tool selection)
+- Ensure no cross‑plugin pipelines
+- Ensure UI sends correct pipeline structure (plugin_id + tools[])
+- Verify logging shows each pipeline step
+- Verify tools run in order
 
----
+**Questions for Reviewer:**
+- Are pipeline steps validated before execution?
+- Does the REST endpoint reject invalid plugin_id?
+- Does the REST endpoint reject tools from different plugins?
+- Are WebSocket frames logged with step information?
 
-### **Commit 2 — Add REST endpoint /video/pipeline**
+## Related Issues
 
-```
-feat(phase13): add REST endpoint for video pipelines
-
-- Add PipelineRequest model
-- Add POST /video/pipeline route
-- Wire to VideoPipelineService.run_pipeline()
-```
-
----
-
-### **Commit 3 — Integrate pipeline into WebSocket streaming**
-
-```
-feat(phase13): integrate pipeline execution into VisionAnalysisService
-
-- Accept plugin_id + tools[] from WS frames
-- Replace single-tool execution with pipeline call
-```
+Closes #XXX (pipeline feature issue)
 
 ---
 
-### **Commit 4 — Add pipeline validation stubs**
+## Sign-Off
 
-```
-feat(phase13): add pipeline validation stubs
-
-- Add _validate(plugin_id, tools) to VideoPipelineService
-- No validation logic yet
+- [ ] Author: Code follows Phase 13 spec
+- [ ] Author: All tests pass locally
+- [ ] Author: PR title matches Phase 13 format
+- [ ] Reviewer: All checks above verified
+- [ ] Reviewer: No forbidden features found
 ```
 
 ---
 
-### **Commit 5 — Add UI state for selectedTools[]**
+## Review Checklist for Maintainers
 
-```
-feat(phase13): add selectedTools state to VideoTracker UI
+When reviewing Phase 13 PRs:
 
-- Add selectedTools: string[]
-- Add PipelineToolSelector component
-```
+1. **Scope Check**
+   - [ ] Only Phase 13 features in this PR
+   - [ ] No cross‑plugin pipelines
+   - [ ] No forbidden features
 
----
+2. **Structure Check**
+   - [ ] Files in correct folders (see PHASE_13_FOLDER_STRUCTURE.md)
+   - [ ] Naming conventions followed
+   - [ ] No orphaned files
 
-### **Commit 6 — Send pipeline via REST + WebSocket**
+3. **Validation Check**
+   - [ ] Pipeline validation implemented
+   - [ ] Invalid pipelines rejected with clear error
+   - [ ] All tools belong to same plugin
 
-```
-feat(phase13): send plugin_id + tools[] in REST and WS
+4. **Logging Check**
+   - [ ] Pipeline logging present
+   - [ ] Step index logged
+   - [ ] Tool name logged
+   - [ ] No debug logs left in code
 
-- Update runPipeline() API call
-- Update useWebSocket.ts to include tools[] in frame payload
-```
+5. **Testing Check**
+   - [ ] REST tests written
+   - [ ] WebSocket tests written
+   - [ ] Validation tests written
+   - [ ] All tests pass
+   - [ ] Coverage >80%
 
----
+6. **Code Quality Check**
+   - [ ] Pre-commit passes
+   - [ ] Lint passes
+   - [ ] Type-check passes
+   - [ ] No console errors
 
-### **Commit 7 — Implement pipeline execution logic**
-
-```
-feat(phase13): implement linear pipeline execution
-
-- Validate plugin_id + tools[]
-- Execute tools sequentially
-- Feed output of step N into step N+1
-```
-
----
-
-### **Commit 8 — Add pipeline logging**
-
-```
-feat(phase13): add logging for each pipeline step
-
-- Log plugin_id, tool_name, step index
-- Log args_keys for debugging
-```
+If **any** check fails, request changes before merge.
 
 ---
 
-### **Commit 9 — Add Phase 13 tests**
+## Merge Criteria
 
-```
-test(phase13): add REST, WS, and validation tests
+PR can be merged ONLY when:
 
-- test_video_pipeline_rest.py
-- test_video_pipeline_ws.py
-- test_pipeline_validation.py
-```
-
----
-
-### **Commit 10 — Remove all fallback logic**
-
-```
-refactor(phase13): remove default tool fallbacks
-
-- Remove "default" fallback in WebSocket
-- Remove "first tool" fallback in tasks.py
-- Enforce explicit tool selection
-```
-
----
+1. ✅ All above checks pass
+2. ✅ No forbidden features detected
+3. ✅ Reviewer sign-off obtained
+4. ✅ CI/CD pipeline passes
+5. ✅ Code follows Phase 13 governance rules
