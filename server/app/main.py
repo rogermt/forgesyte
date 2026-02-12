@@ -18,7 +18,7 @@ import os
 import uuid
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Dict, List, NoReturn, Optional
+from typing import Any, Dict, NoReturn, Optional
 
 import uvicorn
 from fastapi import (
@@ -31,7 +31,6 @@ from fastapi import (
 )
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
-from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # Routers
@@ -54,6 +53,9 @@ from .services import (
     PluginManagementService,
     VisionAnalysisService,
 )
+
+# Phase 14 Settings
+from .settings import get_settings
 from .tasks import init_task_processor, job_store
 from .websocket_manager import ws_manager
 
@@ -70,14 +72,13 @@ class AppSettings(BaseSettings):
         "ForgeSyte: A modular AI-vision MCP server engineered for developers"
     )
     version: str = "0.1.0"
-    cors_origins: List[str] = Field(
-        default_factory=lambda: ["*"], validation_alias="CORS_ORIGINS"
-    )
     api_prefix: str = "/v1"
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
 
+# Phase 14 Settings
+phase14_settings = get_settings()
 settings = AppSettings()
 
 
@@ -256,7 +257,7 @@ def create_app() -> FastAPI:
     # CORS
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=settings.cors_origins,
+        allow_origins=phase14_settings.cors_origins,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
@@ -323,6 +324,19 @@ async def root() -> Dict[str, str]:
         "docs": "/docs",
         "mcp_manifest": "/.well-known/mcp-manifest",
         "gemini_extension": f"{settings.api_prefix}/gemini-extension",
+    }
+
+
+@app.get("/v1/debug/cors")
+async def debug_cors() -> Dict[str, Any]:
+    """Return CORS configuration for debugging.
+
+    This endpoint provides runtime introspection of the CORS configuration,
+    which is invaluable for debugging tunnels and cross-origin issues.
+    """
+    return {
+        "allowed_origins": phase14_settings.cors_origins,
+        "raw_env": phase14_settings.cors_origins_raw,
     }
 
 

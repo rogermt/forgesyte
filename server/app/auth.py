@@ -45,7 +45,7 @@ class AuthSettings(BaseSettings):
     )
     user_key: Optional[str] = Field(default=None, validation_alias="FORGESYTE_USER_KEY")
 
-    model_config = ConfigDict(env_file=".env")
+    model_config = ConfigDict(env_file=".env", extra="ignore")
 
 
 class InMemoryKeyRepository:
