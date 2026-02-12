@@ -235,14 +235,13 @@ class MCPProtocolHandlers:
                 )
 
             # Invoke plugin via run_tool
-            # The tool_name parameter from params is the plugin name, not the tool name
-            # Try to find the tool within the plugin (use first tool if available)
+            # Phase 13: explicit tool required
             tool_to_call = options.get("tool") if isinstance(options, dict) else None
-            if not tool_to_call and hasattr(plugin, "tools") and plugin.tools:
-                # Use first tool if no specific tool requested
-                tool_to_call = next(iter(plugin.tools.keys()))
             if not tool_to_call:
-                tool_to_call = "default"
+                raise MCPTransportError(
+                    code=JSONRPCErrorCode.INVALID_PARAMS,
+                    message="MCP request missing 'tool' field - Phase 13 requires explicit tool selection",
+                )
 
             tool_args = {"image_bytes": image_bytes, "options": options or {}}
             if hasattr(plugin, "run_tool") and callable(plugin.run_tool):
