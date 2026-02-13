@@ -1,0 +1,36 @@
+{
+  "id": "yolo_ocr",
+  "name": "YOLO + OCR Pipeline",
+  "description": "Detect objects with YOLO, extract text with OCR",
+  "nodes": [
+    {
+      "id": "detect",
+      "plugin_id": "yolo-tracker",
+      "tool_id": "player_detection",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "image_base64": { "type": "string" }
+        },
+        "required": ["image_base64"]
+      }
+    },
+    {
+      "id": "read",
+      "plugin_id": "ocr",
+      "tool_id": "analyze",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "image_base64": { "type": "string" }
+        },
+        "required": ["image_base64"]
+      }
+    }
+  ],
+  "edges": [
+    { "from_node": "detect", "to_node": "read" }
+  ],
+  "entry_nodes": ["detect"],
+  "output_nodes": ["read"]
+}
