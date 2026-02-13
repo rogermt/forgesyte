@@ -102,6 +102,16 @@ class TestVideoRouterEndpointRegistration:
             .get("schema", {})
         )
 
+        # Handle $ref schema references
+        if "$ref" in schema:
+            # Resolve the reference
+            ref = schema["$ref"]
+            if ref.startswith("#/components/schemas/"):
+                schema_name = ref.split("/")[-1]
+                components = openapi.get("components", {})
+                schemas = components.get("schemas", {})
+                schema = schemas.get(schema_name, {})
+
         # Response must have 'results' array per frozen spec
         props = schema.get("properties", {})
         assert "results" in props, "Response missing 'results' field"
@@ -119,10 +129,12 @@ class TestVideoRouterEndpointRegistration:
         openapi = response.json()
 
         # Navigate to results array item schema
-        definitions = openapi.get("$defs", openapi.get("definitions", {}))
+        # FastAPI uses components/schemas in OpenAPI 3.x
+        components = openapi.get("components", {})
+        schemas = components.get("schemas", {})
 
         # FrameResult should exist
-        frame_result = definitions.get("FrameResult", {})
+        frame_result = schemas.get("FrameResult", {})
         frame_result_props = frame_result.get("properties", {})
 
         # Per frozen spec: frame_index (int) + result (dict)
@@ -150,12 +162,12 @@ class TestVideoRouterImports:
         # Find the POST /process route
         process_route = None
         for route in router.routes:
-            if hasattr(route, "path") and route.path == "/process":
+            if hasattr(route, "path") and route.path == "/video/process":
                 if "POST" in getattr(route, "methods", set()):
                     process_route = route
                     break
 
-        assert process_route is not None, "POST /process route not found in router"
+        assert process_route is not None, "POST /video/process route not found in router"
 
     def test_schemas_are_exported(self):
         """Verify request/response schemas are defined."""
