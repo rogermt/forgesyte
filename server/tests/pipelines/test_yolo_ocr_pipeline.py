@@ -143,7 +143,7 @@ class TestYoloOcrPipelineDAG:
         edges = pipeline["edges"]
 
         # Build adjacency list
-        graph = {n["id"]: [] for n in nodes}
+        graph: dict[str, list[str]] = {n["id"]: [] for n in nodes}
         for e in edges:
             graph[e["from_node"]].append(e["to_node"])
 
@@ -178,10 +178,9 @@ class TestYoloOcrPipelineDAG:
         """All output nodes should be reachable from entry nodes."""
         nodes = pipeline["nodes"]
         edges = pipeline["edges"]
-        node_ids = {n["id"] for n in nodes}
 
         # Build adjacency list
-        graph = {n["id"]: [] for n in nodes}
+        graph: dict[str, list[str]] = {n["id"]: [] for n in nodes}
         for e in edges:
             graph[e["from_node"]].append(e["to_node"])
 
