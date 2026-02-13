@@ -3,8 +3,8 @@
 Verifies deterministic behavior against frozen output snapshot.
 """
 
-import sys
 import json
+import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
@@ -22,9 +22,10 @@ def golden_snapshot_path():
 @pytest.fixture
 def client():
     """Create TestClient with injected state."""
+    from unittest.mock import MagicMock
+
     from app.main import create_app
     from app.services.pipeline_registry_service import PipelineRegistryService
-    from unittest.mock import MagicMock
 
     app = create_app()
 
@@ -44,6 +45,7 @@ def client():
 def tiny_mp4():
     """Create tiny MP4 (1 frame, 320×240)."""
     import tempfile
+
     import cv2
     import numpy as np
 

@@ -11,12 +11,15 @@ Output:
     tiny.mp4 (in same directory as this script)
 """
 
-import numpy as np
-import cv2
 from pathlib import Path
 
+import cv2
+import numpy as np
 
-def generate_tiny_mp4(output_path: Path, num_frames: int = 3, width: int = 320, height: int = 240) -> None:
+
+def generate_tiny_mp4(
+    output_path: Path, num_frames: int = 3, width: int = 320, height: int = 240
+) -> None:
     """Generate a tiny MP4 video for testing.
 
     Args:
@@ -26,7 +29,7 @@ def generate_tiny_mp4(output_path: Path, num_frames: int = 3, width: int = 320, 
         height: Frame height in pixels (default: 240)
     """
     # Define video codec and writer
-    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+    fourcc = cv2.VideoWriter_fourcc(*"mp4v")
     fps = 1  # 1 frame per second for simplicity
     out = cv2.VideoWriter(str(output_path), fourcc, fps, (width, height))
 

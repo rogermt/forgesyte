@@ -12,14 +12,14 @@ Covers 12 scenarios:
 """
 
 import sys
-from pathlib import Path
 import tempfile
+from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
-import pytest
 import cv2
 import numpy as np
+import pytest
 from fastapi.testclient import TestClient
 
 
@@ -58,22 +58,23 @@ def empty_file():
 def client():
     """Create TestClient from FastAPI app with injected state."""
     from pathlib import Path
+    from unittest.mock import MagicMock
+
     from app.main import create_app
     from app.services.pipeline_registry_service import PipelineRegistryService
-    from unittest.mock import MagicMock
-    
+
     app = create_app()
-    
+
     # Use empty real registry (no pipelines available)
     # This ensures yolo_ocr returns 404 naturally
     pipelines_dir = str(Path(__file__).resolve().parents[4] / "fixtures" / "pipelines")
     registry = PipelineRegistryService(pipelines_dir)
     app.state.pipeline_registry = registry
-    
+
     # Mock plugin manager
     mock_manager = MagicMock()
     app.state.plugin_manager_for_pipelines = mock_manager
-    
+
     return TestClient(app)
 
 

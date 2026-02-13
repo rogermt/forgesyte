@@ -43,9 +43,9 @@ class TestVideoRouterRegistration:
     def test_schemas_exist(self):
         """Request/response schemas are defined."""
         from app.api_routes.routes.video_file_processing import (
+            FrameResult,
             VideoProcessingRequest,
             VideoProcessingResponse,
-            FrameResult,
         )
 
         assert VideoProcessingRequest is not None

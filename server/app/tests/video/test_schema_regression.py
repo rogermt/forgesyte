@@ -8,7 +8,6 @@ Verifies:
 
 import sys
 from pathlib import Path
-import json
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
@@ -24,13 +23,13 @@ GOLDEN_RESPONSE_SCHEMA = {
                 "type": "object",
                 "properties": {
                     "frame_index": {"type": "integer"},
-                    "result": {"type": "object"}
+                    "result": {"type": "object"},
                 },
-                "required": ["frame_index", "result"]
-            }
+                "required": ["frame_index", "result"],
+            },
         }
     },
-    "required": ["results"]
+    "required": ["results"],
 }
 
 
@@ -41,16 +40,15 @@ class TestSchemaRegression:
         """Verify response schema hasn't deviated from frozen spec."""
         from app.api_routes.routes.video_file_processing import (
             VideoProcessingResponse,
-            FrameResult,
         )
-        
+
         # Extract actual schema
         actual_schema = VideoProcessingResponse.model_json_schema()
-        
+
         # Verify structure
         assert "properties" in actual_schema
         assert "results" in actual_schema["properties"]
-        
+
         results_schema = actual_schema["properties"]["results"]
         assert results_schema["type"] == "array"
         assert "items" in results_schema
@@ -58,11 +56,11 @@ class TestSchemaRegression:
     def test_frame_result_has_required_fields(self):
         """Verify FrameResult has frame_index and result."""
         from app.api_routes.routes.video_file_processing import FrameResult
-        
+
         schema = FrameResult.model_json_schema()
         props = schema.get("properties", {})
         required = schema.get("required", [])
-        
+
         # Must have both fields
         assert "frame_index" in props
         assert "result" in props
@@ -72,20 +70,20 @@ class TestSchemaRegression:
     def test_frame_index_is_integer(self):
         """Verify frame_index field is integer type."""
         from app.api_routes.routes.video_file_processing import FrameResult
-        
+
         schema = FrameResult.model_json_schema()
         props = schema.get("properties", {})
-        
+
         frame_index_type = props["frame_index"].get("type")
         assert frame_index_type == "integer"
 
     def test_result_is_object_type(self):
         """Verify result field is object type (allows any dict)."""
         from app.api_routes.routes.video_file_processing import FrameResult
-        
+
         schema = FrameResult.model_json_schema()
         props = schema.get("properties", {})
-        
+
         result_type = props["result"].get("type")
         # Should be object or object-compatible
         assert result_type in ["object", None] or "object" in str(props["result"])
@@ -95,10 +93,10 @@ class TestSchemaRegression:
         from app.api_routes.routes.video_file_processing import (
             VideoProcessingRequest,
         )
-        
+
         schema = VideoProcessingRequest.model_json_schema()
         props = schema.get("properties", {})
-        
+
         # Frozen fields
         assert "pipeline_id" in props
         assert "frame_stride" in props
@@ -109,10 +107,10 @@ class TestSchemaRegression:
         from app.api_routes.routes.video_file_processing import (
             VideoProcessingRequest,
         )
-        
+
         schema = VideoProcessingRequest.model_json_schema()
         required = schema.get("required", [])
-        
+
         assert "pipeline_id" in required
 
     def test_frame_stride_has_min_constraint(self):
@@ -120,11 +118,11 @@ class TestSchemaRegression:
         from app.api_routes.routes.video_file_processing import (
             VideoProcessingRequest,
         )
-        
+
         schema = VideoProcessingRequest.model_json_schema()
         props = schema.get("properties", {})
         stride_schema = props.get("frame_stride", {})
-        
+
         # Should have minimum >= 1
         assert "minimum" in stride_schema or stride_schema.get("exclusiveMinimum") == 0
 
@@ -133,12 +131,10 @@ class TestSchemaRegression:
         from app.api_routes.routes.video_file_processing import (
             VideoProcessingRequest,
         )
-        
+
         # Can create request with max_frames=None
         req = VideoProcessingRequest(
-            pipeline_id="yolo_ocr",
-            frame_stride=1,
-            max_frames=None
+            pipeline_id="yolo_ocr", frame_stride=1, max_frames=None
         )
         assert req.max_frames is None
 
@@ -147,10 +143,10 @@ class TestSchemaRegression:
         from app.api_routes.routes.video_file_processing import (
             VideoProcessingResponse,
         )
-        
+
         schema = VideoProcessingResponse.model_json_schema()
         props = schema.get("properties", {})
-        
+
         # Only 'results' field allowed per frozen spec
         assert len(props) == 1
         assert "results" in props
@@ -158,10 +154,10 @@ class TestSchemaRegression:
     def test_frame_result_no_extra_fields(self):
         """Verify FrameResult has only 2 fields per frozen spec."""
         from app.api_routes.routes.video_file_processing import FrameResult
-        
+
         schema = FrameResult.model_json_schema()
         props = schema.get("properties", {})
-        
+
         # Only frame_index and result
         assert len(props) == 2
         assert "frame_index" in props
@@ -174,13 +170,13 @@ class TestSchemaValidation:
     def test_valid_response_passes_validation(self):
         """Valid response passes schema validation."""
         from app.api_routes.routes.video_file_processing import (
-            VideoProcessingResponse,
             FrameResult,
+            VideoProcessingResponse,
         )
-        
+
         result = FrameResult(frame_index=0, result={"data": "value"})
         response = VideoProcessingResponse(results=[result])
-        
+
         # Should serialize without error
         json_str = response.model_dump_json()
         assert "frame_index" in json_str
@@ -188,37 +184,39 @@ class TestSchemaValidation:
 
     def test_missing_frame_index_fails(self):
         """Missing frame_index fails validation."""
-        from app.api_routes.routes.video_file_processing import FrameResult
         from pydantic import ValidationError
-        
+
+        from app.api_routes.routes.video_file_processing import FrameResult
+
         with pytest.raises(ValidationError):
             FrameResult(result={"data": "value"})  # type: ignore
 
     def test_missing_result_fails(self):
         """Missing result fails validation."""
-        from app.api_routes.routes.video_file_processing import FrameResult
         from pydantic import ValidationError
-        
+
+        from app.api_routes.routes.video_file_processing import FrameResult
+
         with pytest.raises(ValidationError):
             FrameResult(frame_index=0)  # type: ignore
 
     def test_frame_index_must_be_int(self):
         """frame_index must be integer."""
         from app.api_routes.routes.video_file_processing import FrameResult
-        
+
         # String frame_index should fail or be coerced
         try:
             frame = FrameResult(frame_index="0", result={})  # type: ignore
             # Pydantic may coerce, which is ok
             assert isinstance(frame.frame_index, int)
-        except:
+        except Exception:
             # Or it raises, which is also ok
             pass
 
     def test_result_accepts_any_dict(self):
         """Result field accepts any dictionary."""
         from app.api_routes.routes.video_file_processing import FrameResult
-        
+
         # Various dict contents should work
         test_cases = [
             {},
@@ -226,7 +224,7 @@ class TestSchemaValidation:
             {"nested": {"deep": "value"}},
             {"array": [1, 2, 3]},
         ]
-        
+
         for result_dict in test_cases:
             frame = FrameResult(frame_index=0, result=result_dict)
             assert frame.result == result_dict

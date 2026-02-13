@@ -237,9 +237,7 @@ class TestVideoServiceErrors:
         with pytest.raises(ValueError, match="not found"):
             service.run_on_file(str(tiny_mp4), "invalid_pipeline")
 
-    def test_plugin_error_propagates(
-        self, tiny_mp4: Path, tmp_path: Path
-    ) -> None:
+    def test_plugin_error_propagates(self, tiny_mp4: Path, tmp_path: Path) -> None:
         """Plugin execution error from DAG propagates."""
         mock_dag = MockDagPipelineService(fail_mode="plugin_error")
         service = VideoFilePipelineService(mock_dag)
@@ -270,7 +268,10 @@ class TestVideoServiceRobustness:
         assert len(frame_indices) == len(set(frame_indices))
 
     def test_jpeg_encoding_produces_bytes(
-        self, service: VideoFilePipelineService, tiny_mp4: Path, mock_dag: MockDagPipelineService
+        self,
+        service: VideoFilePipelineService,
+        tiny_mp4: Path,
+        mock_dag: MockDagPipelineService,
     ) -> None:
         """Verify image_bytes in payload is binary, not string."""
         service.run_on_file(str(tiny_mp4), "yolo_ocr", max_frames=1)
@@ -281,7 +282,10 @@ class TestVideoServiceRobustness:
         assert len(payload["image_bytes"]) > 0
 
     def test_frame_index_in_payload_matches_result(
-        self, service: VideoFilePipelineService, tiny_mp4: Path, mock_dag: MockDagPipelineService
+        self,
+        service: VideoFilePipelineService,
+        tiny_mp4: Path,
+        mock_dag: MockDagPipelineService,
     ) -> None:
         """frame_index in payload matches result frame_index."""
         results = service.run_on_file(str(tiny_mp4), "yolo_ocr", max_frames=1)
@@ -291,7 +295,10 @@ class TestVideoServiceRobustness:
         assert payload["frame_index"] == results[0]["frame_index"]
 
     def test_dag_called_once_per_frame(
-        self, service: VideoFilePipelineService, tiny_mp4: Path, mock_dag: MockDagPipelineService
+        self,
+        service: VideoFilePipelineService,
+        tiny_mp4: Path,
+        mock_dag: MockDagPipelineService,
     ) -> None:
         """DAG called exactly once per processed frame."""
         service.run_on_file(str(tiny_mp4), "yolo_ocr")
@@ -299,7 +306,10 @@ class TestVideoServiceRobustness:
         assert mock_dag.call_count == 3  # 3 frames in tiny.mp4
 
     def test_dag_called_respecting_stride(
-        self, service: VideoFilePipelineService, tiny_mp4: Path, mock_dag: MockDagPipelineService
+        self,
+        service: VideoFilePipelineService,
+        tiny_mp4: Path,
+        mock_dag: MockDagPipelineService,
     ) -> None:
         """DAG called only for stride frames."""
         service.run_on_file(str(tiny_mp4), "yolo_ocr", frame_stride=2)

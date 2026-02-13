@@ -17,17 +17,46 @@ def create_corrupt_mp4_header_only(output_path: Path) -> None:
     # Minimal MP4 header (ftyp box)
     # This is enough to make OpenCV attempt to open it, but it will fail
     # when trying to read frames
-    header = bytes([
-        0x00, 0x00, 0x00, 0x20,  # Box size (32 bytes)
-        0x66, 0x74, 0x79, 0x70,  # 'ftyp' signature
-        0x69, 0x73, 0x6f, 0x6d,  # Major brand: 'isom'
-        0x00, 0x00, 0x00, 0x00,  # Minor version
-        0x69, 0x73, 0x6f, 0x6d,  # Compatible brand
-        0x6d, 0x64, 0x61, 0x74,  # 'mdat' signature
-        0x69, 0x73, 0x6f, 0x32,  # More compatible brands
-        0x67, 0x33, 0x67, 0x70,
-        0x6d, 0x70, 0x34, 0x31,
-    ])
+    header = bytes(
+        [
+            0x00,
+            0x00,
+            0x00,
+            0x20,  # Box size (32 bytes)
+            0x66,
+            0x74,
+            0x79,
+            0x70,  # 'ftyp' signature
+            0x69,
+            0x73,
+            0x6F,
+            0x6D,  # Major brand: 'isom'
+            0x00,
+            0x00,
+            0x00,
+            0x00,  # Minor version
+            0x69,
+            0x73,
+            0x6F,
+            0x6D,  # Compatible brand
+            0x6D,
+            0x64,
+            0x61,
+            0x74,  # 'mdat' signature
+            0x69,
+            0x73,
+            0x6F,
+            0x32,  # More compatible brands
+            0x67,
+            0x33,
+            0x67,
+            0x70,
+            0x6D,
+            0x70,
+            0x34,
+            0x31,
+        ]
+    )
 
     with open(output_path, "wb") as f:
         f.write(header)
@@ -40,7 +69,7 @@ def create_corrupt_mp4_random_bytes(output_path: Path, size: int = 256) -> None:
         output_path: Path to write the corrupted file
         size: Size of the file in bytes (default: 256)
     """
-    import os
+
     random_data = os.urandom(size)
     with open(output_path, "wb") as f:
         f.write(random_data)
@@ -53,21 +82,52 @@ def create_corrupt_mp4_truncated(output_path: Path) -> None:
         output_path: Path to write the corrupted file
     """
     # Start with a valid MP4 header
-    header = bytes([
-        0x00, 0x00, 0x00, 0x20,  # Box size
-        0x66, 0x74, 0x79, 0x70,  # 'ftyp'
-        0x69, 0x73, 0x6f, 0x6d,  # 'isom'
-        0x00, 0x00, 0x00, 0x00,
-        0x69, 0x73, 0x6f, 0x6d,
-        0x6d, 0x64, 0x61, 0x74,
-        0x69, 0x73, 0x6f, 0x32,
-    ])
+    header = bytes(
+        [
+            0x00,
+            0x00,
+            0x00,
+            0x20,  # Box size
+            0x66,
+            0x74,
+            0x79,
+            0x70,  # 'ftyp'
+            0x69,
+            0x73,
+            0x6F,
+            0x6D,  # 'isom'
+            0x00,
+            0x00,
+            0x00,
+            0x00,
+            0x69,
+            0x73,
+            0x6F,
+            0x6D,
+            0x6D,
+            0x64,
+            0x61,
+            0x74,
+            0x69,
+            0x73,
+            0x6F,
+            0x32,
+        ]
+    )
 
     # Add a moov box header that claims to have data but doesn't
-    moov_header = bytes([
-        0x00, 0x00, 0x10, 0x00,  # Claims 4096 bytes
-        0x6d, 0x6f, 0x6f, 0x76,  # 'moov' signature
-    ])
+    moov_header = bytes(
+        [
+            0x00,
+            0x00,
+            0x10,
+            0x00,  # Claims 4096 bytes
+            0x6D,
+            0x6F,
+            0x6F,
+            0x76,  # 'moov' signature
+        ]
+    )
 
     with open(output_path, "wb") as f:
         f.write(header)
