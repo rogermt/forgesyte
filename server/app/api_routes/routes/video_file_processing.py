@@ -140,6 +140,11 @@ async def process_video_file(
             max_frames=max_frames,
         )
 
+        # Validate that at least one frame was processed
+        # Empty results means corrupted/invalid MP4
+        if not results:
+            raise ValueError("Unable to read video file: no frames extracted")
+
         # Convert to response format
         frame_results = [
             FrameResult(
