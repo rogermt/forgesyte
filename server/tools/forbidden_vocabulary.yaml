@@ -1,0 +1,56 @@
+# Forbidden vocabulary for Phase 15 video batch pipeline
+# Patterns use word boundaries to match whole words only
+# Prevents Phase 16+ concepts from leaking into Phase 15 codebase
+
+patterns:
+  # Phase 16: Job queue concepts
+  - pattern: '\bjob_id\b'
+    reason: 'Phase 16 concept (job tracking)'
+  - pattern: '\bqueue\b'
+    reason: 'Phase 16 concept (job queuing)'
+  - pattern: '\bworker\b'
+    reason: 'Phase 16 concept (distributed workers)'
+
+  # Job queue libraries
+  - pattern: '\bcelery\b'
+    reason: 'Job queue library (Phase 16 only)'
+  - pattern: '\brq\b'
+    reason: 'RQ job queue library (Phase 16 only)'
+  - pattern: '\bredis\b'
+    reason: 'Redis (Phase 16 only)'
+  - pattern: '\brabbitmq\b'
+    reason: 'RabbitMQ (Phase 16 only)'
+
+  # Database concepts (Phase 16+)
+  - pattern: '\bdatabase\b'
+    reason: 'Database persistence (Phase 16 only)'
+  - pattern: '\bsql\b'
+    reason: 'SQL queries (Phase 16 only)'
+  - pattern: '\bpostgres\b'
+    reason: 'PostgreSQL (Phase 16 only)'
+  - pattern: '\bmongodb\b'
+    reason: 'MongoDB (Phase 16 only)'
+  - pattern: '\binsert_one\b'
+    reason: 'Database operations (Phase 16 only)'
+  - pattern: '\bupdate_one\b'
+    reason: 'Database operations (Phase 16 only)'
+
+  # YOLO tracker concepts (not for Phase 15 video batch)
+  - pattern: '\breid\b'
+    reason: 'Re-identification tracking (not in Phase 15)'
+  - pattern: '\btracking\b'
+    reason: 'Player tracking (not in Phase 15 scope)'
+  - pattern: '\btrack_ids\b'
+    reason: 'Track IDs (not in Phase 15 scope)'
+
+  # Metrics/observability concepts (future phases)
+  - pattern: '\bmetrics\b'
+    reason: 'Metrics tracking (future phase)'
+  - pattern: '\bexecution_time_ms\b'
+    reason: 'Execution metrics (future phase)'
+
+  # Real-time streaming (Phase 17+)
+  - pattern: '\bwebsocket\b'
+    reason: 'WebSocket (Phase 17 real-time only)'
+  - pattern: '\bstreaming\b'
+    reason: 'Streaming (Phase 17 real-time only)'

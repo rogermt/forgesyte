@@ -24,6 +24,7 @@ dependencies = [
     "python-json-logger>=2.0.0",
     "duckdb>=1.0.0",
     "opencv-python-headless>=4.8.0",
+    "pyyaml>=6.0",
 ]
 
 [dependency-groups]
@@ -37,6 +38,7 @@ dev = [
     "isort>=5.0.0",
     "types-Pillow==10.0.0.2",
     "types-requests==2.31.0.10",
+    "types-PyYAML>=6.0",
 ]
 
 [project.optional-dependencies]

@@ -43,9 +43,9 @@ def run_test_suite(cmd, name, cwd):
 
 def main():
     """Run all governance checks."""
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("Phase 15: Video File Pipeline Governance Checks")
-    print("="*60 + "\n")
+    print("=" * 60 + "\n")
 
     repo_root = Path(__file__).resolve().parents[1]
     server_dir = repo_root / "server"
@@ -57,12 +57,24 @@ def main():
             server_dir,
         ),
         (
-            ["uv", "run", "ruff", "check", "app/api_routes/routes/video_file_processing.py"],
+            [
+                "uv",
+                "run",
+                "ruff",
+                "check",
+                "app/api_routes/routes/video_file_processing.py",
+            ],
             "Code linting (ruff)",
             server_dir,
         ),
         (
-            ["uv", "run", "black", "--check", "app/api_routes/routes/video_file_processing.py"],
+            [
+                "uv",
+                "run",
+                "black",
+                "--check",
+                "app/api_routes/routes/video_file_processing.py",
+            ],
             "Code formatting (black)",
             server_dir,
         ),
@@ -83,17 +95,17 @@ def main():
         results.append(run_test_suite(cmd, name, cwd))
 
     # Summary
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     passed = sum(results)
     total = len(results)
-    
+
     if all(results):
         print(f"✅ All {total} governance checks passed!")
-        print("="*60 + "\n")
+        print("=" * 60 + "\n")
         return 0
     else:
         print(f"❌ {passed}/{total} checks passed")
-        print("="*60 + "\n")
+        print("=" * 60 + "\n")
         return 1
 
 

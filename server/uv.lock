@@ -494,6 +494,7 @@ dependencies = [
     { name = "python-dotenv" },
     { name = "python-json-logger" },
     { name = "python-multipart" },
+    { name = "pyyaml" },
     { name = "tenacity" },
     { name = "uvicorn", extra = ["standard"] },
     { name = "websockets" },
@@ -515,6 +516,7 @@ dev = [
     { name = "pytest-cov" },
     { name = "ruff" },
     { name = "types-pillow" },
+    { name = "types-pyyaml" },
     { name = "types-requests" },
 ]
 
@@ -533,6 +535,7 @@ requires-dist = [
     { name = "python-dotenv", specifier = ">=1.0.0" },
     { name = "python-json-logger", specifier = ">=2.0.0" },
     { name = "python-multipart", specifier = ">=0.0.6" },
+    { name = "pyyaml", specifier = ">=6.0" },
     { name = "tenacity", specifier = ">=8.0.0" },
     { name = "types-pillow", marker = "extra == 'types'", specifier = "==10.0.0.2" },
     { name = "types-requests", marker = "extra == 'types'", specifier = "==2.31.0.10" },
@@ -551,6 +554,7 @@ dev = [
     { name = "pytest-cov", specifier = ">=4.0" },
     { name = "ruff", specifier = "==0.9.1" },
     { name = "types-pillow", specifier = "==10.0.0.2" },
+    { name = "types-pyyaml", specifier = ">=6.0" },
     { name = "types-requests", specifier = "==2.31.0.10" },
 ]
 
@@ -1746,6 +1750,15 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/6f/2d/aca0ce3ef51321a772c2c22967741d4ef4877d68d015d2d9e5e8790ccca9/types-Pillow-10.0.0.2.tar.gz", hash = "sha256:fe09380ab22d412ced989a067e9ee4af719fa3a47ba1b53b232b46514a871042", size = 31518, upload-time = "2023-07-20T15:16:00.348Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/80/26/e4c3856cf3933ae1475eacef49e4c74e0ca2ebdb66e0541e3b94ff47e2c7/types_Pillow-10.0.0.2-py3-none-any.whl", hash = "sha256:29d51a3ce6ef51fabf728a504d33b4836187ff14256b2e86996d55c91ab214b1", size = 51478, upload-time = "2023-07-20T15:15:59.193Z" },
+]
+
+[[package]]
+name = "types-pyyaml"
+version = "6.0.12.20250915"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/7e/69/3c51b36d04da19b92f9e815be12753125bd8bc247ba0470a982e6979e71c/types_pyyaml-6.0.12.20250915.tar.gz", hash = "sha256:0f8b54a528c303f0e6f7165687dd33fafa81c807fcac23f632b63aa624ced1d3", size = 17522, upload-time = "2025-09-15T03:01:00.728Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/bd/e0/1eed384f02555dde685fff1a1ac805c1c7dcb6dd019c916fe659b1c1f9ec/types_pyyaml-6.0.12.20250915-py3-none-any.whl", hash = "sha256:e7d4d9e064e89a3b3cae120b4990cd370874d2bf12fa5f46c97018dd5d3c9ab6", size = 20338, upload-time = "2025-09-15T03:00:59.218Z" },
 ]
 
 [[package]]
