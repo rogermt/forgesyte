@@ -186,11 +186,3 @@ Every answer respects:
 - The updated Phase‑15 scope  
 - The rule: **no folder or file names containing “phase15”**  
 
-If you want, I can now generate:
-
-### 🔥 A complete Phase‑15 folder tree  
-### 🔥 A Phase‑15 implementation diff (patch‑style)  
-### 🔥 A Phase‑15 onboarding quiz for contributors  
-### 🔥 A Phase‑15 automated validator script  
-
-Just tell me.
