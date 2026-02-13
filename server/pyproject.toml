@@ -23,6 +23,7 @@ dependencies = [
     "gunicorn>=21.0.0",
     "python-json-logger>=2.0.0",
     "duckdb>=1.0.0",
+    "opencv-python-headless>=4.8.0",
 ]
 
 [dependency-groups]
