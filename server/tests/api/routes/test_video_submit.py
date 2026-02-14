@@ -1,8 +1,10 @@
 """Tests for video submission endpoint."""
 
-import pytest
 from io import BytesIO
+
+import pytest
 from fastapi.testclient import TestClient
+
 from app.main import app
 
 

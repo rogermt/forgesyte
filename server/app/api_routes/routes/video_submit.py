@@ -3,7 +3,7 @@
 from io import BytesIO
 from uuid import uuid4
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile
+from fastapi import APIRouter, HTTPException, UploadFile
 
 from app.core.database import SessionLocal
 from app.models.job import Job, JobStatus

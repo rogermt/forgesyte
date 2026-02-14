@@ -128,7 +128,39 @@
 ---
 
 ### Commit 2: Object Storage Adapter
+**Status**: ✅ COMPLETE (0cd74e0)  
+**Owner**: Backend Lead  
+**Time Estimate**: 2-3 hours  
+**Dependencies**: Commit 1
+
+### Commit 3: Queue Adapter
+**Status**: ✅ COMPLETE (ddf3a62)  
+**Owner**: Backend Lead  
+**Time Estimate**: 1-2 hours  
+**Dependencies**: Commit 1
+
+### Commit 4: Job Submission Endpoint
+**Status**: ✅ COMPLETE (7c7bb36)  
+**Owner**: Backend Lead  
+**Time Estimate**: 2-3 hours  
+**Dependencies**: Commits 1-3
+
+---
+
+### Commit 5: Worker Skeleton
+**Status**: ⏳ IN PROGRESS  
+**Owner**: Backend Lead  
+**Time Estimate**: 2-3 hours  
+**Dependencies**: Commits 1-4
+
+### Commit 6: Worker Pipeline Execution
 **Status**: ⏳ NOT STARTED  
+**Owner**: Backend Lead  
+**Time Estimate**: 2-3 hours  
+**Dependencies**: Commit 5
+
+### OLD Commit 2: Object Storage Adapter
+**Status**: ARCHIVED  
 **Owner**: Backend Lead  
 **Time Estimate**: 2-3 hours  
 **Dependencies**: Commit 1  
