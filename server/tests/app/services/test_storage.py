@@ -1,8 +1,10 @@
 """Tests for StorageService implementations."""
 
-import pytest
 from io import BytesIO
 from pathlib import Path
+
+import pytest
+
 from app.services.storage.local_storage import LocalStorageService
 
 
