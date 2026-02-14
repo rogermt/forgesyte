@@ -258,16 +258,32 @@ def app_with_mock_yolo_plugin():
 
 
 @pytest.fixture
-async def client(app_with_plugins):
+async def client(app_with_plugins, session):
     """Create AsyncClient for testing API endpoints.
 
     This fixture is used for integration tests that need to make actual
     HTTP requests to the FastAPI application.
 
+    Args:
+        app_with_plugins: FastAPI app with plugins
+        session: Database session for test isolation
+
     Returns:
         AsyncClient configured with the app_with_plugins app
     """
     from httpx import ASGITransport, AsyncClient
+
+    from app.core.database import get_db
+
+    # Override get_db dependency to use test session
+    def override_get_db():
+        """Override get_db to use test session."""
+        try:
+            yield session
+        finally:
+            pass  # Don't close test session, fixture handles it
+
+    app_with_plugins.dependency_overrides[get_db] = override_get_db
 
     transport = ASGITransport(app=app_with_plugins)
     # Include auth header for integration tests
@@ -276,6 +292,9 @@ async def client(app_with_plugins):
         transport=transport, base_url="http://test", headers=headers
     ) as async_client:
         yield async_client
+
+    # Clean up dependency overrides
+    app_with_plugins.dependency_overrides.clear()
 
 
 @pytest.fixture
