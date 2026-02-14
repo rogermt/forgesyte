@@ -14,8 +14,18 @@ Each story is atomic, testable, and maps to one commit.
 As a backend engineer, I want a persistent job table so that job submissions can be tracked across restarts.
 
 ### **Acceptance Criteria**
+- **Alembic initialized from scratch** — no Alembic exists in the repo today
+  - Run `alembic init server/app/migrations`
+  - Configure `env.py` to import the shared SQLAlchemy Base
+  - Configure `alembic.ini` with `sqlalchemy.url = duckdb:///data/foregsyte.duckdb`
+- **`server/app/core/database.py` created** — no SQLAlchemy session management exists today
+  - Shared `Base = declarative_base()`
+  - `engine` using `duckdb_engine` dialect pointing to `duckdb:///data/foregsyte.duckdb`
+  - `SessionLocal` sessionmaker
+  - **Must use the existing DuckDB instance** — the project already uses DuckDB, do not introduce a second database engine
 - SQLAlchemy model created at `server/app/models/job.py`
-- Alembic migration created at `server/app/migrations/`
+  - Must use the **shared Base from `app/core/database.py`** — not its own `declarative_base()`
+- First Alembic migration created for `jobs` table
 - Job table fields:
 
 | Field | Type | Notes |
@@ -29,8 +39,14 @@ As a backend engineer, I want a persistent job table so that job submissions can
 | output_path | string | path to results JSON |
 | error_message | string | nullable |
 
+- Import pattern: `from app.models.job import Job`
+- Dependency: `duckdb_engine` must be added to project dependencies
+
 ### **Tests**
 - `tests/models/test_job.py`
+- Unit tests use **mocks only**
+- Integration tests use **in‑memory DuckDB** (`duckdb:///:memory:`)
+- Integration tests must run Alembic migrations against in‑memory DuckDB
 - 100% passing
 
 ### 🚫 **OUT OF SCOPE**
@@ -43,6 +59,11 @@ As a backend engineer, I want a persistent job table so that job submissions can
 - [ ] Manual table creation — use Alembic migration only
 - [ ] Status values beyond the four allowed (pending, running, completed, failed)
 - [ ] Phase‑named file (`phase16_job.py`) — use functional name `job.py`
+- [ ] Creating a separate `declarative_base()` in `job.py` — must use shared Base from `app/core/database.py`
+- [ ] `AsyncSession` or async SQLAlchemy — codebase is synchronous
+- [ ] Pre‑commit hook for migration enforcement
+- [ ] SQLite — project uses DuckDB, do not introduce a second database engine
+- [ ] PostgreSQL or any external database server
 
 ---
 
@@ -69,6 +90,7 @@ As a contributor, I want a storage abstraction so that MP4 files and results JSO
 
 ### **Tests**
 - `tests/services/storage/test_local_storage.py`
+- Unit tests use temp directories
 
 ### 🚫 **OUT OF SCOPE**
 - [ ] S3 storage — local filesystem only in Phase‑16
@@ -123,6 +145,7 @@ As an API consumer, I want to submit a video for processing and receive a job_id
 
 ### **Acceptance Criteria**
 - Route: `POST /video/submit`
+- Route file at **`server/app/api_routes/routes/job_submit.py`** — matches existing Phase‑15 location pattern (`api_routes/routes/`)
 - Uses FastAPI `UploadFile`
 - MP4 validation via **magic bytes** (`ftyp`)
 - Saves file via StorageService
@@ -140,7 +163,9 @@ As an API consumer, I want to submit a video for processing and receive a job_id
 
 ### **Tests**
 - `tests/api/test_job_submit.py`
-- Uses fixture: `tests/fixtures/tiny.mp4`
+- Uses static fixture: `tests/fixtures/tiny.mp4`
+- API tests use **in‑memory DuckDB** (`duckdb:///:memory:`) via TestClient fixture
+- SQLAlchemy session is **synchronous** (FastAPI routes can be async, SQLAlchemy stays sync)
 
 ### 🚫 **OUT OF SCOPE**
 - [ ] MP4 validation by file extension — use magic bytes only
@@ -153,6 +178,7 @@ As an API consumer, I want to submit a video for processing and receive a job_id
 - [ ] Rate limiting
 - [ ] File size limits beyond reasonable defaults
 - [ ] Blocking the HTTP response waiting for worker pickup
+- [ ] Creating routes under `server/app/api/routes/` — use `server/app/api_routes/routes/` to match existing codebase
 
 ---
 
@@ -177,6 +203,8 @@ As a worker engineer, I want a worker loop that pulls job IDs and marks jobs as 
 
 ### **Tests**
 - `tests/workers/test_job_worker.py`
+- Unit tests use **mocks** for queue and DB
+- Integration tests use **in‑memory DuckDB** (`duckdb:///:memory:`)
 
 ### 🚫 **OUT OF SCOPE**
 - [ ] Pipeline execution in this commit — skeleton only, no processing
@@ -216,7 +244,10 @@ As a worker engineer, I want the worker to run the Phase‑15 VideoFilePipelineS
 
 ### **Tests**
 - `tests/workers/test_worker_pipeline.py`
-- Uses fixture: `tests/fixtures/make_tiny_mp4.py`
+- Uses both fixtures:
+  - Static: `tests/fixtures/tiny.mp4` (fast, deterministic)
+  - Dynamic: `tests/fixtures/make_tiny_mp4.py` (regenerate if corrupted or missing)
+- Worker tests use **in‑memory DuckDB** (`duckdb:///:memory:`)
 
 ### 🚫 **OUT OF SCOPE**
 - [ ] Creating a new pipeline service — reuse Phase‑15 `VideoFilePipelineService` exactly
@@ -239,6 +270,7 @@ As an API consumer, I want to check the status of a job.
 
 ### **Acceptance Criteria**
 - Route: `GET /video/status/{job_id}`
+- Route file at **`server/app/api_routes/routes/job_status.py`**
 - Returns:
 
 ```json
@@ -259,6 +291,7 @@ As an API consumer, I want to check the status of a job.
 
 ### **Tests**
 - `tests/api/test_job_status.py`
+- API tests use **in‑memory DuckDB** (`duckdb:///:memory:`) via TestClient fixture
 
 ### 🚫 **OUT OF SCOPE**
 - [ ] Frame‑level progress (e.g., "frame 47 of 120") — coarse progress only (0, 0.5, 1.0)
@@ -281,6 +314,7 @@ As an API consumer, I want to retrieve results once the job is completed.
 
 ### **Acceptance Criteria**
 - Route: `GET /video/results/{job_id}`
+- Route file at **`server/app/api_routes/routes/job_results.py`**
 - Returns:
 
 ```json
@@ -296,6 +330,7 @@ As an API consumer, I want to retrieve results once the job is completed.
 
 ### **Tests**
 - `tests/api/test_job_results.py`
+- API tests use **in‑memory DuckDB** (`duckdb:///:memory:`) via TestClient fixture
 
 ### 🚫 **OUT OF SCOPE**
 - [ ] Partial results for in‑progress jobs
@@ -345,6 +380,7 @@ As a release manager, I want governance rules preventing Phase‑17 concepts fro
 - [ ] Governance exceptions or bypass mechanisms
 - [ ] Skipping the smoke test in CI
 - [ ] Allowing pre‑commit hooks to be disabled
+- [ ] Pre‑commit hook for Alembic migration enforcement — not required
 
 ---
 
@@ -363,7 +399,15 @@ As a new contributor, I want complete Phase‑16 documentation so I can understa
   - Rollback Plan
   - Contributor Exam
   - Release Notes
-- Rollback plan must be executable
+- Rollback plan must be executable and must include:
+  - Reverting the Alembic migration (dropping `jobs` table from DuckDB)
+  - Removing `server/app/core/database.py` if it was created solely for Phase‑16
+  - Removing all Phase‑16 route files from `server/app/api_routes/routes/`
+  - Removing `server/app/workers/`
+  - Removing `server/app/services/storage/`
+  - Removing `server/app/services/queue/`
+  - Removing `server/app/models/job.py`
+  - Removing `duckdb_engine` from project dependencies if no other code uses it
 - All links verified
 
 ### **Tests**
@@ -408,3 +452,28 @@ These rules apply to **every single commit** across Phase‑16:
 | G18 | Committing without running governance validator | Process violation |
 | G19 | Docker, systemd, or container orchestration | Scope violation |
 | G20 | Monitoring, alerting, or observability infrastructure | Scope violation |
+| G21 | `AsyncSession` or async SQLAlchemy — codebase is synchronous | Architecture violation |
+| G22 | Creating routes under `api/routes/` instead of `api_routes/routes/` | Placement violation |
+| G23 | Creating a separate `declarative_base()` per model file | Architecture violation |
+| G24 | SQLite — project uses DuckDB, do not introduce a second database engine | Architecture violation |
+| G25 | PostgreSQL or any external database server | Architecture violation |
+
+---
+
+# ⭐ **KEY DECISIONS LOCKED BY Q&A**
+
+| Decision | Answer | Affects |
+|----------|--------|---------|
+| Alembic exists? | **No — create from scratch in Commit 1** | Story 1 |
+| SQLAlchemy exists? | **No — create `app/core/database.py` in Commit 1** | Story 1 |
+| Database engine? | **DuckDB via `duckdb_engine`** — project already uses DuckDB, do not introduce SQLite | Story 1, all stories |
+| DB file path? | **`data/foregsyte.duckdb`** — existing DuckDB instance | Story 1 |
+| Alembic URL? | **`duckdb:///data/foregsyte.duckdb`** | Story 1 |
+| Shared Base? | **Yes — single `declarative_base()` in `app/core/database.py`** | Story 1, all models |
+| Session type? | **Synchronous `SessionLocal`** — no `AsyncSession` | All stories |
+| Test DB? | **In‑memory DuckDB (`duckdb:///:memory:`)** — not SQLite | All test stories |
+| API route path? | **`server/app/api_routes/routes/`** — matches Phase‑15 | Stories 4, 7, 8 |
+| Test DB strategy? | **Mocks for unit, in‑memory DuckDB for integration** | All test stories |
+| Test fixtures? | **Both static `tiny.mp4` and dynamic `make_tiny_mp4.py`** | Stories 4, 6 |
+| Pre‑commit migration hook? | **No — not required** | Story 9 |
+| Import pattern? | **`from app.models.job import Job`** | All stories |

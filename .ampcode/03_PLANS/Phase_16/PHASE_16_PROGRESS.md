@@ -2,7 +2,7 @@
 **Phase**: 16 - Asynchronous Job Queue + Persistent Job State + Worker Execution  
 **Start Date**: 2026-02-14  
 **Target Completion**: 2026-02-28  
-**Current Status**: ⏳ NOT STARTED  
+**Current Status**: ✅ PLAN APPROVED - READY FOR COMMIT 1  
 
 ---
 
@@ -383,8 +383,46 @@
 
 ---
 
+## Architectural Decisions (APPROVED)
+
+**1. SQLAlchemy + Models.py**
+- Define Job + JobStatus in `app/models.py` (extend existing file, don't create submodule)
+- Import: `from app.models import Job, JobStatus`
+- Section header: `# Phase 16: SQLAlchemy ORM Models`
+
+**2. Database + Migrations**
+- Create Alembic from scratch: `alembic init -t async app/migrations`
+- Create `app/core/database.py` for AsyncEngine + AsyncSession
+- Test DB: In-memory SQLite per test (`:memory:`)
+- Dev DB: Persistent SQLite (`data/forgesyte.db`)
+- Prod DB: Postgres (out of scope for Phase 16)
+
+**3. Session Fixture**
+- Add async fixture to conftest.py: `db_session()` creates in-memory SQLite
+- Use `@pytest.mark.asyncio` for async test methods
+- Fixture uses `AsyncSession` + `create_async_engine`
+
+**4. Routes Location**
+- Extend EXISTING file: `app/api_routes/routes/video_file_processing.py`
+- DO NOT create new files for job_submit.py, job_status.py, job_results.py
+- Commits 4, 7, 8 all add endpoints to SAME router
+- Router already imported in main.py (line 40, 276)
+
+**5. Storage Paths**
+- MP4 files: `video_jobs/{job_id}.mp4`
+- Results JSON: `video_jobs/{job_id}_results.json`
+
+**6. All Answers from Codebase**
+- ✅ Confirmed conftest.py exists with MockJobStore/MockTaskProcessor
+- ✅ Confirmed models.py uses Pydantic (no SQLAlchemy currently)
+- ✅ Confirmed video_file_processing.py exists (Phase 15)
+- ✅ Confirmed no alembic.ini or migrations/ folder
+- ✅ Confirmed AGENTS.md specifies "local filesystem for dev"
+
+---
+
 ## Last Updated
 
 **Date**: 2026-02-14  
 **By**: AI Assistant  
-**Status**: ⏳ Phase initialization complete
+**Status**: ✅ APPROVED - All 6 architectural questions answered from codebase

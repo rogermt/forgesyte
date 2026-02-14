@@ -1,178 +1,23 @@
+here is the **full Phase‑16 Commit 2–6 scaffolding pack**, rewritten cleanly, with no tool references, no file creation, and no code execution.  
+This is pure architectural + implementation guidance you can hand directly to your engineers.
 
-# ⭐ **COMMIT 1 — SQLAlchemy Job Model (Scaffolding Code)**  
-Place this in:
+I’ll give you:
 
-```
-server/app/models/job.py
-```
+- **Commit 2 — StorageService + LocalStorage (DuckDB‑aligned)**  
+- **Commit 3 — QueueService + MemoryQueue**  
+- **Commit 4 — Submit endpoint with DI + DuckDB session**  
+- **Commit 5 — Worker skeleton with logging**  
+- **Commit 6 — Worker pipeline execution with DuckDB session**  
 
-```python
-import uuid
-from datetime import datetime
-from sqlalchemy import Column, String, DateTime, Enum
-from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import declarative_base
-import enum
-
-Base = declarative_base()
-
-
-class JobStatus(str, enum.Enum):
-    pending = "pending"
-    running = "running"
-    completed = "completed"
-    failed = "failed"
-
-
-class Job(Base):
-    __tablename__ = "jobs"
-
-    job_id = Column(
-        UUID(as_uuid=True),
-        primary_key=True,
-        default=uuid.uuid4,
-        nullable=False,
-    )
-
-    status = Column(
-        Enum(JobStatus, name="job_status_enum"),
-        nullable=False,
-        default=JobStatus.pending,
-    )
-
-    pipeline_id = Column(String, nullable=False)
-
-    input_path = Column(String, nullable=False)
-    output_path = Column(String, nullable=True)
-
-    error_message = Column(String, nullable=True)
-
-    created_at = Column(
-        DateTime,
-        default=datetime.utcnow,
-        nullable=False,
-    )
-
-    updated_at = Column(
-        DateTime,
-        default=datetime.utcnow,
-        onupdate=datetime.utcnow,
-        nullable=False,
-    )
-```
-
-This matches the **final job schema** and Phase‑16 governance.
+Everything below is deterministic, phase‑correct, and consistent with your governance rules.
 
 ---
 
-# ⭐ **COMMIT 1 — Alembic Migration Skeleton**  
-Place this in:
+# ⭐ **COMMIT 2 — StorageService + LocalStorage (DuckDB‑aligned)**
 
-```
-server/app/migrations/versions/<timestamp>_create_job_table.py
-```
+### Storage interface  
+Defines the contract for all storage backends.
 
-```python
-"""create_job_table
-
-Revision ID: <generated>
-Revises:
-Create Date: <timestamp>
-"""
-
-from alembic import op
-import sqlalchemy as sa
-import uuid
-
-
-# revision identifiers, used by Alembic.
-revision = "<generated>"
-down_revision = None
-branch_labels = None
-depends_on = None
-
-
-def upgrade():
-    op.create_table(
-        "jobs",
-        sa.Column(
-            "job_id",
-            sa.dialects.postgresql.UUID(as_uuid=True),
-            primary_key=True,
-            nullable=False,
-        ),
-        sa.Column(
-            "status",
-            sa.Enum("pending", "running", "completed", "failed", name="job_status_enum"),
-            nullable=False,
-        ),
-        sa.Column("pipeline_id", sa.String(), nullable=False),
-        sa.Column("input_path", sa.String(), nullable=False),
-        sa.Column("output_path", sa.String(), nullable=True),
-        sa.Column("error_message", sa.String(), nullable=True),
-        sa.Column("created_at", sa.DateTime(), nullable=False),
-        sa.Column("updated_at", sa.DateTime(), nullable=False),
-    )
-
-
-def downgrade():
-    op.drop_table("jobs")
-    op.execute("DROP TYPE job_status_enum")
-```
-
-This is **idempotent**, **clean**, and **Phase‑16 compliant**.
-
----
-
-# ⭐ **PHASE‑16 MIGRATION SCRIPT TEMPLATE**  
-This is the template your team will use for all future migrations in Phase‑16.
-
-```
-"""<migration_name>
-
-Revision ID: <generated>
-Revises: <previous_revision>
-Create Date: <timestamp>
-"""
-
-from alembic import op
-import sqlalchemy as sa
-
-
-# revision identifiers, used by Alembic.
-revision = "<generated>"
-down_revision = "<previous_revision>"
-branch_labels = None
-depends_on = None
-
-
-def upgrade():
-    # TODO: implement migration logic
-    pass
-
-
-def downgrade():
-    # TODO: implement rollback logic
-    pass
-```
-
-This ensures:
-
-- consistent formatting  
-- consistent metadata  
-- consistent rollback support  
-- consistent Alembic behavior  
-
----
-
-
-All code is deterministic, minimal, and Phase‑16‑compliant.
-
----
-
-# ⭐ **🔥 COMMIT 2 — StorageService + LocalStorage (Scaffolding)**
-
-### `server/app/services/storage/base.py`
 ```python
 from abc import ABC, abstractmethod
 from typing import BinaryIO
@@ -198,9 +43,9 @@ class StorageService(ABC):
         raise NotImplementedError
 ```
 
----
+### Local filesystem implementation  
+Deterministic, simple, and Phase‑16 compliant.
 
-### `server/app/services/storage/local_storage.py`
 ```python
 import os
 from pathlib import Path
@@ -241,9 +86,11 @@ class LocalStorageService(StorageService):
 
 ---
 
-# ⭐ **🔥 COMMIT 3 — QueueService + MemoryQueue (Scaffolding)**
+# ⭐ **COMMIT 3 — QueueService + MemoryQueue**
 
-### `server/app/services/queue/base.py`
+### Queue interface  
+Strictly `{job_id}` payloads.
+
 ```python
 from abc import ABC, abstractmethod
 from typing import Optional
@@ -265,9 +112,9 @@ class QueueService(ABC):
         raise NotImplementedError
 ```
 
----
+### In‑memory FIFO queue  
+Thread‑safe, deterministic.
 
-### `server/app/services/queue/memory_queue.py`
 ```python
 import queue
 from typing import Optional
@@ -296,19 +143,22 @@ class InMemoryQueueService(QueueService):
 
 ---
 
-# ⭐ **🔥 COMMIT 4 — POST `/video/submit` Endpoint (Scaffolding)**
+# ⭐ **Corrected Commit 4 — Submit Endpoint (Final, DuckDB‑Aligned)**
 
-### `server/app/api/routes/job_submit.py`
+### ❗ Fix: wrap `contents` in a BytesIO before passing to `save_file()`
+
 ```python
-from fastapi import APIRouter, UploadFile, HTTPException
+from fastapi import APIRouter, UploadFile, Depends, HTTPException
 from uuid import uuid4
+from io import BytesIO
 
 from app.models.job import Job, JobStatus
 from app.services.storage.local_storage import LocalStorageService
 from app.services.queue.memory_queue import InMemoryQueueService
+from app.api.dependencies import get_db
+
 
 router = APIRouter()
-
 storage = LocalStorageService()
 queue = InMemoryQueueService()
 
@@ -319,47 +169,61 @@ def validate_mp4_magic_bytes(data: bytes) -> None:
 
 
 @router.post("/video/submit")
-async def submit_video(file: UploadFile, pipeline_id: str):
-    # Read file bytes
+async def submit_video(
+    file: UploadFile,
+    pipeline_id: str,
+    db=Depends(get_db),
+):
     contents = await file.read()
-
-    # Validate MP4
     validate_mp4_magic_bytes(contents)
 
-    # Create job_id
     job_id = str(uuid4())
-
-    # Save file
     input_path = f"{job_id}.mp4"
-    storage.save_file(src=bytes(contents), dest_path=input_path)
 
-    # Create job row
+    # ✔ FIX: wrap bytes in BytesIO to satisfy StorageService contract
+    storage.save_file(src=BytesIO(contents), dest_path=input_path)
+
     job = Job(
         job_id=job_id,
         status=JobStatus.pending,
         pipeline_id=pipeline_id,
         input_path=input_path,
     )
-    job.save()
+    db.add(job)
+    db.commit()
 
-    # Enqueue job
     queue.enqueue(job_id)
 
     return {"job_id": job_id}
 ```
 
+This aligns perfectly with:
+
+- StorageService contract  
+- Type expectations  
+- Test scaffolding  
+- Phase‑16 governance  
+
 ---
 
-# ⭐ **🔥 COMMIT 5 — Worker Skeleton (Scaffolding)**
 
-### `server/app/workers/worker.py`
+---
+
+# ⭐ **COMMIT 5 — Worker Skeleton (with Logging)**
+
+### Worker skeleton  
+No pipeline execution yet.
+
 ```python
 import time
 import signal
-from typing import Optional
+import logging
 
 from app.models.job import Job, JobStatus
 from app.services.queue.memory_queue import InMemoryQueueService
+from app.core.database import SessionLocal
+
+logger = logging.getLogger(__name__)
 
 
 class JobWorker:
@@ -373,6 +237,7 @@ class JobWorker:
         signal.signal(signal.SIGTERM, self._stop)
 
     def _stop(self, *args):
+        logger.info("Worker shutting down...")
         self._running = False
 
     def run_once(self) -> bool:
@@ -380,16 +245,21 @@ class JobWorker:
         if job_id is None:
             return False
 
-        job = Job.get(job_id)
+        db = SessionLocal()
+        job = db.query(Job).filter(Job.job_id == job_id).first()
+
         if job is None:
+            logger.warning("Dequeued job %s but no DB record found", job_id)
             return False
 
         job.status = JobStatus.running
-        job.save()
+        db.commit()
 
+        logger.info("Job %s marked RUNNING", job_id)
         return True
 
     def run_forever(self):
+        logger.info("Worker started")
         while self._running:
             processed = self.run_once()
             if not processed:
@@ -398,55 +268,44 @@ class JobWorker:
 
 ---
 
-### `server/app/workers/worker_runner.py`
+# ⭐ **COMMIT 6 — Worker Pipeline Execution (DuckDB session)**
+
+### Full worker with pipeline execution  
+This is the Phase‑16 core.
+
 ```python
-from app.services.queue.memory_queue import InMemoryQueueService
-from .worker import JobWorker
-
-
-def main():
-    queue = InMemoryQueueService()
-    worker = JobWorker(queue)
-    worker.run_forever()
-
-
-if __name__ == "__main__":
-    main()
-```
-
----
-
-# ⭐ **🔥 COMMIT 6 — Worker Pipeline Execution (Scaffolding)**
-
-### `server/app/workers/worker.py` (extended)
-```python
-from pathlib import Path
 import json
+from pathlib import Path
 
 from app.services.video.video_file_pipeline_service import VideoFilePipelineService
 from app.services.storage.local_storage import LocalStorageService
 
 
 class JobWorker:
-    # ... previous code ...
+    # previous code...
 
     def run_once(self) -> bool:
         job_id = self._queue.dequeue()
         if job_id is None:
             return False
 
-        job = Job.get(job_id)
+        db = SessionLocal()
+        job = db.query(Job).filter(Job.job_id == job_id).first()
+
         if job is None:
+            logger.warning("Dequeued job %s but no DB record found", job_id)
             return False
 
         job.status = JobStatus.running
-        job.save()
+        db.commit()
+        logger.info("Job %s RUNNING", job_id)
 
         storage = LocalStorageService()
         pipeline = VideoFilePipelineService()
 
         try:
             input_path = storage.load_file(job.input_path)
+
             results = pipeline.run_on_file(
                 pipeline_id=job.pipeline_id,
                 file_path=Path(input_path),
@@ -460,680 +319,216 @@ class JobWorker:
 
             job.output_path = output_path
             job.status = JobStatus.completed
-            job.save()
+            db.commit()
+
+            logger.info("Job %s COMPLETED", job_id)
 
         except Exception as exc:
             job.status = JobStatus.failed
             job.error_message = str(exc)
-            job.save()
+            db.commit()
+
+            logger.exception("Job %s FAILED: %s", job_id, exc)
 
         return True
 ```
 
 ---
-here is the **full Phase‑16 scaffolding pack** for Commits 7–10 — clean, governed, and ready to paste directly into your repo.  
-This completes the entire Phase‑16 engineering foundation.
+Roger, here comes the **clean, final, Phase‑16 Commit 7–10 scaffolding pack** — written as pure guidance (no file creation, no tool references), fully aligned with your DuckDB‑based architecture, your governance rules, and the Phase‑16 contract.
 
-
+This is the *canonical* version your engineers can implement directly.
 
 ---
 
-# ⭐ **🔥 COMMIT 7 — Job Status Endpoint (Scaffolding)**  
-### File: `server/app/api/routes/job_status.py`
+# ⭐ **🔥 COMMIT 7 — Job Status Endpoint (Final, DuckDB‑Aligned)**
 
-```python
-from fastapi import APIRouter, HTTPException
-from app.models.job import Job, JobStatus
+### Purpose  
+Expose job status + coarse progress (0, 0.5, 1.0).
 
-router = APIRouter()
+### Route location  
+`server/app/api_routes/routes/job_status.py`  
+(consistent with Phase‑15 routing structure)
 
+### Required behavior  
+- Load job from DuckDB via SQLAlchemy session  
+- Return job_id, status, progress, timestamps  
+- 404 if job not found  
+- No streaming, no SSE, no WebSockets  
 
-def compute_progress(status: JobStatus) -> float:
-    if status == JobStatus.pending:
-        return 0.0
-    if status == JobStatus.running:
-        return 0.5
-    return 1.0  # completed or failed
+### Implementation guidance  
 
+**Progress calculation:**
 
-@router.get("/video/status/{job_id}")
-def get_job_status(job_id: str):
-    job = Job.get(job_id)
-    if job is None:
-        raise HTTPException(status_code=404, detail="Job not found")
-
-    return {
-        "job_id": job.job_id,
-        "status": job.status.value,
-        "progress": compute_progress(job.status),
-        "created_at": job.created_at.isoformat(),
-        "updated_at": job.updated_at.isoformat(),
-    }
+```
+pending   → 0.0  
+running   → 0.5  
+completed → 1.0  
+failed    → 1.0  
 ```
 
-**Governance‑compliant:**  
-- No streaming  
-- No WebSockets  
-- No SSE  
+**Endpoint structure:**
+
+- Inject DB session via FastAPI dependency override (`get_db`)  
+- Query job by job_id  
+- Return JSON response  
+- Use `.isoformat()` for timestamps  
+
+**Governance compliance:**  
 - No frame‑level progress  
-
----
-
-# ⭐ **🔥 COMMIT 8 — Job Results Endpoint (Scaffolding)**  
-### File: `server/app/api/routes/job_results.py`
-
-```python
-from fastapi import APIRouter, HTTPException
-import json
-
-from app.models.job import Job, JobStatus
-from app.services.storage.local_storage import LocalStorageService
-
-router = APIRouter()
-storage = LocalStorageService()
-
-
-@router.get("/video/results/{job_id}")
-def get_job_results(job_id: str):
-    job = Job.get(job_id)
-    if job is None:
-        raise HTTPException(status_code=404, detail="Job not found")
-
-    if job.status != JobStatus.completed:
-        raise HTTPException(status_code=404, detail="Job not completed")
-
-    results_path = job.output_path
-    file_path = storage.load_file(results_path)
-
-    with open(file_path, "r") as f:
-        data = json.load(f)
-
-    return {
-        "job_id": job.job_id,
-        "results": data.get("results", []),
-        "created_at": job.created_at.isoformat(),
-        "updated_at": job.updated_at.isoformat(),
-    }
-```
-
-**Governance‑compliant:**  
+- No queue position  
 - No partial results  
-- No streaming  
+- No Phase‑17 vocabulary  
+
+---
+
+# ⭐ **🔥 COMMIT 8 — Job Results Endpoint (Final, DuckDB‑Aligned)**
+
+### Purpose  
+Return results JSON for completed jobs.
+
+### Route location  
+`server/app/api_routes/routes/job_results.py`
+
+### Required behavior  
+- Load job from DuckDB  
+- 404 if job not found  
+- 404 if job not completed  
+- Load results JSON from object storage  
+- Return `{ job_id, results }`  
+
+### Implementation guidance  
+
+**Rules:**  
+- Results must be loaded from filesystem, not DB  
+- Results must match Phase‑15 output format  
+- No partial results  
 - No caching  
-- No DB‑stored results  
+- No streaming  
+
+**Governance compliance:**  
+- No SSE  
+- No WebSockets  
+- No real‑time anything  
+- No GPU scheduling  
 
 ---
 
-# ⭐ **🔥 COMMIT 9 — Governance + CI Enforcement (Scaffolding)**
+# ⭐ **🔥 COMMIT 9 — Governance + CI Enforcement (Final)**
 
-## 1. **Forbidden Vocabulary File**  
-### File: `server/tools/forbidden_vocabulary_phase16.yaml`
+### Purpose  
+Prevent Phase‑17 concepts from leaking into Phase‑16.
 
-```yaml
-forbidden:
-  - websocket
-  - streaming
-  - gpu_schedule
-  - distributed
-  - gpu_worker
-  - sse
-  - real_time
-  - websockets
-  - async_stream
-  - live_feed
+### Required artifacts  
+1. **Forbidden vocabulary file**  
+   - `server/tools/forbidden_vocabulary_phase16.yaml`
 
-allowed:
-  - job_queue
-  - worker
-  - polling
-  - async_job
-```
+2. **Governance validator**  
+   - `server/tools/validate_phase16_path.py`
 
----
+3. **CI workflow**  
+   - `.github/workflows/phase16_validation.yml`
 
-## 2. **Governance Validator Script**  
-### File: `server/tools/validate_phase16_path.py`
+4. **Smoke test**  
+   - `scripts/smoke_test.py`  
+   - Must test: submit → status → results  
 
-```python
-import sys
-import yaml
-from pathlib import Path
+### Forbidden terms  
+- websocket  
+- streaming  
+- gpu_schedule  
+- distributed  
+- gpu_worker  
+- sse  
+- real_time  
 
-ROOT = Path("server/app")
+### Governance rules  
+- Validator must scan **only functional code** (`server/app/**`)  
+- Must fail CI on violation  
+- Must run before tests  
+- Must run on every PR to `main`  
 
+### CI workflow steps  
+- Checkout  
+- Install dependencies  
+- Run governance validator  
+- Run pytest  
+- Run smoke test  
 
-def load_rules():
-    with open("server/tools/forbidden_vocabulary_phase16.yaml") as f:
-        return yaml.safe_load(f)
-
-
-def scan_file(path: Path, forbidden: list[str]) -> list[str]:
-    violations = []
-    text = path.read_text(errors="ignore")
-
-    for word in forbidden:
-        if word in text:
-            violations.append(f"{path}:{word}")
-
-    return violations
-
-
-def main():
-    rules = load_rules()
-    forbidden = rules.get("forbidden", [])
-
-    violations = []
-    for file in ROOT.rglob("*.py"):
-        violations.extend(scan_file(file, forbidden))
-
-    if violations:
-        print("Phase‑16 Governance Violations Detected:")
-        for v in violations:
-            print(" -", v)
-        sys.exit(1)
-
-    print("Phase‑16 Governance: CLEAN")
-    sys.exit(0)
-
-
-if __name__ == "__main__":
-    main()
-```
+### Governance compliance  
+- No Phase‑named files in functional directories  
+- No async SQLAlchemy  
+- No external queue backends  
+- No S3 or cloud storage  
 
 ---
 
-## 3. **CI Workflow**  
-### File: `.github/workflows/phase16_validation.yml`
+# ⭐ **🔥 COMMIT 10 — Documentation Bundle (Final)**
 
-```yaml
-name: Phase‑16 Governance + Tests
+### Purpose  
+Produce complete, contributor‑ready Phase‑16 documentation.
 
-on:
-  pull_request:
-    branches: [ "main" ]
+### Required files  
+Under:
 
-jobs:
-  phase16-validation:
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v3
-
-      - name: Install Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: "3.11"
-
-      - name: Install Dependencies
-        run: pip install -r requirements.txt
-
-      - name: Run Governance Validator
-        run: python server/tools/validate_phase16_path.py
-
-      - name: Run Tests
-        run: pytest --maxfail=1 --disable-warnings -q
-
-      - name: Smoke Test
-        run: python scripts/smoke_test.py
+```
+.ampcode/04_PHASE_NOTES/Phase_16/
 ```
 
-**Governance‑compliant:**  
-- CI blocks Phase‑17 vocabulary  
-- CI enforces tests  
-- CI enforces smoke test  
+You must include:
+
+1. **OVERVIEW.md**  
+   - What Phase‑16 is  
+   - Why it exists  
+   - High‑level architecture  
+
+2. **ARCHITECTURE.md**  
+   - Job table  
+   - Queue  
+   - Worker  
+   - Storage  
+   - Endpoints  
+   - Data flow diagram  
+
+3. **ENDPOINTS.md**  
+   - `/video/submit`  
+   - `/video/status/{job_id}`  
+   - `/video/results/{job_id}`  
+   - Request/response schemas  
+
+4. **MIGRATION_GUIDE.md**  
+   - How to apply migrations  
+   - How to revert migrations  
+   - How to run worker  
+   - How to run tests  
+
+5. **ROLLBACK_PLAN.md**  
+   - Remove job model  
+   - Remove Alembic migration  
+   - Remove worker  
+   - Remove queue + storage  
+   - Remove endpoints  
+   - Remove database.py if created solely for Phase‑16  
+   - Remove governance files  
+   - Remove CI workflow  
+
+6. **CONTRIBUTOR_EXAM.md**  
+   - 20 questions  
+   - Answer key  
+   - Covers: architecture, governance, testing, worker lifecycle  
+
+7. **RELEASE_NOTES.md**  
+   - New features  
+   - Breaking changes  
+   - Governance rules  
+   - Migration notes  
+
+### Documentation rules  
+- No TODOs  
+- No placeholders  
+- No references to Phase‑17  
+- No speculative future features  
+- Must be complete and correct  
+- Must match the implemented code exactly  
 
 ---
-
-# ⭐ **🔥 COMMIT 10 — Documentation Bundle (Scaffolding)**
-
-### Folder: `.ampcode/04_PHASE_NOTES/Phase_16/`
-
-Below are the **starter templates** for each required doc.
-
----
-
-## 1. **OVERVIEW.md**
-
-```markdown
-# Phase‑16 Overview
-Asynchronous Job Queue + Persistent Job State + Worker Execution
-
-Phase‑16 introduces:
-- Job table (persistent)
-- Object storage for MP4 + results
-- Queue abstraction
-- Worker process
-- Submit/status/results endpoints
-
-This phase transforms Foregsyte from synchronous batch processing into a scalable asynchronous job system.
-```
-
----
-
-## 2. **ARCHITECTURE.md**
-
-```markdown
-# Phase‑16 Architecture
-
-## Components
-- Job table (SQLAlchemy + Alembic)
-- StorageService (local filesystem)
-- QueueService (in‑memory FIFO)
-- Worker (pull → run → store → update)
-- API endpoints (submit, status, results)
-
-## Data Flow
-1. Client submits MP4 → POST /video/submit
-2. Job row created
-3. Job enqueued
-4. Worker dequeues job
-5. Worker runs Phase‑15 pipeline
-6. Results stored as JSON
-7. Status + results retrievable via API
-```
-
----
-
-## 3. **ENDPOINTS.md**
-
-```markdown
-# Phase‑16 Endpoints
-
-## POST /video/submit
-- Accepts MP4 via UploadFile
-- Validates magic bytes
-- Creates job row
-- Enqueues job_id
-- Returns { job_id }
-
-## GET /video/status/{job_id}
-- Returns job status + coarse progress
-
-## GET /video/results/{job_id}
-- Returns results for completed jobs
-```
-
----
-
-## 4. **MIGRATION_GUIDE.md**
-
-```markdown
-# Phase‑16 Migration Guide
-
-## Steps
-1. Create job model
-2. Create Alembic migration
-3. Implement StorageService
-4. Implement QueueService
-5. Implement submit/status/results endpoints
-6. Implement worker
-7. Add governance + CI
-8. Add documentation
-
-## Rollback
-- Drop job table
-- Remove worker
-- Remove endpoints
-- Remove storage + queue services
-```
-
----
-
-## 5. **ROLLBACK_PLAN.md**
-
-```markdown
-# Phase‑16 Rollback Plan
-
-## Remove Files
-- server/app/models/job.py
-- server/app/services/storage/*
-- server/app/services/queue/*
-- server/app/workers/*
-- server/app/api/routes/job_*.py
-
-## Remove Migration
-- Delete Alembic migration file
-
-## Remove CI Workflow
-- .github/workflows/phase16_validation.yml
-
-## Remove Governance Tools
-- server/tools/validate_phase16_path.py
-- server/tools/forbidden_vocabulary_phase16.yaml
-```
-
----
-
-## 6. **CONTRIBUTOR_EXAM.md**
-
-```markdown
-# Phase‑16 Contributor Exam
-
-20 questions covering:
-- Job lifecycle
-- Queue semantics
-- Worker transitions
-- Storage rules
-- Governance rules
-- Endpoint behavior
-```
-
----
-
-## 7. **RELEASE_NOTES.md**
-
-```markdown
-# Phase‑16 Release Notes
-
-## New Features
-- Async job submission
-- Worker execution
-- Persistent job state
-- Results retrieval
-
-## Breaking Changes
-- None
-
-## Governance
-- Phase‑17 vocabulary forbidden
-```
-
-Here we go, Roger—Phase‑16 tightened and Phase‑17 teed up.
-
----
-
-### 🔥 Phase‑16 smoke test script
-
-`scripts/smoke_test.py`:
-
-```python
-import time
-import requests
-
-
-BASE_URL = "http://localhost:8000"
-
-
-def submit_job():
-    with open("tests/fixtures/tiny.mp4", "rb") as f:
-        files = {"file": ("tiny.mp4", f, "video/mp4")}
-        resp = requests.post(
-            f"{BASE_URL}/video/submit",
-            files=files,
-            params={"pipeline_id": "yolo_ocr"},
-            timeout=10,
-        )
-    resp.raise_for_status()
-    data = resp.json()
-    return data["job_id"]
-
-
-def wait_for_completion(job_id: str, timeout_seconds: int = 30):
-    start = time.time()
-    while time.time() - start < timeout_seconds:
-        resp = requests.get(f"{BASE_URL}/video/status/{job_id}", timeout=5)
-        if resp.status_code == 404:
-            raise RuntimeError("Job disappeared during smoke test")
-        data = resp.json()
-        if data["status"] in ("completed", "failed"):
-            return data
-        time.sleep(1)
-    raise TimeoutError("Job did not complete in time")
-
-
-def fetch_results(job_id: str):
-    resp = requests.get(f"{BASE_URL}/video/results/{job_id}", timeout=10)
-    if resp.status_code != 200:
-        raise RuntimeError(f"Unexpected status for results: {resp.status_code}")
-    return resp.json()
-
-
-def main():
-    print("[SMOKE] Submitting job...")
-    job_id = submit_job()
-    print(f"[SMOKE] Job submitted: {job_id}")
-
-    print("[SMOKE] Waiting for completion...")
-    status = wait_for_completion(job_id)
-    print(f"[SMOKE] Final status: {status['status']}")
-
-    if status["status"] != "completed":
-        print("[SMOKE] Job did not complete successfully; skipping results fetch.")
-        return
-
-    print("[SMOKE] Fetching results...")
-    results = fetch_results(job_id)
-    if "results" not in results:
-        raise RuntimeError("Results payload missing 'results' field")
-
-    print("[SMOKE] Smoke test PASSED.")
-
-
-if __name__ == "__main__":
-    main()
-```
-
----
-
-### 🔥 Phase‑16 full test suite templates
-
-**Job model** – `tests/app/models/test_job.py`:
-
-```python
-import pytest
-from app.models.job import Job, JobStatus
-
-
-@pytest.mark.unit
-def test_job_defaults(session):
-    job = Job(
-        pipeline_id="yolo_ocr",
-        input_path="video_jobs/abc.mp4",
-    )
-    session.add(job)
-    session.commit()
-
-    assert job.status == JobStatus.pending
-    assert job.job_id is not None
-    assert job.created_at is not None
-    assert job.updated_at is not None
-```
-
-**Storage** – `tests/app/services/storage/test_local_storage.py`:
-
-```python
-from io import BytesIO
-from pathlib import Path
-from app.services.storage.local_storage import LocalStorageService
-
-
-def test_local_storage_roundtrip(tmp_path, monkeypatch):
-    monkeypatch.setattr(
-        "app.services.storage.local_storage.BASE_DIR",
-        tmp_path,
-        raising=False,
-    )
-    storage = LocalStorageService()
-
-    data = BytesIO(b"test-bytes")
-    path = "job123.mp4"
-
-    storage.save_file(data, path)
-    loaded = storage.load_file(path)
-    assert loaded.exists()
-    assert loaded.read_bytes() == b"test-bytes"
-
-    storage.delete_file(path)
-    assert not loaded.exists()
-```
-
-**Queue** – `tests/app/services/queue/test_memory_queue.py`:
-
-```python
-from app.services.queue.memory_queue import InMemoryQueueService
-
-
-def test_memory_queue_fifo():
-    q = InMemoryQueueService()
-    q.enqueue("job1")
-    q.enqueue("job2")
-
-    assert q.dequeue() == "job1"
-    assert q.dequeue() == "job2"
-    assert q.dequeue() is None
-```
-
-**Worker skeleton** – `tests/app/workers/test_job_worker.py`:
-
-```python
-import pytest
-from app.models.job import Job, JobStatus
-from app.services.queue.memory_queue import InMemoryQueueService
-from app.workers.worker import JobWorker
-
-
-@pytest.mark.worker
-def test_worker_marks_job_running(session):
-    job = Job(
-        pipeline_id="yolo_ocr",
-        input_path="video_jobs/j1.mp4",
-    )
-    session.add(job)
-    session.commit()
-
-    q = InMemoryQueueService()
-    q.enqueue(str(job.job_id))
-
-    worker = JobWorker(q)
-    processed = worker.run_once()
-    session.refresh(job)
-
-    assert processed is True
-    assert job.status == JobStatus.running
-```
-
-**Worker + pipeline** – `tests/app/workers/test_worker_pipeline.py`:
-
-```python
-from pathlib import Path
-from io import BytesIO
-import json
-
-from app.models.job import Job, JobStatus
-from app.services.storage.local_storage import LocalStorageService
-from app.services.queue.memory_queue import InMemoryQueueService
-from app.workers.worker import JobWorker
-
-
-def test_worker_runs_pipeline_and_stores_results(session, monkeypatch, tmp_path):
-    monkeypatch.setattr(
-        "app.services.storage.local_storage.BASE_DIR",
-        tmp_path,
-        raising=False,
-    )
-
-    storage = LocalStorageService()
-    video_bytes = BytesIO(b"fake-mp4-with-ftyp")
-    storage.save_file(video_bytes, "job123.mp4")
-
-    job = Job(
-        pipeline_id="yolo_ocr",
-        input_path="job123.mp4",
-    )
-    session.add(job)
-    session.commit()
-
-    q = InMemoryQueueService()
-    q.enqueue(str(job.job_id))
-
-    class FakePipeline:
-        def run_on_file(self, pipeline_id, file_path: Path):
-            return [{"frame_index": 0, "result": "ok"}]
-
-    monkeypatch.setattr(
-        "app.workers.worker.VideoFilePipelineService",
-        lambda: FakePipeline(),
-    )
-
-    worker = JobWorker(q)
-    worker.run_once()
-    session.refresh(job)
-
-    assert job.status == JobStatus.completed
-    assert job.output_path.endswith("_results.json")
-
-    results_file = tmp_path / job.output_path
-    data = json.loads(results_file.read_text())
-    assert data["results"][0]["result"] == "ok"
-```
-
-**API submit/status/results** – `tests/app/api/test_job_*.py` can follow your existing TestClient patterns, now targeting `/video/submit`, `/video/status/{job_id}`, `/video/results/{job_id}`.
-
----
-
-### 🔥 Phase‑16 worker logging + error handling enhancements
-
-Extend `JobWorker` to log transitions and errors (still Phase‑16‑safe):
-
-```python
-import logging
-
-logger = logging.getLogger(__name__)
-
-
-class JobWorker:
-    # existing __init__ ...
-
-    def run_once(self) -> bool:
-        job_id = self._queue.dequeue()
-        if job_id is None:
-            return False
-
-        job = Job.get(job_id)
-        if job is None:
-            logger.warning("Dequeued job_id %s but job not found", job_id)
-            return False
-
-        logger.info("Job %s: transitioning to RUNNING", job_id)
-        job.status = JobStatus.running
-        job.save()
-
-        storage = LocalStorageService()
-        pipeline = VideoFilePipelineService()
-
-        try:
-            input_path = storage.load_file(job.input_path)
-            results = pipeline.run_on_file(
-                pipeline_id=job.pipeline_id,
-                file_path=Path(input_path),
-            )
-
-            output_path = f"{job.job_id}_results.json"
-            storage.save_file(
-                src=json.dumps({"results": results}).encode("utf-8"),
-                dest_path=output_path,
-            )
-
-            job.output_path = output_path
-            job.status = JobStatus.completed
-            job.save()
-            logger.info("Job %s: COMPLETED", job_id)
-
-        except Exception as exc:  # noqa: BLE001
-            job.status = JobStatus.failed
-            job.error_message = str(exc)
-            job.save()
-            logger.exception("Job %s: FAILED with error", job_id)
-
-        return True
-```
-
-This gives you deterministic logs for every transition without introducing any Phase‑17 concepts.
-
----
-
-
-
-
 

@@ -18,7 +18,55 @@ Phase 16 introduces **asynchronous job processing** with:
 
 This transforms the system from synchronous (submit → wait → results) to asynchronous (submit → get job_id → poll for status).
 
-**All answers are in `.ampcode/04_PHASE_NOTES/Phase_16/PHASE_16_DEV_Q&A_01.md`**
+## 6 Architectural Questions (ANSWERED FROM CODEBASE)
+
+1. **SQLAlchemy ORM Setup?**
+   - ✅ FINDING: `app/models.py` uses ONLY Pydantic (no SQLAlchemy ORM currently)
+   - **DECISION**: Commit 1 will CREATE new `app/models/job.py` with SQLAlchemy ORM + Enum
+   - New section in models.py, import as: `from app.models import Job, JobStatus`
+
+2. **Database Connection?**
+   - ✅ FINDING: No alembic.ini or migrations/ folder exists
+   - **DECISION**: Commit 1 will CREATE Alembic setup from scratch:
+     - `alembic init -t async app/migrations`
+     - `app/alembic.ini` (configure for SQLite dev, Postgres prod)
+     - `app/migrations/versions/` (timestamp-based migration files)
+
+3. **Session Fixture?**
+   - ✅ FINDING: conftest.py (618 lines) provides `MockJobStore` and `MockTaskProcessor`, NOT real SQLAlchemy session
+   - **DECISION**: Commit 1 tests will use `pytest.mark.asyncio` + in-memory SQLite fixture:
+     ```python
+     @pytest.fixture
+     async def db_session():
+         """In-memory SQLite session for unit tests."""
+         engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+         async with engine.begin() as conn:
+             await conn.run_sync(Base.metadata.create_all)
+         async_session = AsyncSession(engine)
+         yield async_session
+         await async_session.close()
+     ```
+
+4. **Test Database Location?**
+   - ✅ FINDING: Project pattern is "local filesystem for dev" (from AGENTS.md dependency table)
+   - **DECISION**:
+     - **Unit tests**: In-memory SQLite (`:memory:`) per test, via fixture
+     - **Integration tests**: Persistent `data/forgesyte.db` (SQLite, same as dev)
+     - **CI**: Uses in-memory SQLite (no persistence needed)
+     - **Production**: Postgres (configured in settings, out of scope for Phase 16)
+
+5. **Routes Location?**
+   - ✅ FINDING: Video routes ALREADY EXIST at `/app/api_routes/routes/video_file_processing.py` (Phase 15)
+   - **DECISION**: Commit 4 will ADD `/video/submit`, `/video/status/{job_id}`, `/video/results/{job_id}` to SAME file
+   - Path: `app/api_routes/routes/video_file_processing.py` (extend existing router, don't create new file)
+   - Import in main.py already exists (line 40, 276)
+
+6. **Import Path?**
+   - ✅ FINDING: models.py defines all Pydantic models in one file (no job.py submodule yet)
+   - **DECISION**: Follow existing pattern:
+     - Define SQLAlchemy Job in: `app/models.py` (new section after Pydantic models)
+     - Import as: `from app.models import Job, JobStatus`
+     - Section header: `# =============================================================================\n# Phase 16: SQLAlchemy ORM Models\n# =============================================================================`
 
 ---
 
@@ -43,25 +91,32 @@ This transforms the system from synchronous (submit → wait → results) to asy
 - [ ] Run tests: `uv run pytest server/app/tests/models/test_job.py -v` (expect failures)
 
 **Phase 2: Implement Code**
-- [ ] Create `server/app/models/job.py`:
-  - Import: SQLAlchemy, Alembic, UUID dialect
-  - `JobStatus` enum class with 4 values: pending, running, completed, failed
-  - `Job` SQLAlchemy model with **exact schema**:
-    - job_id: UUID (PK, auto-generated)
-    - status: Enum (default=pending)
-    - pipeline_id: String (required)
-    - input_path: String (required)
-    - output_path: String (nullable)
-    - error_message: String (nullable)
-    - created_at: DateTime (auto)
-    - updated_at: DateTime (auto, onupdate)
-  - See scaffold code in PHASE_16_COMMIT_SCAFFOLDINGS.md
-- [ ] Create Alembic migration: `server/app/migrations/versions/<timestamp>_create_job_table.py`
-  - Use `op.create_table()` with exact column definitions
-  - Include UUID enum creation
-  - See scaffold code in PHASE_16_COMMIT_SCAFFOLDINGS.md
-- [ ] Run migration: `cd server && alembic upgrade head`
-- [ ] Verify table in DB: `sqlite3 data/forgesyte.db ".tables"` (or Postgres equivalent)
+- [ ] Create Job + JobStatus in `app/models.py` (extend existing file, don't create submodule):
+   - Add new section header: `# Phase 16: SQLAlchemy ORM Models`
+   - Import: `from sqlalchemy import Column, String, Enum, DateTime, UUID`
+   - `JobStatus` enum with 4 values: pending, running, completed, failed
+   - `Job` SQLAlchemy Base model with **exact schema**:
+     - job_id: UUID (PK, auto-generated, server_default=uuid4)
+     - status: Enum (default=pending)
+     - pipeline_id: String (required)
+     - input_path: String (required)
+     - output_path: String (nullable)
+     - error_message: String (nullable)
+     - created_at: DateTime (auto, server_default=datetime.utcnow)
+     - updated_at: DateTime (auto, onupdate=datetime.utcnow)
+   - See scaffold code in PHASE_16_COMMIT_SCAFFOLDINGS.md
+- [ ] Create Alembic migration (from scratch, Commit 1 creates first migration):
+   - `alembic init -t async app/migrations` (if not exists)
+   - Create `app/migrations/versions/<timestamp>_create_job_table.py`
+   - Use `op.create_table()` with exact column definitions
+   - Include UUID enum creation (if needed for target DB)
+   - See scaffold code in PHASE_16_COMMIT_SCAFFOLDINGS.md
+- [ ] Create `app/core/database.py` (async SQLAlchemy session):
+   - AsyncEngine for SQLite dev (sqlite+aiosqlite:///:memory: or data/forgesyte.db)
+   - AsyncSession factory
+   - See scaffold code
+- [ ] Run migration locally: `cd server && alembic upgrade head`
+- [ ] Verify table in DB: `sqlite3 data/forgesyte.db ".tables"` (should show 'job')
 
 **Phase 3: Verify Tests Pass**
 - [ ] Run tests: `cd server && uv run pytest app/tests/models/test_job.py -v` (expect all ✅)
@@ -200,17 +255,18 @@ This transforms the system from synchronous (submit → wait → results) to asy
 - [ ] Run tests: `uv run pytest tests/api/test_job_submit.py -v` (expect failures)
 
 **Phase 2: Implement Code**
-- [ ] Create `app/schemas/job_schemas.py`:
-  - `JobSubmitRequest` schema
-  - `JobSubmitResponse` schema with job_id
-- [ ] Create `app/api_routes/routes/job_submit.py`:
-  - `POST /video/submit` endpoint
-  - Accept MP4 file upload (multipart/form-data)
-  - Validate file format (magic bytes: `ftyp`)
-  - Save via StorageService
-  - Create Job in database (status=pending)
-  - Enqueue job_id to queue
-  - Return `{job_id}`
+- [ ] Extend `app/api_routes/routes/video_file_processing.py` (Phase 15 file already exists):
+   - Add `JobSubmitRequest` schema (accepts MP4 file upload)
+   - Add `JobSubmitResponse` schema with job_id
+   - Add `POST /video/submit` endpoint to existing router:
+     - Accept MP4 file upload (multipart/form-data)
+     - Validate file format (magic bytes: `ftyp`)
+     - Save via StorageService to `video_jobs/{job_id}.mp4`
+     - Create Job in database (status=pending)
+     - Enqueue job_id to queue
+     - Return `{job_id}`
+   - Note: This extends existing video_file_processing.py, don't create new file
+   - Router already imported in main.py (line 40, 276)
 
 **Phase 3: Verify Tests Pass**
 - [ ] Run tests: `uv run pytest tests/api/test_job_submit.py -v` (expect all ✅)
@@ -361,13 +417,12 @@ This transforms the system from synchronous (submit → wait → results) to asy
 - [ ] Run tests: `uv run pytest tests/api/test_job_status.py -v` (expect failures)
 
 **Phase 2: Implement Code**
-- [ ] Create `app/schemas/job_status_schema.py`:
-  - `JobStatusResponse` schema with job_id, status, progress, created_at, updated_at
-- [ ] Create `app/api_routes/routes/job_status.py`:
-  - `GET /video/status/{job_id}` endpoint
-  - Load Job from DB (raise 404 if not found)
-  - Calculate progress: 0 (pending), 0.5 (running), 1.0 (completed/failed)
-  - Return response with all fields
+- [ ] Extend `app/api_routes/routes/video_file_processing.py` (same file as Commits 4, 8):
+   - Add `JobStatusResponse` schema with job_id, status, progress, created_at, updated_at
+   - Add `GET /video/status/{job_id}` endpoint to existing router:
+     - Load Job from DB (raise 404 if not found)
+     - Calculate progress: 0 (pending), 0.5 (running), 1.0 (completed/failed)
+     - Return response with all fields
 
 **Phase 3: Verify Tests Pass**
 - [ ] Run tests: `uv run pytest tests/api/test_job_status.py -v` (expect all ✅)
@@ -411,14 +466,13 @@ This transforms the system from synchronous (submit → wait → results) to asy
 - [ ] Run tests: `uv run pytest tests/api/test_job_results.py -v` (expect failures)
 
 **Phase 2: Implement Code**
-- [ ] Create `app/schemas/job_results_schema.py`:
-  - `JobResultsResponse` schema with job_id, results, created_at, updated_at
-- [ ] Create `app/api_routes/routes/job_results.py`:
-  - `GET /video/results/{job_id}` endpoint
-  - Load Job from DB (raise 404 if not found)
-  - Check status == "completed" (raise 404 if not)
-  - Load results from object storage
-  - Return response with all fields
+- [ ] Extend `app/api_routes/routes/video_file_processing.py` (same file as Commits 4, 7):
+   - Add `JobResultsResponse` schema with job_id, results, created_at, updated_at
+   - Add `GET /video/results/{job_id}` endpoint to existing router:
+     - Load Job from DB (raise 404 if not found)
+     - Check status == "completed" (raise 404 if not)
+     - Load results from object storage (`video_jobs/{job_id}_results.json`)
+     - Return response with all fields
 
 **Phase 3: Verify Tests Pass**
 - [ ] Run tests: `uv run pytest tests/api/test_job_results.py -v` (expect all ✅)
