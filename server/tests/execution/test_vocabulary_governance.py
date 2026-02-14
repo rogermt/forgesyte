@@ -88,7 +88,7 @@ class TestPhase16Governance:
         - Report violations with file/line numbers
         """
         scanner_path = Path(
-            "/home/rogermt/forgesyte/server/tools/validate_phase16_path.py"
+            "/home/rogermt/forgesyte/server/tools/vocabulary_scanner.py"
         )
 
         # Verify scanner exists
