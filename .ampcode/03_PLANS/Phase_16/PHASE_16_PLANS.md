@@ -57,13 +57,13 @@ This transforms the system from synchronous (submit → wait → results) to asy
 - [ ] All 4 checks passing before commit
 
 **Acceptance Criteria**:
-- [x] `tests/models/test_job.py` created and all passing
-- [x] Job table created with correct schema
-- [x] Migration script is idempotent
-- [x] ORM model has CRUD methods
-- [x] No worker logic
-- [x] No queue logic
-- [x] All 4 pre-commit checks passing
+- [ ] `tests/models/test_job.py` created and all passing
+- [ ] Job table created with correct schema
+- [ ] Migration script is idempotent
+- [ ] ORM model has CRUD methods
+- [ ] No worker logic
+- [ ] No queue logic
+- [ ] All 4 pre-commit checks passing
 
 ---
 
@@ -104,12 +104,12 @@ This transforms the system from synchronous (submit → wait → results) to asy
 - [ ] All 4 checks passing before commit
 
 **Acceptance Criteria**:
-- [x] `tests/services/storage/test_local_storage.py` created and all passing
-- [x] StorageService interface created
-- [x] Local filesystem implementation working
-- [x] Deterministic path structure: `video_jobs/{job_id}.mp4`
-- [x] Unit tests passing with 100% coverage
-- [x] All 4 pre-commit checks passing
+- [ ] `tests/services/storage/test_local_storage.py` created and all passing
+- [ ] StorageService interface created
+- [ ] Local filesystem implementation working
+- [ ] Deterministic path structure: `video_jobs/{job_id}.mp4`
+- [ ] Unit tests passing with 100% coverage
+- [ ] All 4 pre-commit checks passing
 
 ---
 
@@ -151,13 +151,13 @@ This transforms the system from synchronous (submit → wait → results) to asy
 - [ ] All 4 checks passing before commit
 
 **Acceptance Criteria**:
-- [x] `tests/services/queue/test_memory_queue.py` created and all passing
-- [x] QueueService interface created
-- [x] In-memory implementation working
-- [x] FIFO ordering verified
-- [x] Thread-safety tested
-- [x] Unit tests passing with 100% coverage
-- [x] All 4 pre-commit checks passing
+- [ ] `tests/services/queue/test_memory_queue.py` created and all passing
+- [ ] QueueService interface created
+- [ ] In-memory implementation working
+- [ ] FIFO ordering verified
+- [ ] Thread-safety tested
+- [ ] Unit tests passing with 100% coverage
+- [ ] All 4 pre-commit checks passing
 
 ---
 
@@ -204,14 +204,14 @@ This transforms the system from synchronous (submit → wait → results) to asy
 - [ ] All 4 checks passing before commit
 
 **Acceptance Criteria**:
-- [x] `tests/api/test_job_submit.py` created and all passing
-- [x] POST /video/submit works end-to-end
-- [x] File validation working (rejects non-MP4)
-- [x] Job created in database with status=pending
-- [x] Job enqueued
-- [x] Client receives `{job_id}`
-- [x] Integration tests passing with 100% coverage
-- [x] All 4 pre-commit checks passing
+- [ ] `tests/api/test_job_submit.py` created and all passing
+- [ ] POST /video/submit works end-to-end
+- [ ] File validation working (rejects non-MP4)
+- [ ] Job created in database with status=pending
+- [ ] Job enqueued
+- [ ] Client receives `{job_id}`
+- [ ] Integration tests passing with 100% coverage
+- [ ] All 4 pre-commit checks passing
 
 ---
 
@@ -256,14 +256,14 @@ This transforms the system from synchronous (submit → wait → results) to asy
 - [ ] All 4 checks passing before commit
 
 **Acceptance Criteria**:
-- [x] `tests/workers/test_job_worker.py` created and all passing
-- [x] Worker pulls from queue
-- [x] Job status transitions pending → running
-- [x] Worker handles empty queue (sleep/backoff)
-- [x] Signal handlers working
-- [x] Graceful shutdown implemented
-- [x] Unit tests passing with 100% coverage
-- [x] All 4 pre-commit checks passing
+- [ ] `tests/workers/test_job_worker.py` created and all passing
+- [ ] Worker pulls from queue
+- [ ] Job status transitions pending → running
+- [ ] Worker handles empty queue (sleep/backoff)
+- [ ] Signal handlers working
+- [ ] Graceful shutdown implemented
+- [ ] Unit tests passing with 100% coverage
+- [ ] All 4 pre-commit checks passing
 
 ---
 
@@ -312,14 +312,14 @@ This transforms the system from synchronous (submit → wait → results) to asy
 - [ ] All 4 checks passing before commit
 
 **Acceptance Criteria**:
-- [x] `tests/workers/test_worker_pipeline.py` created and all passing
-- [x] Worker runs VideoFilePipelineService on MP4
-- [x] Results stored deterministically as JSON
-- [x] Job status transitions pending → running → completed
-- [x] Exceptions handled: status → failed + error_message
-- [x] Results match Phase-15 format
-- [x] Integration tests passing with 100% coverage
-- [x] All 4 pre-commit checks passing
+- [ ] `tests/workers/test_worker_pipeline.py` created and all passing
+- [ ] Worker runs VideoFilePipelineService on MP4
+- [ ] Results stored deterministically as JSON
+- [ ] Job status transitions pending → running → completed
+- [ ] Exceptions handled: status → failed + error_message
+- [ ] Results match Phase-15 format
+- [ ] Integration tests passing with 100% coverage
+- [ ] All 4 pre-commit checks passing
 
 ---
 
@@ -361,14 +361,14 @@ This transforms the system from synchronous (submit → wait → results) to asy
 - [ ] All 4 checks passing before commit
 
 **Acceptance Criteria**:
-- [x] `tests/api/test_job_status.py` created and all passing
-- [x] GET /video/status/{job_id} works
-- [x] Progress is coarse (0, 0.5, 1.0)
-- [x] Returns correct status values
-- [x] Returns 404 for missing jobs
-- [x] Response includes all required fields
-- [x] Integration tests passing with 100% coverage
-- [x] All 4 pre-commit checks passing
+- [ ] `tests/api/test_job_status.py` created and all passing
+- [ ] GET /video/status/{job_id} works
+- [ ] Progress is coarse (0, 0.5, 1.0)
+- [ ] Returns correct status values
+- [ ] Returns 404 for missing jobs
+- [ ] Response includes all required fields
+- [ ] Integration tests passing with 100% coverage
+- [ ] All 4 pre-commit checks passing
 
 ---
 
@@ -412,14 +412,14 @@ This transforms the system from synchronous (submit → wait → results) to asy
 - [ ] All 4 checks passing before commit
 
 **Acceptance Criteria**:
-- [x] `tests/api/test_job_results.py` created and all passing
-- [x] GET /video/results/{job_id} works for completed jobs
-- [x] Returns 404 for pending/running/failed jobs
-- [x] Returns 404 for missing jobs
-- [x] Results match Phase-15 format
-- [x] Response includes all required fields
-- [x] Integration tests passing with 100% coverage
-- [x] All 4 pre-commit checks passing
+- [ ] `tests/api/test_job_results.py` created and all passing
+- [ ] GET /video/results/{job_id} works for completed jobs
+- [ ] Returns 404 for pending/running/failed jobs
+- [ ] Returns 404 for missing jobs
+- [ ] Results match Phase-15 format
+- [ ] Response includes all required fields
+- [ ] Integration tests passing with 100% coverage
+- [ ] All 4 pre-commit checks passing
 
 ---
 
@@ -470,13 +470,13 @@ This transforms the system from synchronous (submit → wait → results) to asy
 - [ ] All 4 checks passing before commit
 
 **Acceptance Criteria**:
-- [x] `tests/execution/test_phase16_governance.py` created and all passing
-- [x] Forbidden vocabulary scanner working
-- [x] CI workflow enforces governance
-- [x] Smoke test updated and passing
-- [x] No Phase-17 concepts in code
-- [x] Governance tests passing with 100% coverage
-- [x] All 4 pre-commit checks passing
+- [ ] `tests/execution/test_phase16_governance.py` created and all passing
+- [ ] Forbidden vocabulary scanner working
+- [ ] CI workflow enforces governance
+- [ ] Smoke test updated and passing
+- [ ] No Phase-17 concepts in code
+- [ ] Governance tests passing with 100% coverage
+- [ ] All 4 pre-commit checks passing
 
 ---
 
@@ -526,14 +526,14 @@ This transforms the system from synchronous (submit → wait → results) to asy
 - [ ] All 4 checks passing before commit
 
 **Acceptance Criteria**:
-- [x] `tests/documentation/test_phase16_docs.py` created and all passing
-- [x] All Phase-16 documentation created and linked
-- [x] Rollback plan is executable and tested
-- [x] Rollback plan lists exact files/modifications
-- [x] New contributors can pass exam
-- [x] Release notes updated
-- [x] Documentation tests passing with 100% coverage
-- [x] All 4 pre-commit checks passing
+- [ ] `tests/documentation/test_phase16_docs.py` created and all passing
+- [ ] All Phase-16 documentation created and linked
+- [ ] Rollback plan is executable and tested
+- [ ] Rollback plan lists exact files/modifications
+- [ ] New contributors can pass exam
+- [ ] Release notes updated
+- [ ] Documentation tests passing with 100% coverage
+- [ ] All 4 pre-commit checks passing
 
 ---
 
