@@ -167,7 +167,9 @@ class TestVideoRouterImports:
                     process_route = route
                     break
 
-        assert process_route is not None, "POST /video/process route not found in router"
+        assert (
+            process_route is not None
+        ), "POST /video/process route not found in router"
 
     def test_schemas_are_exported(self):
         """Verify request/response schemas are defined."""
