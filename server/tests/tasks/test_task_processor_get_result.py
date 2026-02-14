@@ -14,7 +14,7 @@ import pytest
 # Add the server directory to the path
 sys.path.insert(0, "/home/rogermt/forgesyte/server")
 
-from app.models import JobStatus  # noqa: E402
+from app.models_pydantic import JobStatus  # noqa: E402
 from app.tasks import JobStore, TaskProcessor  # noqa: E402
 
 

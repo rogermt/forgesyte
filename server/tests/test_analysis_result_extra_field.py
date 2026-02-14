@@ -1,6 +1,6 @@
 """Test that AnalysisResult includes extra field for plugin-specific data."""
 
-from app.models import AnalysisResult
+from app.models_pydantic import AnalysisResult
 
 
 class TestAnalysisResultExtraField:

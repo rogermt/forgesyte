@@ -17,7 +17,7 @@ from datetime import datetime, timezone
 from typing import Any, Callable, Optional
 
 from .exceptions import PluginExecutionError
-from .models import JobStatus
+from .models_pydantic import JobStatus
 from .plugin_loader import PluginRegistry
 from .protocols import JobStore as JobStoreProtocol
 from .schemas.normalisation import normalise_output

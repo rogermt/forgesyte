@@ -16,7 +16,7 @@ from zoneinfo import ZoneInfo
 import pytest
 from pydantic import ValidationError
 
-from app.models import (
+from app.models_pydantic import (
     AnalyzeRequest,
     JobResponse,
     JobStatus,

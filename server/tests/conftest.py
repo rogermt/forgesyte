@@ -616,3 +616,43 @@ def mock_task_processor(mock_job_store: MockJobStore) -> MockTaskProcessor:
         MockTaskProcessor instance with Protocol-compatible interface
     """
     return MockTaskProcessor(mock_job_store)
+
+
+# ============================================================================
+# Phase 16: Job Model Test Fixtures (DuckDB SQLAlchemy)
+# ============================================================================
+
+
+@pytest.fixture
+def test_engine():
+    """Create in-memory DuckDB engine for tests.
+
+    Returns:
+        SQLAlchemy engine for testing
+    """
+    from sqlalchemy import create_engine
+
+    from app.core.database import Base
+    from app.models.job import Job  # noqa: F401 - registers model with Base
+
+    engine = create_engine("duckdb:///:memory:", future=True)
+    Base.metadata.create_all(engine)
+    return engine
+
+
+@pytest.fixture
+def session(test_engine):
+    """Create a database session for tests.
+
+    Args:
+        test_engine: In-memory DuckDB engine
+
+    Yields:
+        SQLAlchemy session
+    """
+    from sqlalchemy.orm import sessionmaker
+
+    Session = sessionmaker(bind=test_engine)
+    s = Session()
+    yield s
+    s.close()

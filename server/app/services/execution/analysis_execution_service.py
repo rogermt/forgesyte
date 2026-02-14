@@ -17,7 +17,7 @@ Execution Chain:
 import logging
 from typing import Any, Dict, Optional, Tuple
 
-from app.models import JobStatus
+from app.models_pydantic import JobStatus
 
 from .job_execution_service import JobExecutionService
 

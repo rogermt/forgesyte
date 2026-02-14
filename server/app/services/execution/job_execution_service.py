@@ -18,7 +18,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
-from app.models import JobStatus
+from app.models_pydantic import JobStatus
 
 from .plugin_execution_service import PluginExecutionService
 

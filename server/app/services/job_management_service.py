@@ -10,7 +10,7 @@ testability through mock implementations and supporting different backends.
 
 Example:
     from .job_management_service import JobManagementService
-    from ..models import JobStatus
+    from ..models_pydantic import JobStatus
 
     service = JobManagementService(job_store, task_processor)
     job = await service.get_job_status("job-123")
@@ -21,7 +21,7 @@ Example:
 import logging
 from typing import Any, Dict, Iterable, Optional
 
-from ..models import JobStatus
+from ..models_pydantic import JobStatus
 from ..protocols import JobStore, TaskProcessor
 
 logger = logging.getLogger(__name__)

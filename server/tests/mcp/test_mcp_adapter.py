@@ -13,7 +13,7 @@ from pydantic import ValidationError
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from app.mcp import MCPAdapter, MCPServerInfo, MCPToolSchema  # noqa: E402
-from app.models import MCPManifest, MCPTool  # noqa: E402
+from app.models_pydantic import MCPManifest, MCPTool  # noqa: E402
 from app.plugin_loader import PluginRegistry  # noqa: E402
 
 

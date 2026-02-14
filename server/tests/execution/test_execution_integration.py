@@ -15,7 +15,7 @@ import pytest
 import pytest_asyncio
 
 from app.auth import init_auth_service
-from app.models import JobStatus
+from app.models_pydantic import JobStatus
 from app.services.execution.analysis_execution_service import AnalysisExecutionService
 from app.services.execution.job_execution_service import JobExecutionService
 from app.services.execution.plugin_execution_service import PluginExecutionService

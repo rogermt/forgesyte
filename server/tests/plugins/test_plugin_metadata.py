@@ -9,7 +9,7 @@ from pydantic import ValidationError
 # Add the server directory to the path so we can import modules
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from app.models import PluginMetadata  # noqa: E402
+from app.models_pydantic import PluginMetadata  # noqa: E402
 
 
 class TestPluginMetadataBasics:

@@ -19,7 +19,7 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field, ValidationError
 
-from ..models import MCPManifest, MCPTool, PluginMetadata
+from ..models_pydantic import MCPManifest, MCPTool, PluginMetadata
 from ..plugin_loader import PluginRegistry
 
 logger = logging.getLogger(__name__)

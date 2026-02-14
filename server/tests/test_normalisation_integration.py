@@ -8,7 +8,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from app.models import JobStatus
+from app.models_pydantic import JobStatus
 from app.tasks import JobStore, TaskProcessor
 
 

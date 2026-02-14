@@ -19,7 +19,7 @@ import pytest
 from httpx import AsyncClient
 from pydantic import ValidationError
 
-from app.models import JobResponse, JobStatus, JobStatusResponse
+from app.models_pydantic import JobResponse, JobStatus, JobStatusResponse
 
 
 @pytest.mark.integration

@@ -9,7 +9,7 @@ import pytest
 # Add the server directory to the path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../.."))
 
-from app.models import JobStatus
+from app.models_pydantic import JobStatus
 from app.protocols import JobStore, TaskProcessor
 from app.services.job_management_service import JobManagementService
 

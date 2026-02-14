@@ -14,7 +14,7 @@ import pytest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../.."))
 
-from app.models import JobStatus
+from app.models_pydantic import JobStatus
 from app.tasks import JobStore, TaskProcessor
 
 
