@@ -84,32 +84,32 @@ class TestYoloOcrPipelineNodes:
     def test_detect_node_has_required_fields(self, pipeline: dict) -> None:
         """Detect node must reference valid plugin and tool."""
         detect = next(n for n in pipeline["nodes"] if n["id"] == "detect")
-        assert detect["plugin_id"] == "yolo-tracker"
-        assert detect["tool_id"] == "player_detection"
+        assert detect["plugin_id"] == "yolo"
+        assert detect["tool_id"] == "detect_objects"
         assert "input_schema" in detect
 
     def test_read_node_has_required_fields(self, pipeline: dict) -> None:
         """Read node must reference valid plugin and tool."""
         read = next(n for n in pipeline["nodes"] if n["id"] == "read")
         assert read["plugin_id"] == "ocr"
-        assert read["tool_id"] == "analyze"
+        assert read["tool_id"] == "extract_text"
         assert "input_schema" in read
 
-    def test_detect_input_schema_has_image_base64(self, pipeline: dict) -> None:
-        """Detect node should require image_base64."""
+    def test_detect_input_schema_has_image_bytes(self, pipeline: dict) -> None:
+        """Detect node should require image_bytes."""
         detect = next(n for n in pipeline["nodes"] if n["id"] == "detect")
         schema = detect["input_schema"]
         assert "properties" in schema
-        assert "image_base64" in schema["properties"]
-        assert "image_base64" in schema["required"]
+        assert "image_bytes" in schema["properties"]
+        assert "image_bytes" in schema["required"]
 
-    def test_read_input_schema_has_image_base64(self, pipeline: dict) -> None:
-        """Read node should require image_base64."""
+    def test_read_input_schema_has_image_bytes(self, pipeline: dict) -> None:
+        """Read node should require image_bytes."""
         read = next(n for n in pipeline["nodes"] if n["id"] == "read")
         schema = read["input_schema"]
         assert "properties" in schema
-        assert "image_base64" in schema["properties"]
-        assert "image_base64" in schema["required"]
+        assert "image_bytes" in schema["properties"]
+        assert "image_bytes" in schema["required"]
 
 
 class TestYoloOcrPipelinePluginReferences:
