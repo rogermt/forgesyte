@@ -19,6 +19,7 @@ dependencies = [
     "pillow>=10.0.0",
     "numpy>=1.24.0",
     "pytesseract>=0.3.10",
+    "ultralytics>=8.0.0",
     "python-dotenv>=1.0.0",
     "gunicorn>=21.0.0",
     "python-json-logger>=2.0.0",
