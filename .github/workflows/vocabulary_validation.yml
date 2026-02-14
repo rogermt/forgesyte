@@ -1,0 +1,84 @@
+name: Vocabulary Scanner Validation
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  scan:
+    name: Vocabulary Scan
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      
+      - name: Install uv
+        run: pip install uv
+      
+      - name: Install server dependencies
+        working-directory: ./server
+        run: uv sync
+      
+      - name: Run vocabulary scanner
+        working-directory: ./server
+        run: uv run python tools/vocabulary_scanner.py
+        continue-on-error: false
+
+  tests:
+    name: Vocabulary Scanner Tests
+    runs-on: ubuntu-latest
+    needs: scan
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      
+      - name: Install uv
+        run: pip install uv
+      
+      - name: Install server dependencies
+        working-directory: ./server
+        run: uv sync
+      
+      - name: Run vocabulary scanner tests
+        working-directory: ./server
+        run: uv run pytest tests/execution/test_vocabulary_scanner.py -v
+        continue-on-error: false
+
+  smoke-test:
+    name: Job Processing Smoke Test
+    runs-on: ubuntu-latest
+    needs: tests
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      
+      - name: Install uv
+        run: pip install uv
+      
+      - name: Install server dependencies
+        working-directory: ./server
+        run: uv sync
+      
+      - name: Run job processing smoke test
+        working-directory: ./server
+        run: uv run python ../scripts/smoke_test.py
+        env:
+          JOB_PROCESSING_SMOKE_TEST: "1"
+        continue-on-error: false

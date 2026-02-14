@@ -1,0 +1,52 @@
+# Phase 16 Forbidden Vocabulary Configuration
+# 
+# This file defines vocabulary and concepts that are forbidden in Phase 16
+# functional code. These concepts are reserved for Phase 17+ scope.
+#
+# Date: 2026-02-14
+# Phase: 16 - Asynchronous Job Queue + Persistent Job State + Worker Execution
+
+# Forbidden Terms (Phase 17+ concepts only - Phase 16 specific)
+# 
+# NOTE: This list focuses on NEW Phase-17 patterns that should not enter Phase 16 code.
+# Pre-Phase-16 vocabulary (websocket, streaming, sse, real_time from earlier phases)
+# is excluded because they exist in existing protocols and are allowed in Phase 16.
+forbidden_terms:
+  # GPU Scheduling (Phase 17+)
+  - gpu_schedule
+  - gpu_worker
+  
+  # Distributed Workers (Phase 17+)
+  - distributed
+
+# Directories to scan for violations (Phase 16 specific code)
+scan_directories:
+  - app/api_routes/routes/video_submit.py
+  - app/api_routes/routes/job_status.py
+  - app/api_routes/routes/job_results.py
+  - app/services/queue
+  - app/services/storage
+  - app/services/job_management_service.py
+  - app/workers
+
+# Directories to exclude from scan
+exclude_directories:
+  - tests/
+  - __pycache__/
+  - .venv/
+  - .pytest_cache/
+  - .mypy_cache/
+  - .ruff_cache/
+
+# File patterns to scan
+include_patterns:
+  - "*.py"
+
+# Case sensitivity
+case_sensitive: false
+
+# Violation reporting
+reporting:
+  show_context: true  # Show lines around violation
+  context_lines: 2    # Number of lines before/after
+  exit_on_first: false  # Continue scanning after first violation

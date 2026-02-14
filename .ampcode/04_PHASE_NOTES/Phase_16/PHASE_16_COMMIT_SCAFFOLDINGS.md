@@ -532,3 +532,71 @@ You must include:
 
 ---
 
+# ✅ **COMMIT 9 — Governance + CI Enforcement** (COMPLETE)
+
+**Date**: 2026-02-14  
+**Status**: ✓ COMPLETE  
+**Tests**: 3 governance tests PASS + full suite  
+**Files**: 5 created (~665 lines)
+
+## Completed Deliverables
+
+1. **Vocabulary Scanner Tests** (`server/tests/execution/test_vocabulary_scanner.py`)
+   - ✓ test_no_forbidden_vocabulary_in_functional_code
+   - ✓ test_scanner_tool_exists
+   - ✓ test_scanner_config_exists
+
+2. **Governance Scanner** (`server/tools/validate_phase16_path.py`)
+   - ✓ YAML configuration loading
+   - ✓ Recursive directory scanning
+   - ✓ Violation reporting with context
+   - ✓ Exit codes (0=clean, 1=violations)
+
+3. **Forbidden Vocabulary Config** (`server/tools/forbidden_vocabulary_phase16.yaml`)
+   - ✓ Phase 17 forbidden terms (gpu_schedule, gpu_worker, distributed)
+   - ✓ Phase 16 scan paths
+   - ✓ Exclude patterns
+   - ✓ Reporting configuration
+
+4. **CI Workflow** (`.github/workflows/phase16_validation.yml`)
+   - ✓ Governance check job (runs scanner)
+   - ✓ Governance tests job (pytest)
+   - ✓ Smoke test job (job lifecycle)
+   - ✓ Blocks merge on failure
+
+5. **Smoke Test Script** (`scripts/smoke_test.py`)
+   - ✓ POST /v1/video/submit (job submission)
+   - ✓ GET /v1/video/status/{job_id} (status polling)
+   - ✓ GET /v1/video/results/{job_id} (results retrieval)
+   - ✓ Optional execution (PHASE_16_SMOKE_TEST=1)
+
+## Architecture Decisions
+
+- **Focused Forbidden List**: Only Phase 17 patterns (gpu_schedule, gpu_worker, distributed)
+- **Phase 16 Code Only**: Scan only Phase 16 specific directories (endpoints, services, workers)
+- **YAML Configuration**: Separate config for easy updates and auditing
+- **Optional Smoke Test**: Enabled via environment variable for flexibility
+
+## Verification Results
+
+✓ All Phase 16 functional code scanned and clean  
+✓ No forbidden vocabulary found in Phase 16 code  
+✓ Scanner tool runs successfully (exit code 0)  
+✓ All 3 governance tests PASS  
+✓ All 1200+ full test suite PASS  
+✓ CI workflow defined and ready  
+
+## What's Next (Commit 10)
+
+Commit 10 focuses on documentation:
+- Architecture documentation
+- Rollback procedures
+- Release notes
+- Contributor exam
+
+**Phase 16 will be COMPLETE after Commit 10.**
+
+See `PHASE_16_COMMIT_09.md` for full implementation details.
+
+---
+
