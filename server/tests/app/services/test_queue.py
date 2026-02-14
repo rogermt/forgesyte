@@ -1,6 +1,7 @@
 """Tests for QueueService implementations."""
 
 import pytest
+
 from app.services.queue.memory_queue import InMemoryQueueService
 
 
