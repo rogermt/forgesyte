@@ -8,8 +8,6 @@ Tests verify:
 
 from pathlib import Path
 
-import pytest
-
 
 class TestVocabularyScanner:
     """Tests for vocabulary scanner tool."""
@@ -33,12 +31,16 @@ class TestVocabularyScanner:
 
         # Job processing code directories
         scan_paths = [
-            Path("/home/rogermt/forgesyte/server/app/api_routes/routes/video_submit.py"),
+            Path(
+                "/home/rogermt/forgesyte/server/app/api_routes/routes/video_submit.py"
+            ),
             Path("/home/rogermt/forgesyte/server/app/api_routes/routes/job_status.py"),
             Path("/home/rogermt/forgesyte/server/app/api_routes/routes/job_results.py"),
             Path("/home/rogermt/forgesyte/server/app/services/queue"),
             Path("/home/rogermt/forgesyte/server/app/services/storage"),
-            Path("/home/rogermt/forgesyte/server/app/services/job_management_service.py"),
+            Path(
+                "/home/rogermt/forgesyte/server/app/services/job_management_service.py"
+            ),
             Path("/home/rogermt/forgesyte/server/app/workers"),
         ]
 
@@ -70,9 +72,10 @@ class TestVocabularyScanner:
                     # Skip files that can't be read
                     pass
 
-        assert not violations, (
-            f"Forbidden vocabulary found in job-processing code:\n"
-            + "\n".join(violations)
+        assert (
+            not violations
+        ), "Forbidden vocabulary found in job-processing code:\n" + "\n".join(
+            violations
         )
 
     def test_scanner_tool_exists(self):
@@ -82,9 +85,7 @@ class TestVocabularyScanner:
         )
 
         # Verify scanner exists
-        assert scanner_path.exists(), (
-            f"Vocabulary scanner not found at {scanner_path}"
-        )
+        assert scanner_path.exists(), f"Vocabulary scanner not found at {scanner_path}"
 
         # Verify it's not empty
         assert scanner_path.stat().st_size > 0, "Scanner file is empty"
@@ -102,9 +103,7 @@ class TestVocabularyScanner:
         )
 
         # Verify config exists
-        assert config_path.exists(), (
-            f"Scanner config not found at {config_path}"
-        )
+        assert config_path.exists(), f"Scanner config not found at {config_path}"
 
         # Verify it's not empty
         assert config_path.stat().st_size > 0, "Config file is empty"

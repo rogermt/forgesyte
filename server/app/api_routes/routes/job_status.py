@@ -30,7 +30,9 @@ def _calculate_progress(status: JobStatus) -> float:
 
 
 @router.get("/v1/video/status/{job_id}", response_model=JobStatusResponse)
-async def get_job_status(job_id: UUID, db: Session = Depends(get_db)) -> JobStatusResponse:
+async def get_job_status(
+    job_id: UUID, db: Session = Depends(get_db)
+) -> JobStatusResponse:
     """Get status of a job.
 
     Args:

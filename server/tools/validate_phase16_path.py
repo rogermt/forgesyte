@@ -33,38 +33,40 @@ def scan_file(
     context_lines: int = 2,
 ) -> list[dict[str, Any]]:
     """Scan a file for forbidden vocabulary.
-    
+
     Returns list of violations with file, line number, term, and context.
     """
     violations = []
-    
+
     try:
         content = filepath.read_text()
     except (UnicodeDecodeError, PermissionError):
         return violations
-    
+
     lines = content.split("\n")
-    
+
     for line_no, line in enumerate(lines, 1):
         line_normalized = normalize_term(line, case_sensitive)
-        
+
         for term in forbidden_terms:
             term_normalized = normalize_term(term, case_sensitive)
-            
+
             if term_normalized in line_normalized:
                 # Extract context
                 start = max(0, line_no - context_lines - 1)
                 end = min(len(lines), line_no + context_lines)
                 context = lines[start:end]
-                
-                violations.append({
-                    "file": str(filepath),
-                    "line": line_no,
-                    "term": term,
-                    "line_content": line.strip(),
-                    "context": context,
-                })
-    
+
+                violations.append(
+                    {
+                        "file": str(filepath),
+                        "line": line_no,
+                        "term": term,
+                        "line_content": line.strip(),
+                        "context": context,
+                    }
+                )
+
     return violations
 
 
@@ -78,12 +80,12 @@ def should_scan_file(
     for exclude_dir in exclude_dirs:
         if exclude_dir in filepath.parts:
             return False
-    
+
     # Check include patterns
     for pattern in include_patterns:
         if filepath.match(pattern):
             return True
-    
+
     return False
 
 
@@ -93,29 +95,29 @@ def scan_directory(
 ) -> list[dict[str, Any]]:
     """Recursively scan directory for violations."""
     all_violations = []
-    
+
     forbidden_terms = config.get("forbidden_terms", [])
     scan_dirs = config.get("scan_directories", ["app"])
     exclude_dirs = config.get("exclude_directories", [])
     include_patterns = config.get("include_patterns", ["*.py"])
     case_sensitive = config.get("case_sensitive", False)
     context_lines = config.get("reporting", {}).get("context_lines", 2)
-    
+
     for scan_dir in scan_dirs:
         scan_path = root_dir / scan_dir
-        
+
         if not scan_path.exists():
             continue
-        
+
         if scan_path.is_file():
             files_to_scan = [scan_path]
         else:
             files_to_scan = list(scan_path.rglob("*.py"))
-        
+
         for filepath in files_to_scan:
             if not should_scan_file(filepath, include_patterns, exclude_dirs):
                 continue
-            
+
             violations = scan_file(
                 filepath,
                 forbidden_terms,
@@ -123,7 +125,7 @@ def scan_directory(
                 context_lines,
             )
             all_violations.extend(violations)
-    
+
     return all_violations
 
 
@@ -134,16 +136,16 @@ def format_violation(violation: dict[str, Any]) -> str:
     term = violation["term"]
     line_content = violation["line_content"]
     context = violation["context"]
-    
+
     output = f"\n{filepath}:{line_no}\n"
     output += f"  Forbidden term: '{term}'\n"
     output += f"  Line content: {line_content}\n"
-    
+
     if context:
         output += "  Context:\n"
         for ctx_line in context:
             output += f"    {ctx_line}\n"
-    
+
     return output
 
 
@@ -152,34 +154,34 @@ def main():
     # Determine server root directory
     script_dir = Path(__file__).parent
     server_root = script_dir.parent
-    
+
     config_path = script_dir / "forbidden_vocabulary_phase16.yaml"
-    
+
     if not config_path.exists():
         print(f"ERROR: Config file not found: {config_path}", file=sys.stderr)
         return 1
-    
+
     # Load configuration
     try:
         config = load_config(config_path)
     except Exception as e:
         print(f"ERROR: Failed to load config: {e}", file=sys.stderr)
         return 1
-    
+
     # Scan for violations
     violations = scan_directory(server_root, config)
-    
+
     if not violations:
         print("✓ Phase 16 Governance: CLEAN (no violations found)")
         return 0
-    
+
     # Report violations
     print(f"✗ Phase 16 Governance: VIOLATIONS FOUND ({len(violations)} total)")
     print("\nViolations:")
-    
+
     for violation in violations:
         print(format_violation(violation))
-    
+
     print("\nFix violations before committing or merging to main.")
     return 1
 

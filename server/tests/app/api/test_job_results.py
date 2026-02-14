@@ -1,6 +1,7 @@
 """Tests for GET /video/results/{job_id} endpoint."""
 
 import json
+
 import pytest
 
 from app.models.job import Job, JobStatus
@@ -91,7 +92,9 @@ class TestJobResultsEndpoint:
 
     async def test_results_not_found(self, client) -> None:
         """Assert 404 for missing job."""
-        response = await client.get("/v1/video/results/00000000-0000-0000-0000-000000000000")
+        response = await client.get(
+            "/v1/video/results/00000000-0000-0000-0000-000000000000"
+        )
         assert response.status_code == 404
         data = response.json()
         assert "detail" in data

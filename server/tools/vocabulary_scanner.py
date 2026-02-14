@@ -57,13 +57,15 @@ def scan_file(
                 end = min(len(lines), line_no + context_lines)
                 context = lines[start:end]
 
-                violations.append({
-                    "file": str(filepath),
-                    "line": line_no,
-                    "term": term,
-                    "line_content": line.strip(),
-                    "context": context,
-                })
+                violations.append(
+                    {
+                        "file": str(filepath),
+                        "line": line_no,
+                        "term": term,
+                        "line_content": line.strip(),
+                        "context": context,
+                    }
+                )
 
     return violations
 

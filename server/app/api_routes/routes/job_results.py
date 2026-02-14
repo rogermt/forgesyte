@@ -16,7 +16,9 @@ storage = LocalStorageService()
 
 
 @router.get("/v1/video/results/{job_id}", response_model=JobResultsResponse)
-async def get_job_results(job_id: UUID, db: Session = Depends(get_db)) -> JobResultsResponse:
+async def get_job_results(
+    job_id: UUID, db: Session = Depends(get_db)
+) -> JobResultsResponse:
     """Get results of a completed job.
 
     Args:
