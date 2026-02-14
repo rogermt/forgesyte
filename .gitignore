@@ -219,3 +219,8 @@ server/forgesyte.log*
 <parameter*
 **/$'\n'/
 
+# Video files
+server/data/video_jobs/*.mp4
+
+# DuckDB runtime database
+server/data/*.duckdb
