@@ -1,0 +1,200 @@
+Phase 15 Architecture: Offline Batch Video Processing
+========================================================
+
+User Request Flow:
+------------------
+
+Client (curl/Postman)
+        |
+        |  POST /video/upload-and-run
+        |  - file: tiny.mp4
+        |  - pipeline_id: yolo_ocr
+        v
++-----------------------+
+|   API Router          |
+|   (video_file.py)     |
+|   - Validate input    |
+|   - Save temp file    |
++-----------------------+
+        |
+        |  mp4_path, pipeline_id
+        v
++-----------------------+
+|   Video Service       |
+|   (video_file_        |
+|    pipeline_service)  |
+|   - OpenCV opens MP4  |
+|   - Extract frames    |
+|   - Encode as JPEG    |
++-----------------------+
+        |
+        |  Payload per frame:
+        |  {frame_index, image_bytes}
+        v
++-----------------------+
+|   DAG Pipeline Engine |
+|   - Execute yolo_ocr  |
+|   - Stateless per     |
+|     frame             |
++-----------------------+
+        |
+        |  Pipeline: yolo_ocr
+        v
++-----------------------+
+|   YOLO Plugin         |
+|   - detect_objects    |
+|   - Returns detections|
++-----------------------+
+        |
+        |  detections
+        v
++-----------------------+
+|   OCR Plugin          |
+|   - extract_text      |
+|   - Returns text      |
++-----------------------+
+        |
+        |  Result per frame:
+        |  {detections, text}
+        v
++-----------------------+
+|   Video Service       |
+|   - Aggregate results |
+|   - Order by index    |
++-----------------------+
+        |
+        |  Response:
+        |  {results: [...]}
+        v
++-----------------------+
+|   API Router          |
+|   - Return JSON       |
++-----------------------+
+        |
+        |  HTTP 200 OK
+        v
+Client receives JSON with all frame results
+
+
+Detailed Component Breakdown:
+==============================
+
+1. API Layer (server/app/api/routes/video_file.py)
+   ------------------------------------------------
+   - Endpoint: POST /video/upload-and-run
+   - Input: multipart/form-data (file, pipeline_id)
+   - Output: JSON with results
+   - Errors: 400 (invalid file), 404 (pipeline not found), 422 (missing fields)
+
+2. Service Layer (server/app/services/video_file_pipeline_service.py)
+   -------------------------------------------------------------------
+   - Class: VideoFilePipelineService
+   - Method: run_on_file(mp4_path, pipeline_id, frame_stride, max_frames)
+   - Uses: OpenCV (cv2.VideoCapture, cv2.imencode)
+   - Payload: {frame_index: int, image_bytes: bytes}
+   - Returns: List[{frame_index: int, result: Any}]
+
+3. DAG Engine (server/app/pipeline_engine/)
+   -----------------------------------------
+   - Executes pipelines defined in JSON
+   - Pipeline: yolo_ocr (YOLO → OCR)
+   - Stateless: Each frame processed independently
+   - No cross-frame state
+
+4. Plugins (server/app/plugins/)
+   -------------------------------
+   - YOLO Plugin: detect_objects tool
+   - OCR Plugin: extract_text tool
+   - Both accept image_bytes as input
+
+5. Tests (server/app/tests/video/)
+   --------------------------------
+   - test_video_service.py: 15 unit tests
+   - test_video_integration.py: 8 integration tests
+   - stress/test_video_service_1000_frames.py: 6 stress tests
+   - fuzz/test_video_service_mp4_fuzz.py: 7 fuzz tests
+   - test_stress_and_fuzz.py: 2 resource cleanup tests
+
+
+Data Flow Example (3-frame video):
+===================================
+
+Frame 0:
+  MP4 → OpenCV → JPEG bytes → DAG → YOLO → OCR → Result 0
+
+Frame 1:
+  MP4 → OpenCV → JPEG bytes → DAG → YOLO → OCR → Result 1
+
+Frame 2:
+  MP4 → OpenCV → JPEG bytes → DAG → YOLO → OCR → Result 2
+
+Aggregation:
+  [Result 0, Result 1, Result 2] → JSON Response
+
+
+Key Properties:
+===============
+
+1. Synchronous:
+   - Request blocks until all frames processed
+   - Single request/response cycle
+   - No background processing
+
+2. Stateless:
+   - Frame 0 does not depend on frame 1
+   - No multi-frame state
+   - Each frame analyzed independently
+
+3. Deterministic:
+   - Same input → same results
+   - Results ordered by frame_index
+
+4. Minimal:
+   - One pipeline: yolo_ocr
+   - One endpoint: /video/upload-and-run
+   - One service: VideoFilePipelineService
+
+
+Out of Scope (Future Phases):
+==============================
+
+- Job queues (Redis, Celery, RQ, Bull)
+- Async workers
+- Database persistence (PostgreSQL, MongoDB)
+- Real-time streaming (WebSocket, SSE)
+- Multi-frame tracking (ReID, track_ids)
+- Visual output (bounding boxes, annotations)
+- Metrics collection
+- Multiple pipelines
+
+
+Governance:
+===========
+
+- Forbidden vocabulary enforced via CI
+- No phase-named files in functional directories
+- All tests must pass before commit
+- Pre-commit hooks enforce quality standards
+
+
+Dependencies:
+=============
+
+- opencv-python-headless: Video I/O
+- pyyaml: Configuration parsing
+- types-PyYAML: Type stubs
+- YOLO plugin: Object detection
+- OCR plugin: Text extraction
+
+
+Test Coverage:
+==============
+
+Total: 38 tests
+- Unit tests: 15
+- Integration tests: 8
+- Stress tests: 6
+- Fuzz tests: 7
+- Resource cleanup tests: 2
+
+All tests PASS ✅

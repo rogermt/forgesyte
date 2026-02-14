@@ -20,7 +20,7 @@ Phase 15 extends Phase 14's single-frame DAG execution to support **offline MP4 
 - **ANY test failure** = Immediate fix required, no commits until fixed
 - **Failure to run the tests** = Immediate termination
 
-## Implementation Tasks (10 Commits)
+## Implementation Tasks (10 Commits - TDD Approach)
 
 ### COMMIT 1: Pipeline Definition
 **User Story**: Pipeline Definition
@@ -157,7 +157,6 @@ Phase 15 extends Phase 14's single-frame DAG execution to support **offline MP4 
 - `PHASE_15_OCR_&_YOLO_JSON.md` - Valid YOLO+OCR pipeline examples
 - `PHASE_15_OVERVIEW.md` - High-level overview
 - `PHASE_15_SPEC.md` - MP4 upload spec
-- `PHASE_15_COMMITS.md` - Commit strategy
 
 ## Governance Rules (Non-Negotiable)
 1. **No phase-named files in functional directories** - Use `video/`, not `phase15/`
@@ -183,4 +182,3 @@ Phase 15 extends Phase 14's single-frame DAG execution to support **offline MP4 
 | 8 | Stress + Fuzz Test Suites |
 | 9 | Governance Tooling + CI + Smoke Test |
 | 10 | Documentation + Demo Script + Rollback Plan |
-

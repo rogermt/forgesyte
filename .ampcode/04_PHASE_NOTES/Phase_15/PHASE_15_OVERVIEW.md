@@ -1,376 +1,198 @@
-# ⭐ PHASE 15 — OVERVIEW
+# Phase 15: Offline Batch Video Processing with YOLO + OCR
 
-**Job-Based Queuing & Streaming for Cross-Plugin DAG Pipelines**
-
-## Vision
-
-Phase 15 transforms the system from:
-
-- **Phase 14**: *Single-frame pipeline execution, synchronous, stateless*
-
-into  
-
-- **Phase 15**: *Multi-frame job queuing, asynchronous, with state management*
-
-This is the moment pipelines become **scalable workflows**, not just one-off tools.
+**Date**: 2026-02-13  
+**Status**: IMPLEMENTATION PHASE  
+**Scope**: Batch-only (synchronous, no async)
 
 ---
 
-## What Phase 15 Adds
+## Executive Summary
 
-### From Single-Frame to Streaming
+Phase 15 adds **offline video file processing** to ForgeSyte. Users can upload an MP4 file and receive frame-by-frame analysis results from the YOLO + OCR pipeline in a single synchronous request.
 
-**Before (Phase 14)**:
-```
-User uploads image
-    ↓
-POST /pipelines/run
-    ↓
-Wait for result (blocking)
-    ↓
-Return result
-```
-
-**After (Phase 15)**:
-```
-User uploads video
-    ↓
-POST /jobs with { pipeline_id, video_url }
-    ↓
-Returns { job_id }  (immediate, non-blocking)
-    ↓
-Client polls GET /jobs/{job_id}
-    ↓
-Stream processes frame-by-frame
-    ↓
-Results accumulate
-    ↓
-Client retrieves full results
-```
+**In scope**: Video file upload → frame extraction → YOLO detection + OCR → JSON results  
+**Out of scope**: Real-time processing, result storage, background execution, state management, visual output
 
 ---
 
-## Core Capabilities
+## What Problem Does This Solve?
 
-### 1. Job Queue
-- Submit pipelines for execution
-- Track job status (queued, running, completed, failed)
-- Persistent storage
-- Job history
+Currently, ForgeSyte processes **single images**. Users want to analyze **entire video files** without manually extracting and uploading frames.
 
-### 2. Async Execution
-- Background job workers
-- Multiple jobs running in parallel
-- No blocking the HTTP server
+Phase 15 solves this by:
+1. Accepting an MP4 file via API
+2. Extracting frames automatically
+3. Running YOLO detection + OCR on each frame
+4. Returning aggregated results
 
-### 3. Video Streaming
-- Process video frame-by-frame
-- State maintained across frames
-- Detections/tracks accumulated
-
-### 4. Results Persistence
-- Store job results in database
-- Query historical executions
-- Analytics on past runs
-
-### 5. Performance Metrics
-- Execution time per node
-- Throughput per pipeline
-- Bottleneck detection
+All in **one synchronous request**.
 
 ---
 
-## Key Components
+## How It Works
 
-### Job Manager
-Manages job lifecycle:
-- Submit job
-- Track status
-- Retrieve result
-- Store history
+### Step 1: Upload MP4
 
-### Job Worker
-Executes jobs asynchronously:
-- Dequeue job
-- Execute pipeline
-- Update status
-- Store results
-
-### Job Database
-Persistent storage:
-- Jobs table
-- Results table
-- Metrics table
-- History table
-
-### State Manager
-Maintains state across frames:
-- Object IDs across time
-- Detection history
-- Tracking data
-
----
-
-## Example: Video Analysis
-
-**Request**:
-```json
-POST /jobs
-{
-  "pipeline_id": "player_tracking_v1",
-  "video_url": "https://example.com/game.mp4",
-  "options": { "stride": 5 }
-}
+```bash
+curl -X POST http://localhost:8000/video/upload-and-run \
+  -F "file=@video.mp4" \
+  -F "pipeline_id=yolo_ocr"
 ```
 
-**Response** (immediate):
+### Step 2: Server Processes Frames
+
+1. OpenCV opens MP4 file
+2. Extracts frame 0, 1, 2, ...
+3. Encodes each as JPEG bytes
+4. Calls DAG pipeline: `{frame_index, image_bytes}`
+5. Collects results
+
+### Step 3: Return Aggregated Results
+
 ```json
 {
-  "job_id": "job_abc123",
-  "status": "queued"
+  "results": [
+    {
+      "frame_index": 0,
+      "result": {
+        "detections": [...],
+        "text": "Extracted text"
+      }
+    },
+    {
+      "frame_index": 1,
+      "result": {...}
+    }
+  ]
 }
-```
-
-**Later** - Client polls:
-```
-GET /jobs/job_abc123
-→ { status: "processing", progress: 0.25 }
-
-GET /jobs/job_abc123
-→ { status: "processing", progress: 0.50 }
-
-GET /jobs/job_abc123
-→ { status: "completed", result: { frames: [...] } }
 ```
 
 ---
 
 ## Architecture
 
+### API Layer
+- **Endpoint**: `POST /video/upload-and-run`
+- **Input**: MP4 file + pipeline_id
+- **Output**: JSON with results
+- **Errors**: 404 (pipeline not found), 400 (invalid file), 422 (missing fields)
+
+### Service Layer
+- **VideoFilePipelineService**: Opens MP4, extracts frames, calls DAG
+- **Uses**: OpenCV for video I/O, JPEG encoding
+- **Payload**: Per-frame `{frame_index, image_bytes}`
+
+### DAG Layer
+- **Pipeline**: `yolo_ocr` (YOLO detection → OCR text extraction)
+- **Per frame**: Stateless processing
+- **Stateless**: Each frame independent
+
+---
+
+## Key Properties
+
+### Synchronous
+- Request blocks until all frames processed
+- Single request/response cycle
+- Response contains all results
+
+### Stateless
+- Frame 0 does not depend on frame 1
+- No multi-frame state
+- Each frame analyzed independently
+- Same input → same output (deterministic)
+
+### Minimal
+- One pipeline only: YOLO + OCR
+- One endpoint: `/video/upload-and-run`
+- One service: `VideoFilePipelineService`
+- Single-file scope, focused feature
+
+---
+
+## Example Workflow
+
 ```
-User Request
-    ↓
-HTTP Server (FastAPI)
-    ↓
-Job Manager (receive)
-    ├── Validate job
-    ├── Store in database
-    └── Enqueue
-    ↓
-Job Queue (Redis/RabbitMQ)
-    ↓
-Job Workers (background tasks)
-    ├── Dequeue job
-    ├── Load pipeline
-    ├── Initialize state
-    ├── Process stream frame-by-frame
-    │   ├── Execute pipeline
-    │   ├── Accumulate results
-    │   ├── Update state
-    │   └── Save intermediate results
-    ├── Finalize results
-    └── Store in database
-    ↓
-Client Polling
-    ├── GET /jobs/{job_id}
-    └── Retrieve results
+User uploads tiny.mp4 (3 frames, 320×240)
+                ↓
+Server extracts frames 0, 1, 2
+                ↓
+Frame 0 → YOLO detection: [player1, player2]
+        → OCR: "SCORE: 2-1"
+                ↓
+Frame 1 → YOLO detection: [player1, player2, ball]
+        → OCR: "SCORE: 2-1"
+                ↓
+Frame 2 → YOLO detection: [player1, player2]
+        → OCR: "HALF TIME"
+                ↓
+Response: {results: [{frame_index: 0, result: {...}}, ...]}
+                ↓
+User gets JSON with all 3 frames analyzed
 ```
 
 ---
 
-## New Concepts
+## What's NOT In This Phase
 
-### Job
-A complete execution request:
-```
-{
-  "job_id": "job_abc123",
-  "pipeline_id": "player_tracking_v1",
-  "source": "https://example.com/video.mp4",
-  "status": "completed",
-  "created_at": "2026-02-12T10:30:45Z",
-  "completed_at": "2026-02-12T10:35:20Z",
-  "result": { ... }
-}
-```
+- ❌ **Real-time updates**: No continuous progress notifications
+- ❌ **Background execution**: Synchronous processing only
+- ❌ **Result persistence**: No storage or history
+- ❌ **Multi-frame state**: Each frame analyzed independently
+- ❌ **Visual output**: JSON results only, no video annotation
+- ❌ **Multiple pipelines**: Only YOLO + OCR
 
-### Job Status
-- `queued` — Waiting to execute
-- `running` — Currently executing
-- `completed` — Done successfully
-- `failed` — Error occurred
-
-### State Context
-Data persistent across frames:
-```python
-{
-  "previous_detections": [...],
-  "track_ids": {...},
-  "frame_count": 125,
-  "duration_ms": 5000
-}
-```
-
-### Results Accumulation
-Collecting outputs across frames:
-```python
-{
-  "frames": [
-    { "frame_id": 0, "detections": [...] },
-    { "frame_id": 1, "detections": [...] },
-    ...
-  ],
-  "summary": {
-    "total_frames": 150,
-    "total_detections": 1250,
-    "average_confidence": 0.92
-  }
-}
-```
+These are potential **future phases** but **NOT in Phase 15**.
 
 ---
 
-## Governance Principle
+## Testing Strategy
 
-**Same as Phase 14: Everything explicit, nothing implicit.**
+### Unit Tests (15+ tests)
+- Service layer in isolation
+- Mock DAG calls
+- Frame extraction, stride, max_frames options
+- Error cases (invalid MP4, missing frames)
 
-Additional rules for Phase 15:
+### Integration Tests
+- Happy path: Valid MP4 + yolo_ocr → 200 OK
+- Error scenarios: 404, 400, 422 responses
 
-- No default job priorities
-- No automatic job cleanup
-- No implicit state
-- Job IDs are immutable
-- Results are immutable
-- Metrics are accurate
+### Stress Tests
+- 1000-frame video processed sequentially
+- Results in correct order, no gaps
 
----
-
-## Use Cases Phase 15 Enables
-
-### 1. Batch Video Analysis
-Submit 100 videos → Get results when ready
-
-### 2. Live Video Feeds
-Process RTMP/RTSP streams with persistence
-
-### 3. Historical Analysis
-Re-analyze old videos, track improvements
-
-### 4. Performance Optimization
-Identify slow pipelines, optimize bottlenecks
-
-### 5. Audit Trail
-Query who ran what, when, with what results
-
----
-
-## Database Schema Preview
-
-### Jobs Table
-```sql
-CREATE TABLE jobs (
-    job_id VARCHAR PRIMARY KEY,
-    pipeline_id VARCHAR NOT NULL,
-    source_url VARCHAR,
-    status VARCHAR,
-    created_at TIMESTAMP,
-    completed_at TIMESTAMP,
-    error_message VARCHAR,
-    INDEX (pipeline_id, created_at)
-);
-```
-
-### Results Table
-```sql
-CREATE TABLE job_results (
-    job_id VARCHAR PRIMARY KEY,
-    pipeline_id VARCHAR,
-    frame_count INT,
-    output_json JSON,
-    created_at TIMESTAMP,
-    FOREIGN KEY (job_id) REFERENCES jobs(job_id)
-);
-```
-
-### Metrics Table
-```sql
-CREATE TABLE job_metrics (
-    job_id VARCHAR,
-    pipeline_id VARCHAR,
-    node_id VARCHAR,
-    execution_time_ms INT,
-    timestamp TIMESTAMP,
-    INDEX (pipeline_id, timestamp)
-);
-```
-
----
-
-## Timeline
-
-Expected implementation: **40-50 hours** (10 commits)
-
-```
-Commit 1:  Job models & database schema
-Commit 2:  Job manager service
-Commit 3:  Job worker (background tasks)
-Commit 4:  Job REST endpoints
-Commit 5:  Job WebSocket streaming
-Commit 6:  State management
-Commit 7:  Results accumulation
-Commit 8:  Performance metrics
-Commit 9:  Job history queries
-Commit 10: Full integration tests
-```
+### Fuzz Tests
+- Malformed MP4 files handled gracefully
+- No crashes, clear error messages
 
 ---
 
 ## Success Criteria
 
-✅ Can submit pipeline job  
-✅ Can poll job status  
-✅ Can process video stream  
-✅ Can accumulate results  
-✅ Can query history  
-✅ Can analyze metrics  
-✅ 1300+ tests passing  
-✅ 85%+ coverage  
+- ✅ POST /video/upload-and-run accepts MP4 files
+- ✅ OpenCV successfully extracts frames
+- ✅ Frames processed via YOLO + OCR pipeline
+- ✅ Results aggregated in frozen schema: `{results: [...]}`
+- ✅ All 4 test suites GREEN after every commit
+- ✅ Zero forbidden vocabulary violations
+- ✅ Governance rules enforced via CI
 
 ---
 
-## Phase 14 Dependencies
+## Next Steps (Future Phases)
 
-Phase 15 **requires** Phase 14 to be complete:
+**Phase 16** (potential): Multi-pipeline selection  
+**Phase 17** (potential): Background execution with deferred processing  
+**Phase 18** (potential): Result persistence and history  
 
-- ✅ Pipeline models (Phase 14)
-- ✅ DAG validation (Phase 14)
-- ✅ REST endpoints (Phase 14)
-- ✅ Type checking (Phase 14)
-
-Phase 15 **builds on** these to add:
-
-- ➕ Job queuing
-- ➕ Async execution
-- ➕ State management
-- ➕ Persistence
+Phase 15 is intentionally **scoped narrow** to prove batch processing works before adding complexity.
 
 ---
 
-## Hard Boundaries (Not in Phase 15)
+## See Also
 
-❌ Pipeline versioning → **Phase 16**  
-❌ A/B testing frameworks → **Phase 17**  
-❌ Advanced scheduling → **Phase 18**  
-❌ Distributed execution → **Phase 19**  
-
-Phase 15 is specifically about queuing and streaming, nothing more.
-
----
-
-## Next Phase (Phase 16)
-
-Once Phase 15 locked:
-- Pipeline versioning (v1, v2, v3)
-- Version selection in jobs
-- Automatic version detection
-- Rollback capabilities
+- `PHASE_15_PAYLOAD_YOLO_OCR.md` - Data contract
+- `PHASE_15_SCOPE.md` - What's forbidden
+- `PHASE_15_PROGRESS.md` - Implementation checklist
+- `server/app/pipelines/yolo_ocr.json` - DAG definition

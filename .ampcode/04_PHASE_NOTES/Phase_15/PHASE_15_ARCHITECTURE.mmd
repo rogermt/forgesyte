@@ -1,0 +1,198 @@
+```mermaid
+graph TD
+    %% User Request Flow
+    Client[Client<br/>curl/Postman] -->|POST /video/upload-and-run<br/>file: tiny.mp4<br/>pipeline_id: yolo_ocr| APIRouter[API Router<br/>video_file.py]
+
+    %% API Layer
+    APIRouter -->|Validate input<br/>Save temp file| VideoService[Video Service<br/>video_file_pipeline_service.py]
+
+    %% Video Service
+    VideoService -->|OpenCV opens MP4<br/>Extract frames<br/>Encode as JPEG| DAGEngine[DAG Pipeline Engine]
+
+    %% DAG Engine
+    DAGEngine -->|Execute yolo_ocr<br/>Stateless per frame| Pipeline[Pipeline: yolo_ocr]
+
+    %% Pipeline Flow
+    Pipeline -->|image_bytes| YOLOPlugin[YOLO Plugin<br/>detect_objects]
+    YOLOPlugin -->|detections| OCRPlugin[OCR Plugin<br/>extract_text]
+
+    %% Return Path
+    OCRPlugin -->|Result per frame<br/>{detections, text}| DAGEngine
+    DAGEngine -->|Aggregate results<br/>Order by index| VideoService
+    VideoService -->|Response<br/>{results: [...]}| APIRouter
+    APIRouter -->|HTTP 200 OK| Client
+
+    %% Styling
+    style Client fill:#e1f5ff
+    style APIRouter fill:#fff4e1
+    style VideoService fill:#fff4e1
+    style DAGEngine fill:#ffe1f5
+    style Pipeline fill:#ffe1f5
+    style YOLOPlugin fill:#e1ffe1
+    style OCRPlugin fill:#e1ffe1
+
+    %% Annotations
+    subgraph "Phase 15 Components"
+        APIRouter
+        VideoService
+        DAGEngine
+        Pipeline
+        YOLOPlugin
+        OCRPlugin
+    end
+
+    subgraph "Out of Scope (Future Phases)"
+        JobQueues["❌ Job Queues<br/>Redis, Celery"]
+        Persistence["❌ Persistence<br/>PostgreSQL, MongoDB"]
+        Streaming["❌ Streaming<br/>WebSocket, SSE"]
+        Tracking["❌ Tracking<br/>ReID, track_ids"]
+        Visual["❌ Visual Output<br/>Bounding boxes"]
+    end
+
+    %% Legend
+    subgraph "Legend"
+        L1[API Layer]
+        L2[Service Layer]
+        L3[DAG Engine]
+        L4[Plugins]
+    end
+
+    style L1 fill:#fff4e1
+    style L2 fill:#fff4e1
+    style L3 fill:#ffe1f5
+    style L4 fill:#e1ffe1
+```
+
+```mermaid
+sequenceDiagram
+    participant Client
+    participant APIRouter as API Router
+    participant VideoService as Video Service
+    participant OpenCV as OpenCV
+    participant DAGEngine as DAG Engine
+    participant YOLO as YOLO Plugin
+    participant OCR as OCR Plugin
+
+    Client->>APIRouter: POST /video/upload-and-run<br/>file: tiny.mp4<br/>pipeline_id: yolo_ocr
+    APIRouter->>APIRouter: Validate input
+    APIRouter->>APIRouter: Save temp file
+    APIRouter->>VideoService: run_on_file(mp4_path, pipeline_id)
+
+    loop For each frame
+        VideoService->>OpenCV: Read frame
+        OpenCV-->>VideoService: frame data
+        VideoService->>OpenCV: Encode as JPEG
+        OpenCV-->>VideoService: JPEG bytes
+        VideoService->>VideoService: Create payload<br/>{frame_index, image_bytes}
+        VideoService->>DAGEngine: run_pipeline(pipeline_id, payload)
+        DAGEngine->>YOLO: detect_objects(image_bytes)
+        YOLO-->>DAGEngine: detections
+        DAGEngine->>OCR: extract_text(image_bytes, detections)
+        OCR-->>DAGEngine: text
+        DAGEngine-->>VideoService: result<br/>{detections, text}
+        VideoService->>VideoService: Aggregate result
+    end
+
+    VideoService-->>APIRouter: results<br/>[{frame_index, result}, ...]
+    APIRouter-->>Client: HTTP 200 OK<br/>{results: [...]}
+```
+
+```mermaid
+graph LR
+    subgraph "Phase 15 Architecture"
+        direction TB
+        Input[MP4 Input] --> API[API Layer]
+        API --> Service[Service Layer]
+        Service --> DAG[DAG Engine]
+        DAG --> Plugins[Plugins]
+        Plugins --> DAG
+        DAG --> Service
+        Service --> API
+        API --> Output[JSON Output]
+    end
+
+    subgraph "Plugins"
+        YOLO[YOLO Plugin]
+        OCR[OCR Plugin]
+    end
+
+    Plugins --> YOLO
+    Plugins --> OCR
+
+    style Input fill:#e1f5ff
+    style Output fill:#e1f5ff
+    style API fill:#fff4e1
+    style Service fill:#fff4e1
+    style DAG fill:#ffe1f5
+    style Plugins fill:#e1ffe1
+    style YOLO fill:#e1ffe1
+    style OCR fill:#e1ffe1
+```
+
+```mermaid
+graph TD
+    %% Test Structure
+    subgraph "Phase 15 Test Suite"
+        Unit[Unit Tests<br/>test_video_service.py<br/>15 tests]
+        Integration[Integration Tests<br/>test_video_integration.py<br/>8 tests]
+        Stress[Stress Tests<br/>stress/test_video_service_1000_frames.py<br/>6 tests]
+        Fuzz[Fuzz Tests<br/>fuzz/test_video_service_mp4_fuzz.py<br/>7 tests]
+        Resource[Resource Cleanup Tests<br/>test_stress_and_fuzz.py<br/>2 tests]
+    end
+
+    Total[Total: 38 Tests<br/>All PASS ✅]
+
+    Unit --> Total
+    Integration --> Total
+    Stress --> Total
+    Fuzz --> Total
+    Resource --> Total
+
+    style Unit fill:#e1ffe1
+    style Integration fill:#e1ffe1
+    style Stress fill:#ffe1f5
+    style Fuzz fill:#ffe1f5
+    style Resource fill:#fff4e1
+    style Total fill:#e1f5ff
+```
+
+```mermaid
+graph TD
+    %% Governance Flow
+    Code[Code Change] --> PreCommit[Pre-commit Hooks]
+    PreCommit --> Black[Black Formatting]
+    PreCommit --> Ruff[Ruff Linting]
+    PreCommit --> MyPy[MyPy Type Checking]
+    PreCommit --> Pytest[Pytest]
+
+    Black --> Validation[All Checks Pass?]
+    Ruff --> Validation
+    MyPy --> Validation
+    Pytest --> Validation
+
+    Validation -->|Yes| Commit[Commit Allowed]
+    Validation -->|No| Fix[Fix Issues]
+
+    Fix --> PreCommit
+
+    Commit --> CI[CI Workflow]
+    CI --> Governance[Governance Validation]
+    CI --> ServerTests[Server Tests]
+    CI --> WebUITests[Web-UI Tests]
+
+    Governance -->|Pass| Merge[Merge to Main]
+    ServerTests -->|Pass| Merge
+    WebUITests -->|Pass| Merge
+
+    Governance -->|Fail| Block[Block Merge]
+    ServerTests -->|Fail| Block
+    WebUITests -->|Fail| Block
+
+    style Code fill:#e1f5ff
+    style PreCommit fill:#fff4e1
+    style Validation fill:#ffe1f5
+    style Commit fill:#e1ffe1
+    style CI fill:#fff4e1
+    style Merge fill:#e1ffe1
+    style Block fill:#ffe1e1
+```

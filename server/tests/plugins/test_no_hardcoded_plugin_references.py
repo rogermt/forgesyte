@@ -19,6 +19,7 @@ SOURCE_ROOT = "app"
 # Exempted paths (allowed to reference plugins for legitimate architectural reasons)
 EXEMPTED_PATHS = {
     "app/schemas/plugin_types.py",  # Registry pattern requires knowing plugin names
+    "app/tests/video/test_integration_video_processing.py",  # Tests must reference pipelines by ID
 }
 
 
