@@ -4,8 +4,8 @@ import enum
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Column, DateTime, Enum, String
 from duckdb_engine import UUID
+from sqlalchemy import Column, DateTime, Enum, String
 
 from app.core.database import Base
 

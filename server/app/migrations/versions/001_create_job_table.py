@@ -6,10 +6,9 @@ Create Date: 2026-02-14 20:00:00.000000
 
 """
 
-from alembic import op
 import sqlalchemy as sa
+from alembic import op
 from duckdb_engine import UUID
-
 
 revision = "001"
 down_revision = None
@@ -24,7 +23,9 @@ def upgrade():
         sa.Column("job_id", UUID, primary_key=True, nullable=False),
         sa.Column(
             "status",
-            sa.Enum("pending", "running", "completed", "failed", name="job_status_enum"),
+            sa.Enum(
+                "pending", "running", "completed", "failed", name="job_status_enum"
+            ),
             nullable=False,
         ),
         sa.Column("pipeline_id", sa.String(), nullable=False),
