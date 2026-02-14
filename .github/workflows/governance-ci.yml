@@ -7,7 +7,7 @@ on:
     branches: [main, master]
 
 jobs:
-  phase14-governance:
+  governance:
     runs-on: ubuntu-latest
 
     steps:
