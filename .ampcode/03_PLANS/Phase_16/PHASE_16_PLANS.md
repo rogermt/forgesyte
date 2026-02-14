@@ -1,20 +1,24 @@
 # Phase 16 Implementation Plan
-**Status**: NOT STARTED  
+**Status**: ⏳ READY FOR COMMIT 1  
 **Date Created**: 2026-02-14  
 **Target Completion**: 2026-02-28  
 **Duration**: 2 weeks  
+**Tech Stack**: SQLAlchemy + Alembic, Python queue.Queue, FastAPI, Local storage (./data/video_jobs/)
 
 ---
 
 ## Overview
 
 Phase 16 introduces **asynchronous job processing** with:
-- A persistent job queue
-- A job state table (pending → running → completed/failed)
-- A long-running worker process
+- A persistent job table (SQLAlchemy) with 8 fields
+- A FIFO job queue (Python queue.Queue, in-memory, ephemeral)
+- A long-running worker process (single threaded)
 - Polling-based status + results APIs
+- Local filesystem object storage (./data/video_jobs/)
 
 This transforms the system from synchronous (submit → wait → results) to asynchronous (submit → get job_id → poll for status).
+
+**All answers are in `.ampcode/04_PHASE_NOTES/Phase_16/PHASE_16_DEV_Q&A_01.md`**
 
 ---
 
@@ -27,34 +31,50 @@ This transforms the system from synchronous (submit → wait → results) to asy
 **TDD**: Write tests first, then implement
 
 **Phase 1: Write Failing Tests**
-- [ ] Create `tests/models/test_job.py` with test suite:
-  - `test_job_creation()` - Assert Job can be instantiated
-  - `test_job_status_enum()` - Assert status has 4 valid values
-  - `test_job_get_by_id()` - Assert can retrieve job by ID
+- [ ] Create `server/app/tests/models/test_job.py` with test suite:
+  - `test_job_creation()` - Assert Job can be instantiated with all fields
+  - `test_job_status_enum()` - Assert status has 4 valid values (pending, running, completed, failed)
+  - `test_job_default_status_pending()` - Assert default status is pending
+  - `test_job_get_by_id()` - Assert can retrieve job by ID from DB
   - `test_job_update_status()` - Assert status can be updated
   - `test_job_save()` - Assert job persists to database
+  - `test_job_timestamps_auto()` - Assert created_at, updated_at are auto-managed
   - All tests should **FAIL** (model doesn't exist yet)
-- [ ] Run tests: `uv run pytest tests/models/test_job.py -v` (expect failures)
-- [ ] Verify failures are test setup issues, not implementation
+- [ ] Run tests: `uv run pytest server/app/tests/models/test_job.py -v` (expect failures)
 
 **Phase 2: Implement Code**
-- [ ] Create `app/models/job.py`:
-  - `Job` SQLAlchemy model with fields: `job_id` (UUID PK), `status` (enum), `created_at`, `updated_at`, `input_path`, `output_path`, `error_message`
-  - Status enum: `pending`, `running`, `completed`, `failed`
-  - Methods: `get_by_id()`, `update_status()`, `save()`
-- [ ] Create migration file in `app/migrations/`
-- [ ] Run migration: `alembic upgrade head`
+- [ ] Create `server/app/models/job.py`:
+  - Import: SQLAlchemy, Alembic, UUID dialect
+  - `JobStatus` enum class with 4 values: pending, running, completed, failed
+  - `Job` SQLAlchemy model with **exact schema**:
+    - job_id: UUID (PK, auto-generated)
+    - status: Enum (default=pending)
+    - pipeline_id: String (required)
+    - input_path: String (required)
+    - output_path: String (nullable)
+    - error_message: String (nullable)
+    - created_at: DateTime (auto)
+    - updated_at: DateTime (auto, onupdate)
+  - See scaffold code in PHASE_16_COMMIT_SCAFFOLDINGS.md
+- [ ] Create Alembic migration: `server/app/migrations/versions/<timestamp>_create_job_table.py`
+  - Use `op.create_table()` with exact column definitions
+  - Include UUID enum creation
+  - See scaffold code in PHASE_16_COMMIT_SCAFFOLDINGS.md
+- [ ] Run migration: `cd server && alembic upgrade head`
+- [ ] Verify table in DB: `sqlite3 data/forgesyte.db ".tables"` (or Postgres equivalent)
 
 **Phase 3: Verify Tests Pass**
-- [ ] Run tests: `uv run pytest tests/models/test_job.py -v` (expect all ✅)
-- [ ] Run with coverage: `uv run pytest tests/models/test_job.py --cov`
-- [ ] Target: 100% coverage on model
+- [ ] Run tests: `cd server && uv run pytest app/tests/models/test_job.py -v` (expect all ✅)
+- [ ] Run with coverage: `cd server && uv run pytest app/tests/models/test_job.py --cov` (target: 80%+)
+- [ ] Run pytest markers: `cd server && uv run pytest app/tests/models/test_job.py -m unit -v`
+- [ ] Verify migration is idempotent: `alembic downgrade base && alembic upgrade head`
 
-**Phase 4: Pre-Commit Verification**
-- [ ] `uv run pre-commit run --all-files` ✅
-- [ ] `cd server && uv run pytest tests/execution -v` ✅
-- [ ] `python scripts/scan_execution_violations.py` ✅
-- [ ] All 4 checks passing before commit
+**Phase 4: Pre-Commit Verification (MANDATORY)**
+- [ ] `uv run pre-commit run --all-files` ✅ (black, ruff, mypy)
+- [ ] `cd server && uv run pytest tests/execution -v` ✅ (governance tests)
+- [ ] `python scripts/scan_execution_violations.py` ✅ (no Phase-17 vocabulary)
+- [ ] `cd web-ui && npm run type-check` ✅ (if web-ui files touched)
+- All 4 checks passing before commit to main
 
 **Acceptance Criteria**:
 - [ ] `tests/models/test_job.py` created and all passing
