@@ -331,6 +331,63 @@ pending → running → completed
 
 ---
 
+# ⭐ **PHASE‑16 ARCHITECTURE POSTER**  
+### *ASCII poster for repo root or docs*
+
+```
+──────────────────────────────────────────────────────────────
+                    PHASE‑16 ARCHITECTURE POSTER
+──────────────────────────────────────────────────────────────
+
+                ASYNCHRONOUS VIDEO PROCESSING PIPELINE
+                ---------------------------------------
+
+1. SUBMIT JOB
+   POST /video/submit
+   - Validate MP4
+   - Save file to storage
+   - Create job row (pending)
+   - Enqueue job_id
+   - Return {job_id}
+
+2. WORKER LOOP
+   dequeue job_id
+   load job row
+   mark running
+   load MP4 from storage
+   run VideoFilePipelineService
+   save results
+   mark completed
+
+3. STATUS
+   GET /video/status/{job_id}
+   → {job_id, status, progress}
+
+4. RESULTS
+   GET /video/results/{job_id}
+   → {job_id, results}
+
+──────────────────────────────────────────────────────────────
+GOVERNANCE RULES
+──────────────────────────────────────────────────────────────
+- No streaming
+- No WebSockets
+- No GPU scheduling
+- No distributed workers
+- No Phase‑17 concepts
+- Deterministic queue payloads
+- Deterministic worker transitions
+
+──────────────────────────────────────────────────────────────
+TESTING PYRAMID
+──────────────────────────────────────────────────────────────
+- Unit: job model, queue, storage, worker transitions
+- Integration: submit → worker → status → results
+- System: full lifecycle with real queue + DB
+
+──────────────────────────────────────────────────────────────
+```
+
 ## See Also
 
 - `PHASE_16_OVERVIEW.md` - Feature overview
