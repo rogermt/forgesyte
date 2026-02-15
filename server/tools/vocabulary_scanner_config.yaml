@@ -1,24 +1,19 @@
 # Vocabulary Scanner Configuration
-# 
-# Defines vocabulary and concepts forbidden in job-processing code.
-# These concepts are reserved for future phases.
-#
-# Date: 2026-02-14
+# Phase 16: Job-based pipeline vocabulary
 
-# Forbidden Terms (Future phase concepts)
-# 
-# NOTE: This list focuses on concepts that should not enter job-processing code.
-# websocket, streaming, sse, real_time are pre-existing protocols and are allowed.
 forbidden_terms:
-  # GPU Scheduling (Future)
   - gpu_schedule
   - gpu_worker
-  
-  # Distributed Workers (Future)
   - distributed
 
-# Directories to scan for violations (job-processing code)
-scan_directories:
+allowed_contexts:
+  - websocket
+  - streaming
+  - sse
+  - real_time
+  - worker
+
+scanned_paths:
   - app/api_routes/routes/video_submit.py
   - app/api_routes/routes/job_status.py
   - app/api_routes/routes/job_results.py
@@ -26,25 +21,3 @@ scan_directories:
   - app/services/storage
   - app/services/job_management_service.py
   - app/workers
-
-# Directories to exclude from scan
-exclude_directories:
-  - tests/
-  - __pycache__/
-  - .venv/
-  - .pytest_cache/
-  - .mypy_cache/
-  - .ruff_cache/
-
-# File patterns to scan
-include_patterns:
-  - "*.py"
-
-# Case sensitivity
-case_sensitive: false
-
-# Violation reporting
-reporting:
-  show_context: true  # Show lines around violation
-  context_lines: 2    # Number of lines before/after
-  exit_on_first: false  # Continue scanning after first violation
