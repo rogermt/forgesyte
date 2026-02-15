@@ -101,12 +101,12 @@ class TestPhase16Governance:
         """TEST-CHANGE: Assert governance config file exists with forbidden terms.
 
         Config should:
-        - Be a YAML file at server/tools/forbidden_vocabulary_phase16.yaml
+        - Be a YAML file at server/tools/forbidden_vocabulary.yaml
         - List Phase 17 forbidden terms (gpu_schedule, gpu_worker, distributed)
         - Be parseable
         """
         config_path = Path(
-            "/home/rogermt/forgesyte/server/tools/forbidden_vocabulary_phase16.yaml"
+            "/home/rogermt/forgesyte/server/tools/forbidden_vocabulary.yaml"
         )
 
         # Verify config exists

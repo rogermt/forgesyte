@@ -54,3 +54,11 @@ patterns:
     reason: 'WebSocket (Phase 17 real-time only)'
   - pattern: '\bstreaming\b'
     reason: 'Streaming (Phase 17 real-time only)'
+
+  # Phase 17+: Distributed execution concepts
+  - pattern: '\bgpu_schedule\b'
+    reason: 'GPU scheduling (Phase 17+ only)'
+  - pattern: '\bgpu_worker\b'
+    reason: 'GPU worker (Phase 17+ only)'
+  - pattern: '\bdistributed\b'
+    reason: 'Distributed execution (Phase 17+ only)'
