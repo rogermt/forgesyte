@@ -78,7 +78,36 @@ jobs:
       
       - name: Run job processing smoke test
         working-directory: ./server
-        run: uv run python ../scripts/smoke_test.py
-        env:
-          JOB_PROCESSING_SMOKE_TEST: "1"
-        continue-on-error: false
+        run: |
+          # Start server in background
+          uv run uvicorn app.main:app --host 127.0.0.1 --port 8000 > server.log 2>&1 &
+          SERVER_PID=$!
+          echo "Server started with PID: $SERVER_PID"
+          
+          # Wait for server to be healthy
+          echo "Waiting for server health check..."
+          MAX_RETRIES=30
+          RETRY_COUNT=0
+          until curl -s http://127.0.0.1:8000/v1/health | grep -q "healthy"; do
+            RETRY_COUNT=$((RETRY_COUNT+1))
+            if [ $RETRY_COUNT -ge $MAX_RETRIES ]; then
+              echo "ERROR: Server health check timed out"
+              cat server.log
+              kill $SERVER_PID 2>/dev/null || true
+              exit 1
+            fi
+            sleep 1
+          done
+          echo "Server is healthy"
+          
+          # Run the smoke test
+          export JOB_PROCESSING_SMOKE_TEST=1
+          uv run python ../scripts/smoke_test.py
+          SMOKE_TEST_EXIT=$?
+          
+          # Cleanup: kill server
+          echo "Cleaning up server..."
+          kill $SERVER_PID 2>/dev/null || true
+          
+          # Exit with smoke test result
+          exit $SMOKE_TEST_EXIT
