@@ -642,9 +642,15 @@ def mock_task_processor(mock_job_store: MockJobStore) -> MockTaskProcessor:
 # ============================================================================
 
 
-@pytest.fixture
-def test_engine():
-    """Create in-memory DuckDB engine for tests.
+@pytest.fixture(scope="function")
+def test_engine(tmp_path):
+    """Create temporary DuckDB engine for tests.
+
+    Uses a temporary file-based database (not :memory:) to ensure
+    all sessions see the same schema and data.
+
+    Args:
+        tmp_path: Pytest's temporary directory fixture
 
     Returns:
         SQLAlchemy engine for testing
@@ -654,9 +660,15 @@ def test_engine():
     from app.core.database import Base
     from app.models.job import Job  # noqa: F401 - registers model with Base
 
-    engine = create_engine("duckdb:///:memory:", future=True)
+    # Create a temporary database file
+    db_path = tmp_path / "test.duckdb"
+    db_uri = f"duckdb:///{db_path}"
+    
+    engine = create_engine(db_uri, future=True)
     Base.metadata.create_all(engine)
-    return engine
+    
+    yield engine
+    engine.dispose()
 
 
 @pytest.fixture
@@ -675,3 +687,21 @@ def session(test_engine):
     s = Session()
     yield s
     s.close()
+
+
+@pytest.fixture(autouse=True)
+def mock_session_local(session, monkeypatch):
+    """Monkeypatch SessionLocal to use test session.
+
+    Args:
+        session: Test database session
+        monkeypatch: Pytest monkeypatch
+    """
+    def mock_session_factory():
+        return session
+
+    # Patch the module-level SessionLocal directly
+    monkeypatch.setattr(
+        "app.api_routes.routes.video_submit.SessionLocal",
+        mock_session_factory,
+    )
