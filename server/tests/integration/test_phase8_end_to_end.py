@@ -51,7 +51,7 @@ class TestPhase8Pipeline:
     @pytest.mark.asyncio
     async def test_end_to_end_normalisation_in_pipeline(self) -> None:
         """Verify plugin output normalisation happens in pipeline."""
-        from app.models import JobStatus
+        from app.models_pydantic import JobStatus
         from app.tasks import TaskProcessor
 
         # Create mocks
@@ -191,7 +191,7 @@ class TestPhase8Pipeline:
     @pytest.mark.asyncio
     async def test_end_to_end_plugin_output_formats(self) -> None:
         """Verify pipeline handles different plugin output formats."""
-        from app.models import JobStatus
+        from app.models_pydantic import JobStatus
         from app.tasks import TaskProcessor
 
         mock_plugin_manager = MagicMock()

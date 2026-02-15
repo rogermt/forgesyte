@@ -10,7 +10,7 @@ Tests verify:
 import pytest
 import pytest_asyncio
 
-from app.models import JobStatus
+from app.models_pydantic import JobStatus
 from app.services.execution.job_execution_service import Job, JobExecutionService
 
 

@@ -258,16 +258,32 @@ def app_with_mock_yolo_plugin():
 
 
 @pytest.fixture
-async def client(app_with_plugins):
+async def client(app_with_plugins, session):
     """Create AsyncClient for testing API endpoints.
 
     This fixture is used for integration tests that need to make actual
     HTTP requests to the FastAPI application.
 
+    Args:
+        app_with_plugins: FastAPI app with plugins
+        session: Database session for test isolation
+
     Returns:
         AsyncClient configured with the app_with_plugins app
     """
     from httpx import ASGITransport, AsyncClient
+
+    from app.core.database import get_db
+
+    # Override get_db dependency to use test session
+    def override_get_db():
+        """Override get_db to use test session."""
+        try:
+            yield session
+        finally:
+            pass  # Don't close test session, fixture handles it
+
+    app_with_plugins.dependency_overrides[get_db] = override_get_db
 
     transport = ASGITransport(app=app_with_plugins)
     # Include auth header for integration tests
@@ -276,6 +292,9 @@ async def client(app_with_plugins):
         transport=transport, base_url="http://test", headers=headers
     ) as async_client:
         yield async_client
+
+    # Clean up dependency overrides
+    app_with_plugins.dependency_overrides.clear()
 
 
 @pytest.fixture
@@ -616,3 +635,74 @@ def mock_task_processor(mock_job_store: MockJobStore) -> MockTaskProcessor:
         MockTaskProcessor instance with Protocol-compatible interface
     """
     return MockTaskProcessor(mock_job_store)
+
+
+# ============================================================================
+# Phase 16: Job Model Test Fixtures (DuckDB SQLAlchemy)
+# ============================================================================
+
+
+@pytest.fixture(scope="function")
+def test_engine(tmp_path):
+    """Create temporary DuckDB engine for tests.
+
+    Uses a temporary file-based database (not :memory:) to ensure
+    all sessions see the same schema and data.
+
+    Args:
+        tmp_path: Pytest's temporary directory fixture
+
+    Returns:
+        SQLAlchemy engine for testing
+    """
+    from sqlalchemy import create_engine
+
+    from app.core.database import Base
+    from app.models.job import Job  # noqa: F401 - registers model with Base
+
+    # Create a temporary database file
+    db_path = tmp_path / "test.duckdb"
+    db_uri = f"duckdb:///{db_path}"
+
+    engine = create_engine(db_uri, future=True)
+    Base.metadata.create_all(engine)
+
+    yield engine
+    engine.dispose()
+
+
+@pytest.fixture
+def session(test_engine):
+    """Create a database session for tests.
+
+    Args:
+        test_engine: In-memory DuckDB engine
+
+    Yields:
+        SQLAlchemy session
+    """
+    from sqlalchemy.orm import sessionmaker
+
+    Session = sessionmaker(bind=test_engine)
+    s = Session()
+    yield s
+    s.close()
+
+
+@pytest.fixture(autouse=True)
+def mock_session_local(session, monkeypatch):
+    """Monkeypatch SessionLocal to use test session.
+
+    Args:
+        session: Test database session
+        monkeypatch: Pytest monkeypatch
+    """
+
+    def mock_session_factory():
+        return session
+
+    # Patch the module-level SessionLocal directly
+    monkeypatch.setattr(
+        "app.api_routes.routes.video_submit.SessionLocal",
+        mock_session_factory,
+    )

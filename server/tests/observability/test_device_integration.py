@@ -80,7 +80,7 @@ class TestDeviceIntegration:
     @pytest.mark.asyncio
     async def test_device_used_stored_in_job_result(self) -> None:
         """Verify device_used is stored in job after completion."""
-        from app.models import JobStatus
+        from app.models_pydantic import JobStatus
         from app.tasks import TaskProcessor
 
         # Create mocks
@@ -134,7 +134,7 @@ class TestDeviceIntegration:
     @pytest.mark.asyncio
     async def test_device_tracker_failure_doesnt_block_job(self) -> None:
         """Verify job completes even if device tracker fails."""
-        from app.models import JobStatus
+        from app.models_pydantic import JobStatus
         from app.tasks import TaskProcessor
 
         # Create mocks

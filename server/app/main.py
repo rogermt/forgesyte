@@ -37,10 +37,14 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from .api import router as api_router
 from .api_plugins import router as plugins_router
 from .api_routes.routes.execution import router as execution_router
+from .api_routes.routes.job_results import router as job_results_router
+from .api_routes.routes.job_status import router as job_status_router
 from .api_routes.routes.video_file_processing import router as video_router
+from .api_routes.routes.video_submit import router as video_submit_router
 
 # Services
 from .auth import init_auth_service
+from .core.database import init_db
 from .mcp import router as mcp_router
 from .plugin_loader import PluginRegistry
 from .plugins.health.health_router import router as health_router
@@ -145,6 +149,7 @@ async def lifespan(app: FastAPI):
     Manage system-wide resources during startup and shutdown.
 
     Startup:
+        - Initialize database migrations
         - Initialize authentication
         - Load plugins
         - Register plugins in health registry
@@ -155,6 +160,13 @@ async def lifespan(app: FastAPI):
         - Gracefully unload plugins
     """
     logger.info("Initializing ForgeSyte Core...")
+
+    # Database Initialization
+    try:
+        init_db()
+        logger.info("Database schema initialized")
+    except Exception as e:
+        logger.error("Failed to initialize database", extra={"error": str(e)})
 
     # Authentication
     try:
@@ -274,6 +286,9 @@ def create_app() -> FastAPI:
     app.include_router(init_pipeline_routes())
     app.include_router(pipelines_router, prefix=settings.api_prefix)
     app.include_router(video_router, prefix=settings.api_prefix)
+    app.include_router(video_submit_router, prefix="")
+    app.include_router(job_status_router, prefix="")
+    app.include_router(job_results_router, prefix="")
 
     return app
 

@@ -6,7 +6,7 @@ This test verifies that ExtendedJobResponse includes the optional progress field
 from datetime import datetime, timezone
 
 from app.extended_job import ExtendedJobResponse
-from app.models import JobStatus
+from app.models_pydantic import JobStatus
 
 
 def test_job_response_includes_progress_field():

@@ -1,0 +1,23 @@
+# Vocabulary Scanner Configuration
+# Phase 16: Job-based pipeline vocabulary
+
+forbidden_terms:
+  - gpu_schedule
+  - gpu_worker
+  - distributed
+
+allowed_contexts:
+  - websocket
+  - streaming
+  - sse
+  - real_time
+  - worker
+
+scanned_paths:
+  - app/api_routes/routes/video_submit.py
+  - app/api_routes/routes/job_status.py
+  - app/api_routes/routes/job_results.py
+  - app/services/queue
+  - app/services/storage
+  - app/services/job_management_service.py
+  - app/workers

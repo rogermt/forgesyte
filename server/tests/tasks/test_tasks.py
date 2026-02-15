@@ -14,7 +14,7 @@ import pytest
 # Add the server directory to the path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from app.models import JobStatus  # noqa: E402
+from app.models_pydantic import JobStatus  # noqa: E402
 from app.tasks import JobStore, TaskProcessor  # noqa: E402
 
 
@@ -1098,7 +1098,7 @@ class TestTaskProcessorErrorHandling:
         Plugins may return Pydantic models (e.g., AnalysisResult) which need
         to be converted to dicts before unpacking in job results.
         """
-        from app.models import AnalysisResult
+        from app.models_pydantic import AnalysisResult
 
         # Mock plugin returns AnalysisResult (Pydantic model)
         mock_plugin = MagicMock()

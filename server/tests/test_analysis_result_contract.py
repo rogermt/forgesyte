@@ -7,7 +7,7 @@ serialized to dict for storage and API responses.
 import pytest
 from pydantic import ValidationError
 
-from app.models import AnalysisResult
+from app.models_pydantic import AnalysisResult
 
 
 def test_analysis_result_model_exists():

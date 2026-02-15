@@ -22,7 +22,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 
 from app.auth import require_auth
-from app.models import JobStatus
+from app.models_pydantic import JobStatus
 from app.services.execution.analysis_execution_service import AnalysisExecutionService
 
 logger = logging.getLogger(__name__)

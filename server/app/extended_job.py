@@ -11,7 +11,7 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
-from app.models import JobResponse
+from app.models_pydantic import JobResponse
 
 
 class ExtendedJobResponse(JobResponse):

@@ -36,7 +36,7 @@ from .mcp import (
     MCPAdapter,
     build_gemini_extension_manifest,
 )
-from .models import (
+from .models_pydantic import (
     AnalyzeResponse,
     JobResponse,
     JobResultResponse,

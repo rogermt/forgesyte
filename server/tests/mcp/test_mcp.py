@@ -18,7 +18,7 @@ from app.mcp import (  # noqa: E402
     MCPAdapter,
     build_gemini_extension_manifest,
 )
-from app.models import MCPManifest  # noqa: E402
+from app.models_pydantic import MCPManifest  # noqa: E402
 from app.plugin_loader import PluginRegistry  # noqa: E402
 
 
