@@ -44,10 +44,10 @@ async def get_job_results(
         file_path = storage.load_file(results_path)
         with open(file_path, "r") as f:
             results = json.load(f)
-    except FileNotFoundError:
-        raise HTTPException(status_code=404, detail="Results file not found")
-    except json.JSONDecodeError:
-        raise HTTPException(status_code=500, detail="Invalid results file")
+    except FileNotFoundError as err:
+        raise HTTPException(status_code=404, detail="Results file not found") from err
+    except json.JSONDecodeError as err:
+        raise HTTPException(status_code=500, detail="Invalid results file") from err
 
     return JobResultsResponse(
         job_id=job.job_id,

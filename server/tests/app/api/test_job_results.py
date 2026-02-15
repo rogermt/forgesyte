@@ -5,7 +5,6 @@ import json
 import pytest
 
 from app.models.job import Job, JobStatus
-from app.services.storage.local_storage import LocalStorageService
 
 
 @pytest.mark.unit
@@ -18,7 +17,6 @@ class TestJobResultsEndpoint:
         from pathlib import Path
 
         # Create results file first
-        storage = LocalStorageService()
         results_data = {"results": [{"frame_index": 0, "result": {"text": "test"}}]}
         results_file = "test_results.json"
         results_path = Path("./data/video_jobs") / results_file

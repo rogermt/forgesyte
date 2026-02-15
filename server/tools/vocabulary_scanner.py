@@ -12,13 +12,13 @@ import sys
 from pathlib import Path
 from typing import Any
 
-import yaml
+import yaml  # type: ignore[import-untyped]
 
 
 def load_config(config_path: Path) -> dict[str, Any]:
     """Load scanner configuration from YAML file."""
     with open(config_path) as f:
-        return yaml.safe_load(f)
+        return yaml.safe_load(f)  # type: ignore[no-any-return]
 
 
 def normalize_term(term: str, case_sensitive: bool = False) -> str:
@@ -36,7 +36,7 @@ def scan_file(
 
     Returns list of violations with file, line number, term, and context.
     """
-    violations = []
+    violations: list[dict[str, Any]] = []
 
     try:
         content = filepath.read_text()

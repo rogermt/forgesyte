@@ -30,10 +30,10 @@ TEST_VIDEO_DATA = (
 )
 
 
-async def test_job_submission() -> str:
+async def test_job_submission() -> str | None:
     """Test job submission endpoint.
 
-    Returns job_id on success.
+    Returns job_id on success, None on failure.
     """
     async with httpx.AsyncClient(timeout=30) as client:
         # Create a temporary video file
