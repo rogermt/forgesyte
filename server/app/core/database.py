@@ -1,11 +1,12 @@
 """DuckDB SQLAlchemy database configuration."""
 
 from pathlib import Path
+from typing import Any
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import declarative_base, sessionmaker
 
-Base = declarative_base()
+Base: Any = declarative_base()
 
 # Ensure data directory exists
 data_dir = Path("data")
