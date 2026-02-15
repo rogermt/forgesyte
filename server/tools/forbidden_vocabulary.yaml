@@ -2,6 +2,55 @@
 # Patterns use word boundaries to match whole words only
 # Prevents Phase 16+ concepts from leaking into Phase 15 codebase
 
+# ==============================================================================
+# Foregsyte Phase History (for future maintainers)
+# ==============================================================================
+# This file enforces vocabulary and namespace rules for Phase‑16 and beyond.
+# It exists because earlier phases introduced different endpoint models, and
+# Phase‑16 must not regress or mix concepts from older phases.
+#
+# PHASE SUMMARY
+# ------------------------------------------------------------------------------
+# Phase 1–14: Internal architecture, pipeline foundations, CLI, governance.
+#
+# Phase 15: Synchronous video processing (DEPRECATED)
+#   - Introduced /v1/video/submit
+#   - Pipeline executed immediately, blocking request
+#   - No job queue, no worker, no persistence
+#   - This entire model is replaced in Phase‑16
+#
+# Phase 16: Asynchronous job-based processing (CURRENT)
+#   - Introduced /video/submit (NO /v1 prefix)
+#   - Added DuckDB job table
+#   - Added worker queue + storage service
+#   - Added /video/status/{job_id}
+#   - Added /video/results/{job_id}
+#   - All synchronous Phase‑15 endpoints are forbidden
+#
+# Phase 17: Real-time streaming (WebSocket)
+#   - Introduced /ws/video/stream
+#   - No jobs, no persistence, no /video/* endpoints
+#   - Purely ephemeral, per-connection session model
+#
+# Phase 18: Stabilization + Pre‑Release Hardening
+#   - Final cleanup of Phase‑16/17 systems
+#   - CI hardening, governance tightening, documentation consolidation
+#   - After Phase‑18, Foregsyte transitions to semantic versioning
+#     (e.g., v1.0.0 for the first public release)
+#
+# POST‑PHASE‑18:
+#   - Phase numbers are retired
+#   - All future work uses release numbers (v1.x, v2.x, etc.)
+#   - This file remains as a historical reference to prevent regressions
+#
+# WHY THIS FILE EXISTS
+# ------------------------------------------------------------------------------
+# Phase‑16 must not contain ANY Phase‑15 synchronous endpoints.
+# The /v1/* namespace is deprecated and forbidden.
+# This validator prevents accidental reintroduction of old patterns.
+#
+# ==============================================================================
+
 patterns:
   # Phase 16: Job queue concepts
   - pattern: '\bjob_id\b'
@@ -62,3 +111,15 @@ patterns:
     reason: 'GPU worker (Phase 17+ only)'
   - pattern: '\bdistributed\b'
     reason: 'Distributed execution (Phase 17+ only)'
+
+
+  # Phase 16: Endpoint namespace governance
+  # Phase‑15 endpoints (/v1/*) are forbidden in Phase‑16+
+  - pattern: '/v1/video/submit'
+    reason: 'Phase‑15 synchronous endpoint — forbidden in Phase‑16+'
+  - pattern: '/v1/video/status'
+    reason: 'Phase‑15 synchronous endpoint — forbidden in Phase‑16+'
+  - pattern: '/v1/video/results'
+    reason: 'Phase‑15 synchronous endpoint — forbidden in Phase‑16+'
+  - pattern: '/v1/'
+    reason: 'Phase‑15 namespace — forbidden in Phase‑16+'
