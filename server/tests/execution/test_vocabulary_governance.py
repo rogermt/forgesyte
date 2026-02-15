@@ -1,12 +1,14 @@
 """Test Phase 16 Governance Enforcement - FIXED with relative paths"""
+
 from pathlib import Path
+
 
 class TestPhase16Governance:
     def test_no_forbidden_vocabulary_in_functional_code(self):
         forbidden_terms = ["gpu_schedule", "gpu_worker", "distributed"]
         test_file = Path(__file__)
         server_root = test_file.parent.parent.parent
-        
+
         scan_paths = [
             server_root / "app/api_routes/routes/video_submit.py",
             server_root / "app/api_routes/routes/job_status.py",
@@ -30,10 +32,16 @@ class TestPhase16Governance:
                     for term in forbidden_terms:
                         if term.lower() in content.lower():
                             count = content.lower().count(term.lower())
-                            violations.append(f"{filepath.relative_to(server_root)}: '{term}' found {count} times")
+                            violations.append(
+                                f"{filepath.relative_to(server_root)}: '{term}' found {count} times"
+                            )
                 except Exception:
                     pass
-        assert not violations, "Forbidden vocabulary found in Phase 16 functional code:\n" + "\n".join(violations)
+        assert (
+            not violations
+        ), "Forbidden vocabulary found in Phase 16 functional code:\n" + "\n".join(
+            violations
+        )
 
     def test_governance_scanner_runs(self):
         test_file = Path(__file__)

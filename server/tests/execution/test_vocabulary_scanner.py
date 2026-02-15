@@ -1,5 +1,7 @@
 """Test Vocabulary Scanner Tool - FIXED with relative paths"""
+
 from pathlib import Path
+
 
 class TestVocabularyScanner:
     def test_scanner_tool_exists(self):
