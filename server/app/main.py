@@ -44,6 +44,7 @@ from .api_routes.routes.video_submit import router as video_submit_router
 
 # Services
 from .auth import init_auth_service
+from .core.database import init_db
 from .mcp import router as mcp_router
 from .plugin_loader import PluginRegistry
 from .plugins.health.health_router import router as health_router
@@ -148,6 +149,7 @@ async def lifespan(app: FastAPI):
     Manage system-wide resources during startup and shutdown.
 
     Startup:
+        - Initialize database migrations
         - Initialize authentication
         - Load plugins
         - Register plugins in health registry
@@ -158,6 +160,13 @@ async def lifespan(app: FastAPI):
         - Gracefully unload plugins
     """
     logger.info("Initializing ForgeSyte Core...")
+
+    # Database Initialization
+    try:
+        init_db()
+        logger.info("Database schema initialized")
+    except Exception as e:
+        logger.error("Failed to initialize database", extra={"error": str(e)})
 
     # Authentication
     try:
