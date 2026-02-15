@@ -663,10 +663,10 @@ def test_engine(tmp_path):
     # Create a temporary database file
     db_path = tmp_path / "test.duckdb"
     db_uri = f"duckdb:///{db_path}"
-    
+
     engine = create_engine(db_uri, future=True)
     Base.metadata.create_all(engine)
-    
+
     yield engine
     engine.dispose()
 
@@ -697,6 +697,7 @@ def mock_session_local(session, monkeypatch):
         session: Test database session
         monkeypatch: Pytest monkeypatch
     """
+
     def mock_session_factory():
         return session
 
