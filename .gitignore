@@ -208,6 +208,7 @@ __marimo__/
 
 # Scratch directory
 scratch/
+bin/
 
 # Pre-commit
 .pre-commit-config.local.yaml
