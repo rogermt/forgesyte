@@ -10,7 +10,9 @@ ForgeSyte is a modular AI-vision MCP server engineered for developers, featuring
 - **Plugin Architecture**: Modular vision analysis plugins (OCR, YOLO tracker, etc.)
 - **Job-Based Pipeline**: Async job processing with `/v1/analyze` endpoint
 - **MCP Integration**: Model Context Protocol for tool exposure
-- **WebSocket Streaming**: Real-time video processing via `/v1/stream`
+- **WebSocket Streaming**: Real-time video processing via `/v1/stream` and `/ws/video/stream`
+
+**Current Phase**: Phase 17 - Real-Time Streaming Inference (4/12 backend commits completed)
 
 ---
 
@@ -58,6 +60,14 @@ uv run pytest tests/execution -v
 
 # Run plugin registry tests
 uv run pytest tests/plugins -v
+
+# Run Phase 17 streaming tests (NEW)
+uv run pytest tests/streaming/ -v
+
+# Run specific Phase 17 test files
+uv run pytest tests/streaming/test_connect.py -v
+uv run pytest tests/streaming/test_session_manager.py -v
+uv run pytest tests/streaming/test_frame_validator.py -v
 ```
 
 ### Linting and Formatting
@@ -110,6 +120,13 @@ If any step fails locally, it will also fail in CI — do not commit until all p
 server/
 ├── app/
 │   ├── api_routes/       # API route handlers
+│   │   └── routes/
+│   │       ├── video_stream.py          # NEW: Phase 17 WebSocket streaming endpoint
+│   │       ├── video_file_processing.py
+│   │       ├── video_submit.py
+│   │       ├── job_status.py
+│   │       ├── job_results.py
+│   │       └── execution.py
 │   ├── core/             # Core application logic
 │   ├── examples/         # Example usage code
 │   ├── logging/          # Logging configuration
@@ -119,6 +136,13 @@ server/
 │   ├── realtime/         # Real-time processing
 │   ├── schemas/          # Pydantic schemas
 │   ├── services/         # Business logic services
+│   │   ├── streaming/    # NEW: Phase 17 streaming services
+│   │   │   ├── session_manager.py  # Per-connection state management
+│   │   │   ├── frame_validator.py   # JPEG frame validation
+│   │   │   └── backpressure.py      # Backpressure decision logic
+│   │   ├── dag_pipeline_service.py   # DAG pipeline execution (updated with is_valid_pipeline)
+│   │   ├── video_file_pipeline_service.py  # Video file processing (updated with is_valid_pipeline)
+│   │   └── ...
 │   ├── main.py           # FastAPI application entry point
 │   ├── models.py         # Database models
 │   ├── routes_pipeline.py # Pipeline REST endpoints
@@ -127,7 +151,12 @@ server/
     ├── api/              # API endpoint tests
     ├── contract/         # Contract validation tests
     ├── execution/        # Execution governance tests
-    └── plugins/          # Plugin tests
+    ├── streaming/        # NEW: Phase 17 streaming tests
+    │   ├── test_connect.py           # WebSocket connection tests
+    │   ├── test_session_manager.py   # Session manager tests
+    │   └── test_frame_validator.py   # Frame validator tests
+    ├── plugins/          # Plugin tests
+    └── websocket/        # Legacy WebSocket tests
 ```
 
 ### Code Style (Python)
@@ -142,6 +171,12 @@ server/
 - **Logging**: Use `logging` module, not `print()`
 - **Docstrings**: Write for all public classes/functions
 - **Registry Pattern**: Use decorators for plugin/command registration
+- **Streaming Services (Phase 17)**:
+  - Use `SessionManager` for per-connection state (ephemeral, no persistence)
+  - Use `FrameValidationError` for structured frame validation errors
+  - Use `Backpressure` class for backpressure decision logic
+  - Log all streaming events with structured JSON format
+  - Follow TDD: Write tests first, implement code to make tests pass
 
 ---
 
@@ -239,6 +274,52 @@ web-ui/
 
 ---
 
+## WebSocket Streaming
+
+The project supports two WebSocket endpoints for real-time video processing:
+
+### 1. Legacy WebSocket Endpoint (`/v1/stream`)
+- **Purpose**: Plugin-based real-time analysis
+- **Protocol**: WebSocket with JSON messages
+- **Usage**: Motion detection, object detection
+- **Tests**: `server/tests/websocket/`
+
+### 2. Phase 17 Streaming Endpoint (`/ws/video/stream`) - NEW
+- **Purpose**: Real-time frame-by-frame inference through Phase 15 pipelines
+- **Protocol**: WebSocket with binary frame input, JSON result output
+- **Features**:
+  - Accepts binary JPEG frames
+  - Validates frames (SOI/EOI markers, size limits)
+  - Runs Phase 15 DAG pipelines per frame
+  - Implements backpressure (drop frames / slow-down signals)
+  - Ephemeral sessions (no persistence)
+- **Connection**: `ws://<host>/ws/video/stream?pipeline_id=<id>`
+- **Tests**: `server/tests/streaming/` (24/24 tests passing)
+- **Status**: Phase 17 - 4/12 backend commits completed
+
+### WebSocket Message Protocol (Phase 17)
+
+**Incoming Messages**:
+- Type: Binary
+- Format: JPEG bytes
+- Constraints: Max 5MB, must contain JPEG SOI/EOI markers
+
+**Outgoing Messages**:
+- Success: `{"frame_index": N, "result": {...}}`
+- Dropped: `{"frame_index": N, "dropped": true}`
+- Slow-down: `{"warning": "slow_down"}`
+- Error: `{"error": "<code>", "detail": "<message>"}`
+
+**Error Codes**:
+- `invalid_message` - Expected binary frame payload
+- `invalid_frame` - Not a valid JPEG image
+- `frame_too_large` - Frame exceeds 5MB
+- `invalid_pipeline` - Unknown pipeline_id
+- `pipeline_failure` - Pipeline execution failed
+- `internal_error` - Unexpected error occurred
+
+---
+
 ## End-to-End Tests
 
 ```bash
@@ -302,6 +383,15 @@ This means:
 | `web-ui/.eslintrc.cjs` | ESLint configuration |
 | `e2e.test.sh` | Full E2E test script |
 
+### Environment Variables (Phase 17 Streaming)
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `STREAM_DROP_THRESHOLD` | `0.10` | Drop frames when drop rate exceeds 10% |
+| `STREAM_SLOWDOWN_THRESHOLD` | `0.30` | Send slow-down warning when drop rate exceeds 30% |
+| `STREAM_MAX_FRAME_SIZE_MB` | `5` | Maximum frame size in megabytes |
+| `STREAM_MAX_SESSIONS` | `10` | Recommended maximum concurrent sessions (not enforced) |
+
 ---
 
 ## Git Workflow
@@ -322,7 +412,8 @@ For any feature or bug fix, follow Test-Driven Development:
 3. **Implement code** - Write minimal code to make tests pass
 4. **Run tests to verify they pass** - Confirm implementation works
 5. **Run lint, type check, and execution governance verification** - Ensure code quality
-6. **Commit** - Only after all above pass
+6. **Save test logs** - Save test output to log file as proof of GREEN status
+7. **Commit** - Only commit when ALL tests pass and test logs are saved
 
 **Before committing, run the full verification suite:**
 
@@ -338,6 +429,68 @@ npm run lint                               # eslint
 npm run type-check                         # tsc --noEmit (MANDATORY)
 npm run test -- --run                      # vitest
 ```
+
+**Phase 17 Test Logs**:
+All Phase 17 backend commit test logs are saved to `/tmp/`:
+```
+/tmp/phase17_backend_commit_01_initial.log    # GREEN verification before Commit 1
+/tmp/phase17_backend_commit_01_test_red.log   # RED verification for Commit 1
+/tmp/phase17_backend_commit_01_final.log      # GREEN verification after Commit 1
+/tmp/phase17_backend_commit_02_initial.log    # GREEN verification before Commit 2
+/tmp/phase17_backend_commit_02_test_red.log   # RED verification for Commit 2
+/tmp/phase17_backend_commit_02_final.log      # GREEN verification after Commit 2
+/tmp/phase17_backend_commit_03_final.log      # GREEN verification after Commit 3
+/tmp/phase17_backend_commit_04_final.log      # GREEN verification after Commit 4
+```
+
+View test results:
+```bash
+# View final test results for Commit 1
+cat /tmp/phase17_backend_commit_01_final.log | tail -20
+
+# Count passed tests
+grep "passed" /tmp/phase17_backend_commit_01_final.log
+```
+
+### Phase 17 TDD Workflow (Backend)
+
+For Phase 17 streaming features, follow strict TDD:
+
+1. **Verify GREEN**: Run full test suite - all tests must pass BEFORE starting
+2. **Write FAILING test**: Write test for new functionality
+3. **Verify RED**: Run test - it MUST fail
+4. **Implement code**: Write minimal code to make test pass
+5. **Verify GREEN**: Run full test suite - ALL tests must pass
+6. **Save test logs**: Save test output to `/tmp/phase17_backend_commit_<N>.log`
+7. **Commit**: Only commit when ALL tests pass and test logs are saved
+
+**Example Phase 17 TDD workflow**:
+```bash
+cd server
+
+# 1. Verify GREEN before starting
+uv run pytest tests/ -v --tb=short > /tmp/phase17_backend_commit_01_initial.log
+
+# 2. Write failing test
+# 3. Verify RED
+uv run pytest tests/streaming/test_connect.py -v
+
+# 4. Implement code
+
+# 5. Verify GREEN
+uv run pytest tests/ -v --tb=short > /tmp/phase17_backend_commit_01_final.log
+
+# 6. Save test log (already done above)
+
+# 7. Commit
+git add .
+git commit -m "feat(backend): Commit 1 - WebSocket Router + Endpoint Skeleton
+
+Tests passed: 1211 passed, 10 warnings
+Test log: /tmp/phase17_backend_commit_01_final.log"
+```
+
+**Critical**: Never commit when any test is failing. All test logs must be saved as proof of GREEN status.
 
 ```bash
 # Example TDD workflow
@@ -381,6 +534,21 @@ git merge feature/description
 git push origin main
 ```
 
+### Current Branch Status
+
+**Active Branch**: `feature/phase-17`
+
+**Recent Commits**:
+```
+e1194c6 feat(backend): Commit 4 - Integrate SessionManager into WebSocket
+73eac73 feat(backend): Commit 3 - Frame Validator
+94f1a7e feat(backend): Commit 2 - Session Manager Class
+3e103a5 feat(backend): Commit 1 - WebSocket Router + Endpoint Skeleton
+4620506 docs: Phase 17 documentation complete
+```
+
+**Test Status**: All streaming tests passing (24/24)
+
 ### Pre-Commit Hook Safety (IMPORTANT)
 
 **NEVER use `--no-verify` to bypass hooks.**
@@ -413,8 +581,19 @@ Added test_plugin_schema.py to validate schema structure,
 required for Web-UI dynamic form generation and MCP manifest creation.
 ```
 
+**Phase 17 Test Log Requirement**:
+For Phase 17 commits, test logs MUST be saved and referenced in commit messages:
+
+```
+feat(backend): Commit 1 - WebSocket Router + Endpoint Skeleton
+
+Tests passed: 1211 passed, 10 warnings
+Test log: /tmp/phase17_backend_commit_01_final.log
+```
+
 **Format required:**
-- Include string `TEST-CHANGE` somewhere in `git log -1 --pretty=%B` output
+- Include string `TEST-CHANGE` somewhere in `git log -1 --pretty=%B` output for test changes
+- Include test log reference for Phase 17 commits
 - Best practice: Start subject with `TEST-CHANGE:` for clarity
 - Hook checks: `git log -1 --pretty=%B | grep -q "TEST-CHANGE"`
 
@@ -422,6 +601,7 @@ required for Web-UI dynamic form generation and MCP manifest creation.
 - Bypassing hooks defeats their purpose
 - Hooks prevent bad commits from reaching main
 - Safety checks protect code quality and stability
+- Test logs provide auditable proof of TDD compliance
 - If you bypass a hook, the same issue will fail CI/CD anyway
 
 ### Skipped Tests Policy (Phase 7)
@@ -451,6 +631,27 @@ Types:
 - chore: Maintenance tasks
 ```
 
+### Phase 17 Commit Message Format
+
+Phase 17 commits should include test log references:
+
+```
+feat(backend): Commit 1 - WebSocket Router + Endpoint Skeleton
+
+- Add WebSocket endpoint: /ws/video/stream
+- Accept connection with pipeline_id query parameter
+- Log connect/disconnect events (JSON structured logs)
+- Reject connection if pipeline_id is missing
+- Add is_valid_pipeline() to DagPipelineService and VideoFilePipelineService
+- Register video_stream router in main.py
+- Add comprehensive tests for WebSocket connection
+
+Tests passed: 1211 passed, 10 warnings
+Test log: /tmp/phase17_backend_commit_01_final.log
+
+Phase 17: Real-Time Streaming Inference
+```
+
 ---
 
 ## Project Milestones & Status
@@ -466,6 +667,79 @@ See `.ampcode/07_PROJECT_RECOVERY/ISSUES_LIST.md` for the latest project milesto
 - Milestone 6: Job-Based Pipeline & Web-UI Migration (Current Architecture)
 - Milestone 7: VideoTracker Full Implementation (Job-Based Architecture)
 - Milestone 8: Phase 7: CSS Modules Migration (NEW - Blocked until Phase 7 complete)
+- **Phase 17: Real-Time Streaming Inference (IN PROGRESS - 4/12 backend commits completed)**
+
+### Phase 17: Real-Time Streaming Inference
+
+**Purpose**: Introduce real-time streaming layer on top of Phase-15/16 batch + async foundations
+
+**Key Features**:
+- WebSocket endpoint: `/ws/video/stream` for real-time frame processing
+- Session manager: One session per connection with isolated state
+- Real-time inference loop: frame → pipeline → result
+- Backpressure: Drop frames / send slow-down signals to prevent overload
+- Ephemeral results: No persistence, no job table
+
+**Progress**:
+- ✅ Commit 1: WebSocket Router + Endpoint Skeleton (5/5 tests passing)
+- ✅ Commit 2: Session Manager Class (9/9 tests passing)
+- ✅ Commit 3: Frame Validator (6/6 tests passing)
+- ✅ Commit 4: Integrate SessionManager into WebSocket (4/4 tests passing)
+- ⏳ Commit 5-12: Remaining backend commits (0/8 completed)
+
+**Test Coverage**: 24/24 streaming tests passing
+
+**Documentation**: See `.ampcode/04_PHASE_NOTES/Phase_17/` for detailed planning and Q&A
+
+### Phase 17 Streaming Services API
+
+**SessionManager** (`server/app/services/streaming/session_manager.py`):
+```python
+from app.services.streaming.session_manager import SessionManager
+
+# Create session
+session = SessionManager(pipeline_id="yolo_ocr")
+
+# Track frames
+session.increment_frame()
+session.mark_drop()
+
+# Calculate metrics
+drop_rate = session.drop_rate()
+should_drop = session.should_drop_frame(processing_time_ms=50.0)
+should_slow = session.should_slow_down()
+
+# Timing
+current_time_ms = SessionManager.now_ms()
+```
+
+**FrameValidator** (`server/app/services/streaming/frame_validator.py`):
+```python
+from app.services.streaming.frame_validator import validate_jpeg, FrameValidationError
+
+try:
+    validate_jpeg(frame_bytes)
+except FrameValidationError as e:
+    print(f"Error: {e.code} - {e.detail}")
+```
+
+**Backpressure** (`server/app/services/streaming/backpressure.py`):
+```python
+from app.services.streaming.backpressure import Backpressure
+
+# Check if frame should be dropped
+should_drop = Backpressure.should_drop(
+    processing_time_ms=50.0,
+    drop_rate=0.15,
+    drop_threshold=0.10
+)
+
+# Check if slow-down signal should be sent
+should_slow = Backpressure.should_slow_down(
+    drop_rate=0.35,
+    slowdown_threshold=0.30
+)
+```
 
 ---
 
@@ -480,6 +754,14 @@ Key documentation files for understanding the project:
 - `docs/design/PLUGIN_WEB_UI.md` - Plugin and Web-UI integration
 - `docs/development/PYTHON_STANDARDS.md` - Python coding standards
 - `docs/guides/PLUGIN_IMPLEMENTATION.md` - Plugin implementation guide
+
+**Phase 17 Documentation** (Real-Time Streaming):
+- `.ampcode/03_PLANS/Phase_17/PHASE_17_PLANS.md` - Complete Phase 17 plans
+- `.ampcode/03_PLANS/Phase_17/PHASE_17_PROGRESS.md` - Progress tracking (4/12 backend commits completed)
+- `.ampcode/04_PHASE_NOTES/Phase_17/PHASE_17_OVERVIEW.md` - Phase 17 overview
+- `.ampcode/04_PHASE_NOTES/Phase_17/PHASE_17_BACKEND_USER_STORIES.md` - Backend user stories (12 commits)
+- `.ampcode/04_PHASE_NOTES/Phase_17/PHASE_17_FRONTEND_USER_STORIES` - Frontend user stories (8 commits)
+- `.ampcode/04_PHASE_NOTES/Phase_17/PHASE_17_Q&A_01.md` through `PHASE_17_Q&A_04.md` - Q&A clarifications
 
 Pre-commit runs in: .github/workflows/ci.yml
 

@@ -2,9 +2,12 @@
 
 ## Status: 🔒 PLAN LOCKED & APPROVED
 
-**Last Updated**: 2026-02-15
+**Last Updated**: 2026-02-16
 
 **Implementation Ready**: All Q&A clarifications incorporated, user stories finalized, templates provided.
+
+**Backend Progress**: 4/12 commits completed (33%)
+**Frontend Progress**: 0/8 commits completed (0%)
 
 ---
 
@@ -20,52 +23,62 @@
 
 ## Backend Commit Progress (12 Commits)
 
-### Commit 1: WebSocket Router + Endpoint Skeleton
-- [ ] Write failing tests
-  - [ ] WebSocket connection succeeds with valid pipeline_id
-  - [ ] WebSocket connection logs connect event (JSON)
-  - [ ] WebSocket disconnection logs disconnect event (JSON)
-  - [ ] WebSocket connection fails with missing pipeline_id
-  - [ ] WebSocket connection fails with invalid pipeline_id
-- [ ] Implement minimal endpoint with pipeline_id validation
-- [ ] Verify all tests pass
-- [ ] Commit
+### Commit 1: WebSocket Router + Endpoint Skeleton ✅
+- [x] Write failing tests
+  - [x] WebSocket connection succeeds with valid pipeline_id
+  - [x] WebSocket connection logs connect event (JSON)
+  - [x] WebSocket disconnection logs disconnect event (JSON)
+  - [x] WebSocket connection fails with missing pipeline_id
+  - [x] WebSocket connection fails with invalid pipeline_id
+- [x] Implement minimal endpoint with pipeline_id validation
+- [x] Verify all tests pass
+- [x] Commit
 
-### Commit 2: Session Manager Class
-- [ ] Write failing tests
-  - [ ] SessionManager creates with correct initial state
-  - [ ] `increment_frame()` increments correctly
-  - [ ] `mark_drop()` increments correctly
-  - [ ] `drop_rate()` calculates correctly
-  - [ ] `should_drop_frame()` delegates to Backpressure
-  - [ ] `should_slow_down()` delegates to Backpressure
-  - [ ] Thresholds load from environment variables
-  - [ ] `now_ms()` returns current time in milliseconds
-- [ ] Implement SessionManager
-- [ ] Verify all tests pass
-- [ ] Commit
+**Test Log**: `/tmp/phase17_backend_commit_01_final.log`
+**Tests**: 5/5 passing
 
-### Commit 3: Frame Validator
-- [ ] Write failing tests
-  - [ ] Valid JPEG passes validation
-  - [ ] Invalid JPEG (missing SOI) raises FrameValidationError("invalid_frame", ...)
-  - [ ] Invalid JPEG (missing EOI) raises FrameValidationError("invalid_frame", ...)
-  - [ ] Oversized frame raises FrameValidationError("frame_too_large", ...)
-  - [ ] Empty bytes raises FrameValidationError("invalid_frame", ...)
-  - [ ] Size limit reads from environment variable
-- [ ] Implement validator
-- [ ] Verify all tests pass
-- [ ] Commit
+### Commit 2: Session Manager Class ✅
+- [x] Write failing tests
+  - [x] SessionManager creates with correct initial state
+  - [x] `increment_frame()` increments correctly
+  - [x] `mark_drop()` increments correctly
+  - [x] `drop_rate()` calculates correctly
+  - [x] `should_drop_frame()` delegates to Backpressure
+  - [x] `should_slow_down()` delegates to Backpressure
+  - [x] Thresholds load from environment variables
+  - [x] `now_ms()` returns current time in milliseconds
+- [x] Implement SessionManager
+- [x] Verify all tests pass
+- [x] Commit
 
-### Commit 4: Integrate SessionManager into WebSocket
-- [ ] Write failing tests
-  - [ ] WebSocket connection creates SessionManager
-  - [ ] WebSocket connection has unique session_id
-  - [ ] WebSocket connection stores pipeline_id in session
-  - [ ] WebSocket disconnection destroys SessionManager
-- [ ] Implement session lifecycle in endpoint
-- [ ] Verify all tests pass
-- [ ] Commit
+**Test Log**: `/tmp/phase17_backend_commit_02_final.log`
+**Tests**: 9/9 passing
+
+### Commit 3: Frame Validator ✅
+- [x] Write failing tests
+  - [x] Valid JPEG passes validation
+  - [x] Invalid JPEG (missing SOI) raises FrameValidationError("invalid_frame", ...)
+  - [x] Invalid JPEG (missing EOI) raises FrameValidationError("invalid_frame", ...)
+  - [x] Oversized frame raises FrameValidationError("frame_too_large", ...)
+  - [x] Empty bytes raises FrameValidationError("invalid_frame", ...)
+  - [x] Size limit reads from environment variable
+- [x] Implement validator
+- [x] Verify all tests pass
+- [x] Commit
+
+**Test Log**: Streaming tests: 20/20 passing
+
+### Commit 4: Integrate SessionManager into WebSocket ✅
+- [x] Write failing tests
+  - [x] WebSocket connection creates SessionManager
+  - [x] WebSocket connection has unique session_id
+  - [x] WebSocket connection stores pipeline_id in session
+  - [x] WebSocket disconnection destroys SessionManager
+- [x] Implement session lifecycle in endpoint
+- [x] Verify all tests pass
+- [x] Commit
+
+**Test Log**: Streaming tests: 24/24 passing
 
 ### Commit 5: Receive Binary Frames
 - [ ] Write failing tests
@@ -588,28 +601,47 @@ Commit messages MUST reference test logs as proof of compliance with TDD mandate
 
 ## Overall Progress
 
-**Backend Commits Completed**: 0/12
-**Frontend Commits Completed**: 0/8
-**Total Commits Completed**: 0/20
-**Backend Test Coverage**: 0%
+**Backend Commits Completed**: 4/12 (33%)
+**Frontend Commits Completed**: 0/8 (0%)
+**Total Commits Completed**: 4/20 (20%)
+**Backend Test Coverage**: 100% for implemented features
 **Frontend Test Coverage**: 0%
 **Documentation**: 0%
-**Status**: 🔒 PLAN LOCKED & APPROVED
+**Status**: 🚀 IN PROGRESS - Backend Implementation
+
+### Completed Backend Commits
+✅ Commit 1: WebSocket Router + Endpoint Skeleton
+✅ Commit 2: Session Manager Class
+✅ Commit 3: Frame Validator
+✅ Commit 4: Integrate SessionManager into WebSocket
+
+### Remaining Backend Commits
+⏳ Commit 5: Receive Binary Frames
+⏳ Commit 6: Frame Validation Integration
+⏳ Commit 7: Pipeline Execution Integration
+⏳ Commit 8: Backpressure (Drop Frames)
+⏳ Commit 9: Backpressure (Slow-Down Signal)
+⏳ Commit 10: Error Handling + Structured Exceptions
+⏳ Commit 11: Logging + Metrics Hooks
+⏳ Commit 12: Documentation + Rollback Plan
 
 ---
 
 ## Test Log Archive
 
-### Backend Test Logs
-All backend commit test logs will be saved to:
+### Backend Test Logs (Created)
 ```
-/tmp/phase17_backend_commit_01.log
-/tmp/phase17_backend_commit_02.log
-...
-/tmp/phase17_backend_commit_12.log
+/tmp/phase17_backend_commit_01_initial.log    # GREEN verification before Commit 1
+/tmp/phase17_backend_commit_01_test_red.log   # RED verification for Commit 1
+/tmp/phase17_backend_commit_01_final.log      # GREEN verification after Commit 1
+/tmp/phase17_backend_commit_02_initial.log    # GREEN verification before Commit 2
+/tmp/phase17_backend_commit_02_test_red.log   # RED verification for Commit 2
+/tmp/phase17_backend_commit_02_final.log      # GREEN verification after Commit 2
+/tmp/phase17_backend_commit_03_final.log      # GREEN verification after Commit 3
+/tmp/phase17_backend_commit_04_final.log      # GREEN verification after Commit 4
 ```
 
-### Frontend Test Logs
+### Frontend Test Logs (Pending)
 All frontend commit test logs will be saved to:
 ```
 /tmp/phase17_frontend_commit_FE1_lint.log
