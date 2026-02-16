@@ -11,165 +11,197 @@ But now that you’re asking for them, I can restore the **front‑end user stor
 
 And I’ll do it without breaking the backend pack.
 
----
-
-### 1. `PHASE_17_FRONTEND_USER_STORIES.md`
-
-```markdown
-# Phase‑17 Frontend User Stories (Commit by Commit)
-
-Target directory: `web-ui/`
-
-Each story is atomic, testable, and aligned with the backend `/ws/video/stream` contract.
+- This has been updated with answers from: [/home/rogermt/forgesyte/.ampcode/04_PHASE_NOTES/Phase_17/PHASE_17_FE_Q&A_01.md]
+- see code skeletons in: [/home/rogermt/forgesyte/.ampcode/04_PHASE_NOTES/Phase_17/PHASE_17_CODE_SKELETONS.md]
 
 ---
 
-## FE‑1 — WebSocket Hook Extension (`useWebSocket`)
+### ⭐ Phase‑17 Frontend User Stories (FE‑1 → FE‑8, Final & Aligned)
 
-### Story
-As a frontend engineer, I want a WebSocket hook that can send binary JPEG frames and receive streaming inference results.
-
-### Acceptance Criteria
-- File: `src/hooks/useWebSocket.ts`
-- Adds support for:
-  - `sendFrame(bytes: Uint8Array | ArrayBuffer): void`
-  - Handling messages:
-    - `{ "frame_index": N, "result": {...} }`
-    - `{ "frame_index": N, "dropped": true }`
-    - `{ "warning": "slow_down" }`
-    - `{ "error": "<code>", "detail": "<message>" }`
-- Exposes state:
-  - `status: "connecting" | "connected" | "disconnected"`
-  - `lastResult`
-  - `droppedFrames`
-  - `slowDownWarnings`
-- Uses the backend URL:
-  - `ws://<host>/ws/video/stream?pipeline_id=<id>`
+All target `web-ui/`, reuse existing structure, no new folders.
 
 ---
 
-## FE‑2 — Realtime Client Integration (`useRealtime` + `RealtimeClient`)
+## **FE‑1 — WebSocket Hook Extension (`useWebSocket`)**
 
-### Story
-As a frontend engineer, I want a high‑level realtime client that orchestrates WebSocket, FPS throttling, and result handling.
+### Story  
+As a frontend engineer, I want a WebSocket hook that can send binary JPEG frames and receive streaming inference messages.
 
-### Acceptance Criteria
-- Files:
-  - `src/realtime/RealtimeClient.ts`
-  - `src/realtime/useRealtime.ts`
-- Responsibilities:
-  - Wraps `useWebSocket`
-  - Uses `FPSThrottler` from `src/utils/FPSThrottler.ts`
-  - Provides:
-    - `connect(pipelineId: string)`
-    - `disconnect()`
-    - `sendFrame(bytes: Uint8Array)`
-    - `state: { status, lastResult, droppedFrames, slowDownWarnings }`
-- Integrates with `RealtimeContext.tsx` to provide context to components.
+### Acceptance Criteria  
+- File: `src/hooks/useWebSocket.ts`  
+- Extends existing hook (no new hook):  
+  - Adds `sendFrame(bytes: Uint8Array | ArrayBuffer): void`  
+- Uses new endpoint:  
+  - `ws://<host>/ws/video/stream?pipeline_id=<id>`  
+- Parses messages into four types (per backend contract):  
+  - `{ frame_index, result }`  
+  - `{ frame_index, dropped: true }`  
+  - `{ warning: "slow_down" }`  
+  - `{ error, detail }`  
+- Uses shared types from `src/realtime/types.ts`:  
+  - `StreamingResultPayload`  
+  - `StreamingDroppedPayload`  
+  - `StreamingSlowDownPayload`  
+  - `StreamingErrorPayload`  
+- Exposes state:  
+  - `status: "connecting" | "connected" | "disconnected"`  
+  - `lastResult: StreamingResultPayload | null`  
+  - `droppedFrames: number`  
+  - `slowDownWarnings: number`  
+  - `lastError: StreamingErrorPayload | null`  
 
 ---
 
-## FE‑3 — Camera Capture + Streaming (`CameraPreview`)
+## **FE‑2 — Realtime Client Integration (`RealtimeClient` + `useRealtime`)**
 
-### Story
+### Story  
+As a frontend engineer, I want a high‑level realtime client that orchestrates WebSocket, FPS throttling, and streaming state.
+
+### Acceptance Criteria  
+- Files:  
+  - `src/realtime/RealtimeClient.ts`  
+  - `src/realtime/useRealtime.ts`  
+  - `src/realtime/RealtimeContext.tsx`  
+- Extends existing `RealtimeClient` (no new client):  
+  - Adds `sendFrame(bytes: Uint8Array): void`  
+  - Uses `useWebSocket` under the hood  
+- `useRealtime` provides:  
+  - `connect(pipelineId: string)`  
+  - `disconnect()`  
+  - `sendFrame(bytes: Uint8Array)`  
+  - `state: { status, lastResult, droppedFrames, slowDownWarnings, lastError }`  
+- Integrates `FPSThrottler` for FPS control (initial 15 FPS, can be reduced to 5 FPS on `slow_down`)  
+- `RealtimeContext` exposes `useRealtime()` to components  
+
+---
+
+## **FE‑3 — Camera Capture + Streaming (`CameraPreview`)**
+
+### Story  
 As a user, I want the UI to capture webcam frames and stream them to the backend in real time.
 
-### Acceptance Criteria
-- File: `src/components/CameraPreview.tsx`
-- Uses `getUserMedia()` to access webcam.
-- Renders `<video>` and `<canvas>`.
-- At a target FPS (10–15), captures a frame:
-  - Draws video to canvas.
-  - Converts to JPEG (`canvas.toBlob("image/jpeg", quality)`).
-  - Sends bytes via `useRealtime().sendFrame(...)`.
-- Reacts to:
-  - `warning: "slow_down"` → reduces FPS via `FPSThrottler`.
-  - `dropped: true` → does not update overlay for that frame.
+### Acceptance Criteria  
+- File: `src/components/CameraPreview.tsx`  
+- Uses `navigator.mediaDevices.getUserMedia` to access webcam  
+- Renders `<video>` and `<canvas>`  
+- Uses `requestAnimationFrame` + `FPSThrottler` to control FPS (start at 15 FPS)  
+- For each frame:  
+  - Draws video to canvas  
+  - Converts to JPEG via `canvas.toBlob("image/jpeg", 0.8)`  
+  - Converts blob to `Uint8Array`  
+  - Calls `realtime.sendFrame(uint8Array)`  
+- Reacts to `slow_down` by reducing FPS via `throttler.setMaxFps(5)`  
+- Does not update overlay for frames marked as dropped  
 
 ---
 
-## FE‑4 — Realtime Overlay Rendering (`RealtimeOverlay`)
+## **FE‑4 — Realtime Overlay Rendering (`RealtimeOverlay`)**
 
-### Story
+### Story  
 As a user, I want to see inference results overlaid on the video in real time.
 
-### Acceptance Criteria
-- File: `src/components/RealtimeOverlay.tsx`
-- Uses:
-  - `BoundingBoxOverlay.tsx`
-  - `drawDetections.ts`
-- Renders:
-  - Bounding boxes
-  - Labels
-  - Confidence scores
-  - Frame index
-- Subscribes to realtime results from `RealtimeContext`.
+### Acceptance Criteria  
+- File: `src/components/RealtimeOverlay.tsx`  
+- Uses:  
+  - `BoundingBoxOverlay.tsx`  
+  - `drawDetections.ts`  
+  - `RealtimeContext`  
+- Defines `Detection` type and converter in `src/realtime/types.ts` or `src/utils/detections.ts`:  
+  - `{ x, y, width, height, label, confidence? }`  
+- Converts backend `result` into `Detection[]` and passes to overlay renderer  
+- Displays `frame_index` as a small label on the overlay  
 
 ---
 
-## FE‑5 — Pipeline Selection (`PipelineSelector`)
+## **FE‑5 — Pipeline Selection (`PipelineSelector`)**
 
-### Story
+### Story  
 As a user, I want to choose which pipeline to run for streaming.
 
-### Acceptance Criteria
-- File: `src/components/PipelineSelector.tsx`
-- Uses existing pipeline metadata from `src/api/pipelines.ts`.
-- On selection change:
-  - Calls `realtime.disconnect()`
-  - Calls `realtime.connect(newPipelineId)`
-- Shows error banner if backend returns `invalid_pipeline`.
+### Acceptance Criteria  
+- File: `src/components/PipelineSelector.tsx`  
+- Reuses existing dropdown UI (no redesign)  
+- Uses pipeline metadata from `src/api/pipelines.ts`  
+- On selection change:  
+  - Calls `realtime.disconnect()`  
+  - Calls `realtime.connect(newPipelineId)`  
+- If backend returns `invalid_pipeline`, `RealtimeContext` sets `lastError`, and `ErrorBanner` displays it  
 
 ---
 
-## FE‑6 — Error Handling UI (`ErrorBanner`)
+## **FE‑6 — Error Handling UI (`ErrorBanner`)**
 
-### Story
+### Story  
 As a user, I want clear error messages when streaming fails.
 
-### Acceptance Criteria
-- File: `src/components/ErrorBanner.tsx`
-- Displays messages for:
-  - `invalid_pipeline`
-  - `invalid_frame`
-  - `frame_too_large`
-  - `invalid_message`
-  - `pipeline_failure`
-  - `internal_error`
-- Integrates with `RealtimeContext` to read last error.
-- Provides “Retry” / “Reconnect” actions.
+### Acceptance Criteria  
+- File: `src/components/ErrorBanner.tsx`  
+- Uses `RealtimeContext` to read `lastError` (`{ code, detail }`)  
+- Maps error codes to user‑friendly messages:  
+  - `invalid_pipeline` → “The selected pipeline is not available.”  
+  - `invalid_frame` → “The video frame could not be processed.”  
+  - `frame_too_large` → “The video frame is too large.”  
+  - `invalid_message` → “The server received an unexpected message.”  
+  - `pipeline_failure` → “The pipeline failed while processing your video.”  
+  - `internal_error` → “An internal error occurred. Please try again.”  
+- Provides a single “Retry”/“Reconnect” action that:  
+  - Clears error  
+  - Reconnects with current pipeline  
 
 ---
 
-## FE‑7 — Debug / Metrics Panel (`ConfigPanel` or dedicated component)
+## **FE‑7 — Debug / Metrics Panel (`StreamDebugPanel`)**
 
-### Story
-As a developer, I want a debug panel to inspect streaming performance.
+### Story  
+As a developer, I want a debug panel to inspect streaming performance and connection state.
 
-### Acceptance Criteria
-- File: `src/components/ConfigPanel.tsx` (or `StreamDebugPanel.tsx` if you prefer a new component)
-- Shows:
-  - Current FPS (from `FPSThrottler` / internal state)
-  - Dropped frame rate
-  - Slow‑down warnings count
-  - WebSocket connection status
-- Toggleable via a small button or config switch.
+### Acceptance Criteria  
+- File: `src/components/StreamDebugPanel.tsx` (new)  
+- Uses `RealtimeContext` to read:  
+  - `status`  
+  - `droppedFrames`  
+  - `slowDownWarnings`  
+  - `lastResult` (for frame_index)  
+- Maintains simple metrics in `useRealtime`:  
+  - `framesSent`  
+  - `startTime` → derive approximate FPS = `framesSent / elapsedSeconds`  
+  - Dropped frame rate = `droppedFrames / framesSent`  
+- Panel shows:  
+  - Connection status  
+  - Approx FPS  
+  - Dropped frame count and rate  
+  - Slow‑down warnings count  
+- Toggle button (e.g. “Debug”) in main layout to show/hide panel  
 
 ---
 
-## FE‑8 — MP4 Upload Fallback (Existing `useVideoProcessor`)
+## **FE‑8 — MP4 Upload Fallback (`useVideoProcessor` path)**
 
-### Story
+### Story  
 As a user, I want to upload MP4 files when I can’t stream live video.
 
-### Acceptance Criteria
-- Files:
-  - `src/hooks/useVideoProcessor.ts`
-  - `src/components/JobList.tsx`
-  - `src/components/ProgressBar.tsx`
-- Confirm:
-  - MP4 upload path still works with Phase‑15 backend.
-  - No regressions introduced by Phase‑17 changes.
-- No WebSocket changes required.
-```
+### Acceptance Criteria  
+- Files:  
+  - `src/hooks/useVideoProcessor.ts`  
+  - `src/components/JobList.tsx`  
+  - `src/components/ProgressBar.tsx`  
+- No behavioral changes required for Phase‑17  
+- Confirm existing tests still pass:  
+  - `useVideoProcessor.test.ts`  
+  - `JobList.test.tsx`  
+- Ensure Phase‑17 streaming changes do not break MP4 upload flow  
 
+---
+
+## Shared Types (Frontend)
+
+- File: `src/realtime/types.ts`  
+- Contains:  
+  - `StreamingResultPayload`  
+  - `StreamingDroppedPayload`  
+  - `StreamingSlowDownPayload`  
+  - `StreamingErrorPayload`  
+  - `StreamingMessage` union  
+  - `Detection` type  
+
+---
