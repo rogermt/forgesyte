@@ -22,7 +22,7 @@ from fastapi import APIRouter, Query, WebSocket, WebSocketDisconnect
 
 from app.services.streaming.session_manager import SessionManager
 from app.services.streaming.frame_validator import validate_jpeg, FrameValidationError
-from app.services.video_file_pipeline_service import VideoFilePipelineService
+from app.services.dag_pipeline_service import DagPipelineService
 
 router = APIRouter()
 logger = logging.getLogger("streaming")
@@ -49,6 +49,22 @@ async def video_stream(
         await websocket.send_json({
             "error": "invalid_pipeline",
             "detail": "pipeline_id query parameter is required"
+        })
+        await websocket.close()
+        return
+
+    # Get registry and plugin_manager from app state
+    registry = websocket.app.state.pipeline_registry
+    plugin_manager = websocket.app.state.plugin_manager_for_pipelines
+
+    # Create DAG service for pipeline validation and execution
+    dag_service = DagPipelineService(registry, plugin_manager)
+
+    # Validate pipeline_id using dag_service.is_valid_pipeline_instance
+    if not dag_service.is_valid_pipeline_instance(pipeline_id):
+        await websocket.send_json({
+            "error": "invalid_pipeline",
+            "detail": f"Unknown pipeline_id: {pipeline_id}"
         })
         await websocket.close()
         return
@@ -92,8 +108,39 @@ async def video_stream(
                 # Increment frame index
                 session.increment_frame()
 
-                # Pipeline execution will be added in Commit 7
-                # For now, just accept the frame
+                # Construct Phase-15 payload
+                payload = {
+                    "frame_index": session.frame_index,
+                    "image_bytes": frame_bytes
+                }
+
+                # Run pipeline
+                try:
+                    result = dag_service.run_pipeline(pipeline_id, payload)
+
+                    # Send result to client
+                    await websocket.send_json({
+                        "frame_index": session.frame_index,
+                        "result": result
+                    })
+                except Exception as pipeline_error:
+                    # Pipeline execution failed
+                    logger.error(
+                        "stream_pipeline_error",
+                        extra={
+                            "event_type": "stream_pipeline_error",
+                            "session_id": session.session_id,
+                            "pipeline_id": pipeline_id,
+                            "frame_index": session.frame_index,
+                            "error": str(pipeline_error),
+                        }
+                    )
+                    await websocket.send_json({
+                        "error": "pipeline_failure",
+                        "detail": str(pipeline_error)
+                    })
+                    await websocket.close()
+                    return
 
             elif "text" in message:
                 # Text message received - reject with error

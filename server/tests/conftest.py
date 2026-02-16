@@ -129,6 +129,7 @@ def app_with_plugins():
     Returns:
         FastAPI app with all services initialized and plugins loaded
     """
+    from pathlib import Path
     from app.auth import init_auth_service
     from app.main import app
     from app.plugin_loader import PluginRegistry
@@ -139,6 +140,7 @@ def app_with_plugins():
         PluginManagementService,
         VisionAnalysisService,
     )
+    from app.services.pipeline_registry_service import PipelineRegistryService
     from app.tasks import init_task_processor
     from app.websocket_manager import ws_manager
 
@@ -186,6 +188,11 @@ def app_with_plugins():
         tasks_module.job_store, tasks_module.task_processor
     )
     app.state.plugin_service = PluginManagementService(plugin_manager)
+
+    # Phase 15: Initialize pipeline registry for video processing
+    pipelines_dir = str(Path(__file__).resolve().parents[1] / "app" / "pipelines")
+    app.state.pipeline_registry = PipelineRegistryService(pipelines_dir)
+    app.state.plugin_manager_for_pipelines = plugin_manager
 
     return app
 
