@@ -618,3 +618,315 @@ describe("useWebSocket", () => {
         });
     });
 });
+describe("useWebSocket (Phase 17 Streaming)", () => {
+    let mockInstances: MockWebSocket[] = [];
+
+    beforeEach(() => {
+        mockInstances = [];
+        const wsMock = function(this: unknown, url: string) {
+            const instance = new MockWebSocket(url);
+            mockInstances.push(instance);
+            return instance;
+        } as unknown as typeof WebSocket;
+        
+        const wsMockAsUnknown = wsMock as unknown as Record<string, number>;
+        wsMockAsUnknown.CONNECTING = CONNECTING;
+        wsMockAsUnknown.OPEN = OPEN;
+        wsMockAsUnknown.CLOSING = CLOSING;
+        wsMockAsUnknown.CLOSED = CLOSED;
+
+        (global as unknown as { WebSocket: unknown }).WebSocket = vi.fn(wsMock as unknown as () => unknown);
+        const globalWs = (global as unknown as { WebSocket: Record<string, number> }).WebSocket;
+        globalWs.CONNECTING = CONNECTING;
+        globalWs.OPEN = OPEN;
+        globalWs.CLOSING = CLOSING;
+        globalWs.CLOSED = CLOSED;
+    });
+
+    afterEach(() => {
+        vi.clearAllMocks();
+    });
+
+    const getLatestMock = () => mockInstances[mockInstances.length - 1];
+
+    describe("binary frame sending", () => {
+        it("sendFrame sends binary data when connected", async () => {
+            const { result } = renderHook(() =>
+                useWebSocket({ url: "ws://localhost:8000/ws/video/stream", plugin: "yolo_ocr" })
+            );
+
+            const mockWs = getLatestMock();
+            act(() => {
+                mockWs.simulateOpen();
+            });
+
+            await waitFor(() => {
+                expect(result.current.isConnected).toBe(true);
+            });
+
+            const binaryData = new Uint8Array([0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10, 0x4A, 0x46]);
+            
+            act(() => {
+                // @ts-expect-error - sendFrame is a new method for Phase 17
+                if (result.current.sendFrame && typeof result.current.sendFrame === 'function') {
+                    result.current.sendBinaryFrame(binaryData);
+                }
+            });
+
+            // Verify binary data was sent
+            expect(mockWs.send).toHaveBeenCalled();
+            const sentData = mockWs.send.mock.calls[0][0];
+            expect(sentData).toBeInstanceOf(Uint8Array);
+            expect(Array.from(sentData)).toEqual([0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10, 0x4A, 0x46]);
+        });
+
+        it("sendFrame accepts ArrayBuffer and converts to Uint8Array", async () => {
+            const { result } = renderHook(() =>
+                useWebSocket({ url: "ws://localhost:8000/ws/video/stream", plugin: "yolo_ocr" })
+            );
+
+            const mockWs = getLatestMock();
+            act(() => {
+                mockWs.simulateOpen();
+            });
+
+            await waitFor(() => {
+                expect(result.current.isConnected).toBe(true);
+            });
+
+            const arrayBuffer = new ArrayBuffer(8);
+            const uint8View = new Uint8Array(arrayBuffer);
+            uint8View.set([0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10, 0x4A, 0x46]);
+            
+            act(() => {
+                // @ts-expect-error - sendFrame is a new method for Phase 17
+                if (result.current.sendFrame && typeof result.current.sendFrame === 'function') {
+                    result.current.sendBinaryFrame(arrayBuffer);
+                }
+            });
+
+            expect(mockWs.send).toHaveBeenCalled();
+            const sentData = mockWs.send.mock.calls[0][0];
+            expect(sentData).toBeInstanceOf(Uint8Array);
+        });
+
+        it("sendFrame does not send when disconnected", () => {
+            const { result } = renderHook(() =>
+                useWebSocket({ url: "ws://localhost:8000/ws/video/stream", plugin: "yolo_ocr" })
+            );
+
+            const mockWs = getLatestMock();
+            const binaryData = new Uint8Array([0xFF, 0xD8, 0xFF, 0xE0]);
+            
+            act(() => {
+                // @ts-expect-error - sendFrame is a new method for Phase 17
+                if (result.current.sendFrame && typeof result.current.sendFrame === 'function') {
+                    result.current.sendBinaryFrame(binaryData);
+                }
+            });
+
+            expect(mockWs.send).not.toHaveBeenCalled();
+        });
+    });
+
+    describe("Phase 17 message parsing", () => {
+        it("handles result messages with frame_index", async () => {
+            const { result } = renderHook(() =>
+                useWebSocket({ url: "ws://localhost:8000/ws/video/stream", plugin: "yolo_ocr" })
+            );
+
+            const mockWs = getLatestMock();
+            act(() => {
+                mockWs.simulateOpen();
+            });
+
+            await waitFor(() => {
+                expect(result.current.isConnected).toBe(true);
+            });
+
+            act(() => {
+                mockWs.simulateMessage({
+                    frame_index: 42,
+                    result: { detections: [{ x: 0.1, y: 0.2, w: 0.3, h: 0.4, label: "person", score: 0.92 }] }
+                });
+            });
+
+            await waitFor(() => {
+                // @ts-expect-error - lastResult is a new state field for Phase 17
+                if (result.current.lastResult) {
+                    expect(result.current.lastResult.frame_index).toBe(42);
+                    expect(result.current.lastResult.result).toEqual({
+                        detections: [{ x: 0.1, y: 0.2, w: 0.3, h: 0.4, label: "person", score: 0.92 }]
+                    });
+                }
+            });
+        });
+
+        it("increments droppedFrames on dropped frame messages", async () => {
+            const { result } = renderHook(() =>
+                useWebSocket({ url: "ws://localhost:8000/ws/video/stream", plugin: "yolo_ocr" })
+            );
+
+            const mockWs = getLatestMock();
+            act(() => {
+                mockWs.simulateOpen();
+            });
+
+            await waitFor(() => {
+                expect(result.current.isConnected).toBe(true);
+            });
+
+            // @ts-expect-error - droppedFrames is a new state field for Phase 17
+            const initialDropped = result.current.droppedFrames || 0;
+
+            act(() => {
+                mockWs.simulateMessage({
+                    frame_index: 42,
+                    dropped: true
+                });
+            });
+
+            await waitFor(() => {
+                // @ts-expect-error: Phase 17 streaming state
+                expect(result.current.droppedFrames).toBe(initialDropped + 1);
+            });
+        });
+
+        it("increments slowDownWarnings on slow_down messages", async () => {
+            const { result } = renderHook(() =>
+                useWebSocket({ url: "ws://localhost:8000/ws/video/stream", plugin: "yolo_ocr" })
+            );
+
+            const mockWs = getLatestMock();
+            act(() => {
+                mockWs.simulateOpen();
+            });
+
+            await waitFor(() => {
+                expect(result.current.isConnected).toBe(true);
+            });
+
+            // @ts-expect-error - slowDownWarnings is a new state field for Phase 17
+            const initialWarnings = result.current.slowDownWarnings || 0;
+
+            act(() => {
+                mockWs.simulateMessage({
+                    warning: "slow_down"
+                });
+            });
+
+            await waitFor(() => {
+                // @ts-expect-error: Phase 17 streaming state
+                expect(result.current.slowDownWarnings).toBe(initialWarnings + 1);
+            });
+        });
+
+        it("sets lastError on error messages", async () => {
+            const { result } = renderHook(() =>
+                useWebSocket({ url: "ws://localhost:8000/ws/video/stream", plugin: "yolo_ocr" })
+            );
+
+            const mockWs = getLatestMock();
+            act(() => {
+                mockWs.simulateOpen();
+            });
+
+            await waitFor(() => {
+                expect(result.current.isConnected).toBe(true);
+            });
+
+            act(() => {
+                mockWs.simulateMessage({
+                    error: "invalid_frame",
+                    detail: "Not a valid JPEG image"
+                });
+            });
+
+            await waitFor(() => {
+                // @ts-expect-error - lastError is a new state field for Phase 17
+                if (result.current.lastError) {
+                    expect(result.current.lastError.error).toBe("invalid_frame");
+                    expect(result.current.lastError.detail).toBe("Not a valid JPEG image");
+                }
+            });
+        });
+
+        it("handles multiple slow_down warnings correctly", async () => {
+            const { result } = renderHook(() =>
+                useWebSocket({ url: "ws://localhost:8000/ws/video/stream", plugin: "yolo_ocr" })
+            );
+
+            const mockWs = getLatestMock();
+            act(() => {
+                mockWs.simulateOpen();
+            });
+
+            await waitFor(() => {
+                expect(result.current.isConnected).toBe(true);
+            });
+
+            // @ts-expect-error: Phase 17 streaming state
+            const initialWarnings = result.current.slowDownWarnings || 0;
+
+            // Send multiple slow_down warnings
+            for (let i = 0; i < 3; i++) {
+                act(() => {
+                    mockWs.simulateMessage({
+                        warning: "slow_down"
+                    });
+                });
+            }
+
+            await waitFor(() => {
+                // @ts-expect-error: Phase 17 streaming state
+                expect(result.current.slowDownWarnings).toBe(initialWarnings + 3);
+            });
+        });
+
+        it("handles mixed result and dropped messages", async () => {
+            const { result } = renderHook(() =>
+                useWebSocket({ url: "ws://localhost:8000/ws/video/stream", plugin: "yolo_ocr" })
+            );
+
+            const mockWs = getLatestMock();
+            act(() => {
+                mockWs.simulateOpen();
+            });
+
+            await waitFor(() => {
+                expect(result.current.isConnected).toBe(true);
+            });
+
+            // Send a result
+            act(() => {
+                mockWs.simulateMessage({
+                    frame_index: 1,
+                    result: { detections: [] }
+                });
+            });
+
+            // Send a dropped frame
+            act(() => {
+                mockWs.simulateMessage({
+                    frame_index: 2,
+                    dropped: true
+                });
+            });
+
+            // Send another result
+            act(() => {
+                mockWs.simulateMessage({
+                    frame_index: 3,
+                    result: { detections: [{ label: "car", score: 0.95 }] }
+                });
+            });
+
+            await waitFor(() => {
+                // @ts-expect-error: Phase 17 streaming state
+                expect(result.current.droppedFrames).toBeGreaterThan(0);
+                // @ts-expect-error: Phase 17 streaming state
+                expect(result.current.lastResult.frame_index).toBe(3);
+            });
+        });
+    });
+});

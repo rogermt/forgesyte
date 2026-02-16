@@ -5,6 +5,8 @@
  * - VITE_WS_URL: WebSocket endpoint URL (default: ws://localhost:8000/v1/stream)
  * - VITE_API_KEY: Optional API authentication key
  *
+ * Phase 17: Extended to support binary streaming with /ws/video/stream endpoint
+ *
  * ==========================
  * Best practices + citations
  * ==========================
@@ -36,6 +38,10 @@
  */
 
 import { useCallback, useEffect, useMemo, useReducer, useRef } from "react";
+import type {
+  StreamingResultPayload,
+  StreamingErrorPayload,
+} from "../realtime/types";
 
 const DEFAULT_WS_URL =
   import.meta.env.VITE_WS_URL || "ws://localhost:8000/v1/stream";
@@ -108,11 +114,15 @@ export interface UseWebSocketReturn {
   attempt: number;
   errorInfo: ErrorInfo | null;
 
+  // Legacy: sends JSON with base64 image
   sendFrame: (
     imageData: string,
     frameId?: string,
     options?: Record<string, unknown>
   ) => void;
+
+  // Phase 17: sends binary JPEG bytes
+  sendBinaryFrame: (bytes: Uint8Array | ArrayBuffer) => void;
 
   switchPlugin: (pluginName: string) => void;
 
@@ -120,6 +130,12 @@ export interface UseWebSocketReturn {
   reconnect: () => void;
 
   latestResult: FrameResult | null;
+
+  // Phase 17: streaming state
+  lastResult: StreamingResultPayload | null;
+  droppedFrames: number;
+  slowDownWarnings: number;
+  lastError: StreamingErrorPayload | null;
 
   stats: {
     framesProcessed: number;
@@ -132,6 +148,12 @@ type State = {
   attempt: number;
   errorInfo: ErrorInfo | null;
   latestResult: FrameResult | null;
+
+  // Phase 17: streaming state
+  lastResult: StreamingResultPayload | null;
+  droppedFrames: number;
+  slowDownWarnings: number;
+  lastError: StreamingErrorPayload | null;
 
   stats: {
     framesProcessed: number;
@@ -149,13 +171,23 @@ type Action =
   | { type: "SET_ERROR"; errorInfo: ErrorInfo }
   | { type: "CLEAR_ERROR" }
   | { type: "RESULT"; result: FrameResult; avgProcessingTime: number }
-  | { type: "MARK_EVER_CONNECTED" };
+  | { type: "MARK_EVER_CONNECTED" }
+  // Phase 17 actions
+  | { type: "STREAMING_RESULT"; payload: StreamingResultPayload }
+  | { type: "FRAME_DROPPED" }
+  | { type: "SLOW_DOWN_WARNING" }
+  | { type: "STREAMING_ERROR"; payload: StreamingErrorPayload };
 
 const initialState: State = {
   status: "idle",
   attempt: 0,
   errorInfo: null,
   latestResult: null,
+  // Phase 17: streaming state
+  lastResult: null,
+  droppedFrames: 0,
+  slowDownWarnings: 0,
+  lastError: null,
   stats: { framesProcessed: 0, avgProcessingTime: 0 },
   hasEverConnected: false,
 };
@@ -201,6 +233,19 @@ function reducer(state: State, action: Action): State {
           avgProcessingTime: action.avgProcessingTime,
         },
       };
+
+    // Phase 17 actions
+    case "STREAMING_RESULT":
+      return { ...state, lastResult: action.payload };
+
+    case "FRAME_DROPPED":
+      return { ...state, droppedFrames: state.droppedFrames + 1 };
+
+    case "SLOW_DOWN_WARNING":
+      return { ...state, slowDownWarnings: state.slowDownWarnings + 1 };
+
+    case "STREAMING_ERROR":
+      return { ...state, lastError: action.payload };
 
     default:
       return state;
@@ -458,6 +503,43 @@ export function useWebSocket(options: UseWebSocketOptions): UseWebSocketReturn {
     ws.onmessage = (event) => {
       const msg = safeParseMessage(event.data);
       if (!msg) {
+        // Phase 17: Try to parse as streaming message (key-based detection)
+        try {
+          const data = typeof event.data === "string" ? JSON.parse(event.data) : null;
+          if (data && typeof data === "object") {
+            // Phase 17 message format: key-based detection
+            if ("error" in data && "detail" in data) {
+              const errorPayload: StreamingErrorPayload = {
+                error: data.error as string,
+                detail: data.detail as string,
+              };
+              dispatch({ type: "STREAMING_ERROR", payload: errorPayload });
+              return;
+            }
+
+            if ("warning" in data && data.warning === "slow_down") {
+              dispatch({ type: "SLOW_DOWN_WARNING" });
+              return;
+            }
+
+            if ("dropped" in data && data.dropped === true && "frame_index" in data) {
+              dispatch({ type: "FRAME_DROPPED" });
+              return;
+            }
+
+            if ("result" in data && "frame_index" in data) {
+              const resultPayload: StreamingResultPayload = {
+                frame_index: data.frame_index as number,
+                result: data.result,
+              };
+              dispatch({ type: "STREAMING_RESULT", payload: resultPayload });
+              return;
+            }
+          }
+        } catch {
+          // If parsing fails, treat as protocol error
+        }
+
         dispatch({
           type: "SET_ERROR",
           errorInfo: {
@@ -655,6 +737,7 @@ export function useWebSocket(options: UseWebSocketOptions): UseWebSocketReturn {
     connectRef.current();
   }, [disconnect]);
 
+  // Legacy: sends JSON with base64 image
   const sendFrame = useCallback(
     (imageData: string, frameId?: string, extra?: Record<string, unknown>) => {
       if (wsRef.current?.readyState !== WebSocket.OPEN) return;
@@ -671,6 +754,20 @@ export function useWebSocket(options: UseWebSocketOptions): UseWebSocketReturn {
       );
     },
     [plugin, tools]
+  );
+
+  // Phase 17: sends binary JPEG bytes
+  const sendBinaryFrame = useCallback(
+    (bytes: Uint8Array | ArrayBuffer) => {
+      if (wsRef.current?.readyState !== WebSocket.OPEN) return;
+
+      const uint8Array = bytes instanceof ArrayBuffer
+        ? new Uint8Array(bytes)
+        : bytes;
+
+      wsRef.current.send(uint8Array);
+    },
+    []
   );
 
   const switchPlugin = useCallback((pluginName: string) => {
@@ -699,10 +796,16 @@ export function useWebSocket(options: UseWebSocketOptions): UseWebSocketReturn {
     attempt: state.attempt,
     errorInfo: state.errorInfo,
     sendFrame,
+    sendBinaryFrame,
     switchPlugin,
     disconnect,
     reconnect,
     latestResult: state.latestResult,
+    // Phase 17: streaming state
+    lastResult: state.lastResult,
+    droppedFrames: state.droppedFrames,
+    slowDownWarnings: state.slowDownWarnings,
+    lastError: state.lastError,
     stats: state.stats,
   };
 }
