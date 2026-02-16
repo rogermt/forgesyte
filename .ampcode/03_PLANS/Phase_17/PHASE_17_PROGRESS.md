@@ -6,7 +6,7 @@
 
 **Implementation Ready**: All Q&A clarifications incorporated, user stories finalized, templates provided.
 
-**Backend Progress**: 4/12 commits completed (33%)
+**Backend Progress**: 6/12 commits completed (50%)
 **Frontend Progress**: 0/8 commits completed (0%)
 
 ---
@@ -80,24 +80,30 @@
 
 **Test Log**: Streaming tests: 24/24 passing
 
-### Commit 5: Receive Binary Frames
-- [ ] Write failing tests
-  - [ ] WebSocket accepts binary frame
-  - [ ] WebSocket rejects text message with invalid_message error
-  - [ ] WebSocket closes connection on invalid_message
-  - [ ] Receiving frame increments frame_index
-- [ ] Implement message handler
-- [ ] Verify all tests pass
-- [ ] Commit
+### Commit 5: Receive Binary Frames ✅
+- [x] Write failing tests
+  - [x] WebSocket accepts binary frame
+  - [x] WebSocket rejects text message with invalid_message error
+  - [x] WebSocket closes connection on invalid_message
+  - [x] Receiving frame increments frame_index
+- [x] Implement message handler
+- [x] Verify all tests pass
+- [x] Commit
 
-### Commit 6: Frame Validation Integration
-- [ ] Write failing tests
-  - [ ] Invalid frame sends error with detail and closes connection
-  - [ ] Oversized frame sends error with detail and closes connection
-  - [ ] Valid frame does not close connection
-- [ ] Integrate validator into message handler
-- [ ] Verify all tests pass
-- [ ] Commit
+**Test Log**: `/tmp/phase17_backend_commit_05_final.log`
+**Tests**: 28/28 passing
+
+### Commit 6: Frame Validation Integration ✅
+- [x] Write failing tests
+  - [x] Invalid frame sends error with detail and closes connection
+  - [x] Oversized frame sends error with detail and closes connection
+  - [x] Valid frame does not close connection
+- [x] Integrate validator into message handler
+- [x] Verify all tests pass
+- [x] Commit
+
+**Test Log**: `/tmp/phase17_backend_commit_06_final.log`
+**Tests**: 31/31 passing
 
 ### Commit 7: Pipeline Execution Integration
 - [ ] Write failing tests
@@ -387,31 +393,31 @@ grep -q "passed" /tmp/phase17_frontend_commit_FE<N>_test.log
 - [ ] Committed
 
 #### Commit 4
-- [ ] Verified GREEN before starting
-- [ ] Wrote FAILING test
-- [ ] Verified RED (test failed)
-- [ ] Implemented code
-- [ ] Verified GREEN (all tests pass)
-- [ ] Saved test log to `/tmp/phase17_backend_commit_04.log`
-- [ ] Committed
+- [x] Verified GREEN before starting
+- [x] Wrote FAILING test
+- [x] Verified RED (test failed)
+- [x] Implemented code
+- [x] Verified GREEN (all tests pass)
+- [x] Saved test log to `/tmp/phase17_backend_commit_04.log`
+- [x] Committed
 
 #### Commit 5
-- [ ] Verified GREEN before starting
-- [ ] Wrote FAILING test
-- [ ] Verified RED (test failed)
-- [ ] Implemented code
-- [ ] Verified GREEN (all tests pass)
-- [ ] Saved test log to `/tmp/phase17_backend_commit_05.log`
-- [ ] Committed
+- [x] Verified GREEN before starting
+- [x] Wrote FAILING test
+- [x] Verified RED (test failed)
+- [x] Implemented code
+- [x] Verified GREEN (all tests pass)
+- [x] Saved test log to `/tmp/phase17_backend_commit_05_final.log`
+- [x] Committed
 
 #### Commit 6
-- [ ] Verified GREEN before starting
-- [ ] Wrote FAILING test
-- [ ] Verified RED (test failed)
-- [ ] Implemented code
-- [ ] Verified GREEN (all tests pass)
-- [ ] Saved test log to `/tmp/phase17_backend_commit_06.log`
-- [ ] Committed
+- [x] Verified GREEN before starting
+- [x] Wrote FAILING test
+- [x] Verified RED (test failed)
+- [x] Implemented code
+- [x] Verified GREEN (all tests pass)
+- [x] Saved test log to `/tmp/phase17_backend_commit_06_final.log`
+- [x] Committed
 
 #### Commit 7
 - [ ] Verified GREEN before starting
@@ -601,9 +607,9 @@ Commit messages MUST reference test logs as proof of compliance with TDD mandate
 
 ## Overall Progress
 
-**Backend Commits Completed**: 4/12 (33%)
+**Backend Commits Completed**: 6/12 (50%)
 **Frontend Commits Completed**: 0/8 (0%)
-**Total Commits Completed**: 4/20 (20%)
+**Total Commits Completed**: 6/20 (30%)
 **Backend Test Coverage**: 100% for implemented features
 **Frontend Test Coverage**: 0%
 **Documentation**: 0%
@@ -614,10 +620,10 @@ Commit messages MUST reference test logs as proof of compliance with TDD mandate
 ✅ Commit 2: Session Manager Class
 ✅ Commit 3: Frame Validator
 ✅ Commit 4: Integrate SessionManager into WebSocket
+✅ Commit 5: Receive Binary Frames
+✅ Commit 6: Frame Validation Integration
 
 ### Remaining Backend Commits
-⏳ Commit 5: Receive Binary Frames
-⏳ Commit 6: Frame Validation Integration
 ⏳ Commit 7: Pipeline Execution Integration
 ⏳ Commit 8: Backpressure (Drop Frames)
 ⏳ Commit 9: Backpressure (Slow-Down Signal)
