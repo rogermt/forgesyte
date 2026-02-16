@@ -137,6 +137,19 @@ export class RealtimeClient {
     }
   }
 
+  /**
+   * Phase 17: Send binary frame data (JPEG) to server
+   * 
+   * @param bytes - Binary frame data as Uint8Array or ArrayBuffer
+   */
+  sendFrame(bytes: Uint8Array | ArrayBuffer): void {
+    if (this.ws && this.state === ConnectionState.CONNECTED) {
+      const data = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
+      this.ws.send(data);
+    }
+  }
+
+
   on(messageType: string, handler: MessageHandler): void {
     const handlers = this.messageHandlers.get(messageType) || [];
     handlers.push(handler);

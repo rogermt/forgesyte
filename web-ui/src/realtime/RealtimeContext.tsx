@@ -13,6 +13,7 @@
  */
 
 import { createContext, useContext, useReducer, useEffect, useState, ReactNode } from 'react';
+import type { StreamingResultPayload, StreamingErrorPayload } from './types';
 import { RealtimeClient, RealtimeMessage, ConnectionState } from './RealtimeClient';
 
 interface RealtimeState {
@@ -23,6 +24,11 @@ interface RealtimeState {
   errors: string[];
   currentPlugin: string | null;
   isConnected: boolean;
+  // Phase 17: Streaming state
+  lastResult: StreamingResultPayload | null;
+  droppedFrames: number;
+  slowDownWarnings: number;
+  lastError: StreamingErrorPayload | null;
 }
 
 type RealtimeAction =
@@ -32,7 +38,12 @@ type RealtimeAction =
   | { type: 'ADD_WARNING'; payload: string }
   | { type: 'ADD_ERROR'; payload: string }
   | { type: 'SET_CURRENT_PLUGIN'; payload: string | null }
-  | { type: 'RESET' };
+  | { type: 'RESET' }
+  // Phase 17: Streaming actions
+  | { type: 'SET_LAST_RESULT'; payload: StreamingResultPayload }
+  | { type: 'INCREMENT_DROPPED_FRAMES' }
+  | { type: 'INCREMENT_SLOW_DOWN_WARNINGS' }
+  | { type: 'SET_LAST_ERROR'; payload: StreamingErrorPayload };
 
 const initialState: RealtimeState = {
   connectionState: ConnectionState.IDLE,
@@ -42,6 +53,11 @@ const initialState: RealtimeState = {
   errors: [],
   currentPlugin: null,
   isConnected: false,
+  // Phase 17: Streaming state
+  lastResult: null,
+  droppedFrames: 0,
+  slowDownWarnings: 0,
+  lastError: null,
 };
 
 function reducer(state: RealtimeState, action: RealtimeAction): RealtimeState {
@@ -64,6 +80,15 @@ function reducer(state: RealtimeState, action: RealtimeAction): RealtimeState {
       return { ...state, currentPlugin: action.payload };
     case 'RESET':
       return initialState;
+    // Phase 17: Streaming action handlers
+    case 'SET_LAST_RESULT':
+      return { ...state, lastResult: action.payload };
+    case 'INCREMENT_DROPPED_FRAMES':
+      return { ...state, droppedFrames: state.droppedFrames + 1 };
+    case 'INCREMENT_SLOW_DOWN_WARNINGS':
+      return { ...state, slowDownWarnings: state.slowDownWarnings + 1 };
+    case 'SET_LAST_ERROR':
+      return { ...state, lastError: action.payload };
     default:
       return state;
   }
