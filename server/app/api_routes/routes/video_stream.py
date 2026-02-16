@@ -145,6 +145,14 @@ async def video_stream(
                             "frame_index": session.frame_index,
                             "result": result
                         })
+
+                    # Check if we should send a slow-down warning
+                    # This is checked after each frame (whether dropped or processed)
+                    if session.should_slow_down():
+                        # Send slow-down warning to client
+                        await websocket.send_json({
+                            "warning": "slow_down"
+                        })
                 except Exception as pipeline_error:
                     # Pipeline execution failed
                     logger.error(

@@ -6,7 +6,7 @@
 
 **Implementation Ready**: All Q&A clarifications incorporated, user stories finalized, templates provided.
 
-**Backend Progress**: 8/12 commits completed (67%)
+**Backend Progress**: 9/12 commits completed (75%)
 **Frontend Progress**: 0/8 commits completed (0%)
 
 ---
@@ -132,15 +132,18 @@
 **Test Log**: `/tmp/phase17_backend_commit_08_final.log`
 **Tests**: 39/39 passing
 
-### Commit 9: Backpressure (Slow-Down Signal)
-- [ ] Write failing tests
-  - [ ] `should_slow_down()` delegates to Backpressure.should_slow_down()
-  - [ ] Drop rate > threshold sends slow-down warning
-  - [ ] Drop rate < threshold does not send warning
-  - [ ] Slowdown threshold reads from environment variable
-- [ ] Implement slow-down signal logic with Backpressure delegation
-- [ ] Verify all tests pass
-- [ ] Commit
+### Commit 9: Backpressure (Slow-Down Signal) ✅
+- [x] Write failing tests
+  - [x] `should_slow_down()` delegates to Backpressure.should_slow_down()
+  - [x] Drop rate > threshold sends slow-down warning
+  - [x] Drop rate < threshold does not send warning
+  - [x] Slowdown threshold reads from environment variable
+- [x] Implement slow-down signal logic with Backpressure delegation
+- [x] Verify all tests pass
+- [x] Commit
+
+**Test Log**: `/tmp/phase17_backend_commit_09_final.log`
+**Tests**: 44/44 passing
 
 ### Commit 10: Error Handling + Structured Exceptions
 - [ ] Write failing tests
@@ -444,13 +447,13 @@ grep -q "passed" /tmp/phase17_frontend_commit_FE<N>_test.log
 - [x] Committed
 
 #### Commit 9
-- [ ] Verified GREEN before starting
-- [ ] Wrote FAILING test
-- [ ] Verified RED (test failed)
-- [ ] Implemented code
-- [ ] Verified GREEN (all tests pass)
-- [ ] Saved test log to `/tmp/phase17_backend_commit_09.log`
-- [ ] Committed
+- [x] Verified GREEN before starting
+- [x] Wrote FAILING test
+- [x] Verified RED (test failed)
+- [x] Implemented code
+- [x] Verified GREEN (all tests pass)
+- [x] Saved test log to `/tmp/phase17_backend_commit_09_final.log`
+- [x] Committed
 
 #### Commit 10
 - [ ] Verified GREEN before starting
@@ -613,9 +616,9 @@ Commit messages MUST reference test logs as proof of compliance with TDD mandate
 
 ## Overall Progress
 
-**Backend Commits Completed**: 8/12 (67%)
+**Backend Commits Completed**: 9/12 (75%)
 **Frontend Commits Completed**: 0/8 (0%)
-**Total Commits Completed**: 8/20 (40%)
+**Total Commits Completed**: 9/20 (45%)
 **Backend Test Coverage**: 100% for implemented features
 **Frontend Test Coverage**: 0%
 **Documentation**: 0%
@@ -630,9 +633,9 @@ Commit messages MUST reference test logs as proof of compliance with TDD mandate
 ✅ Commit 6: Frame Validation Integration
 ✅ Commit 7: Pipeline Execution Integration
 ✅ Commit 8: Backpressure (Drop Frames)
+✅ Commit 9: Backpressure (Slow-Down Signal)
 
 ### Remaining Backend Commits
-⏳ Commit 9: Backpressure (Slow-Down Signal)
 ⏳ Commit 10: Error Handling + Structured Exceptions
 ⏳ Commit 11: Logging + Metrics Hooks
 ⏳ Commit 12: Documentation + Rollback Plan
@@ -660,6 +663,8 @@ Commit messages MUST reference test logs as proof of compliance with TDD mandate
 /tmp/phase17_backend_commit_07_final.log      # GREEN verification after Commit 7
 /tmp/phase17_backend_commit_08_initial.log    # GREEN verification before Commit 8
 /tmp/phase17_backend_commit_08_final.log      # GREEN verification after Commit 8
+/tmp/phase17_backend_commit_09_initial.log    # GREEN verification before Commit 9
+/tmp/phase17_backend_commit_09_final.log      # GREEN verification after Commit 9
 ```
 
 ### Frontend Test Logs (Pending)
