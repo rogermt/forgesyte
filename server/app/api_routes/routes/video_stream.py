@@ -16,6 +16,7 @@ Phase: 17
 """
 
 import logging
+import time
 from typing import Optional
 
 from fastapi import APIRouter, Query, WebSocket, WebSocketDisconnect
@@ -108,6 +109,13 @@ async def video_stream(
                 # Increment frame index
                 session.increment_frame()
 
+                # Check if frame should be dropped (backpressure)
+                # We'll check this after pipeline execution to measure processing time
+                # For now, we'll run the pipeline and then decide
+
+                # Record start time for processing
+                processing_start_ms = SessionManager.now_ms()
+
                 # Construct Phase-15 payload
                 payload = {
                     "frame_index": session.frame_index,
@@ -118,11 +126,25 @@ async def video_stream(
                 try:
                     result = dag_service.run_pipeline(pipeline_id, payload)
 
-                    # Send result to client
-                    await websocket.send_json({
-                        "frame_index": session.frame_index,
-                        "result": result
-                    })
+                    # Calculate processing time
+                    processing_time_ms = SessionManager.now_ms() - processing_start_ms
+
+                    # Check if frame should be dropped (backpressure)
+                    if session.should_drop_frame(processing_time_ms):
+                        # Mark frame as dropped
+                        session.mark_drop()
+
+                        # Send drop message to client
+                        await websocket.send_json({
+                            "frame_index": session.frame_index,
+                            "dropped": True
+                        })
+                    else:
+                        # Send result to client
+                        await websocket.send_json({
+                            "frame_index": session.frame_index,
+                            "result": result
+                        })
                 except Exception as pipeline_error:
                     # Pipeline execution failed
                     logger.error(
