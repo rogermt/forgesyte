@@ -11,80 +11,9 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useRealtime } from './RealtimeContext';
-import { RealtimeMessage } from './RealtimeClient';
 import { useWebSocket } from '../hooks/useWebSocket';
 import { FPSThrottler } from '../utils/FPSThrottler';
 import type { StreamingResultPayload, StreamingErrorPayload } from './types';
-
-export function useRealtimeConnection() {
-  const { state, connect, disconnect } = useRealtime();
-
-  return {
-    isConnected: state.isConnected,
-    connectionState: state.connectionState,
-    connect: connect,
-    disconnect: disconnect,
-    progress: state.progress,
-    pluginTimings: state.pluginTimings,
-    warnings: state.warnings,
-    errors: state.errors,
-    currentPlugin: state.currentPlugin,
-  };
-}
-
-export function useRealtimeMessages() {
-  const { on, off, send } = useRealtime();
-
-  const subscribe = useCallback(
-    (type: string, handler: (message: RealtimeMessage) => void) => {
-      on(type, handler);
-      return () => off(type, handler);
-    },
-    [on, off]
-  );
-
-  const sendMessage = useCallback(
-    (type: string, payload: Record<string, unknown>) => {
-      send(type, payload);
-    },
-    [send]
-  );
-
-  const subscribeToAll = useCallback(
-    (handler: (message: RealtimeMessage) => void) => {
-      on('*', handler);
-      return () => off('*', handler);
-    },
-    [on, off]
-  );
-
-  return {
-    subscribe,
-    subscribeToAll,
-    sendMessage,
-  };
-}
-
-export function useProgress() {
-  const { state } = useRealtime();
-
-  return {
-    progress: state.progress,
-    isComplete: state.progress === 100,
-    hasProgress: state.progress !== null,
-  };
-}
-
-export function usePluginTimings() {
-  const { state } = useRealtime();
-
-  return {
-    timings: state.pluginTimings,
-    plugins: Object.keys(state.pluginTimings),
-    getTiming: (pluginId: string) => state.pluginTimings[pluginId] || null,
-  };
-}
 
 /**
  * Phase 17: Real-Time Streaming Hook
@@ -179,4 +108,14 @@ export function useRealtimeStreaming(options: UseRealtimeStreamingOptions = {}):
     sendFrame,
     state,
   };
+}
+
+/**
+ * Canonical Phase 17 realtime hook export.
+ * Replaces the old Phase 10 plugin-based realtime system.
+ */
+export function useRealtime(
+  options?: UseRealtimeStreamingOptions
+): UseRealtimeStreamingReturn {
+  return useRealtimeStreaming(options);
 }
