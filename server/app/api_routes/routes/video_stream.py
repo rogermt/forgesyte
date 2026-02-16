@@ -21,6 +21,7 @@ from typing import Optional
 from fastapi import APIRouter, Query, WebSocket, WebSocketDisconnect
 
 from app.services.streaming.session_manager import SessionManager
+from app.services.streaming.frame_validator import validate_jpeg, FrameValidationError
 from app.services.video_file_pipeline_service import VideoFilePipelineService
 
 router = APIRouter()
@@ -76,10 +77,21 @@ async def video_stream(
                 # Binary frame received
                 frame_bytes = message["bytes"]
 
+                # Validate frame
+                try:
+                    validate_jpeg(frame_bytes)
+                except FrameValidationError as e:
+                    # Send error and close connection
+                    await websocket.send_json({
+                        "error": e.code,
+                        "detail": e.detail
+                    })
+                    await websocket.close()
+                    return
+
                 # Increment frame index
                 session.increment_frame()
 
-                # Frame validation will be added in Commit 6
                 # Pipeline execution will be added in Commit 7
                 # For now, just accept the frame
 
