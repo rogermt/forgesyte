@@ -53,12 +53,6 @@ uv run pytest -k "test_list" -v
 uv run pytest -m asyncio -v
 
 # Run contract tests (JSON-safe output validation)
-# CPU (CI): Tests OCR plugin only
-uv run pytest tests/contract/ -v
-
-# GPU (Kaggle): Tests all plugins including YOLO
-RUN_MODEL_TESTS=1 uv run pytest tests/contract/ -v
-
 # Run execution governance tests
 uv run pytest tests/execution -v
 
@@ -486,3 +480,57 @@ Key documentation files for understanding the project:
 - `docs/design/PLUGIN_WEB_UI.md` - Plugin and Web-UI integration
 - `docs/development/PYTHON_STANDARDS.md` - Python coding standards
 - `docs/guides/PLUGIN_IMPLEMENTATION.md` - Plugin implementation guide
+
+Pre-commit runs in: .github/workflows/ci.yml
+
+Job: lint (line 14-35)
+Step: "Run pre-commit hooks" (line 29-30)
+Uses pre-commit/action@v3.0.0 to run all hooks (black, ruff, mypy, eslint, etc.)
+Web-UI tests run in:
+
+Job: web-ui (line 85-116) in .github/workflows/ci.yml
+Steps:
+Line 103-106: npm run lint (ESLint)
+Line 108-111: npm run type-check (TypeScript strict check)
+Line 113-116: npm test -- --run (Vitest)
+Both jobs depend on lint job completing first, and E2E tests depend on both test and web-ui.
+
+Here's how to run each locally:
+
+**1. execution-ci.yml:**
+```bash
+cd /home/rogermt/forgesyte
+cd ../forgesyte-plugins  # Clone if needed: git clone --depth 1 https://github.com/rogermt/forgesyte-plugins.git
+cd /home/rogermt/forgesyte/server && uv sync
+python scripts/scan_execution_violations.py
+uv run pytest tests/plugins -v
+uv run pytest tests/execution -v
+uv run pytest tests/ -v --tb=short
+```
+
+**2. governance-ci.yml:**
+```bash
+cd /home/rogermt/forgesyte/server && uv sync
+uv run python tools/validate_plugins.py
+uv run python tools/validate_pipelines.py
+uv run python tools/generate_plugin_capability_matrix.py
+git diff --exit-code docs/plugin_capability_matrix_generated.md
+uv run pytest -q --disable-warnings --maxfail=1
+```
+
+**3. video_batch_validation.yml:**
+```bash
+cd /home/rogermt/forgesyte/server && uv sync
+uv run python tools/validate_plugins.py
+uv run python tools/validate_pipelines.py
+uv run python tools/validate_video_batch_path.py
+uv run pytest app/tests/video -q --maxfail=1
+```
+
+**4. vocabulary_validation.yml:** (already tested earlier)
+```bash
+cd /home/rogermt/forgesyte/server && uv sync
+uv run python tools/vocabulary_scanner.py
+uv run pytest tests/execution/test_vocabulary_scanner.py -v
+# smoke test (start server, run smoke_test.py)
+```
