@@ -10,6 +10,7 @@ Phase: 17
 """
 
 from app.services.streaming.backpressure import Backpressure
+from app.services.streaming.frame_validator import FrameValidationError, validate_jpeg
 from app.services.streaming.session_manager import SessionManager
 
-__all__ = ["Backpressure", "SessionManager"]
+__all__ = ["Backpressure", "FrameValidationError", "SessionManager", "validate_jpeg"]
