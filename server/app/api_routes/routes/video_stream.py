@@ -66,10 +66,39 @@ async def video_stream(
     )
 
     try:
-        # Keep connection open (no frame processing yet - that's Commit 5+)
+        # Keep connection open and process frames
         while True:
-            # Receive and acknowledge messages (for now, just keep connection alive)
-            await websocket.receive()
+            # Receive message (can be bytes or text)
+            message = await websocket.receive()
+
+            # Check message type
+            if "bytes" in message:
+                # Binary frame received
+                frame_bytes = message["bytes"]
+
+                # Increment frame index
+                session.increment_frame()
+
+                # Frame validation will be added in Commit 6
+                # Pipeline execution will be added in Commit 7
+                # For now, just accept the frame
+
+            elif "text" in message:
+                # Text message received - reject with error
+                await websocket.send_json({
+                    "error": "invalid_message",
+                    "detail": "Expected binary frame payload, received text message"
+                })
+                await websocket.close()
+                return
+            else:
+                # Unknown message type
+                await websocket.send_json({
+                    "error": "invalid_message",
+                    "detail": "Expected binary frame payload"
+                })
+                await websocket.close()
+                return
 
     except WebSocketDisconnect:
         logger.info(
@@ -105,5 +134,15 @@ async def video_stream(
             )
             await websocket.close()
     finally:
+        # Log disconnect if not already logged
+        # This ensures disconnect is logged even if WebSocketDisconnect wasn't raised
+        logger.info(
+            "stream_disconnect",
+            extra={
+                "event_type": "stream_disconnect",
+                "session_id": session.session_id,
+                "pipeline_id": pipeline_id,
+            }
+        )
         # Destroy session on disconnect
         websocket.state.session = None
