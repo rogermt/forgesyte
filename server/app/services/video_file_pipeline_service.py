@@ -44,6 +44,22 @@ class VideoFilePipelineService:
         """
         self.dag_service = dag_service
 
+    @staticmethod
+    def is_valid_pipeline(pipeline_id: str) -> bool:
+        """
+        Check if a pipeline ID is valid.
+
+        This is a placeholder - the actual validation requires a DagPipelineService instance.
+        Use the instance method via the dag_service attribute for actual validation.
+
+        Args:
+            pipeline_id: Pipeline ID to validate
+
+        Returns:
+            False by default - use instance method for actual validation
+        """
+        return False
+
     def run_on_file(
         self,
         mp4_path: str,

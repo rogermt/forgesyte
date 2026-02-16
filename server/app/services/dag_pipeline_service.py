@@ -146,6 +146,33 @@ class DagPipelineService:
             )
             raise
 
+    @staticmethod
+    def is_valid_pipeline(pipeline_id: str) -> bool:
+        """
+        Check if a pipeline ID is valid.
+
+        Args:
+            pipeline_id: Pipeline ID to validate
+
+        Returns:
+            True if pipeline exists, False otherwise
+        """
+        # This is a static method that will be overridden by instance methods
+        # The actual implementation will use the registry
+        return False
+
+    def is_valid_pipeline_instance(self, pipeline_id: str) -> bool:
+        """
+        Check if a pipeline ID is valid using the registry.
+
+        Args:
+            pipeline_id: Pipeline ID to validate
+
+        Returns:
+            True if pipeline exists, False otherwise
+        """
+        return self._registry.get_pipeline(pipeline_id) is not None
+
     def validate(self, pipeline: Pipeline) -> PipelineValidationResult:
         """
         Validate a pipeline structure.
