@@ -167,7 +167,7 @@ async def video_stream(
                     )
                     await websocket.send_json({
                         "error": "pipeline_failure",
-                        "detail": str(pipeline_error)
+                        "detail": "Pipeline execution failed"
                     })
                     await websocket.close()
                     return
@@ -211,7 +211,7 @@ async def video_stream(
                 }
             )
         else:
-            # Other errors
+            # Other errors - send error message to client
             logger.error(
                 "stream_error",
                 extra={
@@ -221,6 +221,10 @@ async def video_stream(
                     "error": str(e),
                 }
             )
+            await websocket.send_json({
+                "error": "internal_error",
+                "detail": "An unexpected error occurred"
+            })
             await websocket.close()
     finally:
         # Log disconnect if not already logged
