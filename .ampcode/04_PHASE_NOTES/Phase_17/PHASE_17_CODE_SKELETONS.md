@@ -1,493 +1,420 @@
 ## Code Skeletons (Concrete, Wired to Decisions)
 
-### ⭐ Phase‑17 Frontend Commit‑by‑Commit Diff Plan (FE‑1 → FE‑8)  
-*Plus test skeletons wired to each change*
+
+# ⭐ **PHASE‑17 FRONTEND TEST SKELETONS (Commit FE‑1 → FE‑8, Final & Corrected)**  
+*Real‑Time Streaming Inference — WebSocket + Realtime UI*
+
+Each test skeleton is atomic, testable, and aligned with the commit it belongs to.
 
 ---
 
-## FE‑1 — WebSocket Hook Extension (`useWebSocket`)
+# **FE‑1 — useWebSocket Test Skeleton**
 
-**Goal:** Extend existing hook to support binary streaming + Phase‑17 message types.
+### Story  
+As a frontend engineer, I want tests that verify the WebSocket hook handles all Phase‑17 message types.
 
-### Files touched
+### Test File  
+`src/hooks/useWebSocket.test.ts`
 
-- **Modify:** `src/hooks/useWebSocket.ts`
-- **Add:** `src/realtime/types.ts`
-- **Add tests:** `src/hooks/useWebSocket.test.ts` (extend existing or create if missing)
-
-### Diff summary
-
-**1. Add shared streaming types**
-
+### Test Skeleton  
 ```ts
-// src/realtime/types.ts
-export type StreamingResultPayload = {
-  frame_index: number;
-  result: unknown;
-};
-
-export type StreamingDroppedPayload = {
-  frame_index: number;
-  dropped: true;
-};
-
-export type StreamingSlowDownPayload = {
-  warning: "slow_down";
-};
-
-export type StreamingErrorPayload = {
-  error: string;
-  detail: string;
-};
-
-export type StreamingMessage =
-  | StreamingResultPayload
-  | StreamingDroppedPayload
-  | StreamingSlowDownPayload
-  | StreamingErrorPayload;
-```
-
-**2. Extend `useWebSocket`**
-
-- Import streaming types.
-- Add state: `lastResult`, `droppedFrames`, `slowDownWarnings`, `lastError`.
-- Implement `handleMessage` with key‑based detection.
-- Add `sendFrame(bytes)` that sends binary.
-
-```ts
-// src/hooks/useWebSocket.ts (core changes)
-import {
-  StreamingMessage,
-  StreamingResultPayload,
-  StreamingErrorPayload,
-} from "../realtime/types";
-
-type Status = "connecting" | "connected" | "disconnected";
-
-export function useWebSocket(url: string | null) {
-  // add new state
-  const [status, setStatus] = useState<Status>("disconnected");
-  const [lastResult, setLastResult] = useState<StreamingResultPayload | null>(null);
-  const [droppedFrames, setDroppedFrames] = useState(0);
-  const [slowDownWarnings, setSlowDownWarnings] = useState(0);
-  const [lastError, setLastError] = useState<StreamingErrorPayload | null>(null);
-
-  // onmessage → parse JSON and route to handleMessage
-  // add handleMessage(msg: StreamingMessage)
-  // add sendFrame(bytes: Uint8Array | ArrayBuffer)
-}
-```
-
-**3. Test skeleton**
-
-```ts
-// src/hooks/useWebSocket.test.ts
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { renderHook, act } from "@testing-library/react";
 import { useWebSocket } from "./useWebSocket";
 
-describe("useWebSocket (Phase‑17 streaming)", () => {
+describe("useWebSocket (Phase‑17)", () => {
+  let wsMock: any;
+
+  beforeEach(() => {
+    wsMock = {
+      send: vi.fn(),
+      close: vi.fn(),
+      readyState: WebSocket.OPEN,
+      onopen: null,
+      onmessage: null,
+      onclose: null,
+      onerror: null,
+    };
+
+    global.WebSocket = vi.fn(() => wsMock) as any;
+  });
+
+  it("connects and sets status to connected", () => {
+    const { result } = renderHook(() => useWebSocket("ws://test"));
+    act(() => wsMock.onopen?.());
+    expect(result.current.status).toBe("connected");
+  });
+
   it("handles result messages", () => {
-    // mock WebSocket, trigger onmessage with { frame_index, result }
-    // assert lastResult updated
+    const { result } = renderHook(() => useWebSocket("ws://test"));
+    act(() => wsMock.onopen?.());
+
+    act(() =>
+      wsMock.onmessage?.({
+        data: JSON.stringify({ frame_index: 1, result: { foo: "bar" } }),
+      }),
+    );
+
+    expect(result.current.lastResult?.frame_index).toBe(1);
   });
 
-  it("increments droppedFrames on dropped messages", () => {
-    // trigger { frame_index, dropped: true }
+  it("increments droppedFrames", () => {
+    const { result } = renderHook(() => useWebSocket("ws://test"));
+    act(() => wsMock.onopen?.());
+
+    act(() =>
+      wsMock.onmessage?.({
+        data: JSON.stringify({ frame_index: 2, dropped: true }),
+      }),
+    );
+
+    expect(result.current.droppedFrames).toBe(1);
   });
 
-  it("increments slowDownWarnings on slow_down messages", () => {
-    // trigger { warning: 'slow_down' }
+  it("increments slowDownWarnings", () => {
+    const { result } = renderHook(() => useWebSocket("ws://test"));
+    act(() => wsMock.onopen?.());
+
+    act(() =>
+      wsMock.onmessage?.({
+        data: JSON.stringify({ warning: "slow_down" }),
+      }),
+    );
+
+    expect(result.current.slowDownWarnings).toBe(1);
   });
 
   it("sets lastError on error messages", () => {
-    // trigger { error, detail }
+    const { result } = renderHook(() => useWebSocket("ws://test"));
+    act(() => wsMock.onopen?.());
+
+    act(() =>
+      wsMock.onmessage?.({
+        data: JSON.stringify({ error: "invalid_frame", detail: "bad" }),
+      }),
+    );
+
+    expect(result.current.lastError?.error).toBe("invalid_frame");
   });
 
-  it("sends binary frames via sendFrame", () => {
-    // assert ws.send called with Uint8Array
+  it("sendFrame sends binary data", () => {
+    const { result } = renderHook(() => useWebSocket("ws://test"));
+    act(() => wsMock.onopen?.());
+
+    const bytes = new Uint8Array([1, 2, 3]);
+    act(() => result.current.sendFrame(bytes));
+
+    expect(wsMock.send).toHaveBeenCalledWith(bytes);
   });
 });
 ```
 
 ---
 
-## FE‑2 — Realtime Client Integration (`useRealtime`, `RealtimeClient`, `RealtimeContext`)
+# **FE‑2 — useRealtime Test Skeleton**
 
-**Goal:** Wire `useWebSocket` into a higher‑level realtime API with FPS throttling.
+### Story  
+As a frontend engineer, I want tests verifying realtime orchestration, FPS throttling, and WebSocket integration.
 
-### Files touched
+### Test File  
+`src/realtime/useRealtime.test.ts`
 
-- **Modify:** `src/realtime/RealtimeClient.ts`
-- **Modify:** `src/realtime/useRealtime.ts`
-- **Modify:** `src/realtime/RealtimeContext.tsx`
-- **Add tests:** `src/realtime/useRealtime.test.ts`
-
-### Diff summary
-
-**1. Extend `RealtimeClient`**
-
+### Test Skeleton  
 ```ts
-// src/realtime/RealtimeClient.ts (add method)
-sendFrame(bytes: Uint8Array) {
-  this.wsHook.sendFrame(bytes);
-}
-```
-
-**2. Implement `useRealtime`**
-
-```ts
-// src/realtime/useRealtime.ts
-import { useWebSocket } from "../hooks/useWebSocket";
-import FPSThrottler from "../utils/FPSThrottler";
-
-export function useRealtime() {
-  // pipelineId, framesSent, startTime
-  // derive ws URL with /ws/video/stream?pipeline_id=
-  // call useWebSocket(url)
-  // create FPSThrottler(15)
-  // connect(), disconnect(), sendFrame() with throttler.throttle(...)
-  // if slowDownWarnings > 0 → throttler.setMaxFps(5)
-}
-```
-
-**3. Context wiring**
-
-```ts
-// src/realtime/RealtimeContext.tsx
-const RealtimeContext = createContext<ReturnType<typeof useRealtime> | null>(null);
-
-export const RealtimeProvider: React.FC = ({ children }) => {
-  const realtime = useRealtime();
-  return (
-    <RealtimeContext.Provider value={realtime}>{children}</RealtimeContext.Provider>
-  );
-};
-
-export function useRealtimeContext() {
-  const ctx = useContext(RealtimeContext);
-  if (!ctx) throw new Error("useRealtimeContext must be used within RealtimeProvider");
-  return ctx;
-}
-```
-
-**4. Test skeleton**
-
-```ts
-// src/realtime/useRealtime.test.ts
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { renderHook, act } from "@testing-library/react";
 import { useRealtime } from "./useRealtime";
 
-describe("useRealtime (Phase‑17 streaming)", () => {
-  it("connects with pipelineId and builds correct URL", () => {
-    // mock env + useWebSocket
+vi.mock("../hooks/useWebSocket", () => {
+  const wsMock = {
+    status: "connected",
+    lastResult: null,
+    droppedFrames: 0,
+    slowDownWarnings: 0,
+    lastError: null,
+    sendFrame: vi.fn(),
+    disconnect: vi.fn(),
+  };
+  return {
+    __esModule: true,
+    useWebSocket: () => wsMock,
+  };
+});
+
+describe("useRealtime (Phase‑17)", () => {
+  it("connect() sets pipelineId and resets counters", () => {
+    const { result } = renderHook(() => useRealtime());
+
+    act(() => result.current.connect("p1"));
+
+    expect(result.current.state.framesSent).toBe(0);
+    expect(result.current.state.status).toBe("connected");
   });
 
-  it("increments framesSent when sendFrame is called", () => {
-    // assert framesSent++
+  it("sendFrame increments framesSent", () => {
+    const { result } = renderHook(() => useRealtime());
+    act(() => result.current.connect("p1"));
+
+    act(() => result.current.sendFrame(new Uint8Array([1])));
+
+    expect(result.current.state.framesSent).toBe(1);
   });
 
   it("reduces FPS when slowDownWarnings > 0", () => {
-    // simulate ws.slowDownWarnings and assert throttler.setMaxFps called
+    const { result } = renderHook(() => useRealtime());
+    act(() => result.current.connect("p1"));
+
+    // simulate slow_down
+    result.current.state.slowDownWarnings = 1;
+
+    act(() => result.current.sendFrame(new Uint8Array([1])));
+
+    expect(result.current.state.framesSent).toBe(1);
+  });
+
+  it("disconnect() calls underlying WebSocket disconnect", () => {
+    const { result } = renderHook(() => useRealtime());
+    act(() => result.current.connect("p1"));
+
+    act(() => result.current.disconnect());
+
+    expect(result.current.state.status).toBe("disconnected");
   });
 });
 ```
 
 ---
 
-## FE‑3 — Camera Capture + Streaming (`CameraPreview`)
+# **FE‑3 — CameraPreview Test Skeleton**
 
-**Goal:** Capture webcam frames, convert to JPEG, send via `sendFrame`.
+### Story  
+As a frontend engineer, I want tests verifying webcam capture, JPEG conversion, and frame sending.
 
-### Files touched
+### Test File  
+`src/components/CameraPreview.test.tsx`
 
-- **Modify:** `src/components/CameraPreview.tsx`
-- **Add tests:** `src/components/CameraPreview.test.tsx` (if not already present)
-
-### Diff summary
-
-**1. Implement capture loop**
-
+### Test Skeleton  
 ```tsx
-// src/components/CameraPreview.tsx
-import { useRealtimeContext } from "../realtime/RealtimeContext";
-
-export const CameraPreview: React.FC = () => {
-  const { sendFrame } = useRealtimeContext();
-  const videoRef = useRef<HTMLVideoElement | null>(null);
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
-
-  useEffect(() => {
-    // getUserMedia, attach to video
-    // requestAnimationFrame loop
-    // draw video to canvas
-    // canvas.toBlob → Uint8Array → sendFrame(bytes)
-  }, [sendFrame]);
-
-  return (
-    <div>
-      <video ref={videoRef} autoPlay muted playsInline />
-      <canvas ref={canvasRef} style={{ display: "none" }} />
-    </div>
-  );
-};
-```
-
-**2. Test skeleton**
-
-```tsx
-// src/components/CameraPreview.test.tsx
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render } from "@testing-library/react";
 import { CameraPreview } from "./CameraPreview";
 import { RealtimeProvider } from "../realtime/RealtimeContext";
 
-describe("CameraPreview", () => {
-  it("renders video and canvas elements", () => {
-    const { getByRole } = render(
+describe("CameraPreview (Phase‑17)", () => {
+  beforeEach(() => {
+    Object.defineProperty(global.navigator, "mediaDevices", {
+      value: {
+        getUserMedia: vi.fn().mockResolvedValue({
+          getTracks: () => [{ stop: vi.fn() }],
+        }),
+      },
+    });
+
+    HTMLCanvasElement.prototype.getContext = vi.fn(() => ({
+      drawImage: vi.fn(),
+    }));
+
+    HTMLCanvasElement.prototype.toBlob = vi.fn((cb) =>
+      cb(new Blob([new Uint8Array([1, 2, 3])], { type: "image/jpeg" })),
+    );
+  });
+
+  it("renders video and canvas", () => {
+    const { container } = render(
       <RealtimeProvider>
         <CameraPreview />
       </RealtimeProvider>,
     );
-    // assert video present
+
+    expect(container.querySelector("video")).toBeTruthy();
+    expect(container.querySelector("canvas")).toBeTruthy();
   });
 
-  it("calls sendFrame when a frame is captured", () => {
-    // mock getUserMedia, video, canvas.toBlob
-    // assert sendFrame called
+  it("calls sendFrame when a frame is captured", async () => {
+    const sendFrame = vi.fn();
+
+    vi.mock("../realtime/RealtimeContext", () => ({
+      useRealtimeContext: () => ({ sendFrame }),
+    }));
+
+    render(<CameraPreview />);
+
+    await new Promise((r) => setTimeout(r, 10));
+
+    expect(sendFrame).toHaveBeenCalled();
   });
 });
 ```
 
 ---
 
-## FE‑4 — Realtime Overlay Rendering (`RealtimeOverlay`)
+# **FE‑4 — RealtimeOverlay Test Skeleton**
 
-**Goal:** Convert backend result into detections and overlay them with frame index.
+### Story  
+As a frontend engineer, I want tests verifying detection rendering and frame index display.
 
-### Files touched
+### Test File  
+`src/components/RealtimeOverlay.test.tsx`
 
-- **Modify:** `src/realtime/types.ts` (add `Detection` + `toDetections`)
-- **Modify:** `src/components/RealtimeOverlay.tsx`
-- **Add tests:** `src/components/RealtimeOverlay.test.tsx`
-
-### Diff summary
-
-**1. Add detection types + converter**
-
-```ts
-// src/realtime/types.ts
-export type Detection = {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  label: string;
-  confidence?: number;
-};
-
-export function toDetections(result: any): Detection[] {
-  if (!result || !Array.isArray(result.detections)) return [];
-  return result.detections.map((d: any) => ({
-    x: d.x,
-    y: d.y,
-    width: d.w,
-    height: d.h,
-    label: d.label,
-    confidence: d.score,
-  }));
-}
-```
-
-**2. Use in `RealtimeOverlay`**
-
+### Test Skeleton  
 ```tsx
-// src/components/RealtimeOverlay.tsx
-import { useRealtimeContext } from "../realtime/RealtimeContext";
-import { toDetections } from "../realtime/types";
-import { BoundingBoxOverlay } from "./BoundingBoxOverlay";
-
-export const RealtimeOverlay: React.FC = () => {
-  const { state } = useRealtimeContext();
-  const { lastResult } = state;
-  if (!lastResult) return null;
-
-  const detections = toDetections(lastResult.result);
-
-  return (
-    <div style={{ position: "relative" }}>
-      <BoundingBoxOverlay detections={detections} />
-      <div /* frame index label */>Frame #{lastResult.frame_index}</div>
-    </div>
-  );
-};
-```
-
-**3. Test skeleton**
-
-```tsx
-// src/components/RealtimeOverlay.test.tsx
+import { describe, it, expect, vi } from "vitest";
 import { render } from "@testing-library/react";
 import { RealtimeOverlay } from "./RealtimeOverlay";
-import { RealtimeProvider } from "../realtime/RealtimeContext";
 
-describe("RealtimeOverlay", () => {
+describe("RealtimeOverlay (Phase‑17)", () => {
   it("renders nothing when no lastResult", () => {
-    // mock context with lastResult = null
+    vi.mock("../realtime/RealtimeContext", () => ({
+      useRealtimeContext: () => ({ state: { lastResult: null } }),
+    }));
+
+    const { container } = render(<RealtimeOverlay />);
+    expect(container.firstChild).toBeNull();
   });
 
-  it("renders detections and frame index when lastResult is present", () => {
-    // mock context with lastResult.result.detections
-    // assert frame label and overlay rendered
+  it("renders detections and frame index", () => {
+    vi.mock("../realtime/RealtimeContext", () => ({
+      useRealtimeContext: () => ({
+        state: {
+          lastResult: {
+            frame_index: 42,
+            result: {
+              detections: [
+                { x: 0.1, y: 0.2, w: 0.3, h: 0.4, label: "person", score: 0.9 },
+              ],
+            },
+          },
+        },
+      }),
+    }));
+
+    const { getByText } = render(<RealtimeOverlay />);
+    expect(getByText("Frame #42")).toBeTruthy();
   });
 });
 ```
 
 ---
 
-## FE‑5 — Pipeline Selection (`PipelineSelector`)
+# **FE‑5 — PipelineSelector Test Skeleton**
 
-**Goal:** Reuse dropdown, reconnect with selected pipeline, surface invalid_pipeline via ErrorBanner.
+### Story  
+As a frontend engineer, I want tests verifying pipeline selection triggers reconnect.
 
-### Files touched
+### Test File  
+`src/components/PipelineSelector.test.tsx`
 
-- **Modify:** `src/components/PipelineSelector.tsx`
-- **Modify:** `src/components/ErrorBanner.tsx` (to read `lastError` from context)
-- **Add tests:** `src/components/PipelineSelector.test.tsx`, `src/components/ErrorBanner.test.tsx`
-
-### Diff summary
-
-**1. PipelineSelector integration**
-
+### Test Skeleton  
 ```tsx
-// src/components/PipelineSelector.tsx
-import { useRealtimeContext } from "../realtime/RealtimeContext";
+import { describe, it, expect, vi } from "vitest";
+import { render, fireEvent } from "@testing-library/react";
+import { PipelineSelector } from "./PipelineSelector";
 
-export const PipelineSelector: React.FC = () => {
-  const { connect, disconnect } = useRealtimeContext();
-  // existing dropdown logic
-  // onChange: disconnect(); connect(selectedPipelineId);
-};
-```
-
-**2. ErrorBanner mapping**
-
-```tsx
-// src/components/ErrorBanner.tsx
-import { useRealtimeContext } from "../realtime/RealtimeContext";
-
-const ERROR_MESSAGES: Record<string, string> = {
-  invalid_pipeline: "The selected pipeline is not available.",
-  invalid_frame: "The video frame could not be processed.",
-  frame_too_large: "The video frame is too large.",
-  invalid_message: "The server received an unexpected message.",
-  pipeline_failure: "The pipeline failed while processing your video.",
-  internal_error: "An internal error occurred. Please try again.",
-};
-
-export const ErrorBanner: React.FC = () => {
-  const { state, connect } = useRealtimeContext();
-  const error = state.lastError;
-  if (!error) return null;
-
-  const message = ERROR_MESSAGES[error.error] ?? error.detail;
-
-  return (
-    <div>
-      <span>{message}</span>
-      <button onClick={() => connect(/* current pipeline */)}>Retry</button>
-    </div>
-  );
-};
-```
-
-**3. Test skeletons**
-
-```tsx
-// src/components/PipelineSelector.test.tsx
-describe("PipelineSelector", () => {
+describe("PipelineSelector (Phase‑17)", () => {
   it("calls connect with selected pipeline", () => {
-    // mock useRealtimeContext
-  });
-});
-```
+    const connect = vi.fn();
+    const disconnect = vi.fn();
 
-```tsx
-// src/components/ErrorBanner.test.tsx
-describe("ErrorBanner", () => {
-  it("renders user‑friendly message for known error codes", () => {
-    // mock lastError
-  });
+    vi.mock("../realtime/RealtimeContext", () => ({
+      useRealtimeContext: () => ({ connect, disconnect }),
+    }));
 
-  it("calls reconnect on Retry click", () => {
-    // assert connect called
-  });
-});
-```
+    const { getByRole } = render(<PipelineSelector />);
+    const select = getByRole("combobox");
 
----
+    fireEvent.change(select, { target: { value: "p1" } });
 
-## FE‑7 — Debug / Metrics Panel (`StreamDebugPanel`)
-
-**Goal:** Developer‑facing panel showing status, FPS, drops, slow‑downs.
-
-### Files touched
-
-- **Add:** `src/components/StreamDebugPanel.tsx`
-- **Modify:** `src/realtime/useRealtime.ts` (ensure framesSent/startTime in state)
-- **Add tests:** `src/components/StreamDebugPanel.test.tsx`
-
-### Diff summary
-
-**1. Panel component**
-
-```tsx
-// src/components/StreamDebugPanel.tsx
-import { useRealtimeContext } from "../realtime/RealtimeContext";
-
-export const StreamDebugPanel: React.FC = () => {
-  const { state } = useRealtimeContext();
-  // compute fps, dropRate from framesSent, droppedFrames, startTime
-  // render small fixed panel
-};
-```
-
-**2. Test skeleton**
-
-```tsx
-// src/components/StreamDebugPanel.test.tsx
-describe("StreamDebugPanel", () => {
-  it("shows status and metrics from context", () => {
-    // mock context with known values
+    expect(disconnect).toHaveBeenCalled();
+    expect(connect).toHaveBeenCalledWith("p1");
   });
 });
 ```
 
 ---
 
-## FE‑8 — MP4 Upload Fallback
+# **FE‑6 — ErrorBanner Test Skeleton**
 
-**Goal:** Ensure existing MP4 flow remains intact.
+### Story  
+As a user, I want clear error messages and retry behavior.
 
-### Files touched
+### Test File  
+`src/components/ErrorBanner.test.tsx`
 
-- **No functional changes**; only **run tests** and adjust if broken:
-  - `src/hooks/useVideoProcessor.test.ts`
-  - `src/components/JobList.test.tsx`
+### Test Skeleton  
+```tsx
+import { describe, it, expect, vi } from "vitest";
+import { render, fireEvent } from "@testing-library/react";
+import { ErrorBanner } from "./ErrorBanner";
 
-If any Phase‑17 changes break these, add minimal fixes (e.g. type imports, context wiring) but **no new behavior**.
+describe("ErrorBanner (Phase‑17)", () => {
+  it("renders user‑friendly message", () => {
+    vi.mock("../realtime/RealtimeContext", () => ({
+      useRealtimeContext: () => ({
+        state: {
+          lastError: { error: "invalid_pipeline", detail: "bad" },
+        },
+        connect: vi.fn(),
+      }),
+    }));
+
+    const { getByText } = render(<ErrorBanner />);
+    expect(getByText("The selected pipeline is not available.")).toBeTruthy();
+  });
+
+  it("calls connect on Retry", () => {
+    const connect = vi.fn();
+
+    vi.mock("../realtime/RealtimeContext", () => ({
+      useRealtimeContext: () => ({
+        state: {
+          lastError: { error: "invalid_message", detail: "bad" },
+        },
+        connect,
+      }),
+    }));
+
+    const { getByText } = render(<ErrorBanner />);
+    fireEvent.click(getByText("Retry"));
+
+    expect(connect).toHaveBeenCalled();
+  });
+});
+```
 
 ---
 
-This gives you:
+# **FE‑7 — StreamDebugPanel Test Skeleton**
 
-- A **commit‑by‑commit frontend plan (FE‑1 → FE‑8)**  
-- Concrete **diff‑level descriptions** per file  
-- **Test skeletons** for:
-  - `useWebSocket`
-  - `useRealtime`
-  - `CameraPreview`
-  - `RealtimeOverlay`
-  - `PipelineSelector`
-  - `ErrorBanner`
-  - `StreamDebugPanel`
+### Story  
+As a developer, I want tests verifying FPS, drop rate, and status display.
 
+### Test File  
+`src/components/StreamDebugPanel.test.tsx`
 
+### Test Skeleton  
+```tsx
+import { describe, it, expect, vi } from "vitest";
+import { render } from "@testing-library/react";
+import { StreamDebugPanel } from "./StreamDebugPanel";
+
+describe("StreamDebugPanel (Phase‑17)", () => {
+  it("shows metrics from context", () => {
+    vi.mock("../realtime/RealtimeContext", () => ({
+      useRealtimeContext: () => ({
+        state: {
+          status: "connected",
+          framesSent: 10,
+          droppedFrames: 2,
+          slowDownWarnings: 1,
+          startTime: performance.now() - 1000,
+        },
+      }),
+    }));
+
+    const { getByText } = render(<StreamDebugPanel />);
+
+    expect(getByText(/Frames sent/)).toBeTruthy();
+    expect(getByText(/Slow‑down warnings/)).toBeTruthy();
+  });
+});
+```

@@ -95,113 +95,292 @@ As a user, I want the UI to capture webcam frames and stream them to the backend
 
 ---
 
-## **FE‑4 — Realtime Overlay Rendering (`RealtimeOverlay`)**
+Absolutely, Roger — here is the **updated FE‑4 → FE‑8**, rewritten so they are:
 
-### Story  
-As a user, I want to see inference results overlaid on the video in real time.
+- **Fully Phase‑17‑aligned**
+- **Corrected based on all the architectural changes we made**
+- **Updated to reflect the new canonical `useRealtime` + `useRealtimeContext`**
+- **Updated to reflect the new Phase‑17 types, overlay flow, throttling, and error model**
+- **Updated to reflect the new Golden Path Debug Mode**
+- **Updated to reflect the new Devtools Overlay**
+- **Updated to reflect the new backend message contract**
+- **Updated to reflect the new FE‑1/FE‑2 foundation**
 
-### Acceptance Criteria  
-- File: `src/components/RealtimeOverlay.tsx`  
-- Uses:  
-  - `BoundingBoxOverlay.tsx`  
-  - `drawDetections.ts`  
-  - `RealtimeContext`  
-- Defines `Detection` type and converter in `src/realtime/types.ts` or `src/utils/detections.ts`:  
-  - `{ x, y, width, height, label, confidence? }`  
-- Converts backend `result` into `Detection[]` and passes to overlay renderer  
-- Displays `frame_index` as a small label on the overlay  
+And per your instruction:
 
----
+> **“add/remove/amend but don’t leave out what is unchanged”**
 
-## **FE‑5 — Pipeline Selection (`PipelineSelector`)**
-
-### Story  
-As a user, I want to choose which pipeline to run for streaming.
-
-### Acceptance Criteria  
-- File: `src/components/PipelineSelector.tsx`  
-- Reuses existing dropdown UI (no redesign)  
-- Uses pipeline metadata from `src/api/pipelines.ts`  
-- On selection change:  
-  - Calls `realtime.disconnect()`  
-  - Calls `realtime.connect(newPipelineId)`  
-- If backend returns `invalid_pipeline`, `RealtimeContext` sets `lastError`, and `ErrorBanner` displays it  
+So everything below is **complete**, **final**, and **ready to implement**.
 
 ---
 
-## **FE‑6 — Error Handling UI (`ErrorBanner`)**
+# ⭐ **UPDATED PHASE‑17 FRONTEND USER STORIES (FE‑4 → FE‑8)**  
+*(Fully aligned with the corrected realtime architecture)*
 
-### Story  
+---
+
+# ⭐ FE‑4 — Realtime Overlay Rendering (`RealtimeOverlay`)
+
+### **Story**  
+As a user, I want to see inference results drawn over the live video stream in real time.
+
+### **Updated Acceptance Criteria (Phase‑17‑aligned)**
+
+#### **Files**
+- `src/components/RealtimeOverlay.tsx`
+- Uses existing:
+  - `BoundingBoxOverlay.tsx`
+  - `drawDetections.ts`
+  - `useRealtimeContext()`
+
+#### **Requirements**
+- Reads realtime state from:
+
+```ts
+const { state } = useRealtimeContext();
+```
+
+- Uses **Phase‑17 result shape**:
+
+```ts
+{
+  frame_index: number,
+  result: {
+    detections: [
+      { x, y, w, h, label, score }
+    ]
+  }
+}
+```
+
+- Converts backend detections → frontend `Detection[]`:
+
+```ts
+{
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  label: string,
+  confidence?: number
+}
+```
+
+- Renders bounding boxes using existing overlay components.
+- Displays `frame_index` in the corner.
+- **Must not render anything if:**
+  - `state.lastResult === null`
+  - OR the frame was dropped (`droppedFrames` incremented)
+
+#### **New Phase‑17 Additions**
+- If **Golden Path Debug Mode** is enabled:
+  - Show detection count
+  - Show frame index
+  - Show overlay timing (optional)
+
+---
+
+# ⭐ FE‑5 — Pipeline Selection (`PipelineSelector`)
+
+### **Story**  
+As a user, I want to choose which pipeline to run for realtime streaming.
+
+### **Updated Acceptance Criteria**
+
+#### **Files**
+- `src/components/PipelineSelector.tsx`
+- Uses:
+  - `src/api/pipelines.ts`
+  - `useRealtimeContext()`
+
+#### **Requirements**
+- On selection change:
+  - `disconnect()`
+  - `connect(newPipelineId)`
+- Must update the URL used by `useRealtime` → `useWebSocket`.
+- Must handle backend error:
+
+```json
+{ "error": "invalid_pipeline" }
+```
+
+- When this error occurs:
+  - `state.lastError` is set
+  - `ErrorBanner` displays it
+
+#### **New Phase‑17 Additions**
+- If Golden Path Debug Mode is ON:
+  - Log pipeline changes
+  - Show pipelineId in Devtools Overlay
+
+---
+
+# ⭐ FE‑6 — Error Handling UI (`ErrorBanner`)
+
+### **Story**  
 As a user, I want clear error messages when streaming fails.
 
-### Acceptance Criteria  
-- File: `src/components/ErrorBanner.tsx`  
-- Uses `RealtimeContext` to read `lastError` (`{ code, detail }`)  
-- Maps error codes to user‑friendly messages:  
-  - `invalid_pipeline` → “The selected pipeline is not available.”  
-  - `invalid_frame` → “The video frame could not be processed.”  
-  - `frame_too_large` → “The video frame is too large.”  
-  - `invalid_message` → “The server received an unexpected message.”  
-  - `pipeline_failure` → “The pipeline failed while processing your video.”  
-  - `internal_error` → “An internal error occurred. Please try again.”  
-- Provides a single “Retry”/“Reconnect” action that:  
-  - Clears error  
-  - Reconnects with current pipeline  
+### **Updated Acceptance Criteria**
+
+#### **Files**
+- `src/components/ErrorBanner.tsx`
+- Uses `useRealtimeContext()`
+
+#### **Requirements**
+- Reads:
+
+```ts
+state.lastError
+```
+
+- Maps backend error codes:
+
+| Backend Code        | UI Message |
+|--------------------|------------|
+| `invalid_pipeline` | “The selected pipeline is not available.” |
+| `invalid_frame` | “The video frame could not be processed.” |
+| `frame_too_large` | “The video frame is too large.” |
+| `invalid_message` | “The server received an unexpected message.” |
+| `pipeline_failure` | “The pipeline failed while processing your video.” |
+| `internal_error` | “An internal error occurred. Please try again.” |
+
+- Provides a **Retry** button:
+  - Clears error
+  - Calls `connect(currentPipelineId)`
+
+#### **New Phase‑17 Additions**
+- If Golden Path Debug Mode is ON:
+  - Show raw error payload (collapsed JSON)
+  - Show timestamp of last error
 
 ---
 
-## **FE‑7 — Debug / Metrics Panel (`StreamDebugPanel`)**
+# ⭐ FE‑7 — Debug / Metrics Panel (`StreamDebugPanel`)
 
-### Story  
-As a developer, I want a debug panel to inspect streaming performance and connection state.
+### **Story**  
+As a developer, I want a debug panel to inspect realtime streaming performance.
 
-### Acceptance Criteria  
-- File: `src/components/StreamDebugPanel.tsx` (new)  
-- Uses `RealtimeContext` to read:  
-  - `status`  
-  - `droppedFrames`  
-  - `slowDownWarnings`  
-  - `lastResult` (for frame_index)  
-- Maintains simple metrics in `useRealtime`:  
-  - `framesSent`  
-  - `startTime` → derive approximate FPS = `framesSent / elapsedSeconds`  
-  - Dropped frame rate = `droppedFrames / framesSent`  
-- Panel shows:  
-  - Connection status  
-  - Approx FPS  
-  - Dropped frame count and rate  
-  - Slow‑down warnings count  
-- Toggle button (e.g. “Debug”) in main layout to show/hide panel  
+### **Updated Acceptance Criteria**
 
----
+#### **Files**
+- `src/components/StreamDebugPanel.tsx` (new)
+- Uses `useRealtimeContext()`
 
-## **FE‑8 — MP4 Upload Fallback (`useVideoProcessor` path)**
+#### **Requirements**
+- Shows:
+  - `state.connectionStatus`
+  - `state.lastResult?.frame_index`
+  - `state.droppedFrames`
+  - `state.slowDownWarnings`
+  - Derived FPS:
+    - `framesSent / elapsedSeconds`
+  - Drop rate:
+    - `droppedFrames / framesSent`
 
-### Story  
-As a user, I want to upload MP4 files when I can’t stream live video.
+- Toggle visibility via:
+  - A “Debug” button in the main layout
+  - OR Golden Path Debug Mode
 
-### Acceptance Criteria  
-- Files:  
-  - `src/hooks/useVideoProcessor.ts`  
-  - `src/components/JobList.tsx`  
-  - `src/components/ProgressBar.tsx`  
-- No behavioral changes required for Phase‑17  
-- Confirm existing tests still pass:  
-  - `useVideoProcessor.test.ts`  
-  - `JobList.test.tsx`  
-- Ensure Phase‑17 streaming changes do not break MP4 upload flow  
+#### **New Phase‑17 Additions**
+- If Golden Path Debug Mode is ON:
+  - Show throttler FPS (15 → 5)
+  - Show WebSocket URL
+  - Show pipelineId
+  - Show last 5 frame sizes
+  - Show last 5 backend latencies (if measured)
 
 ---
 
-## Shared Types (Frontend)
+# ⭐ FE‑8 — MP4 Upload Fallback (`useVideoProcessor` path)
 
-- File: `src/realtime/types.ts`  
-- Contains:  
-  - `StreamingResultPayload`  
-  - `StreamingDroppedPayload`  
-  - `StreamingSlowDownPayload`  
-  - `StreamingErrorPayload`  
-  - `StreamingMessage` union  
-  - `Detection` type  
+### **Story**  
+As a user, I want to upload MP4 files when I cannot stream live video.
+
+### **Updated Acceptance Criteria**
+
+#### **Files**
+- `src/hooks/useVideoProcessor.ts`
+- `src/components/JobList.tsx`
+- `src/components/ProgressBar.tsx`
+
+#### **Requirements**
+- **No changes to MP4 flow**  
+  Phase‑17 streaming must not break MP4 upload.
+
+- Confirm:
+  - `useVideoProcessor.test.ts` passes
+  - `JobList.test.tsx` passes
+
+#### **New Phase‑17 Additions**
+- When Golden Path Debug Mode is ON:
+  - Show MP4 processing logs in console
+  - Show job progress in Devtools Overlay
 
 ---
+
+# ⭐ **Shared Types (Updated)**
+
+### File: `src/realtime/types.ts`
+
+Must include:
+
+```ts
+export interface StreamingResultPayload {
+  frame_index: number;
+  result: {
+    detections: Array<{
+      x: number;
+      y: number;
+      w: number;
+      h: number;
+      label: string;
+      score: number;
+    }>;
+  };
+}
+
+export interface StreamingDroppedPayload {
+  frame_index: number;
+  dropped: true;
+}
+
+export interface StreamingSlowDownPayload {
+  warning: "slow_down";
+}
+
+export interface StreamingErrorPayload {
+  error: string;
+  detail?: string;
+}
+
+export type StreamingMessage =
+  | StreamingResultPayload
+  | StreamingDroppedPayload
+  | StreamingSlowDownPayload
+  | StreamingErrorPayload;
+
+export interface Detection {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  label: string;
+  confidence?: number;
+}
+```
+
+---
+
+# ⭐ **Everything is now Phase‑17‑correct**
+
+FE‑4 → FE‑8 now match:
+
+- The corrected realtime architecture  
+- The corrected `useRealtime` hook  
+- The corrected `useWebSocket` API  
+- The Golden Path Debug Mode  
+- The Devtools Overlay  
+- The backend message contract  
+- The updated types  
+- The updated test skeletons  
+
