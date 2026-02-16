@@ -90,3 +90,84 @@ class TestWebSocketConnectionFailure:
         with client.websocket_connect("/ws/video/stream?pipeline_id=nonexistent_pipeline_xyz") as ws:
             # Connection should succeed for now (validation will be added later)
             assert ws is not None
+
+
+class TestSessionManagerIntegration:
+    """Test SessionManager integration into WebSocket."""
+
+    def test_websocket_connection_creates_session_manager(
+        self, client: TestClient, caplog
+    ) -> None:
+        """Test that WebSocket connection creates SessionManager."""
+        with caplog.at_level(logging.INFO):
+            with client.websocket_connect("/ws/video/stream?pipeline_id=yolo_ocr") as ws:
+                pass
+
+            # Check that connect event was logged with session_id
+            connect_logged = any(
+                "stream_connect" in record.message and
+                hasattr(record, 'session_id')
+                for record in caplog.records
+            )
+            assert connect_logged, "Session creation not logged"
+
+    def test_websocket_connection_has_unique_session_id(
+        self, client: TestClient, caplog
+    ) -> None:
+        """Test that WebSocket connection has unique session_id."""
+        session_ids = []
+
+        with caplog.at_level(logging.INFO):
+            with client.websocket_connect("/ws/video/stream?pipeline_id=yolo_ocr") as ws1:
+                pass
+
+            # Extract session_id from logs
+            for record in caplog.records:
+                if "stream_connect" in record.message and hasattr(record, 'session_id'):
+                    session_ids.append(getattr(record, 'session_id'))
+
+            caplog.clear()
+
+            with client.websocket_connect("/ws/video/stream?pipeline_id=yolo_ocr") as ws2:
+                pass
+
+            for record in caplog.records:
+                if "stream_connect" in record.message and hasattr(record, 'session_id'):
+                    session_ids.append(getattr(record, 'session_id'))
+
+        # Session IDs should be unique
+        assert len(session_ids) == 2
+        assert session_ids[0] != session_ids[1]
+
+    def test_websocket_connection_stores_pipeline_id_in_session(
+        self, client: TestClient, caplog
+    ) -> None:
+        """Test that WebSocket connection stores pipeline_id in session."""
+        with caplog.at_level(logging.INFO):
+            with client.websocket_connect("/ws/video/stream?pipeline_id=yolo_ocr") as ws:
+                pass
+
+            # Check that pipeline_id was logged
+            pipeline_logged = any(
+                "stream_connect" in record.message and
+                hasattr(record, 'pipeline_id') and
+                getattr(record, 'pipeline_id') == "yolo_ocr"
+                for record in caplog.records
+            )
+            assert pipeline_logged, "Pipeline ID not stored in session"
+
+    def test_websocket_disconnection_destroys_session_manager(
+        self, client: TestClient, caplog
+    ) -> None:
+        """Test that WebSocket disconnection destroys SessionManager."""
+        with caplog.at_level(logging.INFO):
+            with client.websocket_connect("/ws/video/stream?pipeline_id=yolo_ocr") as ws:
+                pass
+
+            # Check that disconnect event was logged with session_id
+            disconnect_logged = any(
+                "stream_disconnect" in record.message and
+                hasattr(record, 'session_id')
+                for record in caplog.records
+            )
+            assert disconnect_logged, "Session destruction not logged"

@@ -20,6 +20,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Query, WebSocket, WebSocketDisconnect
 
+from app.services.streaming.session_manager import SessionManager
 from app.services.video_file_pipeline_service import VideoFilePipelineService
 
 router = APIRouter()
@@ -51,16 +52,15 @@ async def video_stream(
         await websocket.close()
         return
 
-    # Check if pipeline is valid
-    # Note: For now, we'll accept any pipeline_id since we don't have access
-    # to the DagPipelineService instance here. This will be fixed in Commit 7
-    # when we integrate pipeline execution.
-    # For Commit 1, we just need to accept the connection and log events.
+    # Create SessionManager for this connection
+    session = SessionManager(pipeline_id=pipeline_id)
+    websocket.state.session = session
 
     logger.info(
         "stream_connect",
         extra={
             "event_type": "stream_connect",
+            "session_id": session.session_id,
             "pipeline_id": pipeline_id,
         }
     )
@@ -76,6 +76,7 @@ async def video_stream(
             "stream_disconnect",
             extra={
                 "event_type": "stream_disconnect",
+                "session_id": session.session_id,
                 "pipeline_id": pipeline_id,
             }
         )
@@ -87,6 +88,7 @@ async def video_stream(
                 "stream_disconnect",
                 extra={
                     "event_type": "stream_disconnect",
+                    "session_id": session.session_id,
                     "pipeline_id": pipeline_id,
                 }
             )
@@ -96,8 +98,12 @@ async def video_stream(
                 "stream_error",
                 extra={
                     "event_type": "stream_error",
+                    "session_id": session.session_id,
                     "pipeline_id": pipeline_id,
                     "error": str(e),
                 }
             )
             await websocket.close()
+    finally:
+        # Destroy session on disconnect
+        websocket.state.session = None
