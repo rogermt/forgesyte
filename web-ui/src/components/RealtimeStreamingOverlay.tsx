@@ -1,7 +1,6 @@
 import { useEffect, useRef, useMemo } from "react";
 import { useRealtimeContext } from "../realtime/RealtimeContext";
-import { toStreamingDetections } from "../realtime/types";
-import { drawDetections } from "../utils/drawDetections";
+import { toStreamingDetections, type Detection } from "../realtime/types";
 
 interface RealtimeStreamingOverlayProps {
   width: number;
@@ -37,12 +36,30 @@ export function RealtimeStreamingOverlay({
     // Clear previous frame
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // Draw detections
-    drawDetections({
-      canvas,
-      detections,
-      width,
-      height,
+    // Draw detections inline
+    detections.forEach((detection: Detection) => {
+      const { x, y, width: w, height: h, class: label, confidence, track_id } = detection;
+
+      // Draw bounding box
+      ctx.strokeStyle = "#00ff00";
+      ctx.lineWidth = 2;
+      ctx.strokeRect(x, y, w, h);
+
+      // Draw label background
+      ctx.fillStyle = "#00ff00";
+      ctx.fillRect(x, y - 20, Math.max(ctx.measureText(`${label} ${(confidence * 100).toFixed(0)}%`).width + 10, 100), 20);
+
+      // Draw label text
+      ctx.fillStyle = "#000000";
+      ctx.font = "12px monospace";
+      ctx.fillText(`${label} ${(confidence * 100).toFixed(0)}%`, x + 5, y - 5);
+
+      // Draw track ID if available
+      if (track_id !== undefined) {
+        ctx.fillStyle = "#ff0000";
+        ctx.font = "bold 14px monospace";
+        ctx.fillText(`ID: ${track_id}`, x, y - 25);
+      }
     });
 
     if (debug) {
@@ -51,7 +68,7 @@ export function RealtimeStreamingOverlay({
         detections: detections.length,
       });
     }
-  }, [result, detections, debug, width, height]);
+  }, [result, detections, debug]);
 
   // If no result OR last message was a dropped frame → render nothing
   if (!result) {

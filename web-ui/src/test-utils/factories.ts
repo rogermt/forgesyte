@@ -7,11 +7,9 @@
  * Sources:
  * - Job types: server/app/models.py:46 (JobResponse)
  * - Plugin types: server/app/models.py:78 (PluginMetadata)
- * - Frame results: web-ui/src/hooks/useWebSocket.ts:21 (FrameResult)
  */
 
 import { Job, Plugin } from "../api/client";
-import { FrameResult } from "../hooks/useWebSocket";
 
 /**
  * Create a mock Job object matching JobResponse schema
@@ -188,60 +186,4 @@ export function createMockPluginList(count: number = 2): Plugin[] {
     }
 
     return plugins.slice(0, count);
-}
-
-/**
- * Create a mock FrameResult from WebSocket
- *
- * Usage:
- * ```typescript
- * const frameResult = createMockFrameResult();
- * const customFrame = createMockFrameResult({ plugin: "object_detection" });
- * ```
- */
-export function createMockFrameResult(
-    overrides?: Partial<FrameResult>
-): FrameResult {
-    const defaults: FrameResult = {
-        frame_id: "frame-001",
-        plugin: "motion_detector",
-        result: {
-            motion_detected: true,
-            confidence: 0.87,
-            regions: [
-                {
-                    x: 250,
-                    y: 100,
-                    width: 150,
-                    height: 200,
-                },
-            ],
-        },
-        processing_time_ms: 45,
-    };
-
-    return { ...defaults, ...overrides };
-}
-
-/**
- * Create a list of mock FrameResults
- *
- * Usage:
- * ```typescript
- * const frames = createMockFrameResultList(3);
- * ```
- */
-export function createMockFrameResultList(count: number = 1): FrameResult[] {
-    const frames: FrameResult[] = [];
-
-    for (let i = 0; i < count; i++) {
-        frames.push(
-            createMockFrameResult({
-                frame_id: `frame-${String(i + 1).padStart(3, "0")}`,
-                processing_time_ms: 40 + Math.random() * 20,
-            })
-        );
-    }
-
-    return frames;
 }

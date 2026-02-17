@@ -1,112 +1,46 @@
-/**
- * Error Banner Component
- * 
- * Displays error messages in a prominent banner.
- * 
- * Phase 9: UI Controls
- */
-
-import { useCallback } from 'react';
-
-// ============================================================================
-// Types
-// ============================================================================
-
-export interface ErrorBannerProps {
-  /** Error message to display */
+interface ErrorBannerProps {
+  title: string;
   message: string;
-  /** Optional title for the error */
-  title?: string;
-  /** Callback when dismiss button is clicked */
-  onDismiss?: () => void;
-  /** Whether to show the dismiss button */
   showDismiss?: boolean;
+  onDismiss?: () => void;
 }
 
-// ============================================================================
-// Component
-// ============================================================================
-
 export function ErrorBanner({
+  title,
   message,
-  title = 'Error',
+  showDismiss = false,
   onDismiss,
-  showDismiss = true,
 }: ErrorBannerProps) {
-  const handleDismiss = useCallback(() => {
-    if (onDismiss) {
-      onDismiss();
-    }
-  }, [onDismiss]);
-
   return (
-    <div style={styles.container} role="alert" aria-live="assertive">
-      <div style={styles.header}>
-        <span style={styles.icon} aria-hidden="true">
-          ⚠
-        </span>
-        <strong style={styles.title}>{title}</strong>
-        {showDismiss && (
-          <button
-            style={styles.dismissButton}
-            onClick={handleDismiss}
-            aria-label="Dismiss error"
-          >
-            ×
-          </button>
-        )}
-      </div>
-      <p style={styles.message}>{message}</p>
+    <div
+      style={{
+        padding: "12px",
+        backgroundColor: "rgba(220, 53, 69, 0.1)",
+        border: "1px solid var(--accent-red)",
+        borderRadius: "4px",
+        color: "var(--accent-red)",
+        marginBottom: "12px",
+      }}
+    >
+      <div style={{ fontWeight: 600, marginBottom: "4px" }}>{title}</div>
+      <div style={{ fontSize: "13px" }}>{message}</div>
+      {showDismiss && onDismiss && (
+        <button
+          onClick={onDismiss}
+          style={{
+            marginTop: "8px",
+            padding: "4px 8px",
+            borderRadius: "4px",
+            border: "1px solid var(--accent-red)",
+            backgroundColor: "transparent",
+            color: "var(--accent-red)",
+            cursor: "pointer",
+            fontSize: "12px",
+          }}
+        >
+          Dismiss
+        </button>
+      )}
     </div>
   );
 }
-
-// ============================================================================
-// Styles
-// ============================================================================
-
-const styles = {
-  container: {
-    padding: '12px 16px',
-    backgroundColor: 'rgba(220, 53, 69, 0.1)',
-    border: '1px solid var(--accent-red)',
-    borderRadius: '6px',
-    margin: '8px 0',
-  },
-  header: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '8px',
-    marginBottom: '6px',
-  },
-  icon: {
-    fontSize: '16px',
-    color: 'var(--accent-red)',
-  },
-  title: {
-    fontSize: '14px',
-    fontWeight: 600,
-    color: 'var(--accent-red)',
-    flex: 1,
-  },
-  dismissButton: {
-    background: 'transparent',
-    border: 'none',
-    color: 'var(--accent-red)',
-    fontSize: '20px',
-    cursor: 'pointer',
-    padding: '0 4px',
-    lineHeight: 1,
-    opacity: 0.7,
-    transition: 'opacity 0.2s',
-  },
-  message: {
-    margin: 0,
-    fontSize: '13px',
-    color: 'var(--text-primary)',
-    lineHeight: 1.5,
-  },
-} as const;
-
-export default ErrorBanner;
-

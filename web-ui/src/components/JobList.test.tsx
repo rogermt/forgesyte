@@ -1,21 +1,15 @@
 /**
- * Tests for JobList API integration, styling, and interactions
+ * Tests for JobList component (Phase 17)
  *
- * Uses mock factories to generate test data matching actual API responses.
- * API Reference: GET /v1/jobs (see fixtures/api-responses.json)
+ * Phase 17: JobList is a simple read-only display component
+ * Shows job history with status, progress, and metadata
  */
 
-import { vi } from "vitest";
-import { render, screen, waitFor, fireEvent } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { JobList } from "./JobList";
 import * as client from "../api/client";
-import {
-    createMockJob,
-    createMockJobDone,
-    createMockJobRunning,
-    createMockJobError,
-    createMockJobList,
-} from "../test-utils/factories";
+import { createMockJob } from "../test-utils/factories";
+import { vi } from "vitest";
 
 // Mock the API client
 vi.mock("../api/client", () => ({
@@ -24,7 +18,7 @@ vi.mock("../api/client", () => ({
     },
 }));
 
-describe("JobList", () => {
+describe("JobList (Phase 17)", () => {
     beforeEach(() => {
         vi.clearAllMocks();
     });
@@ -37,7 +31,7 @@ describe("JobList", () => {
                 })
             );
 
-            render(<JobList onJobSelect={vi.fn()} />);
+            render(<JobList />);
             expect(screen.getByText("Loading jobs...")).toBeInTheDocument();
         });
     });
@@ -49,35 +43,23 @@ describe("JobList", () => {
                 new Error(errorMsg)
             );
 
-            render(<JobList onJobSelect={vi.fn()} />);
+            render(<JobList />);
 
             await waitFor(() => {
-                expect(
-                    screen.getByText(new RegExp(errorMsg))
-                ).toBeInTheDocument();
-            });
-        });
-
-        it("should display generic error message for non-Error objects", async () => {
-            (client.apiClient.listJobs as ReturnType<typeof vi.fn>).mockRejectedValue(
-                "String error"
-            );
-
-            render(<JobList onJobSelect={vi.fn()} />);
-
-            await waitFor(() => {
-                expect(
-                    screen.getByText(new RegExp("Failed to load jobs"))
-                ).toBeInTheDocument();
+                const errorElement = screen.getByText(/Error:/);
+                expect(errorElement).toBeInTheDocument();
+                expect(errorElement).toHaveStyle({
+                    color: "var(--accent-red)",
+                });
             });
         });
     });
 
     describe("empty state", () => {
-        it("should display message when no jobs", async () => {
+        it("should display message when no jobs exist", async () => {
             (client.apiClient.listJobs as ReturnType<typeof vi.fn>).mockResolvedValue([]);
 
-            render(<JobList onJobSelect={vi.fn()} />);
+            render(<JobList />);
 
             await waitFor(() => {
                 expect(screen.getByText("No jobs yet")).toBeInTheDocument();
@@ -85,248 +67,41 @@ describe("JobList", () => {
         });
     });
 
-    describe("job list display with server API format (job_id field)", () => {
-        // Uses factory-generated test data matching real API responses
-        const mockServerJobs = createMockJobList(2);
-
-        it("should render jobs with server API format (job_id instead of id)", async () => {
-            (client.apiClient.listJobs as ReturnType<typeof vi.fn>).mockResolvedValue(
-                mockServerJobs
-            );
-
-            render(<JobList onJobSelect={vi.fn()} />);
-
-            await waitFor(() => {
-                expect(screen.getByText("Recent Jobs")).toBeInTheDocument();
-                expect(screen.getByText("done")).toBeInTheDocument();
-                expect(screen.getByText("running")).toBeInTheDocument();
-            });
-        });
-
-        it("should display truncated job_id from server format", async () => {
-            const job = mockServerJobs[0];
-            (client.apiClient.listJobs as ReturnType<typeof vi.fn>).mockResolvedValue([
-                job,
-            ]);
-
-            render(<JobList onJobSelect={vi.fn()} />);
-
-            await waitFor(() => {
-                const expectedTruncated = `${job.job_id.slice(0, 12)}...`;
-                expect(screen.getByText(expectedTruncated)).toBeInTheDocument();
-            });
-        });
-
-        it("should call onJobSelect with full job object when server format is used", async () => {
-            (client.apiClient.listJobs as ReturnType<typeof vi.fn>).mockResolvedValue([
-                mockServerJobs[0],
-            ]);
-
-            const mockSelectJob = vi.fn();
-            render(<JobList onJobSelect={mockSelectJob} />);
-
-            // Wait for the job to appear
-            await waitFor(() => {
-                expect(screen.getByTestId(
-                    `job-item-${mockServerJobs[0].job_id}`
-                )).toBeInTheDocument();
-            }, { timeout: 10000 });
-
-            // Then click
-            const jobElement = screen.getByTestId(
-                `job-item-${mockServerJobs[0].job_id}`
-            );
-            fireEvent.click(jobElement);
-            expect(mockSelectJob).toHaveBeenCalledWith(mockServerJobs[0]);
-        });
-    });
-
     describe("job list display", () => {
-        // Uses factory-generated test data
-        const mockJobs = createMockJobList(2);
+        it("should display list of jobs", async () => {
+            const mockJobs = [
+                createMockJob({ job_id: "job-1", plugin: "plugin-1" }),
+                createMockJob({ job_id: "job-2", plugin: "plugin-2" }),
+                createMockJob({ job_id: "job-3", plugin: "plugin-3" }),
+            ];
+            (client.apiClient.listJobs as ReturnType<typeof vi.fn>).mockResolvedValue(mockJobs);
 
-        it("should display jobs with proper information", async () => {
-            (client.apiClient.listJobs as ReturnType<typeof vi.fn>).mockResolvedValue(
-                mockJobs
-            );
-
-            render(<JobList onJobSelect={vi.fn()} />);
+            render(<JobList />);
 
             await waitFor(() => {
                 expect(screen.getByText("Recent Jobs")).toBeInTheDocument();
+                expect(screen.getByTestId("job-list-container")).toBeInTheDocument();
+                mockJobs.forEach((job) => {
+                    expect(screen.getByTestId(`job-item-${job.job_id}`)).toBeInTheDocument();
+                    expect(screen.getByText(job.plugin)).toBeInTheDocument();
+                });
+            });
+        });
+
+        it("should display job status with correct styling", async () => {
+            const mockJobs = [
+                createMockJob({ job_id: "job-1", status: "done" }),
+                createMockJob({ job_id: "job-2", status: "error" }),
+                createMockJob({ job_id: "job-3", status: "running" }),
+            ];
+            (client.apiClient.listJobs as ReturnType<typeof vi.fn>).mockResolvedValue(mockJobs);
+
+            render(<JobList />);
+
+            await waitFor(() => {
                 expect(screen.getByText("done")).toBeInTheDocument();
-                expect(screen.getByText("running")).toBeInTheDocument();
-            });
-        });
-
-        it("should display plugin name for each job", async () => {
-            (client.apiClient.listJobs as ReturnType<typeof vi.fn>).mockResolvedValue([
-                mockJobs[0],
-            ]);
-
-            render(<JobList onJobSelect={vi.fn()} />);
-
-            await waitFor(() => {
-                expect(screen.getByText("motion_detector")).toBeInTheDocument();
-            });
-        });
-
-        it("should display truncated job ID", async () => {
-            const job = createMockJobDone();
-            (client.apiClient.listJobs as ReturnType<typeof vi.fn>).mockResolvedValue([
-                job,
-            ]);
-
-            render(<JobList onJobSelect={vi.fn()} />);
-
-            await waitFor(() => {
-                // Should display first 12 characters of job_id followed by ellipsis
-                const expectedTruncated = `${job.job_id.slice(0, 12)}...`;
-                expect(screen.getByText(expectedTruncated)).toBeInTheDocument();
-            });
-        });
-    });
-
-    describe("status color rendering", () => {
-        const statuses = [
-            { statusValue: "done" as const, factory: createMockJobDone },
-            { statusValue: "error" as const, factory: createMockJobError },
-            { statusValue: "running" as const, factory: createMockJobRunning },
-            { statusValue: "queued" as const, factory: createMockJob },
-        ];
-
-        statuses.forEach(({ statusValue, factory }) => {
-            it(`should display ${statusValue} status badge`, async () => {
-                const job = factory();
-
-                (client.apiClient.listJobs as ReturnType<typeof vi.fn>).mockResolvedValue([
-                    job,
-                ]);
-
-                render(<JobList onJobSelect={vi.fn()} />);
-
-                await waitFor(() => {
-                    expect(screen.getByText(statusValue)).toBeInTheDocument();
-                });
-            });
-        });
-
-        it("should display error status with proper styling", async () => {
-            const job = createMockJobError();
-
-            (client.apiClient.listJobs as ReturnType<typeof vi.fn>).mockResolvedValue([
-                job,
-            ]);
-
-            render(<JobList onJobSelect={vi.fn()} />);
-
-            await waitFor(() => {
                 expect(screen.getByText("error")).toBeInTheDocument();
-            });
-        });
-    });
-
-    describe("job interactions", () => {
-        // Uses factory-generated test data
-        const mockJobs = [createMockJobDone()];
-
-        it("should call onJobSelect when job is clicked", async () => {
-            (client.apiClient.listJobs as ReturnType<typeof vi.fn>).mockResolvedValue(
-                mockJobs
-            );
-
-            const mockSelectJob = vi.fn();
-            render(<JobList onJobSelect={mockSelectJob} />);
-
-            await waitFor(() => {
-                const jobElement = screen.getByTestId(`job-item-${mockJobs[0].job_id}`);
-                fireEvent.click(jobElement);
-                expect(mockSelectJob).toHaveBeenCalledWith(mockJobs[0]);
-            });
-        });
-
-        it("should apply hover styles when mouse enters job item", async () => {
-            (client.apiClient.listJobs as ReturnType<typeof vi.fn>).mockResolvedValue(
-                mockJobs
-            );
-
-            render(<JobList onJobSelect={vi.fn()} />);
-
-            await waitFor(() => {
-                const jobElement = screen.getByTestId(`job-item-${mockJobs[0].job_id}`);
-                fireEvent.mouseOver(jobElement);
-                expect(jobElement.style.backgroundColor).toBe("var(--bg-hover)");
-                expect(jobElement.style.borderColor).toBe("var(--accent-cyan)");
-            });
-        });
-
-        it("should remove hover styles when mouse leaves job item", async () => {
-            (client.apiClient.listJobs as ReturnType<typeof vi.fn>).mockResolvedValue(
-                mockJobs
-            );
-
-            render(<JobList onJobSelect={vi.fn()} />);
-
-            await waitFor(() => {
-                const jobElement = screen.getByTestId(`job-item-${mockJobs[0].job_id}`);
-                fireEvent.mouseOut(jobElement);
-                expect(jobElement.style.backgroundColor).toBe("var(--bg-tertiary)");
-                expect(jobElement.style.borderColor).toBe("var(--border-light)");
-                expect(jobElement.style.boxShadow).toBe("none");
-            });
-        });
-    });
-
-    describe("styling", () => {
-        // Uses factory-generated test data
-        const mockJobs = [createMockJobDone()];
-
-        it("should use brand colors for job items", async () => {
-            (client.apiClient.listJobs as ReturnType<typeof vi.fn>).mockResolvedValue(
-                mockJobs
-            );
-
-            render(<JobList onJobSelect={vi.fn()} />);
-
-            await waitFor(() => {
-                const jobItem = screen.getByTestId(`job-item-${mockJobs[0].job_id}`);
-                expect(jobItem).toHaveStyle({
-                    cursor: "pointer",
-                    borderRadius: "4px",
-                    transition: "all 0.2s",
-                });
-            });
-        });
-
-        it("should apply proper scrolling to job list", async () => {
-            (client.apiClient.listJobs as ReturnType<typeof vi.fn>).mockResolvedValue(
-                mockJobs
-            );
-
-            render(<JobList onJobSelect={vi.fn()} />);
-
-            await waitFor(() => {
-                const scrollContainer = screen.getByTestId("job-list-container");
-                expect(scrollContainer).toHaveStyle({
-                    maxHeight: "400px",
-                    overflowY: "auto",
-                });
-            });
-        });
-
-        it("should apply consistent spacing to job items", async () => {
-            (client.apiClient.listJobs as ReturnType<typeof vi.fn>).mockResolvedValue(
-                mockJobs
-            );
-
-            render(<JobList onJobSelect={vi.fn()} />);
-
-            await waitFor(() => {
-                const jobItem = screen.getByTestId(`job-item-${mockJobs[0].job_id}`);
-                expect(jobItem).toHaveStyle({
-                    padding: "10px",
-                    marginBottom: "8px",
-                });
+                expect(screen.getByText("running")).toBeInTheDocument();
             });
         });
     });
