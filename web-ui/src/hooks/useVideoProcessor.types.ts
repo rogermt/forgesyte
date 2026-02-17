@@ -13,6 +13,7 @@ export interface UseVideoProcessorArgs {
   device: string;
   enabled: boolean;
   bufferSize?: number;
+  debug?: boolean;
 }
 
 export interface UseVideoProcessorReturn {

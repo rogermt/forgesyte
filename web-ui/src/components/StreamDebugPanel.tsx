@@ -10,9 +10,11 @@
  * - Last 5 frame sizes
  * - Last 5 latencies
  * - Last frame index
+ * - FE-8: MP4 processing state
  */
 
 import { useRealtimeContext } from "../realtime/RealtimeContext";
+import { useMP4ProcessingContext } from "../mp4/MP4ProcessingContext";
 
 export interface StreamDebugPanelProps {
   debug: boolean;
@@ -21,6 +23,7 @@ export interface StreamDebugPanelProps {
 export function StreamDebugPanel({ debug }: StreamDebugPanelProps) {
   // Call hooks before any early returns (Rules of Hooks)
   const { state, wsUrl, currentPipelineId } = useRealtimeContext();
+  const mp4 = useMP4ProcessingContext();
   const {
     connectionStatus,
     framesSent,
@@ -117,6 +120,22 @@ export function StreamDebugPanel({ debug }: StreamDebugPanelProps) {
       <div>
         Last Frame Index: {lastResult?.frame_index ?? "none"}
       </div>
+
+      {/* FE-8: MP4 Processing Section */}
+      <hr style={{ borderColor: "#0f0", margin: "8px 0" }} />
+
+      <div style={{ fontWeight: "bold", marginBottom: "4px" }}>
+        MP4 Processing
+      </div>
+      {mp4 && mp4.active ? (
+        <>
+          <div>Status: Active</div>
+          <div>Progress: {mp4.progress}%</div>
+          <div>Frames Processed: {mp4.framesProcessed}</div>
+        </>
+      ) : (
+        <div style={{ color: "#888" }}>No MP4 processing</div>
+      )}
     </div>
   );
 }

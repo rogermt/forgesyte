@@ -19,6 +19,7 @@ export function useVideoProcessor({
   device,
   enabled,
   bufferSize = 5,
+  debug = false,
 }: UseVideoProcessorArgs): UseVideoProcessorReturn {
   const [latestResult, setLatestResult] = useState<FrameResult | null>(null);
   const [buffer, setBuffer] = useState<FrameResult[]>([]);
@@ -40,6 +41,13 @@ export function useVideoProcessor({
 
   const intervalRef = useRef<number | null>(null);
   const requestInFlight = useRef(false);
+
+  // Debug logging helper
+  const log = (...args: unknown[]) => {
+    if (debug) {
+      console.log("[MP4]", ...args);
+    }
+  };
 
   // Extract current frame as base64
   const extractFrame = (): string | null => {
@@ -84,6 +92,8 @@ export function useVideoProcessor({
     const frameStartTime = performance.now();
     setLastTickTime(Date.now());
 
+    log("Frame processing started", { pluginId, tool: tools[0] });
+
     // Use unified runTool with logging and retry
     // Phase 13: For now, execute ONLY the first tool
     const firstTool = tools[0];
@@ -100,6 +110,8 @@ export function useVideoProcessor({
 
     const durationMs = performance.now() - frameStartTime;
     setLastRequestDuration(durationMs);
+
+    log("Frame processed", { success, durationMs: durationMs.toFixed(1) + "ms" });
 
     // Update metrics
     setMetrics((prev) => {
@@ -135,6 +147,7 @@ export function useVideoProcessor({
     ]);
 
     if (success && result) {
+      log("Frame result received", result);
       setLatestResult(result);
       setBuffer((prev) => {
         const next = [...prev, result];
@@ -142,6 +155,7 @@ export function useVideoProcessor({
       });
       setError(null);
     } else if (!success) {
+      log("Frame processing failed", { error: runToolError });
       setError(runToolError ?? "Frame processing failed");
     }
 

@@ -9,16 +9,14 @@
  * 5) sendFrame is called without extra parameter (tools are in useWebSocket options)
  */
 
-import { describe, it, expect, beforeEach, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
+import { vi } from "vitest";
 
 // ---------------------------------------------------------------------------
 // Mocks (must be declared before importing App)
 // ---------------------------------------------------------------------------
 
 vi.mock("./components/CameraPreview", () => ({
-  CameraPreview: (props: { enabled: boolean }) => (
+  CameraPreview: () => (
     <div data-testid="camera-preview">
       <button data-testid="emit-frame">Emit Frame</button>
     </div>
@@ -170,11 +168,6 @@ vi.mock("./api/client", () => ({
 vi.mock("./hooks/useWebSocket", () => ({
   useWebSocket: vi.fn(),
 }));
-
-import App from "./App";
-import { useWebSocket } from "./hooks/useWebSocket";
-
-const mockUseWebSocket = vi.mocked(useWebSocket);
 
 // ---------------------------------------------------------------------------
 // REMOVED: Legacy Phase-10 tests for useWebSocket with onFrame callback

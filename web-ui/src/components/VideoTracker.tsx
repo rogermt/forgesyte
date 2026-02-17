@@ -14,6 +14,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { useVideoProcessor } from "../hooks/useVideoProcessor";
 import { drawDetections, type OverlayToggles } from "./ResultOverlay";
 import type { Detection } from "../types/plugin";
+import { MP4ProcessingProvider } from "../mp4/MP4ProcessingContext";
 
 // ============================================================================
 // Types
@@ -22,6 +23,7 @@ import type { Detection } from "../types/plugin";
 export interface VideoTrackerProps {
   pluginId: string;   // routing only
   tools: string[];   // routing only
+  debug?: boolean;    // FE-8: Golden Path Debug Mode
 }
 
 // ============================================================================
@@ -182,7 +184,7 @@ const OVERLAY_KEYS = ["players", "tracking", "ball", "pitch", "radar"] as const;
 // Component
 // ============================================================================
 
-export function VideoTracker({ pluginId, tools }: VideoTrackerProps) {
+export function VideoTracker({ pluginId, tools, debug = false }: VideoTrackerProps) {
   // -------------------------------------------------------------------------
   // Refs
   // -------------------------------------------------------------------------
@@ -214,6 +216,7 @@ export function VideoTracker({ pluginId, tools }: VideoTrackerProps) {
     processing,
     error,
     lastRequestDuration,
+    metrics,
   } = useVideoProcessor({
     videoRef,
     pluginId,
@@ -221,6 +224,7 @@ export function VideoTracker({ pluginId, tools }: VideoTrackerProps) {
     fps,
     device,
     enabled: running,
+    debug,
   });
 
   // -------------------------------------------------------------------------
@@ -309,8 +313,17 @@ export function VideoTracker({ pluginId, tools }: VideoTrackerProps) {
   // Render
   // -------------------------------------------------------------------------
 
+  // Calculate MP4 processing state for debug panel
+  const mp4State = {
+    active: processing,
+    jobId: null, // MP4 upload doesn't use job IDs in the same way as streaming
+    progress: metrics ? (metrics.totalFrames > 0 ? Math.round((metrics.successfulFrames / metrics.totalFrames) * 100) : 0) : 0,
+    framesProcessed: metrics?.totalFrames ?? 0,
+  };
+
   return (
-    <div style={styles.container}>
+    <MP4ProcessingProvider value={mp4State}>
+      <div style={styles.container}>
       {/* Header */}
       <div style={styles.header}>
         <h1 style={styles.title}>VideoTracker</h1>
@@ -445,7 +458,8 @@ export function VideoTracker({ pluginId, tools }: VideoTrackerProps) {
           </div>
         ))}
       </div>
-    </div>
+      </div>
+    </MP4ProcessingProvider>
   );
 }
 
