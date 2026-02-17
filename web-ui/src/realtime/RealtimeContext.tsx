@@ -1,67 +1,63 @@
 /**
- * Phase 10: Real-Time Context for state management.
+ * Phase 17 Realtime Context
  *
- * TODO: Implement the following:
- * - Provider component for real-time state
- * - State machine integration
- * - Message dispatching
- * - Plugin inspector state
- * - Progress tracking
- *
- * Author: Roger
- * Phase: 10
+ * Provides realtime streaming state and methods to components
  */
 
-import { createContext, useContext, useReducer, useEffect, useState, ReactNode } from 'react';
-import { RealtimeClient, RealtimeMessage, ConnectionState } from './RealtimeClient';
+import { createContext, useContext, useReducer, useCallback, useEffect, useRef, ReactNode } from 'react';
+import type {
+  RealtimeState,
+  ConnectionStatus,
+  StreamingResultPayload,
+  StreamingDroppedPayload,
+  StreamingSlowDownPayload,
+  StreamingErrorPayload,
+} from './types';
 
-interface RealtimeState {
-  connectionState: ConnectionState;
-  progress: number | null;
-  pluginTimings: Record<string, number>;
-  warnings: string[];
-  errors: string[];
-  currentPlugin: string | null;
-  isConnected: boolean;
-}
-
-type RealtimeAction =
-  | { type: 'SET_CONNECTION_STATE'; payload: ConnectionState }
-  | { type: 'SET_PROGRESS'; payload: number }
-  | { type: 'SET_PLUGIN_TIMINGS'; payload: Record<string, number> }
-  | { type: 'ADD_WARNING'; payload: string }
-  | { type: 'ADD_ERROR'; payload: string }
-  | { type: 'SET_CURRENT_PLUGIN'; payload: string | null }
-  | { type: 'RESET' };
+// ============================================================================
+// State
+// ============================================================================
 
 const initialState: RealtimeState = {
-  connectionState: ConnectionState.IDLE,
-  progress: null,
-  pluginTimings: {},
-  warnings: [],
-  errors: [],
-  currentPlugin: null,
-  isConnected: false,
+  status: "disconnected",
+  lastResult: null,
+  droppedFrames: 0,
+  slowDownWarnings: 0,
+  lastError: null,
+  framesSent: 0,
+  startTime: null,
 };
+
+type RealtimeAction =
+  | { type: 'SET_STATUS'; payload: ConnectionStatus }
+  | { type: 'SET_RESULT'; payload: StreamingResultPayload }
+  | { type: 'DROP_FRAME' }
+  | { type: 'SLOW_DOWN' }
+  | { type: 'SET_ERROR'; payload: StreamingErrorPayload }
+  | { type: 'CLEAR_ERROR' }
+  | { type: 'SEND_FRAME' }
+  | { type: 'RESET' };
 
 function reducer(state: RealtimeState, action: RealtimeAction): RealtimeState {
   switch (action.type) {
-    case 'SET_CONNECTION_STATE':
+    case 'SET_STATUS':
+      return { ...state, status: action.payload };
+    case 'SET_RESULT':
+      return { ...state, lastResult: action.payload };
+    case 'DROP_FRAME':
+      return { ...state, droppedFrames: state.droppedFrames + 1 };
+    case 'SLOW_DOWN':
+      return { ...state, slowDownWarnings: state.slowDownWarnings + 1 };
+    case 'SET_ERROR':
+      return { ...state, lastError: action.payload };
+    case 'CLEAR_ERROR':
+      return { ...state, lastError: null };
+    case 'SEND_FRAME':
       return {
         ...state,
-        connectionState: action.payload,
-        isConnected: action.payload === ConnectionState.CONNECTED,
+        framesSent: state.framesSent + 1,
+        startTime: state.startTime ?? Date.now(),
       };
-    case 'SET_PROGRESS':
-      return { ...state, progress: action.payload };
-    case 'SET_PLUGIN_TIMINGS':
-      return { ...state, pluginTimings: action.payload };
-    case 'ADD_WARNING':
-      return { ...state, warnings: [...state.warnings, action.payload] };
-    case 'ADD_ERROR':
-      return { ...state, errors: [...state.errors, action.payload] };
-    case 'SET_CURRENT_PLUGIN':
-      return { ...state, currentPlugin: action.payload };
     case 'RESET':
       return initialState;
     default:
@@ -69,24 +65,25 @@ function reducer(state: RealtimeState, action: RealtimeAction): RealtimeState {
   }
 }
 
+// ============================================================================
+// Context
+// ============================================================================
+
 interface RealtimeContextValue {
   state: RealtimeState;
-  client: RealtimeClient | null;
-  connect: () => Promise<void>;
+  connect: (pipelineId: string) => void;
   disconnect: () => void;
-  send: (type: string, payload: Record<string, unknown>) => void;
-  on: (type: string, handler: (message: RealtimeMessage) => void) => void;
-  off: (type: string, handler: (message: RealtimeMessage) => void) => void;
+  sendFrame: (bytes: Uint8Array) => void;
+  handleMessage: (message: unknown) => void;
 }
 
 const RealtimeContext = createContext<RealtimeContextValue | null>(null);
 
 interface RealtimeProviderProps {
   children: ReactNode;
-  url?: string;
+  debug?: boolean;
 }
 
-// Helper to ensure context is not null
 function useRealtimeContext(): RealtimeContextValue {
   const context = useContext(RealtimeContext);
   if (!context) {
@@ -95,92 +92,121 @@ function useRealtimeContext(): RealtimeContextValue {
   return context;
 }
 
-export function RealtimeProvider({ children, url = 'ws://localhost:8000/v1/realtime' }: RealtimeProviderProps) {
-   const [state, dispatch] = useReducer(reducer, initialState);
-   const [client, setClient] = useState<RealtimeClient | null>(null);
+export function RealtimeProvider({ children, debug = false }: RealtimeProviderProps) {
+  const [state, dispatch] = useReducer(reducer, initialState);
+  const wsRef = useRef<WebSocket | null>(null);
 
-  useEffect(() => {
-    const realtimeClient = new RealtimeClient(url);
-    setClient(realtimeClient);
+  const log = useCallback((...args: unknown[]) => {
+    if (debug) console.log('[Realtime]', ...args);
+  }, [debug]);
 
-    realtimeClient.on('connected', () => {
-      dispatch({ type: 'SET_CONNECTION_STATE', payload: ConnectionState.CONNECTED });
-    });
+  const connect = useCallback((pipelineId: string) => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      disconnect();
+    }
 
-    realtimeClient.on('disconnected', () => {
-      dispatch({ type: 'SET_CONNECTION_STATE', payload: ConnectionState.DISCONNECTED });
-    });
+    const wsUrl = new URL('/ws/video/stream', window.location.origin);
+    wsUrl.protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    wsUrl.host = window.location.host;
+    wsUrl.searchParams.set('pipeline_id', pipelineId);
 
-    realtimeClient.on('progress', (message) => {
-      dispatch({ type: 'SET_PROGRESS', payload: message.payload.progress as number });
-    });
+    log('Connecting to:', wsUrl.toString());
 
-    realtimeClient.on('plugin_status', (message) => {
-      dispatch({ type: 'SET_CURRENT_PLUGIN', payload: message.payload.plugin_id as string });
-    });
+    const ws = new WebSocket(wsUrl.toString());
+    ws.binaryType = 'arraybuffer';
+    wsRef.current = ws;
 
-    realtimeClient.on('warning', (message) => {
-      dispatch({ type: 'ADD_WARNING', payload: message.payload.message as string });
-    });
-
-    realtimeClient.on('error', (message) => {
-      dispatch({ type: 'ADD_ERROR', payload: message.payload.message as string });
-    });
-
-    realtimeClient.on('*', (message) => {
-      if (message.type === 'plugin_timing') {
-        const timings = { ...state.pluginTimings };
-        timings[message.payload.plugin_id as string] = message.payload.timing_ms as number;
-        dispatch({ type: 'SET_PLUGIN_TIMINGS', payload: timings });
-      }
-    });
-
-    return () => {
-      realtimeClient.disconnect();
+    ws.onopen = () => {
+      log('Connected');
+      dispatch({ type: 'SET_STATUS', payload: 'connected' });
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [url]);
 
-  const connect = async () => {
-    if (client) {
-      await client.connect();
-    }
-  };
+    ws.onclose = () => {
+      log('Disconnected');
+      dispatch({ type: 'SET_STATUS', payload: 'disconnected' });
+    };
 
-  const disconnect = () => {
-    if (client) {
-      client.disconnect();
-    }
-  };
+    ws.onerror = (error) => {
+      log('Error:', error);
+      dispatch({ type: 'SET_STATUS', payload: 'disconnected' });
+    };
 
-  const send = (type: string, payload: Record<string, unknown>) => {
-    if (client) {
-      client.send(type, payload);
-    }
-  };
+    ws.onmessage = (event) => {
+      handleMessage(event.data);
+    };
+  }, [debug]);
 
-  const on = (type: string, handler: (message: RealtimeMessage) => void) => {
-    if (client) {
-      client.on(type, handler);
+  const disconnect = useCallback(() => {
+    if (wsRef.current) {
+      wsRef.current.close();
+      wsRef.current = null;
     }
-  };
+    dispatch({ type: 'RESET' });
+  }, []);
 
-  const off = (type: string, handler: (message: RealtimeMessage) => void) => {
-    if (client) {
-      client.off(type, handler);
+  const sendFrame = useCallback((bytes: Uint8Array) => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(bytes);
+      dispatch({ type: 'SEND_FRAME' });
     }
-  };
+  }, []);
+
+  const handleMessage = useCallback((data: unknown) => {
+    if (typeof data !== 'string') return;
+
+    try {
+      const message = JSON.parse(data) as
+        | StreamingResultPayload
+        | StreamingDroppedPayload
+        | StreamingSlowDownPayload
+        | StreamingErrorPayload;
+
+      // Result message
+      if ('result' in message) {
+        dispatch({ type: 'SET_RESULT', payload: message as StreamingResultPayload });
+        return;
+      }
+
+      // Dropped frame message
+      if ('dropped' in message && message.dropped === true) {
+        dispatch({ type: 'DROP_FRAME' });
+        log('Frame dropped:', message);
+        return;
+      }
+
+      // Slow-down warning
+      if ('warning' in message && message.warning === 'slow_down') {
+        dispatch({ type: 'SLOW_DOWN' });
+        log('Slow-down warning received');
+        return;
+      }
+
+      // Error message
+      if ('error' in message) {
+        dispatch({ type: 'SET_ERROR', payload: message as StreamingErrorPayload });
+        log('Error:', message);
+        return;
+      }
+    } catch (err) {
+      log('Failed to parse message:', err);
+    }
+  }, [debug]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      disconnect();
+    };
+  }, [disconnect]);
 
   return (
     <RealtimeContext.Provider
       value={{
         state,
-        client,
         connect,
         disconnect,
-        send,
-        on,
-        off,
+        sendFrame,
+        handleMessage,
       }}
     >
       {children}
@@ -191,4 +217,6 @@ export function RealtimeProvider({ children, url = 'ws://localhost:8000/v1/realt
 export function useRealtime(): RealtimeContextValue {
   return useRealtimeContext();
 }
+
+export { useRealtimeContext };
 
