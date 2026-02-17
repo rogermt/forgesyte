@@ -2,7 +2,7 @@
  * Phase 17: Real-Time Context for state management.
  *
  * Updated to use Phase-17 useRealtime hook for streaming.
- * Maintains backward compatibility with Phase-10 components.
+ * Maintains backward compatibility with Phase-10 legacy components.
  */
 
 import { createContext, useContext, ReactNode } from 'react';
@@ -29,11 +29,13 @@ interface RealtimeContextValue {
   connect: (pipelineId: string) => void;
   disconnect: () => void;
   sendFrame: (bytes: Uint8Array | ArrayBuffer) => void;
+  clearError: () => void;
+  currentPipelineId: string | null;
   // Phase 10 legacy fields for backward compatibility
-  client: any;
-  send: any;
-  on: any;
-  off: any;
+  client: any; // eslint-disable-line @typescript-eslint/no-explicit-any
+  send: any; // eslint-disable-line @typescript-eslint/no-explicit-any
+  on: any; // eslint-disable-line @typescript-eslint/no-explicit-any
+  off: any; // eslint-disable-line @typescript-eslint/no-explicit-any
 }
 
 const RealtimeContext = createContext<RealtimeContextValue | null>(null);
@@ -53,7 +55,7 @@ export function useRealtimeContext(): RealtimeContextValue {
 
 export function RealtimeProvider({ children }: RealtimeProviderProps) {
   // Use Phase-17 useRealtime hook (renamed to avoid conflict)
-  const { connect, disconnect, sendFrame, state: streamingState } = useRealtimeStreaming();
+  const { connect, disconnect, sendFrame, clearError, currentPipelineId, state: streamingState } = useRealtimeStreaming();
 
   // Map Phase-17 state to RealtimeState format
   const state: RealtimeState = {
@@ -78,6 +80,8 @@ export function RealtimeProvider({ children }: RealtimeProviderProps) {
         connect,
         disconnect,
         sendFrame,
+        clearError,
+        currentPipelineId,
         // Phase 10 legacy fields (no-ops for Phase-17)
         client: null,
         send: () => {},

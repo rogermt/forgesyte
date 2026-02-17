@@ -32,6 +32,8 @@ export interface UseRealtimeStreamingReturn {
   connect: (pipelineId: string) => void;
   disconnect: () => void;
   sendFrame: (bytes: Uint8Array | ArrayBuffer) => void;
+  clearError: () => void;
+  currentPipelineId: string | null;
   state: {
     isConnected: boolean;
     isConnecting: boolean;
@@ -46,7 +48,8 @@ export interface UseRealtimeStreamingReturn {
 export function useRealtimeStreaming(options: UseRealtimeStreamingOptions = {}): UseRealtimeStreamingReturn {
   const { pipelineId: initialPipelineId, apiKey, debug = false } = options;
   
-  const [pipelineId, setPipelineId] = useState<string | undefined>(initialPipelineId);
+  const [pipelineId, setPipelineId] = useState<string | null>(initialPipelineId || null);
+  const [lastError, setLastError] = useState<StreamingErrorPayload | null>(null);
   
   // Create FPS throttler (initial 15 FPS)
   const throttlerRef = useRef<FPSThrottler | null>(null);
@@ -73,7 +76,11 @@ export function useRealtimeStreaming(options: UseRealtimeStreamingOptions = {}):
   }, []);
 
   const disconnect = useCallback(() => {
-    setPipelineId(undefined);
+    setPipelineId(null);
+  }, []);
+
+  const clearError = useCallback(() => {
+    setLastError(null);
   }, []);
 
   const sendFrame = useCallback((bytes: Uint8Array | ArrayBuffer) => {
@@ -92,6 +99,11 @@ export function useRealtimeStreaming(options: UseRealtimeStreamingOptions = {}):
     }
   }, [ws.slowDownWarnings]);
 
+  // Update lastError from WebSocket state
+  useEffect(() => {
+    setLastError(ws.lastError);
+  }, [ws.lastError]);
+
   const state = {
     isConnected: ws.isConnected,
     isConnecting: ws.isConnecting,
@@ -99,13 +111,15 @@ export function useRealtimeStreaming(options: UseRealtimeStreamingOptions = {}):
     lastResult: ws.lastResult,
     droppedFrames: ws.droppedFrames,
     slowDownWarnings: ws.slowDownWarnings,
-    lastError: ws.lastError,
+    lastError,
   };
 
   return {
     connect,
     disconnect,
     sendFrame,
+    clearError,
+    currentPipelineId: pipelineId,
     state,
   };
 }
