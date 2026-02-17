@@ -112,7 +112,7 @@ interface RealtimeProviderProps {
 }
 
 // Helper to ensure context is not null
-function useRealtimeContext(): RealtimeContextValue {
+export function useRealtimeContext(): RealtimeContextValue {
   const context = useContext(RealtimeContext);
   if (!context) {
     throw new Error('useRealtime must be used within a RealtimeProvider');
