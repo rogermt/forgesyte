@@ -9,6 +9,8 @@
  * - Auto-reconnect with exponential backoff
  * - State machine for connection states (IDLE, CONNECTING, CONNECTED, DISCONNECTED, RECONNECTING, CLOSED)
  *
+ * Phase 17: Extended for streaming with binary frame support
+ *
  * Author: Roger
  * Phase: 10
  */
@@ -178,4 +180,3 @@ export class RealtimeClient {
     wildcardHandlers.forEach(handler => handler(message));
   }
 }
-
