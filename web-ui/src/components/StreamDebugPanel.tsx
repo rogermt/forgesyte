@@ -124,17 +124,15 @@ export function StreamDebugPanel({ debug }: StreamDebugPanelProps) {
       {/* FE-8: MP4 Processing Section */}
       <hr style={{ borderColor: "#0f0", margin: "8px 0" }} />
 
-      <div style={{ fontWeight: "bold", marginBottom: "4px" }}>
-        MP4 Processing
-      </div>
+      <div>MP4 Processing</div>
       {mp4 && mp4.active ? (
         <>
-          <div>Status: Active</div>
+          <div>Job ID: {mp4.jobId ?? "unknown"}</div>
           <div>Progress: {mp4.progress}%</div>
           <div>Frames Processed: {mp4.framesProcessed}</div>
         </>
       ) : (
-        <div style={{ color: "#888" }}>No MP4 processing</div>
+        <div>No MP4 processing</div>
       )}
     </div>
   );
