@@ -14,6 +14,7 @@ export interface CameraPreviewProps {
     width?: number;
     height?: number;
     deviceId?: string;
+    streaming?: boolean; // Phase 17: Enable streaming mode
 }
 
 export function CameraPreview({
@@ -21,6 +22,7 @@ export function CameraPreview({
     width = 640,
     height = 480,
     deviceId,
+    streaming = false, // Phase 17: Default to legacy mode
 }: CameraPreviewProps) {
     const videoRef = useRef<HTMLVideoElement>(null);
     const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -243,6 +245,7 @@ export function CameraPreview({
                 }}
             >
                 {isStreaming ? "● Streaming" : "○ Not streaming"}
+                {streaming && " (Phase 17)"}
             </p>
         </div>
     );

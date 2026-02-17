@@ -1,0 +1,76 @@
+/**
+ * Phase 17 Debug CSS
+ */
+
+/* Debug Panel */
+.debug-panel {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  padding: 12px;
+  overflow-y: auto;
+  font-family: monospace;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.debug-panel h4 {
+  margin: 0 0 8px 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  border-bottom: 1px solid var(--border-light);
+  padding-bottom: 4px;
+}
+
+.debug-panel > div {
+  margin: 4px 0;
+  padding: 2px 0;
+}
+
+.debug-panel hr {
+  margin: 12px 0;
+  border: none;
+  border-top: 1px solid var(--border-light);
+}
+
+/* Debug sections */
+.debug-panel h4:first-of-type {
+  margin-top: 0;
+}
+
+.debug-panel h4:last-of-type {
+  margin-bottom: 8px;
+}
+
+/* Debug values */
+.debug-panel > div {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.debug-panel > div::before {
+  content: attr(data-label);
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.debug-panel > div::after {
+  content: attr(data-value);
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+/* Highlight important values */
+.debug-panel > div[data-highlight="true"]::after {
+  color: var(--accent-orange);
+}
+
+.debug-panel > div[data-error="true"]::after {
+  color: var(--accent-red);
+}
+
+.debug-panel > div[data-success="true"]::after {
+  color: var(--accent-green);
+}

@@ -1,16 +1,13 @@
 /**
  * VideoTracker Component
  *
- * This component implements the VideoTracker layout:
- * - Upload video file
- * - Display video with canvas overlay
- * - Playback controls (Play, Pause, FPS, Device)
- * - Overlay toggles (Players, Tracking, Ball, Pitch, Radar)
- *
- * Frame processing uses useVideoProcessor hook.
+ * Final Phase 17 architecture:
+ * - MP4 upload for async YOLO inference
+ * - Uses useVideoProcessor hook
+ * - MP4ProcessingProvider exposes state to StreamDebugPanel
  */
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import React, { useState } from "react";
 import { useVideoProcessor } from "../hooks/useVideoProcessor";
 import { drawDetections, type OverlayToggles } from "./ResultOverlay";
 import type { Detection } from "../types/plugin";
@@ -26,9 +23,8 @@ export interface VideoTrackerProps {
   debug?: boolean;    // FE-8: Golden Path Debug Mode
 }
 
-// ============================================================================
-// Styles
-// ============================================================================
+export function VideoTracker({ debug }: VideoTrackerProps) {
+  const [file, setFile] = useState<File | null>(null);
 
 const styles = {
   container: {
@@ -309,9 +305,13 @@ export function VideoTracker({ pluginId, tools, debug = false }: VideoTrackerPro
     setOverlayToggles((prev) => ({ ...prev, [key]: !prev[key] }));
   };
 
-  // -------------------------------------------------------------------------
-  // Render
-  // -------------------------------------------------------------------------
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const selected = event.target.files?.[0] ?? null;
+    setFile(selected);
+    if (selected) {
+      processor.start(selected);
+    }
+  };
 
   // Calculate MP4 processing state for debug panel
   const mp4State = {
@@ -332,18 +332,13 @@ export function VideoTracker({ pluginId, tools, debug = false }: VideoTrackerPro
         </div>
       </div>
 
-      {/* Upload Row */}
-      <div style={styles.uploadRow}>
-        <button
-          style={styles.button}
-          onClick={handleVideoUpload}
-        >
-          Upload Video
-        </button>
-        {videoFile && (
-          <span style={styles.fileNameLabel}>
-            {videoFile.name}
-          </span>
+        {processor.state.status === "idle" && <p>No job started.</p>}
+        {processor.state.status === "processing" && (
+          <p>Processing… {mp4State.progress}%</p>
+        )}
+        {processor.state.status === "completed" && <p>Job completed.</p>}
+        {processor.state.status === "error" && (
+          <p>Error: {processor.state.errorMessage}</p>
         )}
       </div>
 

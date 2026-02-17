@@ -30,6 +30,10 @@ interface RealtimeState {
   currentFps: number;
 }
 
+// ============================================================================
+// Context
+// ============================================================================
+
 interface RealtimeContextValue {
   state: RealtimeState;
   connect: (pipelineId: string) => void;

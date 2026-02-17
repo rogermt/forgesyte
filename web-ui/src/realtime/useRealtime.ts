@@ -1,13 +1,7 @@
 /**
- * Phase 10: Real-Time Hook.
+ * Phase 17 useRealtime Hook
  *
- * TODO: Implement the following:
- * - Hook for accessing real-time client
- * - Connection state helpers
- * - Message sending helpers
- *
- * Author: Roger
- * Phase: 10
+ * Convenience hook for accessing realtime state and methods
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';

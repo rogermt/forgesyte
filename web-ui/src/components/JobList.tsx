@@ -1,15 +1,15 @@
 /**
  * Job list component
+ *
+ * Final Phase 17 architecture:
+ * - Lists all historical jobs
+ * - Shows job status, progress, and metadata
  */
 
 import { useEffect, useState } from "react";
 import { apiClient, Job } from "../api/client";
 
-export interface JobListProps {
-    onJobSelect: (job: Job) => void;
-}
-
-export function JobList({ onJobSelect }: JobListProps) {
+export function JobList() {
     const [jobs, setJobs] = useState<Job[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -106,28 +106,13 @@ export function JobList({ onJobSelect }: JobListProps) {
                     <div
                         key={job.job_id}
                         data-testid={`job-item-${job.job_id}`}
-                        onClick={() => onJobSelect(job)}
                         style={{
                             padding: "10px",
                             marginBottom: "8px",
                             backgroundColor: "var(--bg-tertiary)",
                             borderRadius: "4px",
-                            cursor: "pointer",
                             border: "1px solid var(--border-light)",
                             transition: "all 0.2s",
-                        }}
-                        onMouseOver={(e) => {
-                            const el = e.currentTarget;
-                            el.style.backgroundColor = "var(--bg-hover)";
-                            el.style.borderColor = "var(--accent-cyan)";
-                            el.style.boxShadow =
-                                "0 2px 8px rgba(0, 229, 255, 0.15)";
-                        }}
-                        onMouseOut={(e) => {
-                            const el = e.currentTarget;
-                            el.style.backgroundColor = "var(--bg-tertiary)";
-                            el.style.borderColor = "var(--border-light)";
-                            el.style.boxShadow = "none";
                         }}
                     >
                         <div
@@ -194,3 +179,5 @@ export function JobList({ onJobSelect }: JobListProps) {
         </div>
     );
 }
+
+export default JobList;

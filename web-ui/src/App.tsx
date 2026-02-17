@@ -1,16 +1,14 @@
 // web-ui/src/App.tsx
 
 /**
- * Main application component for ForgeSyte
+ * ForgeSyte 1.0.0 - Final Unified Architecture
  *
- * Fixes included:
- * - Reset selectedTool whenever selectedPlugin changes (prevents sending old tool to new plugin)
- * - Auto-select first valid tool from the newly loaded manifest
+ * Three modes:
+ * - Stream: Live YOLO inference via WebSocket
+ * - Upload: MP4 upload with async job processing
+ * - Jobs: Historical job list
  *
- * Notes:
- * - Assumes your Option 2 API change is live:
- *   POST /v1/analyze?plugin=...&tool=...
- * - Assumes apiClient.analyzeImage(file, plugin, tool) exists (as per your working fix)
+ * No plugins. No tools. No manifests. No phases.
  */
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
@@ -32,12 +30,8 @@ const WS_BACKEND_URL =
 type ViewMode = "stream" | "upload" | "jobs";
 
 function App() {
-  // -------------------------------------------------------------------------
-  // State
-  // -------------------------------------------------------------------------
   const [viewMode, setViewMode] = useState<ViewMode>("stream");
-  const [selectedPlugin, setSelectedPlugin] = useState<string>("");
-  const [selectedTools, setSelectedTools] = useState<string[]>([]);
+  const [debug, setDebug] = useState(false);
 
   const [streamEnabled, setStreamEnabled] = useState(false);
 
@@ -358,32 +352,29 @@ function App() {
   // Render
   // -------------------------------------------------------------------------
   return (
-    <div style={styles.app}>
-      <header style={styles.header}>
-        <div style={styles.logo} data-testid="app-logo">
-          🔧 ForgeSyte
-        </div>
+    <div className="app-container">
+      <header className="header">
+        <div className="logo">🔧 ForgeSyte</div>
 
-        <nav style={styles.nav}>
-          {(["stream", "upload", "jobs"] as ViewMode[]).map((mode) => (
-            <button
-              key={mode}
-              style={{
-                ...styles.navButton,
-                backgroundColor:
-                  viewMode === mode
-                    ? "var(--accent-orange)"
-                    : "var(--bg-tertiary)",
-                borderColor:
-                  viewMode === mode
-                    ? "var(--accent-orange)"
-                    : "var(--border-light)",
-              }}
-              onClick={() => setViewMode(mode)}
-            >
-              {mode.charAt(0).toUpperCase() + mode.slice(1)}
-            </button>
-          ))}
+        <nav className="nav">
+          <button
+            className={viewMode === "stream" ? "active" : ""}
+            onClick={() => setViewMode("stream")}
+          >
+            Stream
+          </button>
+          <button
+            className={viewMode === "upload" ? "active" : ""}
+            onClick={() => setViewMode("upload")}
+          >
+            Upload
+          </button>
+          <button
+            className={viewMode === "jobs" ? "active" : ""}
+            onClick={() => setViewMode("jobs")}
+          >
+            Jobs
+          </button>
         </nav>
 
         <div className="top-right-controls">
@@ -409,24 +400,13 @@ function App() {
         </div>
       </header>
 
-      <main style={styles.main}>
-        <aside style={styles.sidebar}>
-          <div style={styles.panel}>
-            <PluginSelector
-              selectedPlugin={selectedPlugin}
-              onPluginChange={handlePluginChange}
-              disabled={streamEnabled}
-            />
-          </div>
+      {viewMode === "stream" && (
+        <RealtimeProvider debug={debug}>
+          <StreamingView debug={debug} />
+        </RealtimeProvider>
+      )}
 
-          <div style={styles.panel}>
-            <ToolSelector
-              pluginId={selectedPlugin}
-              selectedTools={selectedTools}
-              onToolChange={handleToolChange}
-              disabled={streamEnabled}
-            />
-          </div>
+      {viewMode === "upload" && <VideoTracker debug={debug} />}
 
           {viewMode === "jobs" && (
             <div style={styles.panel}>
