@@ -10,7 +10,7 @@ import { useRealtime as useRealtimeStreaming } from './useRealtime';
 import type { StreamingResultPayload, StreamingErrorPayload } from './types';
 
 interface RealtimeState {
-  connectionState: string;
+  connectionStatus: string;
   progress: number | null;
   pluginTimings: Record<string, number>;
   warnings: string[];
@@ -22,6 +22,12 @@ interface RealtimeState {
   droppedFrames: number;
   slowDownWarnings: number;
   lastError: StreamingErrorPayload | null;
+  // FE-7 metrics
+  framesSent: number;
+  startTime: number | null;
+  lastFrameSizes: number[];
+  lastLatencies: number[];
+  currentFps: number;
 }
 
 interface RealtimeContextValue {
@@ -31,6 +37,7 @@ interface RealtimeContextValue {
   sendFrame: (bytes: Uint8Array | ArrayBuffer) => void;
   clearError: () => void;
   currentPipelineId: string | null;
+  wsUrl: string;
   // Phase 10 legacy fields for backward compatibility
   client: any; // eslint-disable-line @typescript-eslint/no-explicit-any
   send: any; // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -42,6 +49,7 @@ const RealtimeContext = createContext<RealtimeContextValue | null>(null);
 
 interface RealtimeProviderProps {
   children: ReactNode;
+  debug?: boolean;
 }
 
 // Helper to ensure context is not null
@@ -53,13 +61,13 @@ export function useRealtimeContext(): RealtimeContextValue {
   return context;
 }
 
-export function RealtimeProvider({ children }: RealtimeProviderProps) {
+export function RealtimeProvider({ children, debug = false }: RealtimeProviderProps) {
   // Use Phase-17 useRealtime hook (renamed to avoid conflict)
-  const { connect, disconnect, sendFrame, clearError, currentPipelineId, state: streamingState } = useRealtimeStreaming();
+  const { connect, disconnect, sendFrame, clearError, currentPipelineId, wsUrl, state: streamingState } = useRealtimeStreaming({ debug });
 
   // Map Phase-17 state to RealtimeState format
   const state: RealtimeState = {
-    connectionState: streamingState.connectionStatus,
+    connectionStatus: streamingState.connectionStatus,
     progress: null, // Phase-17 doesn't use progress
     pluginTimings: {}, // Phase-17 doesn't use plugin timings
     warnings: [], // Phase-17 doesn't use warnings
@@ -71,6 +79,12 @@ export function RealtimeProvider({ children }: RealtimeProviderProps) {
     droppedFrames: streamingState.droppedFrames,
     slowDownWarnings: streamingState.slowDownWarnings,
     lastError: streamingState.lastError,
+    // FE-7 metrics
+    framesSent: streamingState.framesSent,
+    startTime: streamingState.startTime,
+    lastFrameSizes: streamingState.lastFrameSizes,
+    lastLatencies: streamingState.lastLatencies,
+    currentFps: streamingState.currentFps,
   };
 
   return (
@@ -82,6 +96,7 @@ export function RealtimeProvider({ children }: RealtimeProviderProps) {
         sendFrame,
         clearError,
         currentPipelineId,
+        wsUrl,
         // Phase 10 legacy fields (no-ops for Phase-17)
         client: null,
         send: () => {},

@@ -1,12 +1,15 @@
 /**
- * Camera preview component with frame capture
+ * Phase-17 Camera preview component with binary frame capture
+ *
+ * Captures webcam frames and sends them as binary JPEG bytes via RealtimeContext.
+ * Uses canvas.toBlob() → Uint8Array conversion for streaming.
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useRealtimeContext } from "../realtime/RealtimeContext";
+import { FPSThrottler } from "../utils/FPSThrottler";
 
 export interface CameraPreviewProps {
-    onFrame?: (imageData: string) => void;
-    captureInterval?: number;
     enabled?: boolean;
     width?: number;
     height?: number;
@@ -14,8 +17,6 @@ export interface CameraPreviewProps {
 }
 
 export function CameraPreview({
-    onFrame,
-    captureInterval = 100,
     enabled = true,
     width = 640,
     height = 480,
@@ -24,12 +25,26 @@ export function CameraPreview({
     const videoRef = useRef<HTMLVideoElement>(null);
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const streamRef = useRef<MediaStream | null>(null);
-    const intervalRef = useRef<ReturnType<typeof setInterval>>();
+    const throttlerRef = useRef<FPSThrottler | null>(null);
 
     const [isStreaming, setIsStreaming] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
     const [selectedDevice, setSelectedDevice] = useState<string>(deviceId || "");
+
+    const { sendFrame, state, currentPipelineId, connect } = useRealtimeContext();
+
+    // Initialize FPS throttler (start at 15 FPS)
+    if (!throttlerRef.current) {
+        throttlerRef.current = new FPSThrottler(15);
+    }
+
+    // Reduce FPS when slow_down warnings received
+    useEffect(() => {
+        if (state.slowDownWarnings > 0 && throttlerRef.current) {
+            throttlerRef.current = new FPSThrottler(5);
+        }
+    }, [state.slowDownWarnings]);
 
     // Get available camera devices
     useEffect(() => {
@@ -86,7 +101,7 @@ export function CameraPreview({
         setIsStreaming(false);
     }, []);
 
-    // Capture frame and send to callback
+    // Capture frame and send as binary JPEG
     const captureFrame = useCallback(() => {
         if (!videoRef.current || !canvasRef.current || !isStreaming || !enabled) {
             return;
@@ -102,11 +117,15 @@ export function CameraPreview({
         canvas.height = video.videoHeight;
         ctx.drawImage(video, 0, 0);
 
-        const dataUrl = canvas.toDataURL("image/jpeg", 0.8);
-        const base64Data = dataUrl.split(",")[1];
+        // Convert to binary JPEG bytes as per FE-3/FE-7 spec
+        canvas.toBlob(async (blob) => {
+            if (!blob) return;
 
-        onFrame?.(base64Data);
-    }, [isStreaming, enabled, onFrame]);
+            const arrayBuffer = await blob.arrayBuffer();
+            const uint8Array = new Uint8Array(arrayBuffer);
+            sendFrame(uint8Array);
+        }, "image/jpeg", 0.8);
+    }, [isStreaming, enabled, sendFrame]);
 
     // Start/stop camera based on enabled prop
     useEffect(() => {
@@ -121,18 +140,30 @@ export function CameraPreview({
         };
     }, [enabled, startCamera, stopCamera]);
 
-    // Set up frame capture interval
+    // Set up frame capture loop with FPS throttling
     useEffect(() => {
-        if (isStreaming && enabled && onFrame) {
-            intervalRef.current = setInterval(captureFrame, captureInterval);
-        }
+        if (!isStreaming || !enabled) return;
+
+        const loop = () => {
+            if (throttlerRef.current) {
+                throttlerRef.current.throttle(captureFrame);
+            }
+            requestAnimationFrame(loop);
+        };
+
+        const animationId = requestAnimationFrame(loop);
 
         return () => {
-            if (intervalRef.current) {
-                clearInterval(intervalRef.current);
-            }
+            cancelAnimationFrame(animationId);
         };
-    }, [isStreaming, enabled, captureInterval, captureFrame, onFrame]);
+    }, [isStreaming, enabled, captureFrame]);
+
+    // Auto-connect if pipeline is selected but not connected
+    useEffect(() => {
+        if (enabled && currentPipelineId && state.connectionStatus === "disconnected") {
+            connect(currentPipelineId);
+        }
+    }, [enabled, currentPipelineId, state.connectionStatus, connect]);
 
     return (
         <div>
