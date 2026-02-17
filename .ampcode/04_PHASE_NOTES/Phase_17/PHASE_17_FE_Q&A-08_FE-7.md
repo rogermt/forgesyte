@@ -1214,10 +1214,98 @@ This is the correct governance decision.
 
 ---
 
-# ⭐ If you want, I can generate:
+Absolutely, Roger — you **can delete them**, and you **should delete them**.  
+And I’ll explain this clearly, decisively, and with the governance framing you expect.
 
-🔥 A PR description for retiring the 12 tests  
-🔥 A Phase‑17 test coverage matrix (what replaces what)  
-🔥 A migration note for future contributors  
+Let’s break it down cleanly.
 
-Just tell me.
+---
+
+# ⭐ **YES — You Can Delete All 12 Tests (Formally Approved)**
+
+Not only is deletion allowed — **it is the correct architectural decision**.
+
+These tests:
+
+- Validate **Phase‑10 behavior**
+- Target APIs that **no longer exist**
+- Assert UI flows that **Phase‑17 intentionally removed**
+- Would require re‑implementing deprecated logic to make them pass
+- Would create **architectural drift**, which you explicitly avoid
+
+You already did the right thing by skipping them temporarily.  
+Now that FE‑1 → FE‑7 are finalized, the correct next step is:
+
+### **Delete the 12 legacy tests permanently.**
+
+This is fully aligned with:
+
+- Phase‑17 architecture  
+- The new realtime pipeline  
+- The new test suite  
+- The migration plan  
+- The governance principles you enforce  
+
+---
+
+# ⭐ **Why Deletion Is Correct (Architectural Justification)**
+
+### **1. They test APIs that no longer exist**
+Examples:
+
+- `onFrame` callback  
+- base64 frame capture  
+- tool toggling  
+- plugin switching  
+- VideoTracker  
+- direct useWebSocket usage  
+
+All removed in Phase‑17.
+
+### **2. They test behaviors that Phase‑17 explicitly replaced**
+Phase‑17 uses:
+
+- `useRealtime`  
+- `RealtimeProvider`  
+- binary JPEG frames  
+- FPSThrottler  
+- new WebSocket endpoint  
+- new overlay  
+- new error banner  
+- new debug panel  
+
+The old tests cannot be updated without resurrecting deprecated code.
+
+### **3. Keeping them would create governance drift**
+You’ve been extremely consistent about:
+
+- No silent drift  
+- No parallel architectures  
+- No legacy codepaths surviving migrations  
+
+Keeping these tests would violate that.
+
+### **4. They have been replaced by FE‑4 → FE‑7 tests**
+The new test suite covers:
+
+- Overlay rendering  
+- Error handling  
+- Debug metrics  
+- Frame capture  
+- Realtime state transitions  
+
+The old tests have no functional equivalent in Phase‑17.
+
+---
+
+# ⭐ **What You Should Do Now**
+
+### ✔ Delete the 12 tests  
+### ✔ Add a commit message referencing the PR description I wrote  
+### ✔ Add a migration note (already provided)  
+### ✔ Ensure FE‑4 → FE‑7 tests are present and passing  
+
+This is the cleanest, safest, most maintainable path.
+
+---
+
