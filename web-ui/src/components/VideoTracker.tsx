@@ -10,10 +10,8 @@
  * Critical Rule: NEVER hardcode pipeline IDs. The backend chooses the pipeline.
  */
 
-import React, { useState } from "react";
-import { useVideoProcessor } from "../hooks/useVideoProcessor";
-import { drawDetections, type OverlayToggles } from "./ResultOverlay";
-import type { Detection } from "../types/plugin";
+import React from "react";
+import { useMP4Upload } from "../hooks/useMP4Upload";
 import { MP4ProcessingProvider } from "../mp4/MP4ProcessingContext";
 
 // ============================================================================
@@ -21,13 +19,14 @@ import { MP4ProcessingProvider } from "../mp4/MP4ProcessingContext";
 // ============================================================================
 
 export interface VideoTrackerProps {
-  pluginId: string;   // routing only
-  tools: string[];   // routing only
+  pluginId?: string;   // routing only - not used in Phase 17
+  tools?: string[];   // routing only - not used in Phase 17
   debug?: boolean;    // FE-8: Golden Path Debug Mode
 }
 
-export function VideoTracker({ debug }: VideoTrackerProps) {
-  const [file, setFile] = useState<File | null>(null);
+// ============================================================================
+// Styles
+// ============================================================================
 
 const styles = {
   container: {
@@ -35,7 +34,7 @@ const styles = {
     flexDirection: "column" as const,
     gap: "20px",
     padding: "20px",
-    maxWidth: "1400px",
+    maxWidth: "800px",
     margin: "0 auto",
   },
   header: {
@@ -56,10 +55,14 @@ const styles = {
     fontSize: "12px",
     color: "var(--text-secondary)",
   },
-  uploadRow: {
+  uploadSection: {
     display: "flex",
-    gap: "12px",
-    alignItems: "center",
+    flexDirection: "column" as const,
+    gap: "16px",
+    padding: "20px",
+    backgroundColor: "var(--bg-secondary)",
+    borderRadius: "8px",
+    border: "1px solid var(--border-light)",
   },
   button: {
     padding: "10px 16px",
@@ -72,429 +75,253 @@ const styles = {
     cursor: "pointer",
     transition: "all 0.2s",
   },
-  buttonActive: {
+  buttonPrimary: {
     backgroundColor: "var(--accent-primary)",
     color: "white",
     borderColor: "var(--accent-primary)",
   },
-  videoSection: {
-    display: "flex",
-    flexDirection: "column" as const,
-    gap: "12px",
+  buttonDisabled: {
+    opacity: 0.5,
+    cursor: "not-allowed",
   },
-  videoContainer: {
-    position: "relative" as const,
-    backgroundColor: "black",
-    borderRadius: "8px",
-    overflow: "hidden",
-    border: "1px solid var(--border-light)",
-    aspectRatio: "16 / 9",
-    width: "100%",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
+  fileInput: {
+    display: "none",
   },
-  video: {
-    width: "100%",
-    height: "100%",
-    display: "block",
-  },
-  canvas: {
-    position: "absolute" as const,
-    top: 0,
-    left: 0,
-    width: "100%",
-    height: "100%",
-  },
-  placeholderText: {
-    color: "var(--text-muted)",
-    margin: 0,
-  },
-  controlsRow: {
-    display: "flex",
-    gap: "12px",
-    alignItems: "center",
-    flexWrap: "wrap" as const,
-  },
-  dropdown: {
-    padding: "8px 12px",
+  statusBox: {
+    padding: "12px",
     borderRadius: "6px",
     fontSize: "13px",
-    border: "1px solid var(--border-light)",
+  },
+  statusBoxIdle: {
     backgroundColor: "var(--bg-tertiary)",
-    color: "var(--text-primary)",
-    cursor: "pointer",
+    color: "var(--text-secondary)",
   },
-  divider: {
-    height: "1px",
-    backgroundColor: "var(--border-light)",
+  statusBoxUploading: {
+    backgroundColor: "rgba(255, 193, 7, 0.1)",
+    color: "var(--accent-warning)",
+    border: "1px solid var(--accent-warning)",
   },
-  togglesRow: {
+  statusBoxProcessing: {
+    backgroundColor: "rgba(0, 123, 255, 0.1)",
+    color: "var(--accent-primary)",
+    border: "1px solid var(--accent-primary)",
+  },
+  statusBoxCompleted: {
+    backgroundColor: "rgba(40, 167, 69, 0.1)",
+    color: "var(--accent-success)",
+    border: "1px solid var(--accent-success)",
+  },
+  statusBoxError: {
+    backgroundColor: "rgba(220, 53, 69, 0.1)",
+    color: "var(--accent-red)",
+    border: "1px solid var(--accent-red)",
+  },
+  progressBarContainer: {
+    width: "100%",
+    height: "8px",
+    backgroundColor: "var(--bg-tertiary)",
+    borderRadius: "4px",
+    overflow: "hidden",
+    marginTop: "8px",
+  },
+  progressBar: {
+    height: "100%",
+    backgroundColor: "var(--accent-primary)",
+    transition: "width 0.3s ease",
+  },
+  infoRow: {
     display: "flex",
     gap: "20px",
-    alignItems: "center",
-    flexWrap: "wrap" as const,
-  },
-  toggleItem: {
-    display: "flex",
-    alignItems: "center",
-    gap: "6px",
-  },
-  toggleLabel: {
-    fontSize: "13px",
-    color: "var(--text-primary)",
-    userSelect: "none" as const,
+    fontSize: "12px",
+    color: "var(--text-secondary)",
+    marginTop: "8px",
   },
   fileNameLabel: {
-    fontSize: "12px",
-    color: "var(--text-secondary)",
-  },
-  statusRow: {
-    display: "flex",
-    gap: "20px",
-    alignItems: "center",
-    fontSize: "12px",
-    color: "var(--text-secondary)",
-  },
-  statusItem: {
-    display: "flex",
-    alignItems: "center",
-    gap: "6px",
-  },
-  processingIndicator: {
-    width: "8px",
-    height: "8px",
-    borderRadius: "50%",
-    backgroundColor: "var(--accent-warning)",
-  },
-  processingIndicatorActive: {
-    backgroundColor: "var(--accent-success)",
+    fontSize: "13px",
+    color: "var(--text-primary)",
+    fontWeight: 500,
   },
 } as const;
-
-// ============================================================================
-// Constants
-// ============================================================================
-
-const FPS_OPTIONS = [5, 10, 15, 24, 30, 45, 60];
-const OVERLAY_KEYS = ["players", "tracking", "ball", "pitch", "radar"] as const;
 
 // ============================================================================
 // Component
 // ============================================================================
 
-export function VideoTracker({ pluginId, tools, debug = false }: VideoTrackerProps) {
-  // -------------------------------------------------------------------------
-  // Refs
-  // -------------------------------------------------------------------------
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+export function VideoTracker({ debug = false }: VideoTrackerProps) {
+  const upload = useMP4Upload(debug);
 
-  // -------------------------------------------------------------------------
-  // State
-  // -------------------------------------------------------------------------
-  const [videoFile, setVideoFile] = useState<File | null>(null);
-  const [videoSrc, setVideoSrc] = useState<string | null>(null);
-  const [fps, setFps] = useState(30);
-  const [device, setDevice] = useState<"cpu" | "cuda">("cpu");
-  const [running, setRunning] = useState(false);
-  const [overlayToggles, setOverlayToggles] = useState<OverlayToggles>({
-    players: true,
-    tracking: true,
-    ball: true,
-    pitch: true,
-    radar: true,
-  });
-
-  // -------------------------------------------------------------------------
-  // Video processing hook
-  // -------------------------------------------------------------------------
-  const {
-    latestResult,
-    buffer,
-    processing,
-    error,
-    lastRequestDuration,
-    metrics,
-  } = useVideoProcessor({
-    videoRef,
-    pluginId,
-    tools,
-    fps,
-    device,
-    enabled: running,
-    debug,
-  });
-
-  // -------------------------------------------------------------------------
-  // Effects
-  // -------------------------------------------------------------------------
-
-  // Revoke blob URL on cleanup
-  useEffect(() => {
-    return () => {
-      if (videoSrc) {
-        URL.revokeObjectURL(videoSrc);
-      }
-    };
-  }, [videoSrc]);
-
-  // Draw overlay when latestResult changes
-  useEffect(() => {
-    if (!canvasRef.current || !videoRef.current) return;
-    if (!latestResult) return;
-
-    // Ensure canvas matches video resolution
-    canvasRef.current.width = videoRef.current.videoWidth;
-    canvasRef.current.height = videoRef.current.videoHeight;
-
-    // Extract detections array from the result
-    // The API returns { detections: Detection[] } or Detection[] directly
-    const detections = Array.isArray(latestResult)
-      ? latestResult
-      : (latestResult as Record<string, unknown>).detections as Detection[];
-
-    if (!detections || detections.length === 0) return;
-
-    // Extract pitch lines from the result if available
-    const pitchLines = (latestResult as Record<string, unknown>)?.pitch as Array<{ x1: number; y1: number; x2: number; y2: number }> | undefined;
-
-    // Call drawDetections function to draw on the canvas
-    drawDetections({
-      canvas: canvasRef.current,
-      detections,
-      width: videoRef.current.videoWidth,
-      height: videoRef.current.videoHeight,
-      overlayToggles,
-      pitchLines,
-    });
-  }, [latestResult, buffer, overlayToggles]);
-
-  // -------------------------------------------------------------------------
-  // Handlers
-  // -------------------------------------------------------------------------
-
-  const handleVideoUpload = useCallback(() => {
-    const input = document.createElement("input");
-    input.type = "file";
-    input.accept = "video/*";
-    input.onchange = (e) => {
-      const file = (e.target as HTMLInputElement).files?.[0];
-      if (file && file.type.startsWith("video/")) {
-        // Revoke previous URL if exists
-        if (videoSrc) {
-          URL.revokeObjectURL(videoSrc);
-        }
-        const newSrc = URL.createObjectURL(file);
-        setVideoFile(file);
-        setVideoSrc(newSrc);
-        setRunning(false); // Stop processing on new video
-      }
-    };
-    input.click();
-  }, [videoSrc]);
-
-  const handlePlay = useCallback(() => {
-    setRunning(true);
-    videoRef.current?.play();
-  }, []);
-
-  const handlePause = useCallback(() => {
-    setRunning(false);
-    videoRef.current?.pause();
-  }, []);
-
-  const handleToggle = (key: typeof OVERLAY_KEYS[number]) => {
-    setOverlayToggles((prev) => ({ ...prev, [key]: !prev[key] }));
-  };
-
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const selected = event.target.files?.[0] ?? null;
-    if (selected) {
-      upload.start(selected);
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      upload.start(file);
     }
   };
 
-  // Calculate MP4 processing state for debug panel
-  const mp4State = {
-    active: processing,
-    jobId: null, // MP4 upload doesn't use job IDs in the same way as streaming
-    progress: metrics ? (metrics.totalFrames > 0 ? Math.round((metrics.successfulFrames / metrics.totalFrames) * 100) : 0) : 0,
-    framesProcessed: metrics?.totalFrames ?? 0,
+  const handleReset = () => {
+    upload.reset();
   };
+
+  const handleCancel = () => {
+    upload.cancel();
+  };
+
+  // Calculate MP4 processing state for context
+  const mp4State = {
+    active: upload.state.status === "processing",
+    jobId: upload.state.jobId,
+    progress: upload.state.progress,
+    framesProcessed: upload.state.framesProcessed,
+  };
+
+  const getStatusBoxStyle = () => {
+    switch (upload.state.status) {
+      case "idle":
+        return styles.statusBoxIdle;
+      case "uploading":
+        return styles.statusBoxUploading;
+      case "processing":
+        return styles.statusBoxProcessing;
+      case "completed":
+        return styles.statusBoxCompleted;
+      case "error":
+        return styles.statusBoxError;
+      case "cancelled":
+        return styles.statusBoxIdle;
+      default:
+        return styles.statusBoxIdle;
+    }
+  };
+
+  const getStatusText = () => {
+    switch (upload.state.status) {
+      case "idle":
+        return "Ready to upload";
+      case "uploading":
+        return "Uploading video to server...";
+      case "processing":
+        return `Processing video... ${upload.state.progress}%`;
+      case "completed":
+        return "✅ Processing completed successfully";
+      case "error":
+        return `❌ Error: ${upload.state.errorMessage}`;
+      case "cancelled":
+        return "Upload cancelled";
+      default:
+        return "Unknown status";
+    }
+  };
+
+  const canUpload = upload.state.status === "idle";
+  const canCancel = upload.state.status === "uploading" || upload.state.status === "processing";
+  const canReset = upload.state.status === "completed" || upload.state.status === "error" || upload.state.status === "cancelled";
 
   return (
     <MP4ProcessingProvider value={mp4State}>
       <div style={styles.container}>
-      {/* Header */}
-      <div style={styles.header}>
-        <h1 style={styles.title}>VideoTracker</h1>
-        <div style={styles.subtitle}>
-          Plugin: <strong>{pluginId}</strong> | Tools: <strong>{tools.join(", ")}</strong>
+        {/* Header */}
+        <div style={styles.header}>
+          <h1 style={styles.title}>Video Upload</h1>
+          <div style={styles.subtitle}>
+            Phase 17 MP4 Upload Pipeline
+          </div>
         </div>
-      </div>
 
-        {upload.state.status === "idle" && (
-          <div>
-            <input
-              type="file"
-              accept="video/*"
-              onChange={handleFileChange}
-              disabled={upload.state.status !== "idle"}
-            />
-            <p>No job started.</p>
-          </div>
-        )}
+        {/* Upload Section */}
+        <div style={styles.uploadSection}>
+          <input
+            type="file"
+            accept="video/*"
+            onChange={handleFileSelect}
+            disabled={!canUpload}
+            style={styles.fileInput}
+            id="video-upload-input"
+          />
 
-        {upload.state.status === "uploading" && (
-          <div>
-            <p>Uploading video…</p>
-          </div>
-        )}
+          <label
+            htmlFor="video-upload-input"
+            style={{
+              ...styles.button,
+              ...(canUpload ? styles.buttonPrimary : styles.buttonDisabled),
+            }}
+          >
+            Select Video File
+          </label>
 
-        {upload.state.status === "processing" && (
-          <div>
-            <p>Processing… {mp4State.progress}%</p>
-            <p>Frames processed: {mp4State.framesProcessed}</p>
-            {mp4State.jobId && <p>Job ID: {mp4State.jobId}</p>}
-          </div>
-        )}
+          {/* Status Box */}
+          <div style={{ ...styles.statusBox, ...getStatusBoxStyle() }}>
+            <div style={{ fontWeight: 600 }}>{getStatusText()}</div>
 
-        {upload.state.status === "completed" && (
-          <div>
-            <p>✅ Job completed.</p>
-            {mp4State.jobId && <p>Job ID: {mp4State.jobId}</p>}
-            <button onClick={handleReset}>Upload another video</button>
-          </div>
-        )}
+            {/* Progress Bar */}
+            {(upload.state.status === "uploading" || upload.state.status === "processing") && (
+              <>
+                <div style={styles.progressBarContainer}>
+                  <div
+                    style={{
+                      ...styles.progressBar,
+                      width: `${upload.state.progress}%`,
+                    }}
+                  />
+                </div>
 
-        {upload.state.status === "error" && (
-          <div>
-            <p style={{ color: "var(--accent-red)" }}>
-              ❌ Error: {upload.state.errorMessage}
-            </p>
-            <button onClick={handleReset}>Try again</button>
-          </div>
-        )}
+                {/* Info Row */}
+                <div style={styles.infoRow}>
+                  {upload.state.jobId && (
+                    <span>Job ID: {upload.state.jobId}</span>
+                  )}
+                  {upload.state.framesProcessed > 0 && (
+                    <span>Frames: {upload.state.framesProcessed}</span>
+                  )}
+                </div>
+              </>
+            )}
 
-        {upload.state.status === "cancelled" && (
-          <div>
-            <p>Upload cancelled.</p>
-            <button onClick={handleReset}>Start new upload</button>
+            {/* Error Details */}
+            {upload.state.status === "error" && upload.state.errorMessage && (
+              <div style={{ marginTop: "8px", fontSize: "12px" }}>
+                {upload.state.errorMessage}
+              </div>
+            )}
           </div>
-        )}
-      </div>
 
-      {/* Status Row */}
-      {videoFile && (
-        <div style={styles.statusRow}>
-          <div style={styles.statusItem}>
-            <div
-              style={{
-                ...styles.processingIndicator,
-                ...(processing ? styles.processingIndicatorActive : {}),
-              }}
-            />
-            <span>{processing ? "Processing..." : "Idle"}</span>
+          {/* Action Buttons */}
+          <div style={{ display: "flex", gap: "12px" }}>
+            {canCancel && (
+              <button
+                onClick={handleCancel}
+                style={styles.button}
+              >
+                Cancel
+              </button>
+            )}
+            {canReset && (
+              <button
+                onClick={handleReset}
+                style={{ ...styles.button, ...styles.buttonPrimary }}
+              >
+                Upload Another Video
+              </button>
+            )}
           </div>
-          {lastRequestDuration !== null && (
-            <div style={styles.statusItem}>
-              <span>Last request: {lastRequestDuration.toFixed(0)}ms</span>
-            </div>
-          )}
-          {error && (
-            <div style={styles.statusItem}>
-              <span style={{ color: "var(--accent-danger)" }}>Error: {error}</span>
-            </div>
-          )}
         </div>
-      )}
 
-      {/* Video + Canvas Section */}
-      <div style={styles.videoSection}>
-        <div style={styles.videoContainer}>
-          {videoFile && videoSrc ? (
-            <>
-              <video
-                ref={videoRef}
-                style={styles.video}
-                src={videoSrc}
-                controls
-                playsInline
-              />
-              <canvas
-                ref={canvasRef}
-                style={styles.canvas}
-              />
-            </>
-          ) : (
-            <p style={styles.placeholderText}>No video selected</p>
-          )}
-        </div>
-      </div>
-
-      {/* Playback Controls Row */}
-      <div style={styles.controlsRow}>
-        <button
-          style={{ ...styles.button, ...(running ? styles.buttonActive : {}) }}
-          onClick={handlePlay}
-        >
-          Play
-        </button>
-        <button
-          style={styles.button}
-          onClick={handlePause}
-        >
-          Pause
-        </button>
-
-        <select
-          value={fps}
-          onChange={(e) => setFps(Number(e.target.value))}
-          style={styles.dropdown}
-          disabled={!videoFile}
-        >
-          {FPS_OPTIONS.map((val) => (
-            <option key={val} value={val}>
-              {val} FPS
-            </option>
-          ))}
-        </select>
-
-        <select
-          aria-label="Device"
-          value={device}
-          onChange={(e) => setDevice(e.target.value as "cpu" | "cuda")}
-          style={styles.dropdown}
-          disabled={!videoFile}
-        >
-          <option value="cpu">CPU</option>
-          <option value="cuda">GPU</option>
-        </select>
-      </div>
-
-      {/* Divider */}
-      <div style={styles.divider} />
-
-      {/* Overlay Toggles Row */}
-      <div style={styles.togglesRow}>
-        {OVERLAY_KEYS.map((key) => (
-          <div key={key} style={styles.toggleItem}>
-            <input
-              type="checkbox"
-              checked={overlayToggles[key]}
-              onChange={() => handleToggle(key)}
-              id={`toggle-${key}`}
-              disabled={!videoFile}
-            />
-            <label
-              htmlFor={`toggle-${key}`}
-              style={styles.toggleLabel}
-            >
-              {key.charAt(0).toUpperCase() + key.slice(1)}
-            </label>
+        {/* Debug Info */}
+        {debug && (
+          <div style={{
+            padding: "12px",
+            backgroundColor: "var(--bg-tertiary)",
+            borderRadius: "6px",
+            fontSize: "12px",
+            fontFamily: "monospace",
+            color: "var(--text-secondary)",
+          }}>
+            <div><strong>Debug Info:</strong></div>
+            <div>Status: {upload.state.status}</div>
+            <div>Job ID: {upload.state.jobId || "N/A"}</div>
+            <div>Progress: {upload.state.progress}%</div>
+            <div>Frames: {upload.state.framesProcessed}</div>
+            <div>Error: {upload.state.errorMessage || "None"}</div>
           </div>
-        ))}
+        )}
       </div>
     </MP4ProcessingProvider>
   );

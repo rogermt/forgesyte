@@ -5,15 +5,15 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useWebSocket } from '../hooks/useWebSocket';
+import { RealtimeClient, ConnectionState } from './RealtimeClient';
 import { FPSThrottler } from '../utils/FPSThrottler';
-import type { StreamingResultPayload, StreamingErrorPayload } from './types';
+import type { StreamingResultPayload, StreamingErrorPayload, StreamingMessage } from './types';
 
 /**
  * Phase 17: Real-Time Streaming Hook
  *
  * High-level hook that orchestrates WebSocket, FPS throttling, and streaming state.
- * Wraps useWebSocket and provides Phase 17 streaming functionality.
+ * Uses RealtimeClient directly for Phase 17 binary streaming.
  */
 
 export interface UseRealtimeStreamingOptions {
@@ -32,7 +32,7 @@ export interface UseRealtimeStreamingReturn {
   state: {
     isConnected: boolean;
     isConnecting: boolean;
-    connectionStatus: 'idle' | 'connecting' | 'connected' | 'disconnected' | 'failed';
+    connectionStatus: 'idle' | 'connecting' | 'connected' | 'disconnected' | 'closed';
     lastResult: StreamingResultPayload | null;
     droppedFrames: number;
     slowDownWarnings: number;
@@ -51,6 +51,10 @@ export function useRealtimeStreaming(options: UseRealtimeStreamingOptions = {}):
 
   const [pipelineId, setPipelineId] = useState<string | null>(initialPipelineId || null);
   const [lastError, setLastError] = useState<StreamingErrorPayload | null>(null);
+  const [connectionState, setConnectionState] = useState<ConnectionState>(ConnectionState.IDLE);
+  const [lastResult, setLastResult] = useState<StreamingResultPayload | null>(null);
+  const [droppedFrames, setDroppedFrames] = useState(0);
+  const [slowDownWarnings, setSlowDownWarnings] = useState(0);
 
   // FE-7 metrics state
   const [framesSent, setFramesSent] = useState(0);
@@ -62,6 +66,9 @@ export function useRealtimeStreaming(options: UseRealtimeStreamingOptions = {}):
   // FE-7 refs for latency tracking
   const sendTimestamps = useRef(new Map<number, number>());
   const nextFrameIndexRef = useRef(0);
+
+  // RealtimeClient ref
+  const clientRef = useRef<RealtimeClient | null>(null);
 
   // Create FPS throttler (initial 15 FPS)
   const throttlerRef = useRef<FPSThrottler | null>(null);
@@ -75,22 +82,65 @@ export function useRealtimeStreaming(options: UseRealtimeStreamingOptions = {}):
     ? `ws://localhost:8000/ws/video/stream?pipeline_id=${pipelineId}${apiKey ? `&api_key=${apiKey}` : ''}`
     : '';
 
-  // Wrap useWebSocket
-  const ws = useWebSocket({
-    url: wsUrl,
-    plugin: pipelineId || '',
-    apiKey,
-    debug,
-  });
-
-  const connect = useCallback((newPipelineId: string) => {
+  // Connect to WebSocket
+  const connect = useCallback(async (newPipelineId: string) => {
     setPipelineId(newPipelineId);
+    setConnectionState(ConnectionState.CONNECTING);
     // FE-7: Set start time when connecting
     setStartTime(performance.now());
-  }, []);
+    setDroppedFrames(0);
+    setSlowDownWarnings(0);
+    setLastResult(null);
+    setLastError(null);
 
+    const url = `ws://localhost:8000/ws/video/stream?pipeline_id=${newPipelineId}${apiKey ? `&api_key=${apiKey}` : ''}`;
+
+    try {
+      const client = new RealtimeClient(url);
+      clientRef.current = client;
+
+      // Register message handler
+      client.on('*', (message: unknown) => {
+        const msg = message as StreamingMessage;
+        if ('warning' in msg && msg.warning === 'slow_down') {
+          setSlowDownWarnings((prev) => prev + 1);
+        } else if ('error' in msg) {
+          setLastError({ error: msg.error, detail: msg.detail });
+        } else if ('frame_index' in msg) {
+          if ('dropped' in msg && msg.dropped) {
+            setDroppedFrames((prev) => prev + 1);
+          } else {
+            setLastResult(msg as StreamingResultPayload);
+          }
+        }
+      });
+
+      // Listen to connection state changes
+      client.on('connected', () => {
+        setConnectionState(ConnectionState.CONNECTED);
+      });
+
+      client.on('disconnected', () => {
+        setConnectionState(ConnectionState.DISCONNECTED);
+      });
+
+      await client.connect();
+    } catch (error) {
+      setConnectionState(ConnectionState.CLOSED);
+      if (debug) {
+        console.error('[useRealtime] Connection failed:', error);
+      }
+    }
+  }, [apiKey, debug]);
+
+  // Disconnect from WebSocket
   const disconnect = useCallback(() => {
+    if (clientRef.current) {
+      clientRef.current.disconnect();
+      clientRef.current = null;
+    }
     setPipelineId(null);
+    setConnectionState(ConnectionState.DISCONNECTED);
     // FE-7: Clear metrics when disconnecting
     setStartTime(null);
     setFramesSent(0);
@@ -99,6 +149,10 @@ export function useRealtimeStreaming(options: UseRealtimeStreamingOptions = {}):
     setCurrentFps(15);
     sendTimestamps.current.clear();
     nextFrameIndexRef.current = 0;
+    setDroppedFrames(0);
+    setSlowDownWarnings(0);
+    setLastResult(null);
+    setLastError(null);
   }, []);
 
   const clearError = useCallback(() => {
@@ -106,7 +160,7 @@ export function useRealtimeStreaming(options: UseRealtimeStreamingOptions = {}):
   }, []);
 
   const sendFrame = useCallback((bytes: Uint8Array | ArrayBuffer) => {
-    if (!throttlerRef.current) return;
+    if (!throttlerRef.current || !clientRef.current) return;
 
     // Use throttler to control FPS
     throttlerRef.current.throttle(() => {
@@ -122,22 +176,22 @@ export function useRealtimeStreaming(options: UseRealtimeStreamingOptions = {}):
       const frameIndex = nextFrameIndexRef.current++;
       sendTimestamps.current.set(frameIndex, performance.now());
 
-      ws.sendBinaryFrame(bytes);
+      clientRef.current!.sendFrame(bytes);
     });
-  }, [ws]);
+  }, []);
 
   // Reduce FPS when slow_down warnings received
   useEffect(() => {
-    if (ws.slowDownWarnings > 0 && throttlerRef.current) {
+    if (slowDownWarnings > 0 && throttlerRef.current) {
       throttlerRef.current = new FPSThrottler(5);
       setCurrentFps(5);
     }
-  }, [ws.slowDownWarnings]);
+  }, [slowDownWarnings]);
 
   // FE-7: Compute latency from streaming results
   useEffect(() => {
-    if (ws.lastResult && ws.lastResult.frame_index !== undefined) {
-      const frameIndex = ws.lastResult.frame_index;
+    if (lastResult && lastResult.frame_index !== undefined) {
+      const frameIndex = lastResult.frame_index;
       const start = sendTimestamps.current.get(frameIndex);
       if (start) {
         // Prune the map to prevent unbounded growth
@@ -150,20 +204,24 @@ export function useRealtimeStreaming(options: UseRealtimeStreamingOptions = {}):
         });
       }
     }
-  }, [ws.lastResult]);
+  }, [lastResult]);
 
-  // Update lastError from WebSocket state
+  // Cleanup on unmount
   useEffect(() => {
-    setLastError(ws.lastError);
-  }, [ws.lastError]);
+    return () => {
+      if (clientRef.current) {
+        clientRef.current.disconnect();
+      }
+    };
+  }, []);
 
   const state = {
-    isConnected: ws.isConnected,
-    isConnecting: ws.isConnecting,
-    connectionStatus: ws.connectionStatus as 'idle' | 'connecting' | 'connected' | 'disconnected' | 'failed',
-    lastResult: ws.lastResult,
-    droppedFrames: ws.droppedFrames,
-    slowDownWarnings: ws.slowDownWarnings,
+    isConnected: connectionState === ConnectionState.CONNECTED,
+    isConnecting: connectionState === ConnectionState.CONNECTING,
+    connectionStatus: connectionState.toLowerCase() as 'idle' | 'connecting' | 'connected' | 'disconnected' | 'closed',
+    lastResult,
+    droppedFrames,
+    slowDownWarnings,
     lastError,
     // FE-7 metrics
     framesSent,
