@@ -1,0 +1,71 @@
+
+
+# ⭐ **Phase‑17 Frontend CI Test Plan**
+
+### **1. Test Suites to Run**
+- `src/hooks/useWebSocket.test.ts`
+- `src/realtime/useRealtime.test.ts`
+- `src/components/CameraPreview.test.tsx`
+- `src/components/RealtimeOverlay.test.tsx`
+- `src/components/PipelineSelector.test.tsx`
+- `src/components/ErrorBanner.test.tsx`
+- `src/components/StreamDebugPanel.test.tsx`
+- Existing MP4 upload tests:
+  - `src/hooks/useVideoProcessor.test.ts`
+  - `src/components/JobList.test.tsx`
+
+---
+
+### **2. CI Steps**
+
+#### **Step 1 — Install**
+```
+npm ci
+```
+
+#### **Step 2 — Type Check**
+```
+npm run typecheck
+```
+
+#### **Step 3 — Lint**
+```
+npm run lint
+```
+
+#### **Step 4 — Run Unit Tests**
+```
+npm test -- --run
+```
+
+#### **Step 5 — Coverage Thresholds**
+- Statements ≥ 80%  
+- Branches ≥ 70%  
+- Functions ≥ 80%  
+- Lines ≥ 80%  
+
+```
+npm test -- --coverage
+```
+
+#### **Step 6 — Build**
+```
+npm run build
+```
+
+---
+
+### **3. CI Failure Conditions**
+- Any test fails  
+- Coverage below threshold  
+- TypeScript errors  
+- ESLint errors  
+- Build errors  
+
+---
+
+### **4. CI Artifacts**
+- Coverage report  
+- Test results  
+- Build output  
+

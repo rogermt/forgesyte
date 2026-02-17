@@ -14,12 +14,13 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { CameraPreview } from "./components/CameraPreview";
 import { PluginSelector } from "./components/PluginSelector";
 import { ToolSelector } from "./components/ToolSelector";
 import { JobList } from "./components/JobList";
 import { ResultsPanel } from "./components/ResultsPanel";
 import { VideoTracker } from "./components/VideoTracker";
+import { StreamingView } from "./components/StreamingView";
+import { RealtimeProvider } from "./realtime/RealtimeContext";
 import { useWebSocket, FrameResult } from "./hooks/useWebSocket";
 import { apiClient, Job } from "./api/client";
 import { detectToolType } from "./utils/detectToolType";
@@ -39,6 +40,8 @@ function App() {
   const [selectedTools, setSelectedTools] = useState<string[]>([]);
 
   const [streamEnabled, setStreamEnabled] = useState(false);
+
+  const [debug, setDebug] = useState(false);
 
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
   const [uploadResult, setUploadResult] = useState<Job | null>(null);
@@ -72,7 +75,6 @@ function App() {
     connectionStatus,
     attempt,
     error: wsError,
-    sendFrame,
     switchPlugin,
     reconnect,
     latestResult,
@@ -215,16 +217,6 @@ function App() {
   // -------------------------------------------------------------------------
   // Event handlers
   // -------------------------------------------------------------------------
-  const handleFrame = useCallback(
-    (imageData: string) => {
-      if (isConnected && streamEnabled) {
-        // Tools are passed via useWebSocket options, no need for extra payload
-        sendFrame(imageData);
-      }
-    },
-    [isConnected, streamEnabled, sendFrame]
-  );
-
   const handlePluginChange = useCallback(
     (pluginName: string) => {
       setSelectedPlugin(pluginName);
@@ -317,6 +309,18 @@ function App() {
       height: "8px",
       borderRadius: "50%",
     },
+    topRightControls: {
+      position: "absolute",
+      top: "8px",
+      right: "8px",
+      zIndex: 9999,
+      background: "rgba(0, 0, 0, 0.4)",
+      padding: "6px 10px",
+      borderRadius: "6px",
+      color: "white",
+      fontFamily: "sans-serif",
+      fontSize: "13px",
+    },
     main: {
       flex: 1,
       display: "grid",
@@ -381,6 +385,17 @@ function App() {
             </button>
           ))}
         </nav>
+
+        <div className="top-right-controls">
+          <label>
+            <input
+              type="checkbox"
+              checked={debug}
+              onChange={(e) => setDebug(e.target.checked)}
+            />
+            Debug
+          </label>
+        </div>
 
         <div style={styles.status}>
           <div
@@ -455,18 +470,16 @@ function App() {
                 </button>
               </div>
 
-              <CameraPreview
-                onFrame={handleFrame}
-                enabled={streamEnabled}
-                captureInterval={200}
-              />
+              <RealtimeProvider debug={debug}>
+                <StreamingView debug={debug} enabled={streamEnabled} />
+              </RealtimeProvider>
             </div>
           )}
 
           {viewMode === "upload" && manifest && selectedTools.length > 0 && (
             <>
               {detectToolType(manifest, selectedTools[0]) === "frame" ? (
-                <VideoTracker pluginId={selectedPlugin} tools={selectedTools} />
+                <VideoTracker pluginId={selectedPlugin} tools={selectedTools} debug={debug} />
               ) : (
                 <div style={styles.panel}>
                   <p>Upload image for analysis</p>

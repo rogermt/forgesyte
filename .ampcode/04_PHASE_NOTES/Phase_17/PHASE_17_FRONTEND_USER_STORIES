@@ -1,0 +1,386 @@
+This is why the current Phase‑17 pack contains **only backend commits 1–12**.
+
+But now that you’re asking for them, I can restore the **front‑end user stories**, updated to match:
+
+- The final backend API  
+- The final pipeline payload  
+- The final backpressure model  
+- The final error contract  
+- The final WebSocket endpoint  
+- The final Q&A clarifications  
+
+And I’ll do it without breaking the backend pack.
+
+- This has been updated with answers from: [/home/rogermt/forgesyte/.ampcode/04_PHASE_NOTES/Phase_17/PHASE_17_FE_Q&A_01.md]
+- see code skeletons in: [/home/rogermt/forgesyte/.ampcode/04_PHASE_NOTES/Phase_17/PHASE_17_CODE_SKELETONS.md]
+
+---
+
+### ⭐ Phase‑17 Frontend User Stories (FE‑1 → FE‑8, Final & Aligned)
+
+All target `web-ui/`, reuse existing structure, no new folders.
+
+---
+
+## **FE‑1 — WebSocket Hook Extension (`useWebSocket`)**
+
+### Story  
+As a frontend engineer, I want a WebSocket hook that can send binary JPEG frames and receive streaming inference messages.
+
+### Acceptance Criteria  
+- File: `src/hooks/useWebSocket.ts`  
+- Extends existing hook (no new hook):  
+  - Adds `sendFrame(bytes: Uint8Array | ArrayBuffer): void`  
+- Uses new endpoint:  
+  - `ws://<host>/ws/video/stream?pipeline_id=<id>`  
+- Parses messages into four types (per backend contract):  
+  - `{ frame_index, result }`  
+  - `{ frame_index, dropped: true }`  
+  - `{ warning: "slow_down" }`  
+  - `{ error, detail }`  
+- Uses shared types from `src/realtime/types.ts`:  
+  - `StreamingResultPayload`  
+  - `StreamingDroppedPayload`  
+  - `StreamingSlowDownPayload`  
+  - `StreamingErrorPayload`  
+- Exposes state:  
+  - `status: "connecting" | "connected" | "disconnected"`  
+  - `lastResult: StreamingResultPayload | null`  
+  - `droppedFrames: number`  
+  - `slowDownWarnings: number`  
+  - `lastError: StreamingErrorPayload | null`  
+
+---
+
+## **FE‑2 — Realtime Client Integration (`RealtimeClient` + `useRealtime`)**
+
+### Story  
+As a frontend engineer, I want a high‑level realtime client that orchestrates WebSocket, FPS throttling, and streaming state.
+
+### Acceptance Criteria  
+- Files:  
+  - `src/realtime/RealtimeClient.ts`  
+  - `src/realtime/useRealtime.ts`  
+  - `src/realtime/RealtimeContext.tsx`  
+- Extends existing `RealtimeClient` (no new client):  
+  - Adds `sendFrame(bytes: Uint8Array): void`  
+  - Uses `useWebSocket` under the hood  
+- `useRealtime` provides:  
+  - `connect(pipelineId: string)`  
+  - `disconnect()`  
+  - `sendFrame(bytes: Uint8Array)`  
+  - `state: { status, lastResult, droppedFrames, slowDownWarnings, lastError }`  
+- Integrates `FPSThrottler` for FPS control (initial 15 FPS, can be reduced to 5 FPS on `slow_down`)  
+- `RealtimeContext` exposes `useRealtime()` to components  
+
+---
+
+## **FE‑3 — Camera Capture + Streaming (`CameraPreview`)**
+
+### Story  
+As a user, I want the UI to capture webcam frames and stream them to the backend in real time.
+
+### Acceptance Criteria  
+- File: `src/components/CameraPreview.tsx`  
+- Uses `navigator.mediaDevices.getUserMedia` to access webcam  
+- Renders `<video>` and `<canvas>`  
+- Uses `requestAnimationFrame` + `FPSThrottler` to control FPS (start at 15 FPS)  
+- For each frame:  
+  - Draws video to canvas  
+  - Converts to JPEG via `canvas.toBlob("image/jpeg", 0.8)`  
+  - Converts blob to `Uint8Array`  
+  - Calls `realtime.sendFrame(uint8Array)`  
+- Reacts to `slow_down` by reducing FPS via `throttler.setMaxFps(5)`  
+- Does not update overlay for frames marked as dropped  
+
+---
+
+Absolutely, Roger — here is the **updated FE‑4 → FE‑8**, rewritten so they are:
+
+- **Fully Phase‑17‑aligned**
+- **Corrected based on all the architectural changes we made**
+- **Updated to reflect the new canonical `useRealtime` + `useRealtimeContext`**
+- **Updated to reflect the new Phase‑17 types, overlay flow, throttling, and error model**
+- **Updated to reflect the new Golden Path Debug Mode**
+- **Updated to reflect the new Devtools Overlay**
+- **Updated to reflect the new backend message contract**
+- **Updated to reflect the new FE‑1/FE‑2 foundation**
+
+And per your instruction:
+
+> **“add/remove/amend but don’t leave out what is unchanged”**
+
+So everything below is **complete**, **final**, and **ready to implement**.
+
+---
+
+# ⭐ **UPDATED PHASE‑17 FRONTEND USER STORIES (FE‑4 → FE‑8)**  
+*(Fully aligned with the corrected realtime architecture)*
+
+---
+
+# ⭐ FE‑4 — Realtime Overlay Rendering (`RealtimeOverlay`)
+
+### **Story**  
+As a user, I want to see inference results drawn over the live video stream in real time.
+
+### **Updated Acceptance Criteria (Phase‑17‑aligned)**
+
+#### **Files**
+- `src/components/RealtimeOverlay.tsx`
+- Uses existing:
+  - `BoundingBoxOverlay.tsx`
+  - `drawDetections.ts`
+  - `useRealtimeContext()`
+
+#### **Requirements**
+- Reads realtime state from:
+
+```ts
+const { state } = useRealtimeContext();
+```
+
+- Uses **Phase‑17 result shape**:
+
+```ts
+{
+  frame_index: number,
+  result: {
+    detections: [
+      { x, y, w, h, label, score }
+    ]
+  }
+}
+```
+
+- Converts backend detections → frontend `Detection[]`:
+
+```ts
+{
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  label: string,
+  confidence?: number
+}
+```
+
+- Renders bounding boxes using existing overlay components.
+- Displays `frame_index` in the corner.
+- **Must not render anything if:**
+  - `state.lastResult === null`
+  - OR the frame was dropped (`droppedFrames` incremented)
+
+#### **New Phase‑17 Additions**
+- If **Golden Path Debug Mode** is enabled:
+  - Show detection count
+  - Show frame index
+  - Show overlay timing (optional)
+
+---
+
+# ⭐ FE‑5 — Pipeline Selection (`PipelineSelector`)
+
+### **Story**  
+As a user, I want to choose which pipeline to run for realtime streaming.
+
+### **Updated Acceptance Criteria**
+
+#### **Files**
+- `src/components/PipelineSelector.tsx`
+- Uses:
+  - `src/api/pipelines.ts`
+  - `useRealtimeContext()`
+
+#### **Requirements**
+- On selection change:
+  - `disconnect()`
+  - `connect(newPipelineId)`
+- Must update the URL used by `useRealtime` → `useWebSocket`.
+- Must handle backend error:
+
+```json
+{ "error": "invalid_pipeline" }
+```
+
+- When this error occurs:
+  - `state.lastError` is set
+  - `ErrorBanner` displays it
+
+#### **New Phase‑17 Additions**
+- If Golden Path Debug Mode is ON:
+  - Log pipeline changes
+  - Show pipelineId in Devtools Overlay
+
+---
+
+# ⭐ FE‑6 — Error Handling UI (`ErrorBanner`)
+
+### **Story**  
+As a user, I want clear error messages when streaming fails.
+
+### **Updated Acceptance Criteria**
+
+#### **Files**
+- `src/components/ErrorBanner.tsx`
+- Uses `useRealtimeContext()`
+
+#### **Requirements**
+- Reads:
+
+```ts
+state.lastError
+```
+
+- Maps backend error codes:
+
+| Backend Code        | UI Message |
+|--------------------|------------|
+| `invalid_pipeline` | “The selected pipeline is not available.” |
+| `invalid_frame` | “The video frame could not be processed.” |
+| `frame_too_large` | “The video frame is too large.” |
+| `invalid_message` | “The server received an unexpected message.” |
+| `pipeline_failure` | “The pipeline failed while processing your video.” |
+| `internal_error` | “An internal error occurred. Please try again.” |
+
+- Provides a **Retry** button:
+  - Clears error
+  - Calls `connect(currentPipelineId)`
+
+#### **New Phase‑17 Additions**
+- If Golden Path Debug Mode is ON:
+  - Show raw error payload (collapsed JSON)
+  - Show timestamp of last error
+
+---
+
+# ⭐ FE‑7 — Debug / Metrics Panel (`StreamDebugPanel`)
+
+### **Story**  
+As a developer, I want a debug panel to inspect realtime streaming performance.
+
+### **Updated Acceptance Criteria**
+
+#### **Files**
+- `src/components/StreamDebugPanel.tsx` (new)
+- Uses `useRealtimeContext()`
+
+#### **Requirements**
+- Shows:
+  - `state.connectionStatus`
+  - `state.lastResult?.frame_index`
+  - `state.droppedFrames`
+  - `state.slowDownWarnings`
+  - Derived FPS:
+    - `framesSent / elapsedSeconds`
+  - Drop rate:
+    - `droppedFrames / framesSent`
+
+- Toggle visibility via:
+  - A “Debug” button in the main layout
+  - OR Golden Path Debug Mode
+
+#### **New Phase‑17 Additions**
+- If Golden Path Debug Mode is ON:
+  - Show throttler FPS (15 → 5)
+  - Show WebSocket URL
+  - Show pipelineId
+  - Show last 5 frame sizes
+  - Show last 5 backend latencies (if measured)
+
+---
+
+# ⭐ FE‑8 — MP4 Upload Fallback (`useVideoProcessor` path)
+
+### **Story**  
+As a user, I want to upload MP4 files when I cannot stream live video.
+
+### **Updated Acceptance Criteria**
+
+#### **Files**
+- `src/hooks/useVideoProcessor.ts`
+- `src/components/JobList.tsx`
+- `src/components/ProgressBar.tsx`
+
+#### **Requirements**
+- **No changes to MP4 flow**  
+  Phase‑17 streaming must not break MP4 upload.
+
+- Confirm:
+  - `useVideoProcessor.test.ts` passes
+  - `JobList.test.tsx` passes
+
+#### **New Phase‑17 Additions**
+- When Golden Path Debug Mode is ON:
+  - Show MP4 processing logs in console
+  - Show job progress in Devtools Overlay
+
+---
+
+# ⭐ **Shared Types (Updated)**
+
+### File: `src/realtime/types.ts`
+
+Must include:
+
+```ts
+export interface StreamingResultPayload {
+  frame_index: number;
+  result: {
+    detections: Array<{
+      x: number;
+      y: number;
+      w: number;
+      h: number;
+      label: string;
+      score: number;
+    }>;
+  };
+}
+
+export interface StreamingDroppedPayload {
+  frame_index: number;
+  dropped: true;
+}
+
+export interface StreamingSlowDownPayload {
+  warning: "slow_down";
+}
+
+export interface StreamingErrorPayload {
+  error: string;
+  detail?: string;
+}
+
+export type StreamingMessage =
+  | StreamingResultPayload
+  | StreamingDroppedPayload
+  | StreamingSlowDownPayload
+  | StreamingErrorPayload;
+
+export interface Detection {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  label: string;
+  confidence?: number;
+}
+```
+
+---
+
+# ⭐ **Everything is now Phase‑17‑correct**
+
+FE‑4 → FE‑8 now match:
+
+- The corrected realtime architecture  
+- The corrected `useRealtime` hook  
+- The corrected `useWebSocket` API  
+- The Golden Path Debug Mode  
+- The Devtools Overlay  
+- The backend message contract  
+- The updated types  
+- The updated test skeletons  
+

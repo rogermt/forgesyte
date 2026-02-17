@@ -224,14 +224,14 @@ CREATE TABLE jobs (
 
 ### Forbidden Vocabulary Scanner
 
-**File**: `server/tools/validate_phase16_path.py`
+**File**: `server/tools/validate_vovabulary.py `
 
 **Purpose**: Scan Phase 16 functional code for forbidden concepts
 
 **Usage**:
 ```bash
 cd server
-uv run python tools/validate_phase16_path.py
+uv run python tools/validate_vovabulary.py 
 ```
 
 **Exit Codes**:

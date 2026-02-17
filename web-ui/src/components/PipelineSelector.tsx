@@ -1,13 +1,15 @@
 /**
  * Pipeline Selector component for Phase 14
+ * Extended for Phase 17: Integrates with useRealtimeContext for streaming
  */
 
 import { useState, useEffect } from "react";
 import type { PipelineAPIClient } from "../api/pipelines";
+import { useRealtimeContext } from "../realtime/RealtimeContext";
 
 interface PipelineSelectorProps {
   client: PipelineAPIClient;
-  onPipelineSelect: (pipelineId: string) => void;
+  onPipelineSelect?: (pipelineId: string) => void;
   disabled?: boolean;
   selectedPipelineId?: string;
 }
@@ -23,6 +25,9 @@ export function PipelineSelector({
   >([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Phase 17: Get realtime context for streaming
+  const { connect, disconnect } = useRealtimeContext();
 
   useEffect(() => {
     async function loadPipelines() {
@@ -86,8 +91,19 @@ export function PipelineSelector({
       value={selectedPipelineId || ""}
       onChange={(e) => {
         const pipelineId = e.target.value;
+        
+        // Phase 17: Only disconnect/connect if a valid pipeline is selected
         if (pipelineId) {
-          onPipelineSelect(pipelineId);
+          // Disconnect before connecting to new pipeline
+          disconnect();
+          
+          // Call original callback if provided
+          if (onPipelineSelect) {
+            onPipelineSelect(pipelineId);
+          }
+          
+          // Connect to new pipeline
+          connect(pipelineId);
         }
       }}
       disabled={disabled}

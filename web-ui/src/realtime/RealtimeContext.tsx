@@ -1,93 +1,59 @@
 /**
- * Phase 10: Real-Time Context for state management.
+ * Phase 17: Real-Time Context for state management.
  *
- * TODO: Implement the following:
- * - Provider component for real-time state
- * - State machine integration
- * - Message dispatching
- * - Plugin inspector state
- * - Progress tracking
- *
- * Author: Roger
- * Phase: 10
+ * Updated to use Phase-17 useRealtime hook for streaming.
+ * Maintains backward compatibility with Phase-10 legacy components.
  */
 
-import { createContext, useContext, useReducer, useEffect, useState, ReactNode } from 'react';
-import { RealtimeClient, RealtimeMessage, ConnectionState } from './RealtimeClient';
+import { createContext, useContext, ReactNode } from 'react';
+import { useRealtime as useRealtimeStreaming } from './useRealtime';
+import type { StreamingResultPayload, StreamingErrorPayload } from './types';
 
 interface RealtimeState {
-  connectionState: ConnectionState;
+  connectionStatus: string;
   progress: number | null;
   pluginTimings: Record<string, number>;
   warnings: string[];
   errors: string[];
   currentPlugin: string | null;
   isConnected: boolean;
-}
-
-type RealtimeAction =
-  | { type: 'SET_CONNECTION_STATE'; payload: ConnectionState }
-  | { type: 'SET_PROGRESS'; payload: number }
-  | { type: 'SET_PLUGIN_TIMINGS'; payload: Record<string, number> }
-  | { type: 'ADD_WARNING'; payload: string }
-  | { type: 'ADD_ERROR'; payload: string }
-  | { type: 'SET_CURRENT_PLUGIN'; payload: string | null }
-  | { type: 'RESET' };
-
-const initialState: RealtimeState = {
-  connectionState: ConnectionState.IDLE,
-  progress: null,
-  pluginTimings: {},
-  warnings: [],
-  errors: [],
-  currentPlugin: null,
-  isConnected: false,
-};
-
-function reducer(state: RealtimeState, action: RealtimeAction): RealtimeState {
-  switch (action.type) {
-    case 'SET_CONNECTION_STATE':
-      return {
-        ...state,
-        connectionState: action.payload,
-        isConnected: action.payload === ConnectionState.CONNECTED,
-      };
-    case 'SET_PROGRESS':
-      return { ...state, progress: action.payload };
-    case 'SET_PLUGIN_TIMINGS':
-      return { ...state, pluginTimings: action.payload };
-    case 'ADD_WARNING':
-      return { ...state, warnings: [...state.warnings, action.payload] };
-    case 'ADD_ERROR':
-      return { ...state, errors: [...state.errors, action.payload] };
-    case 'SET_CURRENT_PLUGIN':
-      return { ...state, currentPlugin: action.payload };
-    case 'RESET':
-      return initialState;
-    default:
-      return state;
-  }
+  // Phase 17: Streaming state
+  lastResult: StreamingResultPayload | null;
+  droppedFrames: number;
+  slowDownWarnings: number;
+  lastError: StreamingErrorPayload | null;
+  // FE-7 metrics
+  framesSent: number;
+  startTime: number | null;
+  lastFrameSizes: number[];
+  lastLatencies: number[];
+  currentFps: number;
 }
 
 interface RealtimeContextValue {
   state: RealtimeState;
-  client: RealtimeClient | null;
-  connect: () => Promise<void>;
+  connect: (pipelineId: string) => void;
   disconnect: () => void;
-  send: (type: string, payload: Record<string, unknown>) => void;
-  on: (type: string, handler: (message: RealtimeMessage) => void) => void;
-  off: (type: string, handler: (message: RealtimeMessage) => void) => void;
+  sendFrame: (bytes: Uint8Array | ArrayBuffer) => void;
+  clearError: () => void;
+  currentPipelineId: string | null;
+  wsUrl: string;
+  // Phase 10 legacy fields for backward compatibility
+  client: any; // eslint-disable-line @typescript-eslint/no-explicit-any
+  send: any; // eslint-disable-line @typescript-eslint/no-explicit-any
+  on: any; // eslint-disable-line @typescript-eslint/no-explicit-any
+  off: any; // eslint-disable-line @typescript-eslint/no-explicit-any
 }
 
 const RealtimeContext = createContext<RealtimeContextValue | null>(null);
 
 interface RealtimeProviderProps {
   children: ReactNode;
-  url?: string;
+  debug?: boolean;
 }
 
 // Helper to ensure context is not null
-function useRealtimeContext(): RealtimeContextValue {
+export function useRealtimeContext(): RealtimeContextValue {
   const context = useContext(RealtimeContext);
   if (!context) {
     throw new Error('useRealtime must be used within a RealtimeProvider');
@@ -95,92 +61,47 @@ function useRealtimeContext(): RealtimeContextValue {
   return context;
 }
 
-export function RealtimeProvider({ children, url = 'ws://localhost:8000/v1/realtime' }: RealtimeProviderProps) {
-   const [state, dispatch] = useReducer(reducer, initialState);
-   const [client, setClient] = useState<RealtimeClient | null>(null);
+export function RealtimeProvider({ children, debug = false }: RealtimeProviderProps) {
+  // Use Phase-17 useRealtime hook (renamed to avoid conflict)
+  const { connect, disconnect, sendFrame, clearError, currentPipelineId, wsUrl, state: streamingState } = useRealtimeStreaming({ debug });
 
-  useEffect(() => {
-    const realtimeClient = new RealtimeClient(url);
-    setClient(realtimeClient);
-
-    realtimeClient.on('connected', () => {
-      dispatch({ type: 'SET_CONNECTION_STATE', payload: ConnectionState.CONNECTED });
-    });
-
-    realtimeClient.on('disconnected', () => {
-      dispatch({ type: 'SET_CONNECTION_STATE', payload: ConnectionState.DISCONNECTED });
-    });
-
-    realtimeClient.on('progress', (message) => {
-      dispatch({ type: 'SET_PROGRESS', payload: message.payload.progress as number });
-    });
-
-    realtimeClient.on('plugin_status', (message) => {
-      dispatch({ type: 'SET_CURRENT_PLUGIN', payload: message.payload.plugin_id as string });
-    });
-
-    realtimeClient.on('warning', (message) => {
-      dispatch({ type: 'ADD_WARNING', payload: message.payload.message as string });
-    });
-
-    realtimeClient.on('error', (message) => {
-      dispatch({ type: 'ADD_ERROR', payload: message.payload.message as string });
-    });
-
-    realtimeClient.on('*', (message) => {
-      if (message.type === 'plugin_timing') {
-        const timings = { ...state.pluginTimings };
-        timings[message.payload.plugin_id as string] = message.payload.timing_ms as number;
-        dispatch({ type: 'SET_PLUGIN_TIMINGS', payload: timings });
-      }
-    });
-
-    return () => {
-      realtimeClient.disconnect();
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [url]);
-
-  const connect = async () => {
-    if (client) {
-      await client.connect();
-    }
-  };
-
-  const disconnect = () => {
-    if (client) {
-      client.disconnect();
-    }
-  };
-
-  const send = (type: string, payload: Record<string, unknown>) => {
-    if (client) {
-      client.send(type, payload);
-    }
-  };
-
-  const on = (type: string, handler: (message: RealtimeMessage) => void) => {
-    if (client) {
-      client.on(type, handler);
-    }
-  };
-
-  const off = (type: string, handler: (message: RealtimeMessage) => void) => {
-    if (client) {
-      client.off(type, handler);
-    }
+  // Map Phase-17 state to RealtimeState format
+  const state: RealtimeState = {
+    connectionStatus: streamingState.connectionStatus,
+    progress: null, // Phase-17 doesn't use progress
+    pluginTimings: {}, // Phase-17 doesn't use plugin timings
+    warnings: [], // Phase-17 doesn't use warnings
+    errors: [], // Phase-17 doesn't use errors
+    currentPlugin: null, // Phase-17 doesn't use currentPlugin
+    isConnected: streamingState.isConnected,
+    // Phase 17: Streaming state
+    lastResult: streamingState.lastResult,
+    droppedFrames: streamingState.droppedFrames,
+    slowDownWarnings: streamingState.slowDownWarnings,
+    lastError: streamingState.lastError,
+    // FE-7 metrics
+    framesSent: streamingState.framesSent,
+    startTime: streamingState.startTime,
+    lastFrameSizes: streamingState.lastFrameSizes,
+    lastLatencies: streamingState.lastLatencies,
+    currentFps: streamingState.currentFps,
   };
 
   return (
     <RealtimeContext.Provider
       value={{
         state,
-        client,
         connect,
         disconnect,
-        send,
-        on,
-        off,
+        sendFrame,
+        clearError,
+        currentPipelineId,
+        wsUrl,
+        // Phase 10 legacy fields (no-ops for Phase-17)
+        client: null,
+        send: () => {},
+        on: () => {},
+        off: () => {},
       }}
     >
       {children}
@@ -188,7 +109,12 @@ export function RealtimeProvider({ children, url = 'ws://localhost:8000/v1/realt
   );
 }
 
+// Phase 10 legacy export for backward compatibility
 export function useRealtime(): RealtimeContextValue {
   return useRealtimeContext();
 }
 
+// Legacy export for backward compatibility
+export function useRealtimeLegacy(): RealtimeContextValue {
+  return useRealtimeContext();
+}

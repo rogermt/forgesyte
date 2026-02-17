@@ -4,7 +4,13 @@
 
 import { render, screen, act, fireEvent, waitFor } from "@testing-library/react";
 import { CameraPreview } from "./CameraPreview";
+import { RealtimeProvider } from "../realtime/RealtimeContext";
 import { vi, beforeEach, afterEach, describe, it, expect } from "vitest";
+
+// Helper to wrap CameraPreview with RealtimeProvider
+function renderWithRealtimeProvider(ui: React.ReactNode) {
+  return render(<RealtimeProvider debug={false}>{ui}</RealtimeProvider>);
+}
 
 // Mock navigator.mediaDevices
 const mockGetUserMedia = vi.fn();
@@ -71,7 +77,7 @@ describe("CameraPreview - Device Management", () => {
         ]);
 
         await act(async () => {
-            render(<CameraPreview enabled={false} />);
+            renderWithRealtimeProvider(<CameraPreview enabled={false} />);
         });
 
         await waitFor(() => {
@@ -90,7 +96,7 @@ describe("CameraPreview - Device Management", () => {
             },
         ]);
 
-        render(<CameraPreview enabled={false} />);
+        renderWithRealtimeProvider(<CameraPreview enabled={false} />);
 
         // Wait for device enumeration and selection
         await waitFor(() => {
@@ -105,7 +111,7 @@ describe("CameraPreview - Device Management", () => {
         const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
         await act(async () => {
-            render(<CameraPreview enabled={false} />);
+            renderWithRealtimeProvider(<CameraPreview enabled={false} />);
         });
 
         await waitFor(() => {
@@ -126,7 +132,7 @@ describe("CameraPreview - Camera Lifecycle", () => {
         });
 
         await act(async () => {
-            render(<CameraPreview enabled={true} />);
+            renderWithRealtimeProvider(<CameraPreview enabled={true} />);
         });
 
         await waitFor(() => {
@@ -141,7 +147,7 @@ describe("CameraPreview - Camera Lifecycle", () => {
         mockGetUserMedia.mockResolvedValue(mockStream);
 
         await act(async () => {
-            render(<CameraPreview enabled={true} width={800} height={600} />);
+            renderWithRealtimeProvider(<CameraPreview enabled={true} width={800} height={600} />);
         });
 
         await waitFor(() => {
@@ -162,7 +168,7 @@ describe("CameraPreview - Camera Lifecycle", () => {
         });
 
         await act(async () => {
-            render(<CameraPreview enabled={true} />);
+            renderWithRealtimeProvider(<CameraPreview enabled={true} />);
         });
 
         await waitFor(() => {
@@ -171,14 +177,14 @@ describe("CameraPreview - Camera Lifecycle", () => {
     });
 
     it("should stop camera stream when enabled=false", async () => {
-        const { rerender } = render(<CameraPreview enabled={true} />);
+        const { rerender } = renderWithRealtimeProvider(<CameraPreview enabled={true} />);
 
         await waitFor(() => {
             expect(mockGetUserMedia).toHaveBeenCalled();
         });
 
         await act(async () => {
-            rerender(<CameraPreview enabled={false} />);
+            rerender(<RealtimeProvider debug={false}><CameraPreview enabled={false} /></RealtimeProvider>);
         });
 
         await waitFor(() => {
@@ -187,7 +193,7 @@ describe("CameraPreview - Camera Lifecycle", () => {
     });
 
     it("should stop all tracks on cleanup", async () => {
-        const { unmount } = render(<CameraPreview enabled={true} />);
+        const { unmount } = renderWithRealtimeProvider(<CameraPreview enabled={true} />);
 
         await waitFor(() => {
             expect(mockGetUserMedia).toHaveBeenCalled();
@@ -208,7 +214,7 @@ describe("CameraPreview - Camera Lifecycle", () => {
 
         let container: HTMLElement;
         await act(async () => {
-            container = render(<CameraPreview enabled={true} />).container;
+            container = renderWithRealtimeProvider(<CameraPreview enabled={true} />).container;
         });
 
         await waitFor(() => {
@@ -223,7 +229,7 @@ describe("CameraPreview - Camera Lifecycle", () => {
 
         let container: HTMLElement;
         await act(async () => {
-            container = render(<CameraPreview enabled={true} />).container;
+            container = renderWithRealtimeProvider(<CameraPreview enabled={true} />).container;
         });
 
         // Wait for error to appear
@@ -238,8 +244,8 @@ describe("CameraPreview - Camera Lifecycle", () => {
         mockGetUserMedia.mockResolvedValueOnce(mockStream);
 
         await act(async () => {
-            const { rerender } = render(<CameraPreview enabled={false} />);
-            rerender(<CameraPreview enabled={true} />);
+            const { rerender } = renderWithRealtimeProvider(<CameraPreview enabled={false} />);
+            rerender(<RealtimeProvider debug={false}><CameraPreview enabled={true} /></RealtimeProvider>);
         });
 
         await waitFor(() => {
@@ -248,126 +254,11 @@ describe("CameraPreview - Camera Lifecycle", () => {
     });
 });
 
-describe("CameraPreview - Frame Capture", () => {
-    it("should capture frame at specified interval", async () => {
-        const onFrame = vi.fn();
-
-        mockGetUserMedia.mockResolvedValue({
-            getTracks: () => [{ stop: vi.fn() }],
-        });
-
-        await act(async () => {
-            render(
-                <CameraPreview
-                    enabled={true}
-                    onFrame={onFrame}
-                    captureInterval={50}
-                />
-            );
-        });
-
-        // Wait for streaming to start
-        await waitFor(() => {
-            expect(mockGetUserMedia).toHaveBeenCalled();
-        });
-
-        // Wait for capture to happen (50ms interval)
-        await waitFor(
-            () => {
-                expect(onFrame).toHaveBeenCalled();
-            },
-            { timeout: 500 }
-        );
-    });
-
-    it("should call onFrame callback with base64 data", async () => {
-        const onFrame = vi.fn();
-
-        mockGetUserMedia.mockResolvedValue({
-            getTracks: () => [{ stop: vi.fn() }],
-        });
-
-        await act(async () => {
-            render(
-                <CameraPreview
-                    enabled={true}
-                    onFrame={onFrame}
-                    captureInterval={50}
-                />
-            );
-        });
-
-        await waitFor(
-            () => {
-                expect(onFrame).toHaveBeenCalledWith("abc123==");
-            },
-            { timeout: 500 }
-        );
-    });
-
-    it("should not capture when disabled", async () => {
-        const onFrame = vi.fn();
-
-        await act(async () => {
-            render(
-                <CameraPreview
-                    enabled={false}
-                    onFrame={onFrame}
-                    captureInterval={50}
-                />
-            );
-        });
-
-        // Wait a bit to ensure no captures happen
-        await new Promise((resolve) => setTimeout(resolve, 200));
-
-        expect(onFrame).not.toHaveBeenCalled();
-    });
-
-    it("should not capture when not streaming", async () => {
-        const onFrame = vi.fn();
-        mockGetUserMedia.mockRejectedValue(new Error("Camera error"));
-
-        await act(async () => {
-            render(
-                <CameraPreview
-                    enabled={true}
-                    onFrame={onFrame}
-                    captureInterval={50}
-                />
-            );
-        });
-
-        // Wait a bit to ensure no captures happen
-        await new Promise((resolve) => setTimeout(resolve, 200));
-
-        expect(onFrame).not.toHaveBeenCalled();
-    });
-
-    it("should handle missing canvas context", async () => {
-        const onFrame = vi.fn();
-
-        mockGetUserMedia.mockResolvedValue({
-            getTracks: () => [{ stop: vi.fn() }],
-        });
-
-        HTMLCanvasElement.prototype.getContext = vi.fn(() => null);
-
-        await act(async () => {
-            render(
-                <CameraPreview
-                    enabled={true}
-                    onFrame={onFrame}
-                    captureInterval={50}
-                />
-            );
-        });
-
-        await new Promise((resolve) => setTimeout(resolve, 200));
-
-        expect(onFrame).not.toHaveBeenCalled();
-    });
-});
+// REMOVED: 7 legacy Phase-10 "Frame Capture" tests that tested onFrame callback
+// These tests validated APIs that no longer exist in Phase-17 architecture
+// Phase-17 replaces onFrame callback with RealtimeContext.sendFrame()
+// Phase-17 replaces base64 frame capture with binary JPEG bytes (canvas.toBlob() → Uint8Array)
+// Test coverage replaced by FE-4 → FE-7 tests
 
 describe("CameraPreview - Device Selection UI", () => {
     it("should show device selector when multiple devices", async () => {
@@ -390,7 +281,7 @@ describe("CameraPreview - Device Selection UI", () => {
 
         let container: HTMLElement;
         await act(async () => {
-            container = render(<CameraPreview enabled={false} />).container;
+            container = renderWithRealtimeProvider(<CameraPreview enabled={false} />).container;
         });
 
         await waitFor(() => {
@@ -412,7 +303,7 @@ describe("CameraPreview - Device Selection UI", () => {
 
         let container: HTMLElement;
         await act(async () => {
-            container = render(<CameraPreview enabled={false} />).container;
+            container = renderWithRealtimeProvider(<CameraPreview enabled={false} />).container;
         });
 
         await waitFor(() => {
@@ -441,7 +332,7 @@ describe("CameraPreview - Device Selection UI", () => {
 
         let container: HTMLElement;
         await act(async () => {
-            container = render(<CameraPreview enabled={false} />).container;
+            container = renderWithRealtimeProvider(<CameraPreview enabled={false} />).container;
         });
 
         await waitFor(() => {
@@ -462,7 +353,7 @@ describe("CameraPreview - Styling Updates", () => {
     describe("heading and layout", () => {
         it("should display heading with brand colors", async () => {
             await act(async () => {
-                render(<CameraPreview enabled={false} />);
+                renderWithRealtimeProvider(<CameraPreview enabled={false} />);
             });
             const heading = screen.getByText("Camera Preview");
 
@@ -475,7 +366,7 @@ describe("CameraPreview - Styling Updates", () => {
         it("should apply brand background color to video", async () => {
             let container: HTMLElement;
             await act(async () => {
-                container = render(<CameraPreview enabled={false} />).container;
+                container = renderWithRealtimeProvider(<CameraPreview enabled={false} />).container;
             });
             const video = container!.querySelector("video");
 
@@ -489,7 +380,7 @@ describe("CameraPreview - Styling Updates", () => {
         it("should use proper aspect ratio styling", async () => {
             let container: HTMLElement;
             await act(async () => {
-                container = render(<CameraPreview enabled={false} />).container;
+                container = renderWithRealtimeProvider(<CameraPreview enabled={false} />).container;
             });
             const video = container!.querySelector("video");
 
@@ -504,7 +395,7 @@ describe("CameraPreview - Styling Updates", () => {
         it("should have hidden canvas for frame capture", async () => {
             let container: HTMLElement;
             await act(async () => {
-                container = render(<CameraPreview enabled={false} />).container;
+                container = renderWithRealtimeProvider(<CameraPreview enabled={false} />).container;
             });
             const canvas = container!.querySelector("canvas");
 
@@ -518,7 +409,7 @@ describe("CameraPreview - Styling Updates", () => {
         it("should display not streaming status when disabled", async () => {
             let container: HTMLElement;
             await act(async () => {
-                container = render(<CameraPreview enabled={false} />).container;
+                container = renderWithRealtimeProvider(<CameraPreview enabled={false} />).container;
             });
             const statusText = Array.from(container!.querySelectorAll("p"))
                 .map((p) => p.textContent)
