@@ -12,7 +12,6 @@ import { CameraPreview } from "./CameraPreview";
 import { RealtimeStreamingOverlay } from "./RealtimeStreamingOverlay";
 import { RealtimeErrorBanner } from "./RealtimeErrorBanner";
 import { StreamDebugPanel } from "./StreamDebugPanel";
-import { useRealtime } from "../realtime/useRealtime";
 
 export interface StreamingViewProps {
   debug: boolean;

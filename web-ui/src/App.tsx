@@ -400,14 +400,8 @@ function App() {
         </div>
       </header>
 
-      {viewMode === "stream" && (
-        <RealtimeProvider debug={debug}>
-          <StreamingView debug={debug} />
-        </RealtimeProvider>
-      )}
-
-      {viewMode === "upload" && <VideoTracker debug={debug} />}
-
+      <main style={styles.main}>
+        <aside style={styles.sidebar}>
           {viewMode === "jobs" && (
             <div style={styles.panel}>
               <JobList onJobSelect={setSelectedJob} />

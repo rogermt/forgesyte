@@ -496,7 +496,6 @@ export function VideoTracker({ pluginId, tools, debug = false }: VideoTrackerPro
           </div>
         ))}
       </div>
-      </div>
     </MP4ProcessingProvider>
   );
 }
