@@ -1,142 +1,306 @@
 /**
- * Phase 17 CameraPreview Component
+ * Camera preview component with frame capture
  *
- * Captures webcam frames and sends binary JPEG data via WebSocket
+ * Phase 17: Added streaming mode with requestAnimationFrame + FPSThrottler
  */
 
-import { useEffect, useRef, useState } from "react";
-import { useRealtime } from "../realtime/useRealtime";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useRealtimeStreaming } from "../realtime/useRealtime";
+import { FPSThrottler } from "../utils/FPSThrottler";
 
 export interface CameraPreviewProps {
-  enabled?: boolean;
+    onFrame?: (imageData: string) => void;
+    captureInterval?: number;
+    enabled?: boolean;
+    width?: number;
+    height?: number;
+    deviceId?: string;
+    streaming?: boolean; // Phase 17: Enable streaming mode
 }
 
-export function CameraPreview({ enabled = true }: CameraPreviewProps) {
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const streamRef = useRef<MediaStream | null>(null);
-  const animationFrameRef = useRef<number>();
+export function CameraPreview({
+    onFrame,
+    captureInterval = 100,
+    enabled = true,
+    width = 640,
+    height = 480,
+    deviceId,
+    streaming = false, // Phase 17: Default to legacy mode
+}: CameraPreviewProps) {
+    const videoRef = useRef<HTMLVideoElement>(null);
+    const canvasRef = useRef<HTMLCanvasElement>(null);
+    const streamRef = useRef<MediaStream | null>(null);
+    const intervalRef = useRef<ReturnType<typeof setInterval>>();
+    const rafRef = useRef<number>(); // Phase 17: requestAnimationFrame ID
+    const throttlerRef = useRef<FPSThrottler | null>(null); // Phase 17: FPS throttler
 
-  const [error, setError] = useState<string | null>(null);
-  const [fps, setFps] = useState(15);
+    // Phase 17: Get realtime hook (always call, but only use in streaming mode)
+    const realtimeHook = useRealtimeStreaming();
 
-  const realtime = useRealtime();
+    const [isStreaming, setIsStreaming] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
+    const [selectedDevice, setSelectedDevice] = useState<string>(deviceId || "");
 
-  // Start camera stream
-  useEffect(() => {
-    if (!enabled) return;
+    // Get available camera devices
+    useEffect(() => {
+        navigator.mediaDevices
+            .enumerateDevices()
+            .then((deviceList) => {
+                const videoDevices = deviceList.filter((d) => d.kind === "videoinput");
+                setDevices(videoDevices);
+                if (!selectedDevice && videoDevices.length > 0) {
+                    setSelectedDevice(videoDevices[0].deviceId);
+                }
+            })
+            .catch((err) => {
+                console.error("Failed to enumerate devices:", err);
+            });
+    }, [selectedDevice]);
 
-    let stream: MediaStream | null = null;
+    // Start camera stream
+    const startCamera = useCallback(async () => {
+        try {
+            const constraints: MediaStreamConstraints = {
+                video: {
+                    width: { ideal: width },
+                    height: { ideal: height },
+                    deviceId: selectedDevice ? { exact: selectedDevice } : undefined,
+                },
+            };
 
-    async function startCamera() {
-      try {
-        stream = await navigator.mediaDevices.getUserMedia({
-          video: { width: 1280, height: 720 },
-          audio: false,
-        });
+            const stream = await navigator.mediaDevices.getUserMedia(constraints);
+            streamRef.current = stream;
 
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-          await videoRef.current.play();
-          setError(null);
+            if (videoRef.current) {
+                videoRef.current.srcObject = stream;
+                await videoRef.current.play();
+                setIsStreaming(true);
+                setError(null);
+            }
+        } catch (err) {
+            console.error("Failed to start camera:", err);
+            setError(err instanceof Error ? err.message : "Failed to access camera");
+            setIsStreaming(false);
         }
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to access camera");
-      }
-    }
+    }, [width, height, selectedDevice]);
 
-    startCamera();
+    // Stop camera stream
+    const stopCamera = useCallback(() => {
+        if (streamRef.current) {
+            streamRef.current.getTracks().forEach((track) => track.stop());
+            streamRef.current = null;
+        }
+        if (videoRef.current) {
+            videoRef.current.srcObject = null;
+        }
+        setIsStreaming(false);
+    }, []);
 
-    return () => {
-      stream?.getTracks().forEach((t) => t.stop());
-    };
-  }, [enabled]);
+    // Phase 17: Capture frame for streaming mode
+    const captureStreamingFrame = useCallback(() => {
+        if (!videoRef.current || !canvasRef.current || !isStreaming || !enabled || !streaming || !realtimeHook) {
+            return;
+        }
 
-  // Capture and send frames
-  useEffect(() => {
-    if (!enabled || !videoRef.current) return;
+        const canvas = canvasRef.current;
+        const video = videoRef.current;
+        const ctx = canvas.getContext("2d");
 
-    const video = videoRef.current;
-    const canvas = canvasRef.current;
-    if (!canvas) return;
+        if (!ctx) return;
 
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-
-    let lastFrameTime = 0;
-    const frameInterval = 1000 / fps;
-
-    function captureFrame(timestamp: number) {
-      if (!enabled || !videoRef.current || !canvasRef.current) return;
-
-      const elapsed = timestamp - lastFrameTime;
-
-      if (elapsed >= frameInterval) {
-        lastFrameTime = timestamp - (elapsed % frameInterval);
-
-        // Draw video frame to canvas
         canvas.width = video.videoWidth;
         canvas.height = video.videoHeight;
         ctx.drawImage(video, 0, 0);
 
-        // Convert to JPEG blob
-        canvas.toBlob(
-          (blob) => {
-            if (blob) {
-              blob.arrayBuffer().then((buffer) => {
-                const uint8Array = new Uint8Array(buffer);
-                realtime.sendFrame(uint8Array);
-              });
+        // Convert to JPEG and send binary frame
+        canvas.toBlob(async (blob) => {
+            if (!blob) return;
+            
+            const arrayBuffer = await blob.arrayBuffer();
+            const uint8Array = new Uint8Array(arrayBuffer);
+            
+            // Send binary frame via realtime hook
+            realtimeHook.sendFrame(uint8Array);
+        }, "image/jpeg", 0.8);
+    }, [isStreaming, enabled, streaming, realtimeHook]);
+
+    // Phase 17: Setup requestAnimationFrame loop for streaming mode
+    useEffect(() => {
+        if (!streaming || !isStreaming || !enabled) {
+            // Clean up streaming resources
+            if (rafRef.current) {
+                cancelAnimationFrame(rafRef.current);
+                rafRef.current = undefined;
             }
-          },
-          "image/jpeg",
-          0.8
-        );
-      }
+            throttlerRef.current = null;
+            return;
+        }
 
-      animationFrameRef.current = requestAnimationFrame(captureFrame);
+        // Create FPS throttler (initial 15 FPS)
+        if (!throttlerRef.current) {
+            throttlerRef.current = new FPSThrottler(15);
+        }
+
+        // RequestAnimationFrame loop with FPS throttling
+        const loop = () => {
+            if (throttlerRef.current) {
+                throttlerRef.current.throttle(captureStreamingFrame);
+            }
+            rafRef.current = requestAnimationFrame(loop);
+        };
+
+        rafRef.current = requestAnimationFrame(loop);
+
+        return () => {
+            if (rafRef.current) {
+                cancelAnimationFrame(rafRef.current);
+                rafRef.current = undefined;
+            }
+        };
+    }, [streaming, isStreaming, enabled, captureStreamingFrame]);
+
+    // Phase 17: Reduce FPS when slow_down warnings received
+    useEffect(() => {
+        if (streaming && realtimeHook && realtimeHook.state.slowDownWarnings > 0 && throttlerRef.current) {
+            throttlerRef.current = new FPSThrottler(5);
+        }
+    }, [streaming, realtimeHook]);
+    
+    if (realtimeHook && realtimeHook.state.slowDownWarnings > 0 && throttlerRef.current) {
+        throttlerRef.current = new FPSThrottler(5);
     }
 
-    animationFrameRef.current = requestAnimationFrame(captureFrame);
+    // Legacy mode: Capture frame and send to callback
+    const captureFrame = useCallback(() => {
+        if (!videoRef.current || !canvasRef.current || !isStreaming || !enabled) {
+            return;
+        }
 
-    return () => {
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current);
-      }
-    };
-  }, [enabled, fps, realtime]);
+        const canvas = canvasRef.current;
+        const video = videoRef.current;
+        const ctx = canvas.getContext("2d");
 
-  // Handle slow-down warnings
-  useEffect(() => {
-    if (realtime.state.slowDownWarnings > 0) {
-      setFps(5); // Reduce FPS on slow-down
-    } else {
-      setFps(15); // Restore FPS
-    }
-  }, [realtime.state.slowDownWarnings]);
+        if (!ctx) return;
 
-  return (
-    <div className="camera-preview">
-      {error && (
-        <div className="error-message">{error}</div>
-      )}
-      <video
-        ref={videoRef}
-        className="camera-video"
-        autoPlay
-        playsInline
-        muted
-      />
-      <canvas ref={canvasRef} style={{ display: "none" }} />
-      <div className="camera-status">
-        {realtime.state.status === "connected" ? (
-          <span className="status-connected">● Streaming ({fps} FPS)</span>
-        ) : (
-          <span className="status-disconnected">○ Not connected</span>
-        )}
-      </div>
-    </div>
-  );
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        ctx.drawImage(video, 0, 0);
+
+        const dataUrl = canvas.toDataURL("image/jpeg", 0.8);
+        const base64Data = dataUrl.split(",")[1];
+
+        onFrame?.(base64Data);
+    }, [isStreaming, enabled, onFrame]);
+
+    // Start/stop camera based on enabled prop
+    useEffect(() => {
+        if (enabled) {
+            startCamera();
+        } else {
+            stopCamera();
+        }
+
+        return () => {
+            stopCamera();
+        };
+    }, [enabled, startCamera, stopCamera]);
+
+    // Legacy mode: Set up frame capture interval
+    useEffect(() => {
+        if (streaming) return; // Skip in streaming mode
+
+        if (isStreaming && enabled && onFrame) {
+            intervalRef.current = setInterval(captureFrame, captureInterval);
+        }
+
+        return () => {
+            if (intervalRef.current) {
+                clearInterval(intervalRef.current);
+            }
+        };
+    }, [streaming, isStreaming, enabled, captureInterval, captureFrame, onFrame]);
+
+    return (
+        <div>
+            <h3>Camera Preview</h3>
+            {error && (
+                <p
+                    style={{
+                        color: "var(--accent-red)",
+                        padding: "8px",
+                        backgroundColor: "rgba(220, 53, 69, 0.1)",
+                        borderRadius: "4px",
+                        border: "1px solid var(--accent-red)",
+                    }}
+                >
+                    {error}
+                </p>
+            )}
+            <video
+                ref={videoRef}
+                style={{
+                    width: "100%",
+                    height: "auto",
+                    backgroundColor: "var(--bg-primary)",
+                    borderRadius: "8px",
+                    border: "1px solid var(--border-light)",
+                    display: "block",
+                    marginBottom: "12px",
+                }}
+            />
+            <canvas
+                ref={canvasRef}
+                style={{ display: "none" }}
+            />
+            {devices.length > 1 && (
+                <div style={{ marginBottom: "12px" }}>
+                    <label
+                        style={{
+                            display: "block",
+                            marginBottom: "4px",
+                            fontSize: "12px",
+                            fontWeight: 500,
+                            color: "var(--text-secondary)",
+                        }}
+                    >
+                        Camera Device
+                    </label>
+                    <select
+                        value={selectedDevice}
+                        onChange={(e) => setSelectedDevice(e.target.value)}
+                        style={{
+                            width: "100%",
+                            padding: "8px 12px",
+                            borderRadius: "4px",
+                            border: "1px solid var(--border-light)",
+                            backgroundColor: "var(--bg-tertiary)",
+                            color: "var(--text-secondary)",
+                            fontSize: "13px",
+                        }}
+                    >
+                        {devices.map((device) => (
+                            <option key={device.deviceId} value={device.deviceId}>
+                                {device.label ||
+                                    `Camera ${device.deviceId.slice(0, 5)}`}
+                            </option>
+                        ))}
+                    </select>
+                </div>
+            )}
+            <p
+                style={{
+                    fontSize: "12px",
+                    color: isStreaming
+                        ? "var(--accent-green)"
+                        : "var(--text-muted)",
+                    margin: 0,
+                    fontWeight: 500,
+                }}
+            >
+                {isStreaming ? "● Streaming" : "○ Not streaming"}
+                {streaming && " (Phase 17)"}
+            </p>
+        </div>
+    );
 }
-
-export default CameraPreview;

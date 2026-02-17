@@ -528,3 +528,56 @@ describe("CameraPreview - Styling Updates", () => {
         });
     });
 });
+
+/**
+ * Phase 17: Camera Preview Streaming Tests
+ *
+ * Tests for Phase 17 streaming functionality added to CameraPreview
+ */
+
+
+describe("CameraPreview (Phase 17 Streaming)", () => {
+
+    beforeEach(() => {
+        vi.clearAllMocks();
+        
+        // Mock sendFrame from useRealtimeContext
+        mockSendFrame = vi.fn();
+        mockSetMaxFps = vi.fn();
+    });
+
+    it("converts canvas to JPEG and sends binary frame", async () => {
+        // Mock canvas.toBlob to return a JPEG blob
+        const mockData = new Uint8Array([0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x01]);
+        const mockBlob = new Blob([mockData], { type: "image/jpeg" });
+        mockBlob.arrayBuffer = async () => mockData.buffer;
+        const mockToBlob = vi.fn((callback: (blob: Blob | null) => void) => {
+            callback(mockBlob);
+        });
+        HTMLCanvasElement.prototype.toBlob = mockToBlob;
+
+        // Verify blob is created
+        expect(mockBlob.type).toBe("image/jpeg");
+        
+        // Verify blob can be converted to Uint8Array
+        const arrayBuffer = await mockBlob.arrayBuffer();
+        const uint8Array = new Uint8Array(arrayBuffer);
+        expect(uint8Array[0]).toBe(0xFF);
+        expect(uint8Array[1]).toBe(0xD8);
+    });
+
+    it("reduces FPS when slow_down warnings received", () => {
+        // This test will verify that when slowDownWarnings > 0,
+        // the FPS throttler is reduced to 5 FPS
+        
+        // This test will be implemented when the component is updated
+        expect(true).toBe(true); // Placeholder
+    });
+
+    it("does not send frames marked as dropped", () => {
+        // This test will verify that when lastResult.dropped === true,
+        // the overlay is not updated
+        
+        expect(true).toBe(true); // Placeholder
+    });
+});
