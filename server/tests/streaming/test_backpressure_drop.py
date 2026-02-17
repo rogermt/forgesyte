@@ -10,7 +10,6 @@ These tests verify:
 - Drop threshold reads from environment variable
 """
 
-import logging
 import os
 import sys
 
@@ -46,7 +45,7 @@ class TestBackpressureDrop:
             ws.send_bytes(jpeg_frame)
 
             # Receive response
-            result = ws.receive_json()
+            ws.receive_json()
 
             # With such a low threshold, we might get drops
             # The important thing is that the backpressure logic was consulted

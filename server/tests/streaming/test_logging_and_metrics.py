@@ -13,7 +13,6 @@ These tests verify:
 - Prometheus gauge updated
 """
 
-import logging
 import os
 import sys
 
@@ -53,7 +52,9 @@ class TestLogging:
             # which means the connect event was logged
             pass
 
-    def test_disconnect_event_is_logged_with_session_id(self, client: TestClient) -> None:
+    def test_disconnect_event_is_logged_with_session_id(
+        self, client: TestClient
+    ) -> None:
         """Test that disconnect event is logged with session_id (JSON)."""
         with client.websocket_connect("/ws/video/stream?pipeline_id=yolo_ocr") as ws:
             # The session should have been created with a session_id
@@ -77,7 +78,7 @@ class TestLogging:
             ws.send_bytes(jpeg_frame)
 
             # Receive response
-            result = ws.receive_json()
+            ws.receive_json()
 
             # If we get a result, the frame was processed
             # The logging should have been called
@@ -96,7 +97,7 @@ class TestLogging:
             ws.send_bytes(jpeg_frame)
 
             # Receive response
-            result = ws.receive_json()
+            ws.receive_json()
 
             # If we get a dropped message, the drop event was logged
             # We can't directly verify the log, but the test passing means
@@ -114,16 +115,14 @@ class TestLogging:
 
         with client.websocket_connect("/ws/video/stream?pipeline_id=yolo_ocr") as ws:
             # Send multiple frames to build up drop rate
-            for i in range(20):
+            for _i in range(20):
                 ws.send_bytes(b"\xFF\xD8\xFF\xD9")
 
             # Collect all responses
-            slow_down_found = False
-            for i in range(20):
+            for _i in range(20):
                 try:
                     result = ws.receive_json(timeout=0.5)
                     if "warning" in result and result["warning"] == "slow_down":
-                        slow_down_found = True
                         break
                 except Exception:
                     break
@@ -145,7 +144,7 @@ class TestLogging:
             ws.send_bytes(jpeg_frame)
 
             # Receive response
-            result = ws.receive_json()
+            ws.receive_json()
 
             # If we get a pipeline_failure error, the error was logged
             # We can't directly verify the log, but the test passing means
@@ -157,27 +156,28 @@ class TestMetrics:
     """Test Prometheus metrics functionality."""
 
     def test_prometheus_counters_incremented(self, client: TestClient) -> None:
-            """Test that Prometheus counters are incremented."""
-            # We'll verify this by checking that the session tracks the expected metrics
-            # Since we can't directly access Prometheus metrics from tests, we'll verify
-            # that the session tracks the expected metrics
-    
-            with client.websocket_connect("/ws/video/stream?pipeline_id=yolo_ocr") as ws:
-                # Send frame
-                jpeg_frame = b"\xff\xd8\xff\xd9"
-                ws.send_bytes(jpeg_frame)
-    
-                # Receive response (may be result or error due to missing plugins)
-                try:
-                    ws.receive_json()
-                except Exception:
-                    # Connection may close due to pipeline failure
-                    pass
-    
-                # If we got here without exception, the session tracked frames
-                # We can't directly access metrics, but the test passing means
-                # the session was tracking metrics
+        """Test that Prometheus counters are incremented."""
+        # We'll verify this by checking that the session tracks the expected metrics
+        # Since we can't directly access Prometheus metrics from tests, we'll verify
+        # that the session tracks the expected metrics
+
+        with client.websocket_connect("/ws/video/stream?pipeline_id=yolo_ocr") as ws:
+            # Send frame
+            jpeg_frame = b"\xff\xd8\xff\xd9"
+            ws.send_bytes(jpeg_frame)
+
+            # Receive response (may be result or error due to missing plugins)
+            try:
+                ws.receive_json()
+            except Exception:
+                # Connection may close due to pipeline failure
                 pass
+
+            # If we got here without exception, the session tracked frames
+            # We can't directly access metrics, but the test passing means
+            # the session was tracking metrics
+            pass
+
     def test_prometheus_gauge_updated(self, client: TestClient) -> None:
         """Test that Prometheus gauge is updated."""
         # We'll verify this by checking that the metrics infrastructure is in place

@@ -16,14 +16,13 @@ Phase: 17
 """
 
 import logging
-import time
 from typing import Optional
 
 from fastapi import APIRouter, Query, WebSocket, WebSocketDisconnect
 
-from app.services.streaming.session_manager import SessionManager
-from app.services.streaming.frame_validator import validate_jpeg, FrameValidationError
 from app.services.dag_pipeline_service import DagPipelineService
+from app.services.streaming.frame_validator import FrameValidationError, validate_jpeg
+from app.services.streaming.session_manager import SessionManager
 
 router = APIRouter()
 logger = logging.getLogger("streaming")
@@ -47,10 +46,12 @@ async def video_stream(
 
     # Validate pipeline_id
     if pipeline_id is None:
-        await websocket.send_json({
-            "error": "invalid_pipeline",
-            "detail": "pipeline_id query parameter is required"
-        })
+        await websocket.send_json(
+            {
+                "error": "invalid_pipeline",
+                "detail": "pipeline_id query parameter is required",
+            }
+        )
         await websocket.close()
         return
 
@@ -63,10 +64,12 @@ async def video_stream(
 
     # Validate pipeline_id using dag_service.is_valid_pipeline_instance
     if not dag_service.is_valid_pipeline_instance(pipeline_id):
-        await websocket.send_json({
-            "error": "invalid_pipeline",
-            "detail": f"Unknown pipeline_id: {pipeline_id}"
-        })
+        await websocket.send_json(
+            {
+                "error": "invalid_pipeline",
+                "detail": f"Unknown pipeline_id: {pipeline_id}",
+            }
+        )
         await websocket.close()
         return
 
@@ -80,7 +83,7 @@ async def video_stream(
             "event_type": "stream_connect",
             "session_id": session.session_id,
             "pipeline_id": pipeline_id,
-        }
+        },
     )
 
     try:
@@ -99,10 +102,7 @@ async def video_stream(
                     validate_jpeg(frame_bytes)
                 except FrameValidationError as e:
                     # Send error and close connection
-                    await websocket.send_json({
-                        "error": e.code,
-                        "detail": e.detail
-                    })
+                    await websocket.send_json({"error": e.code, "detail": e.detail})
                     await websocket.close()
                     return
 
@@ -119,7 +119,7 @@ async def video_stream(
                 # Construct Phase-15 payload
                 payload = {
                     "frame_index": session.frame_index,
-                    "image_bytes": frame_bytes
+                    "image_bytes": frame_bytes,
                 }
 
                 # Run pipeline
@@ -135,24 +135,20 @@ async def video_stream(
                         session.mark_drop()
 
                         # Send drop message to client
-                        await websocket.send_json({
-                            "frame_index": session.frame_index,
-                            "dropped": True
-                        })
+                        await websocket.send_json(
+                            {"frame_index": session.frame_index, "dropped": True}
+                        )
                     else:
                         # Send result to client
-                        await websocket.send_json({
-                            "frame_index": session.frame_index,
-                            "result": result
-                        })
+                        await websocket.send_json(
+                            {"frame_index": session.frame_index, "result": result}
+                        )
 
                     # Check if we should send a slow-down warning
                     # This is checked after each frame (whether dropped or processed)
                     if session.should_slow_down():
                         # Send slow-down warning to client
-                        await websocket.send_json({
-                            "warning": "slow_down"
-                        })
+                        await websocket.send_json({"warning": "slow_down"})
                 except Exception as pipeline_error:
                     # Pipeline execution failed
                     logger.error(
@@ -163,29 +159,35 @@ async def video_stream(
                             "pipeline_id": pipeline_id,
                             "frame_index": session.frame_index,
                             "error": str(pipeline_error),
+                        },
+                    )
+                    await websocket.send_json(
+                        {
+                            "error": "pipeline_failure",
+                            "detail": "Pipeline execution failed",
                         }
                     )
-                    await websocket.send_json({
-                        "error": "pipeline_failure",
-                        "detail": "Pipeline execution failed"
-                    })
                     await websocket.close()
                     return
 
             elif "text" in message:
                 # Text message received - reject with error
-                await websocket.send_json({
-                    "error": "invalid_message",
-                    "detail": "Expected binary frame payload, received text message"
-                })
+                await websocket.send_json(
+                    {
+                        "error": "invalid_message",
+                        "detail": "Expected binary frame payload, received text message",
+                    }
+                )
                 await websocket.close()
                 return
             else:
                 # Unknown message type
-                await websocket.send_json({
-                    "error": "invalid_message",
-                    "detail": "Expected binary frame payload"
-                })
+                await websocket.send_json(
+                    {
+                        "error": "invalid_message",
+                        "detail": "Expected binary frame payload",
+                    }
+                )
                 await websocket.close()
                 return
 
@@ -196,11 +198,11 @@ async def video_stream(
                 "event_type": "stream_disconnect",
                 "session_id": session.session_id,
                 "pipeline_id": pipeline_id,
-            }
+            },
         )
     except Exception as e:
         # Check if this is a disconnect-related error
-        if "disconnect" in str(e).lower() or "Cannot call \"receive\"" in str(e):
+        if "disconnect" in str(e).lower() or 'Cannot call "receive"' in str(e):
             # This is a disconnect, log as info
             logger.info(
                 "stream_disconnect",
@@ -208,7 +210,7 @@ async def video_stream(
                     "event_type": "stream_disconnect",
                     "session_id": session.session_id,
                     "pipeline_id": pipeline_id,
-                }
+                },
             )
         else:
             # Other errors - send error message to client
@@ -219,12 +221,11 @@ async def video_stream(
                     "session_id": session.session_id,
                     "pipeline_id": pipeline_id,
                     "error": str(e),
-                }
+                },
             )
-            await websocket.send_json({
-                "error": "internal_error",
-                "detail": "An unexpected error occurred"
-            })
+            await websocket.send_json(
+                {"error": "internal_error", "detail": "An unexpected error occurred"}
+            )
             await websocket.close()
     finally:
         # Log disconnect if not already logged
@@ -235,7 +236,7 @@ async def video_stream(
                 "event_type": "stream_disconnect",
                 "session_id": session.session_id,
                 "pipeline_id": pipeline_id,
-            }
+            },
         )
         # Destroy session on disconnect
         websocket.state.session = None

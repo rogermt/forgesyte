@@ -9,7 +9,6 @@ These tests verify:
 - DagPipelineService called with correct payload structure
 """
 
-import logging
 import os
 import sys
 
@@ -105,7 +104,9 @@ class TestPipelineExecution:
                 try:
                     ws.receive_json(timeout=1.0)
                     # If we get here, connection didn't close properly
-                    assert False, "Connection should have been closed after error"
+                    raise AssertionError(
+                        "Connection should have been closed after error"
+                    )
                 except Exception:
                     # Expected - connection closed
                     pass

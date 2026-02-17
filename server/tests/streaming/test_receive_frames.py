@@ -12,7 +12,6 @@ These tests verify:
 - Valid frame does not close connection
 """
 
-import logging
 import os
 import sys
 
@@ -57,7 +56,10 @@ class TestBinaryFrameReception:
             # Should receive error message
             message = ws.receive_json()
             assert message["error"] == "invalid_message"
-            assert "binary" in message["detail"].lower() or "frame" in message["detail"].lower()
+            assert (
+                "binary" in message["detail"].lower()
+                or "frame" in message["detail"].lower()
+            )
 
     def test_websocket_closes_connection_on_invalid_message(
         self, client: TestClient
@@ -74,16 +76,14 @@ class TestBinaryFrameReception:
             # Connection should be closed now
             # Try to receive again - should raise exception or return None
             try:
-                result = ws.receive_json(timeout=1.0)
+                ws.receive_json(timeout=1.0)
                 # If we get here, connection didn't close properly
-                assert False, "Connection should have been closed"
+                raise AssertionError("Connection should have been closed")
             except Exception:
                 # Expected - connection closed
                 pass
 
-    def test_receiving_frame_increments_frame_index(
-        self, client: TestClient
-    ) -> None:
+    def test_receiving_frame_increments_frame_index(self, client: TestClient) -> None:
         """Test that receiving frame increments frame_index."""
 
         # Create a minimal JPEG frame
@@ -124,7 +124,7 @@ class TestFrameValidation:
             # Connection should be closed
             try:
                 ws.receive_json(timeout=1.0)
-                assert False, "Connection should have been closed"
+                raise AssertionError("Connection should have been closed")
             except Exception:
                 pass  # Expected
 
@@ -143,18 +143,19 @@ class TestFrameValidation:
             # Should receive error message
             message = ws.receive_json()
             assert message["error"] == "frame_too_large"
-            assert "size" in message["detail"].lower() or "too large" in message["detail"].lower()
+            assert (
+                "size" in message["detail"].lower()
+                or "too large" in message["detail"].lower()
+            )
 
             # Connection should be closed
             try:
                 ws.receive_json(timeout=1.0)
-                assert False, "Connection should have been closed"
+                raise AssertionError("Connection should have been closed")
             except Exception:
                 pass  # Expected
 
-    def test_valid_frame_does_not_close_connection(
-        self, client: TestClient
-    ) -> None:
+    def test_valid_frame_does_not_close_connection(self, client: TestClient) -> None:
         """Test that valid frame does not close connection."""
         # Create valid JPEG frame
         valid_frame = b"\xFF\xD8\xFF\xD9"

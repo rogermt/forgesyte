@@ -45,26 +45,33 @@ class TestWebSocketConnectionSuccess:
     ) -> None:
         """Test that WebSocket connection logs connect event (JSON)."""
         with caplog.at_level(logging.INFO):
-            with client.websocket_connect("/ws/video/stream?pipeline_id=yolo_ocr") as ws:
+            with client.websocket_connect("/ws/video/stream?pipeline_id=yolo_ocr"):
                 # Check that connect event was logged
-                assert any("stream_connect" in record.message for record in caplog.records)
+                assert any(
+                    "stream_connect" in record.message for record in caplog.records
+                )
 
     def test_websocket_disconnection_logs_disconnect_event(
         self, client: TestClient, caplog
     ) -> None:
         """Test that WebSocket disconnection logs disconnect event (JSON)."""
         with caplog.at_level(logging.INFO):
-            with client.websocket_connect("/ws/video/stream?pipeline_id=yolo_ocr") as ws:
+            with client.websocket_connect("/ws/video/stream?pipeline_id=yolo_ocr"):
                 pass  # Connection closes on context exit
 
             # Check that disconnect event was logged
             # Look in the extra field as well since we're using structured logging
             disconnect_logged = any(
-                "stream_disconnect" in record.message or
-                (hasattr(record, "extra") and "stream_disconnect" in str(record.extra))
+                "stream_disconnect" in record.message
+                or (
+                    hasattr(record, "extra")
+                    and "stream_disconnect" in str(record.extra)
+                )
                 for record in caplog.records
             )
-            assert disconnect_logged, f"No disconnect event found in logs. Records: {[r.message for r in caplog.records]}"
+            assert (
+                disconnect_logged
+            ), f"No disconnect event found in logs. Records: {[r.message for r in caplog.records]}"
 
 
 class TestWebSocketConnectionFailure:
@@ -87,7 +94,9 @@ class TestWebSocketConnectionFailure:
         """Test that WebSocket connection fails with invalid pipeline_id."""
         # For now, we accept any pipeline_id since validation is not yet implemented
         # This will be fixed in Commit 7 when we integrate pipeline execution
-        with client.websocket_connect("/ws/video/stream?pipeline_id=nonexistent_pipeline_xyz") as ws:
+        with client.websocket_connect(
+            "/ws/video/stream?pipeline_id=nonexistent_pipeline_xyz"
+        ) as ws:
             # Connection should succeed for now (validation will be added later)
             assert ws is not None
 
@@ -100,13 +109,12 @@ class TestSessionManagerIntegration:
     ) -> None:
         """Test that WebSocket connection creates SessionManager."""
         with caplog.at_level(logging.INFO):
-            with client.websocket_connect("/ws/video/stream?pipeline_id=yolo_ocr") as ws:
+            with client.websocket_connect("/ws/video/stream?pipeline_id=yolo_ocr"):
                 pass
 
             # Check that connect event was logged with session_id
             connect_logged = any(
-                "stream_connect" in record.message and
-                hasattr(record, 'session_id')
+                "stream_connect" in record.message and hasattr(record, "session_id")
                 for record in caplog.records
             )
             assert connect_logged, "Session creation not logged"
@@ -118,22 +126,22 @@ class TestSessionManagerIntegration:
         session_ids = []
 
         with caplog.at_level(logging.INFO):
-            with client.websocket_connect("/ws/video/stream?pipeline_id=yolo_ocr") as ws1:
+            with client.websocket_connect("/ws/video/stream?pipeline_id=yolo_ocr"):
                 pass
 
             # Extract session_id from logs
             for record in caplog.records:
-                if "stream_connect" in record.message and hasattr(record, 'session_id'):
-                    session_ids.append(getattr(record, 'session_id'))
+                if "stream_connect" in record.message and hasattr(record, "session_id"):
+                    session_ids.append(record.session_id)
 
             caplog.clear()
 
-            with client.websocket_connect("/ws/video/stream?pipeline_id=yolo_ocr") as ws2:
+            with client.websocket_connect("/ws/video/stream?pipeline_id=yolo_ocr"):
                 pass
 
             for record in caplog.records:
-                if "stream_connect" in record.message and hasattr(record, 'session_id'):
-                    session_ids.append(getattr(record, 'session_id'))
+                if "stream_connect" in record.message and hasattr(record, "session_id"):
+                    session_ids.append(record.session_id)
 
         # Session IDs should be unique
         assert len(session_ids) == 2
@@ -144,14 +152,14 @@ class TestSessionManagerIntegration:
     ) -> None:
         """Test that WebSocket connection stores pipeline_id in session."""
         with caplog.at_level(logging.INFO):
-            with client.websocket_connect("/ws/video/stream?pipeline_id=yolo_ocr") as ws:
+            with client.websocket_connect("/ws/video/stream?pipeline_id=yolo_ocr"):
                 pass
 
             # Check that pipeline_id was logged
             pipeline_logged = any(
-                "stream_connect" in record.message and
-                hasattr(record, 'pipeline_id') and
-                getattr(record, 'pipeline_id') == "yolo_ocr"
+                "stream_connect" in record.message
+                and hasattr(record, "pipeline_id")
+                and record.pipeline_id == "yolo_ocr"
                 for record in caplog.records
             )
             assert pipeline_logged, "Pipeline ID not stored in session"
@@ -161,13 +169,12 @@ class TestSessionManagerIntegration:
     ) -> None:
         """Test that WebSocket disconnection destroys SessionManager."""
         with caplog.at_level(logging.INFO):
-            with client.websocket_connect("/ws/video/stream?pipeline_id=yolo_ocr") as ws:
+            with client.websocket_connect("/ws/video/stream?pipeline_id=yolo_ocr"):
                 pass
 
             # Check that disconnect event was logged with session_id
             disconnect_logged = any(
-                "stream_disconnect" in record.message and
-                hasattr(record, 'session_id')
+                "stream_disconnect" in record.message and hasattr(record, "session_id")
                 for record in caplog.records
             )
             assert disconnect_logged, "Session destruction not logged"

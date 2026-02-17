@@ -100,7 +100,10 @@ class TestFrameValidatorOversizedFrame:
             validate_jpeg(oversized_frame)
 
         assert exc_info.value.code == "frame_too_large"
-        assert "size" in exc_info.value.detail.lower() or "too large" in exc_info.value.detail.lower()
+        assert (
+            "size" in exc_info.value.detail.lower()
+            or "too large" in exc_info.value.detail.lower()
+        )
 
 
 class TestFrameValidatorEnvironmentVariables:

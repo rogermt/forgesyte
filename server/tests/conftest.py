@@ -130,6 +130,7 @@ def app_with_plugins():
         FastAPI app with all services initialized and plugins loaded
     """
     from pathlib import Path
+
     from app.auth import init_auth_service
     from app.main import app
     from app.plugin_loader import PluginRegistry

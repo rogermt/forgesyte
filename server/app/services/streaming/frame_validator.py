@@ -45,9 +45,7 @@ def validate_jpeg(frame_bytes: bytes) -> None:
     """
     # Check for empty bytes
     if not frame_bytes:
-        raise FrameValidationError(
-            "invalid_frame", "Frame is empty (no data provided)"
-        )
+        raise FrameValidationError("invalid_frame", "Frame is empty (no data provided)")
 
     # Check size limit
     max_size_mb = float(os.getenv("STREAM_MAX_FRAME_SIZE_MB", "5"))

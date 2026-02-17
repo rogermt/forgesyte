@@ -40,8 +40,8 @@ from .api_routes.routes.execution import router as execution_router
 from .api_routes.routes.job_results import router as job_results_router
 from .api_routes.routes.job_status import router as job_status_router
 from .api_routes.routes.video_file_processing import router as video_router
-from .api_routes.routes.video_submit import router as video_submit_router
 from .api_routes.routes.video_stream import router as video_stream_router
+from .api_routes.routes.video_submit import router as video_submit_router
 
 # Services
 from .auth import init_auth_service

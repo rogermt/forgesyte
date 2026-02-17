@@ -12,7 +12,6 @@ These tests verify:
 - Internal error includes code and detail
 """
 
-import logging
 import os
 import sys
 
@@ -32,7 +31,9 @@ def client(app_with_plugins):
 class TestErrorHandling:
     """Test error handling and structured exceptions."""
 
-    def test_all_error_responses_follow_unified_format(self, client: TestClient) -> None:
+    def test_all_error_responses_follow_unified_format(
+        self, client: TestClient
+    ) -> None:
         """Test that all error responses follow unified format {error, detail}."""
 
         # Test 1: Invalid pipeline_id
@@ -59,7 +60,9 @@ class TestErrorHandling:
             assert "detail" in result
             assert result["error"] == "invalid_message"
 
-    def test_invalid_frame_error_includes_code_and_detail(self, client: TestClient) -> None:
+    def test_invalid_frame_error_includes_code_and_detail(
+        self, client: TestClient
+    ) -> None:
         """Test that invalid frame error includes code and detail."""
 
         # Create invalid JPEG (missing SOI marker)
@@ -78,7 +81,9 @@ class TestErrorHandling:
             assert "Traceback" not in result["detail"]
             assert "File" not in result["detail"]
 
-    def test_frame_too_large_error_includes_code_and_detail(self, client: TestClient) -> None:
+    def test_frame_too_large_error_includes_code_and_detail(
+        self, client: TestClient
+    ) -> None:
         """Test that frame too large error includes code and detail."""
 
         # Create oversized frame (> 5MB default limit)
@@ -98,7 +103,9 @@ class TestErrorHandling:
             assert "Traceback" not in result["detail"]
             assert "File" not in result["detail"]
 
-    def test_invalid_message_error_includes_code_and_detail(self, client: TestClient) -> None:
+    def test_invalid_message_error_includes_code_and_detail(
+        self, client: TestClient
+    ) -> None:
         """Test that invalid message error includes code and detail."""
 
         with client.websocket_connect("/ws/video/stream?pipeline_id=yolo_ocr") as ws:
@@ -114,7 +121,9 @@ class TestErrorHandling:
             assert "Traceback" not in result["detail"]
             assert "File" not in result["detail"]
 
-    def test_invalid_pipeline_error_includes_code_and_detail(self, client: TestClient) -> None:
+    def test_invalid_pipeline_error_includes_code_and_detail(
+        self, client: TestClient
+    ) -> None:
         """Test that invalid pipeline error includes code and detail."""
 
         with client.websocket_connect("/ws/video/stream?pipeline_id=nonexistent") as ws:
@@ -129,7 +138,9 @@ class TestErrorHandling:
             assert "Traceback" not in result["detail"]
             assert "File" not in result["detail"]
 
-    def test_pipeline_failure_error_includes_code_and_detail(self, client: TestClient) -> None:
+    def test_pipeline_failure_error_includes_code_and_detail(
+        self, client: TestClient
+    ) -> None:
         """Test that pipeline failure error includes code and detail."""
 
         # Create a minimal JPEG frame
@@ -182,11 +193,14 @@ class TestErrorHandling:
             result = ws.receive_json()
             # Verify response is JSON-safe
             import json
+
             json_str = json.dumps(result)
             assert json_str is not None
             # Verify only simple types
-            for key, value in result.items():
-                assert isinstance(value, (str, int, float, bool, list, dict, type(None)))
+            for _key, value in result.items():
+                assert isinstance(
+                    value, (str, int, float, bool, list, dict, type(None))
+                )
 
         # Test invalid_frame error
         with client.websocket_connect("/ws/video/stream?pipeline_id=yolo_ocr") as ws:
@@ -195,8 +209,10 @@ class TestErrorHandling:
             # Verify response is JSON-safe
             json_str = json.dumps(result)
             assert json_str is not None
-            for key, value in result.items():
-                assert isinstance(value, (str, int, float, bool, list, dict, type(None)))
+            for _key, value in result.items():
+                assert isinstance(
+                    value, (str, int, float, bool, list, dict, type(None))
+                )
 
         # Test invalid_message error
         with client.websocket_connect("/ws/video/stream?pipeline_id=yolo_ocr") as ws:
@@ -205,5 +221,7 @@ class TestErrorHandling:
             # Verify response is JSON-safe
             json_str = json.dumps(result)
             assert json_str is not None
-            for key, value in result.items():
-                assert isinstance(value, (str, int, float, bool, list, dict, type(None)))
+            for _key, value in result.items():
+                assert isinstance(
+                    value, (str, int, float, bool, list, dict, type(None))
+                )

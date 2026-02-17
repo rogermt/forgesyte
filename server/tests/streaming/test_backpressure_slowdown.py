@@ -9,7 +9,6 @@ These tests verify:
 - Slowdown threshold reads from environment variable
 """
 
-import logging
 import os
 import sys
 
@@ -45,7 +44,7 @@ class TestBackpressureSlowDown:
             ws.send_bytes(jpeg_frame)
 
             # Receive response
-            result = ws.receive_json()
+            ws.receive_json()
 
             # With such a low threshold, we might get slow-down warnings
             # The important thing is that the backpressure logic was consulted
@@ -69,16 +68,14 @@ class TestBackpressureSlowDown:
 
         with client.websocket_connect("/ws/video/stream?pipeline_id=yolo_ocr") as ws:
             # Send multiple frames to build up drop rate
-            for i in range(20):
+            for _i in range(20):
                 ws.send_bytes(jpeg_frame)
 
             # Check if we got a slow-down warning
-            slow_down_found = False
-            for i in range(20):
+            for _i in range(20):
                 try:
                     result = ws.receive_json(timeout=0.5)
                     if "warning" in result and result["warning"] == "slow_down":
-                        slow_down_found = True
                         # Verify the message has the correct structure
                         assert result["warning"] == "slow_down"
                         # Slow-down warnings should not have frame_index or result
@@ -120,7 +117,9 @@ class TestBackpressureSlowDown:
             if "warning" in result:
                 # If we get a warning, it should not be slow_down
                 # (this will fail if slow-down logic is not implemented correctly)
-                assert result["warning"] != "slow_down", f"Unexpected slow_down warning: {result}"
+                assert (
+                    result["warning"] != "slow_down"
+                ), f"Unexpected slow_down warning: {result}"
             else:
                 # Either we got a result or a drop message, which is fine
                 # Just verify the response is valid
@@ -156,7 +155,9 @@ class TestBackpressureSlowDown:
         if "STREAM_SLOWDOWN_THRESHOLD" in os.environ:
             del os.environ["STREAM_SLOWDOWN_THRESHOLD"]
 
-    def test_slow_down_warning_sent_only_once_per_session(self, client: TestClient) -> None:
+    def test_slow_down_warning_sent_only_once_per_session(
+        self, client: TestClient
+    ) -> None:
         """Test that slow-down warning is sent only once per session (not repeated)."""
 
         # Set environment variable to force slow-down warnings
@@ -167,12 +168,12 @@ class TestBackpressureSlowDown:
 
         with client.websocket_connect("/ws/video/stream?pipeline_id=yolo_ocr") as ws:
             # Send multiple frames
-            for i in range(5):
+            for _i in range(5):
                 ws.send_bytes(jpeg_frame)
 
             # Count slow-down warnings
             slow_down_count = 0
-            for i in range(5):
+            for _i in range(5):
                 try:
                     result = ws.receive_json(timeout=0.5)
                     if "warning" in result and result["warning"] == "slow_down":

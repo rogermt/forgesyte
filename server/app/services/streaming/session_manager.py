@@ -45,9 +45,7 @@ class SessionManager:
         self.backpressure_state: str = "normal"
 
         # Configuration (from env vars or defaults)
-        self.drop_threshold: float = float(
-            os.getenv("STREAM_DROP_THRESHOLD", "0.10")
-        )
+        self.drop_threshold: float = float(os.getenv("STREAM_DROP_THRESHOLD", "0.10"))
         self.slowdown_threshold: float = float(
             os.getenv("STREAM_SLOWDOWN_THRESHOLD", "0.30")
         )
