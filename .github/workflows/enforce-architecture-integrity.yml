@@ -1,0 +1,58 @@
+name: Enforce Web-UI Architecture Integrity
+
+on:
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  enforce_integrity:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Load forbidden terms
+        id: load_terms
+        run: |
+          echo "terms<<EOF" >> $GITHUB_OUTPUT
+          cat .forbidden-terms >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Scan for forbidden patterns in src/
+        run: |
+          echo "🔍 Scanning src/ for forbidden architecture patterns..."
+          violations=0
+
+          while IFS= read -r term; do
+            # Skip empty lines or comments
+            [[ -z "$term" || "$term" =~ ^# ]] && continue
+
+            # Grep for term, exclude comments, mocks, and storybook
+            if grep -R "$term" web-ui/src/ 2>/dev/null | \
+               grep -v "^[^:]*:[[:space:]]*\*" | \
+               grep -v "^[^:]*:[[:space:]]*\/\/" | \
+               grep -v "__mocks__" | \
+               grep -v ".stories"; then
+              echo "❌ Forbidden reference found: $term"
+              violations=$((violations + 1))
+            fi
+          done <<< "${{ steps.load_terms.outputs.terms }}"
+
+          if [ $violations -gt 0 ]; then
+            echo "❌ Architecture integrity check FAILED: $violations violation(s) found"
+            exit 1
+          fi
+
+          echo "✅ Architecture integrity preserved — no forbidden patterns detected"
+
+      - name: Verify no legacy test patterns
+        run: |
+          echo "🔍 Checking for legacy test patterns..."
+          
+          # Check for skipped test files (legacy pattern)
+          if find web-ui/src -name "*.test.tsx.skipped" -o -name "*.spec.tsx.skipped" 2>/dev/null | grep -q .; then
+            echo "❌ Found skipped test files (.skipped suffix) — legacy pattern"
+            exit 1
+          fi
+          
+          echo "✅ No legacy test patterns found"

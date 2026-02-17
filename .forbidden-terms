@@ -1,0 +1,39 @@
+# Forbidden vocabulary for the ForgeSyte Web‑UI architecture.
+# These terms represent deprecated or disallowed concepts that must not
+# re‑enter the codebase after v1.0.0.
+#
+# IMPORTANT: These match exact component/hook names, not substrings.
+# "ErrorBanner" means the hook/component itself, not "RealtimeErrorBanner"
+
+# Legacy synchronous video processing hooks (removed)
+useVideoProcessor
+useVideoExport
+useVideoProcessor
+useWebSocket
+useManifest
+
+# Legacy plugin/tool selection components (removed)
+PluginSelector
+ToolSelector
+
+# Legacy UI overlays (removed from Phase 16+)
+OverlayToggles
+RadarView
+RecordButton
+ProgressBar
+ConfidenceSlider
+ConfigPanel
+FPSSlider
+LoadingSpinner
+BoundingBoxOverlay
+OverlayRenderer
+PipelineSelector
+PluginInspector
+DeviceSelector
+drawDetections
+ResultsPanel
+
+# Legacy endpoint namespaces (removed)
+v1/video/submit
+v1/video/status
+v1/video/results
