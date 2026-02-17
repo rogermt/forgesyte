@@ -6,11 +6,6 @@
  * - VITE_API_KEY: Optional API authentication key
  */
 
-import type {
-    PluginManifest,
-    ToolExecutionResponse,
-} from "../types/plugin";
-
 const API_BASE =
     import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE || "/v1";
 const API_KEY = import.meta.env.VITE_API_KEY;
@@ -34,6 +29,7 @@ export interface Job {
     created_at: string;
     completed_at?: string | null;
     progress?: number | null;
+    frames_processed?: number | null;
 }
 
 export interface AnalysisResult {
@@ -216,23 +212,31 @@ export class ForgeSyteAPIClient {
         throw new Error("Job polling timed out");
     }
 
-    async getPluginManifest(pluginId: string): Promise<PluginManifest> {
-        // Phase 11: Use canonical /plugins/{pluginId}/manifest endpoint
-        // (baseUrl already includes /v1)
-        return this.fetch(
-            `/plugins/${pluginId}/manifest`
-        ) as unknown as Promise<PluginManifest>;
-    }
+    /**
+     * Phase 17: Upload MP4 video for batch YOLO inference
+     * POST /v1/video/submit
+     */
+    async uploadVideo(file: File): Promise<{ job_id: string }> {
+        const formData = new FormData();
+        formData.append("file", file);
 
-    async runPluginTool(
-        pluginId: string,
-        toolName: string,
-        args: Record<string, unknown>
-    ): Promise<ToolExecutionResponse> {
-        return this.fetch(`/plugins/${pluginId}/tools/${toolName}/run`, {
+        const headers: HeadersInit = {};
+
+        if (this.apiKey) {
+            headers["X-API-Key"] = this.apiKey;
+        }
+
+        const response = await fetch(`${this.baseUrl}/video/submit`, {
             method: "POST",
-            body: JSON.stringify({ args }),
-        }) as unknown as Promise<ToolExecutionResponse>;
+            headers,
+            body: formData,
+        });
+
+        if (!response.ok) {
+            throw new Error(`Upload failed: ${response.status} ${response.statusText}`);
+        }
+
+        return response.json() as Promise<{ job_id: string }>;
     }
 }
 

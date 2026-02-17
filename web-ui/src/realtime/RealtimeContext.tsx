@@ -36,7 +36,7 @@ interface RealtimeState {
 
 interface RealtimeContextValue {
   state: RealtimeState;
-  connect: (pipelineId: string) => void;
+  connect: () => void;
   disconnect: () => void;
   sendFrame: (bytes: Uint8Array | ArrayBuffer) => void;
   clearError: () => void;

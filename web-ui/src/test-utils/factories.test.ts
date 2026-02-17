@@ -12,8 +12,6 @@ import {
     createMockJobList,
     createMockPlugin,
     createMockPluginList,
-    createMockFrameResult,
-    createMockFrameResultList,
 } from "./factories";
 
 describe("Mock Factories", () => {
@@ -132,39 +130,4 @@ describe("Mock Factories", () => {
         });
     });
 
-    describe("createMockFrameResult", () => {
-        it("should create frame result with required fields", () => {
-            const frame = createMockFrameResult();
-            expect(frame.frame_id).toBeDefined();
-            expect(frame.plugin).toBeDefined();
-            expect(frame.result).toBeDefined();
-            expect(frame.processing_time_ms).toBeGreaterThan(0);
-        });
-
-        it("should allow overrides", () => {
-            const frame = createMockFrameResult({ plugin: "ocr" });
-            expect(frame.plugin).toBe("ocr");
-        });
-
-        it("should have result data", () => {
-            const frame = createMockFrameResult();
-            expect(frame.result).toHaveProperty("motion_detected");
-        });
     });
-
-    describe("createMockFrameResultList", () => {
-        it("should create multiple frame results", () => {
-            const frames = createMockFrameResultList(3);
-            expect(frames).toHaveLength(3);
-            frames.forEach((frame, index) => {
-                expect(frame.frame_id).toContain(`frame-${String(index + 1).padStart(3, "0")}`);
-            });
-        });
-
-        it("should have unique frame IDs", () => {
-            const frames = createMockFrameResultList(5);
-            const ids = frames.map((f) => f.frame_id);
-            expect(new Set(ids).size).toBe(5);
-        });
-    });
-});

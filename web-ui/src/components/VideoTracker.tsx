@@ -1,10 +1,13 @@
 /**
- * VideoTracker Component
+ * VideoTracker Component - Phase 17
  *
- * Final Phase 17 architecture:
- * - MP4 upload for async YOLO inference
- * - Uses useVideoProcessor hook
- * - MP4ProcessingProvider exposes state to StreamDebugPanel
+ * MP4 upload for async YOLO inference:
+ * - Upload MP4 to backend via /v1/video/submit
+ * - Backend creates job and returns job_id
+ * - Poll job status until completion
+ * - Display progress and errors
+ *
+ * Critical Rule: NEVER hardcode pipeline IDs. The backend chooses the pipeline.
  */
 
 import React, { useState } from "react";
@@ -307,9 +310,8 @@ export function VideoTracker({ pluginId, tools, debug = false }: VideoTrackerPro
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const selected = event.target.files?.[0] ?? null;
-    setFile(selected);
     if (selected) {
-      processor.start(selected);
+      upload.start(selected);
     }
   };
 
@@ -332,13 +334,54 @@ export function VideoTracker({ pluginId, tools, debug = false }: VideoTrackerPro
         </div>
       </div>
 
-        {processor.state.status === "idle" && <p>No job started.</p>}
-        {processor.state.status === "processing" && (
-          <p>Processing… {mp4State.progress}%</p>
+        {upload.state.status === "idle" && (
+          <div>
+            <input
+              type="file"
+              accept="video/*"
+              onChange={handleFileChange}
+              disabled={upload.state.status !== "idle"}
+            />
+            <p>No job started.</p>
+          </div>
         )}
-        {processor.state.status === "completed" && <p>Job completed.</p>}
-        {processor.state.status === "error" && (
-          <p>Error: {processor.state.errorMessage}</p>
+
+        {upload.state.status === "uploading" && (
+          <div>
+            <p>Uploading video…</p>
+          </div>
+        )}
+
+        {upload.state.status === "processing" && (
+          <div>
+            <p>Processing… {mp4State.progress}%</p>
+            <p>Frames processed: {mp4State.framesProcessed}</p>
+            {mp4State.jobId && <p>Job ID: {mp4State.jobId}</p>}
+          </div>
+        )}
+
+        {upload.state.status === "completed" && (
+          <div>
+            <p>✅ Job completed.</p>
+            {mp4State.jobId && <p>Job ID: {mp4State.jobId}</p>}
+            <button onClick={handleReset}>Upload another video</button>
+          </div>
+        )}
+
+        {upload.state.status === "error" && (
+          <div>
+            <p style={{ color: "var(--accent-red)" }}>
+              ❌ Error: {upload.state.errorMessage}
+            </p>
+            <button onClick={handleReset}>Try again</button>
+          </div>
+        )}
+
+        {upload.state.status === "cancelled" && (
+          <div>
+            <p>Upload cancelled.</p>
+            <button onClick={handleReset}>Start new upload</button>
+          </div>
         )}
       </div>
 
