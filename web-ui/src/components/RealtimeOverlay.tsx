@@ -1,20 +1,17 @@
 /**
- * Phase 10: Real-Time Overlay Component.
+ * Phase 10: Real-Time Overlay Component (LEGACY)
  *
  * Container component for displaying real-time updates during job execution.
  * Integrates ProgressBar and PluginInspector components.
  *
- * TODO: Implement the following:
- * - Real-time progress display
- * - Plugin timing visualization
- * - Warning/error notifications
- * - Connection status indicator
+ * LEGACY: This component is from Phase 10 and is maintained for backward compatibility.
+ * Phase 17 streaming uses RealtimeStreamingOverlay instead.
  *
  * Author: Roger
  * Phase: 10
  */
 
-import { useRealtime } from '@/realtime/RealtimeContext';
+import { useRealtimeContext } from '../realtime/RealtimeContext';
 import { ProgressBar } from '@/components/ProgressBar';
 import { PluginInspector } from '@/components/PluginInspector';
 
@@ -33,7 +30,7 @@ export function RealtimeOverlay({
    showWarnings = true,
    showErrors = true,
  }: RealtimeOverlayProps) {
-   const { state } = useRealtime();
+   const { state } = useRealtimeContext();
 
    return (
      <div className="realtime-overlay" data-testid="realtime-overlay" data-job-id={jobId}>
@@ -60,7 +57,7 @@ export function RealtimeOverlay({
       {/* Warnings */}
       {showWarnings && state.warnings.length > 0 && (
         <div className="realtime-warnings">
-          {state.warnings.map((warning, index) => (
+          {state.warnings.map((warning: string, index: number) => (
             <div key={index} className="warning-message">
               ⚠️ {warning}
             </div>
@@ -71,7 +68,7 @@ export function RealtimeOverlay({
       {/* Errors */}
       {showErrors && state.errors.length > 0 && (
         <div className="realtime-errors">
-          {state.errors.map((error, index) => (
+          {state.errors.map((error: string, index: number) => (
             <div key={index} className="error-message">
               ❌ {error}
             </div>
@@ -83,4 +80,3 @@ export function RealtimeOverlay({
 }
 
 export default RealtimeOverlay;
-
