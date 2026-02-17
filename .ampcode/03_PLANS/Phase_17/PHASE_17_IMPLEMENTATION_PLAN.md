@@ -1,7 +1,7 @@
 # Phase 17 Implementation Plan
 
 **Date**: 2026-02-17
-**Status**: Ready for Review
+**Status**: Ready for Approval
 **Confidence**: 95% (5% uncertainty on specific CSS details)
 
 ---
@@ -10,24 +10,31 @@
 
 This plan addresses two critical issues:
 
-1. **MP4 Upload Not Fully Implemented**: The current `VideoTracker` component uses `useVideoProcessor` which processes frames via `runTool()` (legacy Phase 10 approach). This needs to be migrated to use the Phase 15/16 batch job API (`POST /api/video/upload`, `GET /api/jobs/{id}`).
+1. **MP4 Upload Not Fully Implemented**: The current `VideoTracker` component uses `useVideoProcessor` which processes frames via `runTool()` (legacy Phase 10 approach). This needs to be migrated to use the Phase 16 batch job API (`POST /v1/video/submit`, `GET /v1/video/status/{job_id}`, `GET /v1/video/results/{job_id}`).
 
-2. **Legacy Phase 10 Architecture Removal**: The frontend still contains Phase 10 legacy code (PluginSelector, ToolSelector, ResultsPanel, manifest loading, detectToolType, old WebSocket endpoint) that conflicts with the Phase 17 unified architecture.
+2. **Legacy Phase 10 Architecture Removal**: The frontend still contains Phase 10 legacy code (PluginSelector, ToolSelector, ResultsPanel, manifest loading, detectToolType, old WebSocket endpoint `/v1/stream`) that conflicts with the Phase 17 unified architecture.
 
 ---
 
 ## Current State Analysis
 
-### ✅ What's Complete (Phase 17)
+### ✅ What's Complete (Phase 17 Backend)
 
-**Backend (12/12 commits)**:
+**Backend (12/12 commits - 100% COMPLETE)**:
 - WebSocket endpoint: `/ws/video/stream` ✅
 - SessionManager ✅
 - FrameValidator ✅
 - Backpressure ✅
-- All tests passing (60/60) ✅
+- All backend tests passing (60/60) ✅
 
-**Frontend (Phase 17 components)**:
+**Backend MP4 Upload API (Phase 16 - ALREADY EXISTS)**:
+- `POST /v1/video/submit` - Submit video for async processing ✅
+- `GET /v1/video/status/{job_id}` - Get job status ✅
+- `GET /v1/video/results/{job_id}` - Get job results ✅
+
+### ✅ What's Complete (Phase 17 Frontend Components)
+
+**Frontend Streaming Components (Phase 17 - ALREADY IMPLEMENTED)**:
 - `useWebSocket.ts` - Extended with binary streaming ✅
 - `useRealtime.ts` - Phase 17 streaming hook ✅
 - `RealtimeContext.tsx` - Phase 17 context ✅
@@ -90,13 +97,63 @@ This plan addresses two critical issues:
 ### ⚠️ What's Incomplete
 
 **MP4 Upload / VideoTracker**:
-- Current implementation uses `useVideoProcessor` → `runTool()` (legacy)
-- Should use Phase 15/16 batch job API:
-  - `POST /api/video/upload` (multipart/form-data)
-  - `GET /api/jobs/{job_id}` (poll for progress)
-  - `GET /api/jobs` (list jobs)
+- Current implementation uses `useVideoProcessor` → `runTool()` (legacy Phase 10)
+- Should use Phase 16 batch job API:
+  - `POST /v1/video/submit` (multipart/form-data)
+  - `GET /v1/video/status/{job_id}` (poll for progress)
+  - `GET /v1/video/results/{job_id}` (get results)
 - Need to implement proper `useVideoProcessor` that uses batch jobs
 - Need to update `VideoTracker` to use new `useVideoProcessor`
+
+---
+
+## Backend API Contract (Phase 16 - Already Exists)
+
+### POST /v1/video/submit
+
+Submit a video file for async processing.
+
+**Request**:
+- Method: `POST`
+- URL: `/v1/video/submit?pipeline_id={pipeline_id}`
+- Body: `multipart/form-data`
+  - `file`: MP4 video file
+
+**Response**:
+```json
+{
+  "job_id": "uuid"
+}
+```
+
+### GET /v1/video/status/{job_id}
+
+Get status of a job.
+
+**Response**:
+```json
+{
+  "job_id": "uuid",
+  "status": "pending" | "running" | "completed" | "failed",
+  "progress": 0.0 | 0.5 | 1.0,
+  "created_at": "2025-02-17T...",
+  "updated_at": "2025-02-17T..."
+}
+```
+
+### GET /v1/video/results/{job_id}
+
+Get results of a completed job.
+
+**Response**:
+```json
+{
+  "job_id": "uuid",
+  "results": { ... },
+  "created_at": "2025-02-17T...",
+  "updated_at": "2025-02-17T..."
+}
+```
 
 ---
 
@@ -104,18 +161,42 @@ This plan addresses two critical issues:
 
 ### Phase 1: Fix MP4 Upload (TDD - 4 Commits)
 
-**Goal**: Implement proper MP4 upload using Phase 15/16 batch job API.
+**Goal**: Implement proper MP4 upload using Phase 16 batch job API.
 
 #### Commit 1: Implement useVideoProcessor with Batch Jobs
 
 **File**: `web-ui/src/hooks/useVideoProcessor.ts`
 
 **Changes**:
-- Replace `runTool()` calls with batch job API
-- Implement `uploadVideo(file: File)` → `POST /api/video/upload`
-- Implement `pollJob(jobId: string)` → `GET /api/jobs/{job_id}`
-- State: `status`, `currentJobId`, `progress`, `framesProcessed`, `error`
-- Methods: `start(file: File)`, `cancel()`
+- Remove `runTool()` imports and usage
+- Remove `videoRef`, `pluginId`, `tools`, `fps`, `device` props (not needed for batch jobs)
+- Implement `uploadVideo(file: File, pipelineId: string)` → `POST /v1/video/submit`
+- Implement `pollJob(jobId: string)` → `GET /v1/video/status/{job_id}`
+- Implement `fetchResults(jobId: string)` → `GET /v1/video/results/{job_id}`
+- State: `status`, `currentJobId`, `progress`, `error`, `results`
+- Methods: `start(file: File, pipelineId: string)`, `cancel()`
+
+**New API**:
+```typescript
+interface UseVideoProcessorArgs {
+  file?: File | null;
+  pipelineId?: string;
+  debug?: boolean;
+}
+
+interface UseVideoProcessorReturn {
+  state: {
+    status: "idle" | "uploading" | "processing" | "completed" | "error";
+    currentJobId: string | null;
+    progress: number;
+    framesProcessed: number;
+    error?: string;
+    results?: Record<string, unknown>;
+  };
+  start: (file: File, pipelineId: string) => void;
+  cancel: () => void;
+}
+```
 
 **Tests**:
 - `useVideoProcessor.test.ts`:
@@ -123,6 +204,7 @@ This plan addresses two critical issues:
   - Poll updates progress
   - Error handling
   - Cancel stops polling
+  - Results fetched on completion
 
 **TDD Workflow**:
 1. Write failing tests
@@ -140,21 +222,31 @@ This plan addresses two critical issues:
 **File**: `web-ui/src/components/VideoTracker.tsx`
 
 **Changes**:
-- Remove `pluginId`, `tools` props (not needed for batch jobs)
+- Remove `pluginId`, `tools` props (use `pipelineId` instead)
 - Add `debug` prop
 - Use new `useVideoProcessor` API:
-  - `processor.start(file)` on file upload
+  - `processor.start(file, pipelineId)` on file upload
   - Display progress from `processor.state.progress`
   - Display status from `processor.state.status`
-- Keep playback controls (Play/Pause/FPS)
-- Keep overlay toggles
+  - Display results from `processor.state.results`
+- Simplify UI: Remove playback controls (Play/Pause/FPS/Device), overlay toggles
+- Keep: Upload button, progress display, results display
+
+**New API**:
+```typescript
+interface VideoTrackerProps {
+  pipelineId?: string;
+  debug?: boolean;
+}
+```
 
 **Tests**:
 - `VideoTracker.test.tsx`:
   - File upload starts job
   - Progress updates
   - Error display
-  - Playback controls
+  - Results display
+  - Debug mode shows metrics
 
 **TDD Workflow**:
 1. Write failing tests
@@ -173,12 +265,26 @@ This plan addresses two critical issues:
 
 **Changes**:
 - Ensure it works with new `useVideoProcessor` state
-- Add `error` field to state
-- Add `status` field to state
+- Add `results` field to state
+- Add `status` field to state (full enum)
+
+**New API**:
+```typescript
+interface MP4State {
+  active: boolean;
+  jobId: string | null;
+  progress: number;
+  framesProcessed: number;
+  status: "idle" | "uploading" | "processing" | "completed" | "error";
+  results?: Record<string, unknown>;
+  error?: string;
+}
+```
 
 **Tests**:
 - Verify context provides correct state
 - Verify context updates on job progress
+- Verify context updates on job completion
 
 **TDD Workflow**:
 1. Write failing tests
@@ -202,12 +308,15 @@ This plan addresses two critical issues:
   - Progress
   - Frames processed
   - Error (if any)
+  - Results (if available)
 - Read from `MP4ProcessingContext`
 
 **Tests**:
 - `StreamDebugPanel.test.tsx`:
   - MP4 section displays correctly
   - Updates on job progress
+  - Shows results when available
+  - Shows errors when available
 
 **TDD Workflow**:
 1. Write failing tests
@@ -232,8 +341,7 @@ This plan addresses two critical issues:
 - `PluginSelector` import and usage
 - `ToolSelector` import and usage
 - `ResultsPanel` import and usage
-- `useWebSocket`, `FrameResult` imports
-- `apiClient`, `Job` imports (keep for JobList)
+- `useWebSocket`, `FrameResult` imports (keep for CameraPreview if needed)
 - `detectToolType` import
 - `PluginManifest` type import
 - State: `selectedPlugin`, `selectedTools`, `streamEnabled`, `selectedJob`, `uploadResult`, `isUploading`, `manifest`, `manifestError`, `manifestLoading`
@@ -246,7 +354,7 @@ This plan addresses two critical issues:
 - Image upload panel
 - Job Details panel
 - ResultsPanel
-- WebSocket error box
+- WebSocket error box (keep RealtimeErrorBanner in StreamingView)
 - streamEnabled toggle
 - Connection status indicator
 
@@ -420,10 +528,11 @@ web-ui/src/types/plugin.ts
 **Tests**:
 - Verify all CSS classes are applied correctly
 - Verify responsive layout
+- Run frontend-tester to verify UI
 
 **TDD Workflow**:
 1. Write CSS
-2. Run frontend tester to verify UI
+2. Run frontend-tester to verify UI
 3. Run lint, type-check, all tests
 4. Save test logs
 5. Commit
@@ -435,13 +544,13 @@ web-ui/src/types/plugin.ts
 #### Commit 9: Full Integration Test
 
 **Actions**:
-1. Run all tests (backend + frontend)
+1. Run all tests (frontend)
 2. Run lint, type-check
 3. Manual testing:
    - Stream mode: WebSocket connection, frame streaming, overlay rendering
-   - Upload mode: MP4 upload, job creation, progress tracking
+   - Upload mode: MP4 upload, job creation, progress tracking, results display
    - Jobs mode: Job list display
-   - Debug mode: Debug panel metrics
+   - Debug mode: Debug panel metrics for both streaming and MP4
 4. Save test logs
 5. Commit
 
@@ -491,33 +600,176 @@ grep -q "passed" /tmp/phase17_implementation_commit_<N>_test.log
 
 ---
 
-## Questions for User (Before Implementation)
+## Final Architecture (After Implementation)
 
-1. **MP4 Upload API**: Does the backend have `POST /api/video/upload` and `GET /api/jobs/{id}` endpoints implemented? Or do we need to implement these first?
+### Folder Structure
 
-2. **JobList Component**: Should `JobList` show both streaming sessions and MP4 jobs, or just MP4 jobs?
+```
+web-ui/
+  src/
+    App.tsx
 
-3. **Pipeline Selection**: In the final App, how should users select which pipeline to use for streaming? Should we add a `PipelineSelector` component (as mentioned in FE-5 user stories)?
+    components/
+      StreamingView.tsx
+      VideoTracker.tsx
+      JobList.tsx
 
-4. **CSS Variables**: Do you have a specific design system or CSS variable definitions you want to use? Or should I use the existing variables from the codebase?
+      CameraPreview.tsx
+      RealtimeStreamingOverlay.tsx
+      RealtimeErrorBanner.tsx
+      StreamDebugPanel.tsx
 
-5. **VideoTracker Playback Controls**: Should `VideoTracker` keep the playback controls (Play/Pause/FPS/Device) after migration to batch jobs? Or should it just be a simple upload + progress display?
+    hooks/
+      useRealtime.ts
+      useVideoProcessor.ts
+      useWebSocket.ts
+
+    realtime/
+      RealtimeContext.tsx
+      types.ts
+
+    mp4/
+      MP4ProcessingContext.tsx
+
+    api/
+      client.ts
+      types.ts
+
+    styles/
+      globals.css
+      streaming.css
+      debug.css
+```
+
+### App.tsx
+
+```tsx
+import React, { useState } from "react";
+import { RealtimeProvider } from "./realtime/RealtimeContext";
+import { StreamingView } from "./components/StreamingView";
+import { VideoTracker } from "./components/VideoTracker";
+import { JobList } from "./components/JobList";
+
+export default function App() {
+  const [viewMode, setViewMode] = useState<"stream" | "upload" | "jobs">("stream");
+  const [debug, setDebug] = useState(false);
+
+  return (
+    <div className="app-container">
+      <header className="header">
+        <div className="logo">ForgeSyte</div>
+
+        <nav className="nav">
+          <button onClick={() => setViewMode("stream")}>Stream</button>
+          <button onClick={() => setViewMode("upload")}>Upload</button>
+          <button onClick={() => setViewMode("jobs")}>Jobs</button>
+        </nav>
+
+        <div className="top-right-controls">
+          <label>
+            <input
+              type="checkbox"
+              checked={debug}
+              onChange={(e) => setDebug(e.target.checked)}
+            />
+            Debug
+          </label>
+        </div>
+      </header>
+
+      {viewMode === "stream" && (
+        <RealtimeProvider debug={debug}>
+          <StreamingView debug={debug} />
+        </RealtimeProvider>
+      )}
+
+      {viewMode === "upload" && <VideoTracker debug={debug} />}
+
+      {viewMode === "jobs" && <JobList />}
+    </div>
+  );
+}
+```
+
+### VideoTracker.tsx
+
+```tsx
+import React, { useState } from "react";
+import { useVideoProcessor } from "../hooks/useVideoProcessor";
+import { MP4ProcessingProvider } from "../mp4/MP4ProcessingContext";
+
+interface VideoTrackerProps {
+  pipelineId?: string;
+  debug?: boolean;
+}
+
+export function VideoTracker({ pipelineId, debug }: VideoTrackerProps) {
+  const [file, setFile] = useState<File | null>(null);
+
+  const processor = useVideoProcessor({
+    file,
+    pipelineId,
+    debug,
+  });
+
+  const mp4State = {
+    active: processor.state.status === "uploading" || processor.state.status === "processing",
+    jobId: processor.state.currentJobId ?? null,
+    progress: processor.state.progress,
+    framesProcessed: processor.state.framesProcessed,
+    status: processor.state.status,
+    results: processor.state.results,
+    error: processor.state.error,
+  };
+
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const selected = event.target.files?.[0] ?? null;
+    setFile(selected);
+    if (selected && pipelineId) {
+      processor.start(selected, pipelineId);
+    }
+  };
+
+  return (
+    <MP4ProcessingProvider value={mp4State}>
+      <div className="panel">
+        <h3>Upload video for analysis</h3>
+        <input
+          type="file"
+          accept="video/*"
+          onChange={handleFileChange}
+        />
+
+        {processor.state.status === "idle" && <p>No job started.</p>}
+        {processor.state.status === "uploading" && <p>Uploading…</p>}
+        {processor.state.status === "processing" && (
+          <p>Processing… {processor.state.progress}%</p>
+        )}
+        {processor.state.status === "completed" && <p>Job completed.</p>}
+        {processor.state.status === "error" && (
+          <p>Error: {processor.state.error}</p>
+        )}
+      </div>
+    </MP4ProcessingProvider>
+  );
+}
+```
 
 ---
 
 ## Risk Assessment
 
 **High Risk**:
-- MP4 upload API may not be implemented on backend
-- Breaking changes to `useVideoProcessor` may affect other components
+- Breaking changes to `useVideoProcessor` may affect other components (mitigated by TDD)
 
 **Medium Risk**:
-- Deleting legacy components may break tests
-- CSS changes may affect layout
+- Deleting legacy components may break tests (mitigated by running all tests after each deletion)
+- CSS changes may affect layout (mitigated by frontend-tester verification)
 
 **Low Risk**:
 - App.tsx simplification (well-defined target)
 - Deleting unused files
+- MP4 upload API already exists on backend
 
 **Mitigation**:
 - TDD approach ensures tests guide implementation
@@ -531,7 +783,7 @@ grep -q "passed" /tmp/phase17_implementation_commit_<N>_test.log
 1. ✅ MP4 upload works end-to-end (upload → job → progress → result)
 2. ✅ Streaming works end-to-end (WebSocket → frame → result → overlay)
 3. ✅ No Phase 10 legacy code remains
-4. ✅ All tests pass (frontend + backend)
+4. ✅ All tests pass (frontend)
 5. ✅ Lint and type-check pass
 6. ✅ Debug mode shows correct metrics for both streaming and MP4
 7. ✅ Clean folder structure (no legacy files)
@@ -540,11 +792,26 @@ grep -q "passed" /tmp/phase17_implementation_commit_<N>_test.log
 
 ## Next Steps
 
-1. **User Approval**: Review this plan and answer the questions
-2. **Backend Verification**: Confirm MP4 upload API exists
-3. **Start Implementation**: Begin with Phase 1, Commit 1
-4. **TDD Compliance**: Follow TDD workflow for every commit
-5. **Test Logs**: Save all test logs as proof of GREEN status
+1. **User Approval**: Review this plan
+2. **Start Implementation**: Begin with Phase 1, Commit 1
+3. **TDD Compliance**: Follow TDD workflow for every commit
+4. **Test Logs**: Save all test logs as proof of GREEN status
+
+---
+
+## Questions for User (Before Implementation)
+
+**I am 95% confident in this plan. The only areas where I need clarification are:**
+
+1. **Pipeline Selection in Upload Mode**: How should users select which pipeline to use for MP4 upload? Should we add a `PipelineSelector` component in `VideoTracker`? Or should it be passed as a prop from App.tsx?
+
+2. **JobList Component**: Should `JobList` show both MP4 jobs and streaming sessions, or just MP4 jobs? (Streaming sessions are ephemeral and not persisted)
+
+3. **CSS Variables**: Do you have a specific design system or CSS variable definitions you want to use? Or should I use the existing variables from the codebase?
+
+4. **VideoTracker Results Display**: How should `VideoTracker` display results after job completion? Should it show a summary, or allow playback with overlay?
+
+**Please answer these questions before I start implementation.**
 
 ---
 
@@ -552,7 +819,8 @@ grep -q "passed" /tmp/phase17_implementation_commit_<N>_test.log
 
 **Uncertainty Areas** (5%):
 - Specific CSS variable names and values
-- MP4 upload API exact response format
+- Pipeline selection UI in Upload mode
 - JobList component behavior with mixed job types
+- VideoTracker results display approach
 
 **Will Ask User**: Before implementing high-risk changes
