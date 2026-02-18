@@ -20,6 +20,7 @@ import { ToolSelector } from "./components/ToolSelector";
 import { JobList } from "./components/JobList";
 import { ResultsPanel } from "./components/ResultsPanel";
 import { VideoTracker } from "./components/VideoTracker";
+import { VideoUpload } from "./components/VideoUpload";
 import { useWebSocket, FrameResult } from "./hooks/useWebSocket";
 import { apiClient, Job } from "./api/client";
 import { detectToolType } from "./utils/detectToolType";
@@ -28,7 +29,7 @@ import type { PluginManifest } from "./types/plugin";
 const WS_BACKEND_URL =
   import.meta.env.VITE_WS_BACKEND_URL || "ws://localhost:8000";
 
-type ViewMode = "stream" | "upload" | "jobs";
+type ViewMode = "stream" | "upload" | "jobs" | "video-upload";
 
 function App() {
   // -------------------------------------------------------------------------
@@ -361,7 +362,7 @@ function App() {
         </div>
 
         <nav style={styles.nav}>
-          {(["stream", "upload", "jobs"] as ViewMode[]).map((mode) => (
+          {(["stream", "upload", "jobs", "video-upload"] as ViewMode[]).map((mode) => (
             <button
               key={mode}
               style={{
@@ -513,6 +514,12 @@ function App() {
               ) : (
                 <p>Select a job</p>
               )}
+            </div>
+          )}
+
+          {viewMode === "video-upload" && (
+            <div style={{ ...styles.panel, flex: 1 }}>
+              <VideoUpload />
             </div>
           )}
 
