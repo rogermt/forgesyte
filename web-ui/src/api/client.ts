@@ -235,6 +235,39 @@ export class ForgeSyteAPIClient {
         }) as unknown as Promise<ToolExecutionResponse>;
     }
 
+    // Multi-tool image analysis
+    async analyzeMulti(
+        file: File,
+        tools: string[]
+    ): Promise<Record<string, unknown>> {
+        const formData = new FormData();
+        formData.append("file", file);
+        formData.append("tools", JSON.stringify(tools));
+
+        const url = new URL(`${this.baseUrl}/image/analyze-multi`, window.location.origin);
+        url.searchParams.append("tools", JSON.stringify(tools));
+
+        const headers: HeadersInit = {};
+
+        if (this.apiKey) {
+            headers["X-API-Key"] = this.apiKey;
+        }
+
+        const response = await fetch(url.toString(), {
+            method: "POST",
+            headers,
+            body: formData,
+        });
+
+        if (!response.ok) {
+            throw new Error(
+                `API error: ${response.status} ${response.statusText}`
+            );
+        }
+
+        return response.json() as Promise<Record<string, unknown>>;
+    }
+
     // Video job submission
     async submitVideo(
         file: File,

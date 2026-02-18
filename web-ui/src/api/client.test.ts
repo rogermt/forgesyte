@@ -550,5 +550,105 @@ describe("ForgeSyteAPIClient", () => {
             });
         });
     });
+
+    describe("analyzeMulti", () => {
+        it("should analyze image with multiple tools", async () => {
+            const mockFile = new File(["test"], "test.jpg", {
+                type: "image/jpeg",
+            });
+            const mockResult = {
+                tools: {
+                    ocr: { text: "Sample text", confidence: 0.95 },
+                    "yolo-tracker": {
+                        detections: [
+                            {
+                                label: "person",
+                                confidence: 0.92,
+                                bbox: [100, 100, 50, 100],
+                            },
+                        ],
+                    },
+                },
+            };
+
+            fetchMock.mockResolvedValueOnce({
+                ok: true,
+                json: async () => mockResult,
+            });
+
+            const result = await (client as unknown as ForgeSyteAPIClient & { analyzeMulti: (file: File, tools: string[]) => Promise<Record<string, unknown>> }).analyzeMulti(mockFile, ["ocr", "yolo-tracker"]);
+
+            expect(result).toEqual(mockResult);
+            expect(fetchMock).toHaveBeenCalledWith(
+                expect.stringContaining("/image/analyze-multi"),
+                expect.objectContaining({
+                    method: "POST",
+                })
+            );
+        });
+
+        it("should analyze image with single tool", async () => {
+            const mockFile = new File(["test"], "test.jpg", {
+                type: "image/jpeg",
+            });
+            const mockResult = {
+                tools: {
+                    ocr: { text: "Sample text", confidence: 0.95 },
+                },
+            };
+
+            fetchMock.mockResolvedValueOnce({
+                ok: true,
+                json: async () => mockResult,
+            });
+
+            const result = await (client as unknown as ForgeSyteAPIClient & { analyzeMulti: (file: File, tools: string[]) => Promise<Record<string, unknown>> }).analyzeMulti(mockFile, ["ocr"]);
+
+            expect(result).toEqual(mockResult);
+            expect(result.tools).toHaveProperty("ocr");
+        });
+
+        it("should handle tool execution errors", async () => {
+            const mockFile = new File(["test"], "test.jpg", {
+                type: "image/jpeg",
+            });
+            const mockResult = {
+                tools: {
+                    ocr: { text: "Sample text", confidence: 0.95 },
+                    "yolo-tracker": { error: "Tool execution failed" },
+                },
+            };
+
+            fetchMock.mockResolvedValueOnce({
+                ok: true,
+                json: async () => mockResult,
+            });
+
+            const result = await (client as unknown as ForgeSyteAPIClient & { analyzeMulti: (file: File, tools: string[]) => Promise<Record<string, unknown>> }).analyzeMulti(mockFile, ["ocr", "yolo-tracker"]);
+
+            expect(result.tools["yolo-tracker"]).toHaveProperty("error");
+        });
+
+        it("should include API key in headers", async () => {
+            const clientWithKey = new ForgeSyteAPIClient(
+                "http://localhost:3000/v1",
+                "test-api-key"
+            );
+
+            const mockFile = new File(["test"], "test.jpg", {
+                type: "image/jpeg",
+            });
+
+            fetchMock.mockResolvedValueOnce({
+                ok: true,
+                json: async () => ({ tools: {} }),
+            });
+
+            await (clientWithKey as unknown as ForgeSyteAPIClient & { analyzeMulti: (file: File, tools: string[]) => Promise<Record<string, unknown>> }).analyzeMulti(mockFile, ["ocr"]);
+
+            const callArgs = fetchMock.mock.calls[0][1] as RequestInit;
+            expect(callArgs.headers).toBeDefined();
+        });
+    });
 });
 
