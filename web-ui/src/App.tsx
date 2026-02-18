@@ -21,6 +21,7 @@ import { JobList } from "./components/JobList";
 import { ResultsPanel } from "./components/ResultsPanel";
 import { VideoTracker } from "./components/VideoTracker";
 import { VideoUpload } from "./components/VideoUpload";
+import { ImageMultiToolForm } from "./components/ImageMultiToolForm";
 import { useWebSocket, FrameResult } from "./hooks/useWebSocket";
 import { apiClient, Job } from "./api/client";
 import { detectToolType } from "./utils/detectToolType";
@@ -29,7 +30,7 @@ import type { PluginManifest } from "./types/plugin";
 const WS_BACKEND_URL =
   import.meta.env.VITE_WS_BACKEND_URL || "ws://localhost:8000";
 
-type ViewMode = "stream" | "upload" | "jobs" | "video-upload";
+type ViewMode = "stream" | "upload" | "jobs" | "video-upload" | "multi-tool-image";
 
 function App() {
   // -------------------------------------------------------------------------
@@ -362,7 +363,7 @@ function App() {
         </div>
 
         <nav style={styles.nav}>
-          {(["stream", "upload", "jobs", "video-upload"] as ViewMode[]).map((mode) => (
+          {(["stream", "upload", "jobs", "video-upload", "multi-tool-image"] as ViewMode[]).map((mode) => (
             <button
               key={mode}
               style={{
@@ -378,7 +379,7 @@ function App() {
               }}
               onClick={() => setViewMode(mode)}
             >
-              {mode.charAt(0).toUpperCase() + mode.slice(1)}
+              {mode === "multi-tool-image" ? "Multi-Tool" : mode.charAt(0).toUpperCase() + mode.slice(1)}
             </button>
           ))}
         </nav>
@@ -520,6 +521,12 @@ function App() {
           {viewMode === "video-upload" && (
             <div style={{ ...styles.panel, flex: 1 }}>
               <VideoUpload />
+            </div>
+          )}
+
+          {viewMode === "multi-tool-image" && (
+            <div style={{ ...styles.panel, flex: 1 }}>
+              <ImageMultiToolForm />
             </div>
           )}
 
