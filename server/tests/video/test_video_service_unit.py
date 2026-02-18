@@ -9,31 +9,27 @@ Tests cover:
 All tests use MockDagPipelineService (no real plugins).
 """
 
-import sys
 from pathlib import Path
 
 import pytest
 
-# Add parent dirs to path for imports
-sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
-
 from app.services.video_file_pipeline_service import VideoFilePipelineService
-from app.tests.video.fakes.corrupt_mp4_generator import (
+from tests.video.fakes.corrupt_mp4_generator import (
     create_corrupt_mp4_header_only,
     create_corrupt_mp4_random_bytes,
     create_corrupt_mp4_truncated,
 )
-from app.tests.video.fakes.mock_dag_service import MockDagPipelineService
+from tests.video.fakes.mock_dag_service import MockDagPipelineService
 
 
 @pytest.fixture
 def tiny_mp4() -> Path:
     """Path to tiny.mp4 fixture (3 frames, 320×240)."""
     # Path from test file: test_video_service_unit.py
-    # → app/tests/video/test_video_service_unit.py
-    # → parent[0] = app/tests/video
-    # → parent[1] = app/tests
-    # → fixtures is in app/tests/fixtures
+    # → tests/video/test_video_service_unit.py
+    # → parent[0] = tests/video
+    # → parent[1] = tests
+    # → fixtures is in tests/fixtures
     fixture_path = Path(__file__).resolve().parents[1] / "fixtures" / "tiny.mp4"
     assert fixture_path.exists(), f"tiny.mp4 not found at {fixture_path}"
     return fixture_path

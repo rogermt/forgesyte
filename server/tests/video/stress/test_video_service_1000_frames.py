@@ -15,7 +15,7 @@ import numpy as np
 import pytest
 
 from app.services.video_file_pipeline_service import VideoFilePipelineService
-from app.tests.video.fakes.mock_dag_service import MockDagPipelineService
+from tests.video.fakes.mock_dag_service import MockDagPipelineService
 
 
 @pytest.fixture
