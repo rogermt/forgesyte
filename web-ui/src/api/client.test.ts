@@ -339,5 +339,216 @@ describe("ForgeSyteAPIClient", () => {
             expect(headers["X-API-Key"]).toBeUndefined();
         });
     });
+
+    describe("Video API methods", () => {
+        describe("submitVideo", () => {
+            it("should submit video with default pipeline", async () => {
+                const mockFile = new File(["test"], "test.mp4", {
+                    type: "video/mp4",
+                });
+                const mockResult = { job_id: "video-job-123" };
+
+                // Mock XMLHttpRequest class
+                const mockXHRInstances: MockXMLHttpRequest[] = [];
+
+                class MockXMLHttpRequest {
+                    open = vi.fn();
+                    send = vi.fn();
+                    setRequestHeader = vi.fn();
+                    upload = { onprogress: null as null };
+                    onload: (() => void) | null = null;
+                    onerror: (() => void) | null = null;
+                    status = 200;
+                    responseText = JSON.stringify(mockResult);
+
+                    constructor() {
+                        mockXHRInstances.push(this);
+                        // Simulate successful upload
+                        setTimeout(() => {
+                            if (this.onload) this.onload();
+                        }, 0);
+                    }
+                }
+
+                (global as unknown as { XMLHttpRequest: typeof MockXMLHttpRequest }).XMLHttpRequest = MockXMLHttpRequest;
+
+                const result = await (client as unknown as ForgeSyteAPIClient & { submitVideo: (file: File, pipelineId?: string, onProgress?: (percent: number) => void) => Promise<{ job_id: string }> }).submitVideo(mockFile);
+
+                expect(result).toEqual(mockResult);
+                expect(mockXHRInstances[0]?.open).toHaveBeenCalledWith(
+                    "POST",
+                    expect.stringContaining("/video/submit?pipeline_id=ocr_only")
+                );
+            });
+
+            it("should submit video with explicit pipeline", async () => {
+                const mockFile = new File(["test"], "test.mp4", {
+                    type: "video/mp4",
+                });
+                const mockResult = { job_id: "video-job-456" };
+
+                const mockXHRInstances: MockXMLHttpRequest[] = [];
+
+                class MockXMLHttpRequest {
+                    open = vi.fn();
+                    send = vi.fn();
+                    setRequestHeader = vi.fn();
+                    upload = { onprogress: null as null };
+                    onload: (() => void) | null = null;
+                    onerror: (() => void) | null = null;
+                    status = 200;
+                    responseText = JSON.stringify(mockResult);
+
+                    constructor() {
+                        mockXHRInstances.push(this);
+                        setTimeout(() => {
+                            if (this.onload) this.onload();
+                        }, 0);
+                    }
+                }
+
+                (global as unknown as { XMLHttpRequest: typeof MockXMLHttpRequest }).XMLHttpRequest = MockXMLHttpRequest;
+
+                const result = await (client as unknown as ForgeSyteAPIClient & { submitVideo: (file: File, pipelineId?: string, onProgress?: (percent: number) => void) => Promise<{ job_id: string }> }).submitVideo(mockFile, "yolo_ocr");
+
+                expect(result).toEqual(mockResult);
+                expect(mockXHRInstances[0]?.open).toHaveBeenCalledWith(
+                    "POST",
+                    expect.stringContaining("/video/submit?pipeline_id=yolo_ocr")
+                );
+            });
+
+            it("should call progress callback during upload", async () => {
+                const mockFile = new File(["test"], "test.mp4", {
+                    type: "video/mp4",
+                });
+                const mockResult = { job_id: "video-job-789" };
+                const progressCallback = vi.fn();
+
+                class MockXMLHttpRequest {
+                    open = vi.fn();
+                    send = vi.fn();
+                    setRequestHeader = vi.fn();
+                    upload = { onprogress: null as null };
+                    onload: (() => void) | null = null;
+                    onerror: (() => void) | null = null;
+                    status = 200;
+                    responseText = JSON.stringify(mockResult);
+
+                    constructor() {
+                        // Simulate upload progress
+                        setTimeout(() => {
+                            if (this.upload.onprogress) {
+                                this.upload.onprogress({ lengthComputable: true, loaded: 50, total: 100 } as ProgressEvent);
+                                this.upload.onprogress({ lengthComputable: true, loaded: 100, total: 100 } as ProgressEvent);
+                            }
+                            if (this.onload) this.onload();
+                        }, 0);
+                    }
+                }
+
+                (global as unknown as { XMLHttpRequest: typeof MockXMLHttpRequest }).XMLHttpRequest = MockXMLHttpRequest;
+
+                await (client as unknown as ForgeSyteAPIClient & { submitVideo: (file: File, pipelineId?: string, onProgress?: (percent: number) => void) => Promise<{ job_id: string }> }).submitVideo(mockFile, "ocr_only", progressCallback);
+
+                expect(progressCallback).toHaveBeenCalledWith(50);
+                expect(progressCallback).toHaveBeenCalledWith(100);
+            });
+        });
+
+        describe("getVideoJobStatus", () => {
+            it("should fetch video job status", async () => {
+                const mockStatus = {
+                    job_id: "video-job-123",
+                    status: "completed",
+                    progress: 100,
+                    created_at: "2026-02-18T10:00:00Z",
+                    updated_at: "2026-02-18T10:01:00Z",
+                };
+
+                fetchMock.mockResolvedValueOnce(
+                    createMockResponse(mockStatus)
+                );
+
+                const status = await (client as unknown as ForgeSyteAPIClient & { getVideoJobStatus: (jobId: string) => Promise<Record<string, unknown>> }).getVideoJobStatus("video-job-123");
+
+                expect(status).toEqual(mockStatus);
+                expect(fetchMock).toHaveBeenCalledWith(
+                    expect.stringContaining("/video/status/video-job-123"),
+                    expect.any(Object)
+                );
+            });
+
+            it("should handle pending status", async () => {
+                const mockStatus = {
+                    job_id: "video-job-456",
+                    status: "pending",
+                    progress: 0,
+                    created_at: "2026-02-18T10:00:00Z",
+                    updated_at: "2026-02-18T10:00:00Z",
+                };
+
+                fetchMock.mockResolvedValueOnce(
+                    createMockResponse(mockStatus)
+                );
+
+                const status = await (client as unknown as ForgeSyteAPIClient & { getVideoJobStatus: (jobId: string) => Promise<Record<string, unknown>> }).getVideoJobStatus("video-job-456");
+
+                expect(status.status).toBe("pending");
+            });
+        });
+
+        describe("getVideoJobResults", () => {
+            it("should fetch video job results", async () => {
+                const mockResults = {
+                    job_id: "video-job-123",
+                    results: {
+                        text: "Sample OCR text",
+                        detections: [],
+                    },
+                    created_at: "2026-02-18T10:00:00Z",
+                    updated_at: "2026-02-18T10:01:00Z",
+                };
+
+                fetchMock.mockResolvedValueOnce(
+                    createMockResponse(mockResults)
+                );
+
+                const results = await (client as unknown as ForgeSyteAPIClient & { getVideoJobResults: (jobId: string) => Promise<Record<string, unknown>> }).getVideoJobResults("video-job-123");
+
+                expect(results).toEqual(mockResults);
+                expect(fetchMock).toHaveBeenCalledWith(
+                    expect.stringContaining("/video/results/video-job-123"),
+                    expect.any(Object)
+                );
+            });
+
+            it("should handle results with detections", async () => {
+                const mockResults = {
+                    job_id: "video-job-789",
+                    results: {
+                        text: "Sample text",
+                        detections: [
+                            {
+                                label: "person",
+                                confidence: 0.95,
+                                bbox: [100, 100, 50, 100],
+                            },
+                        ],
+                    },
+                    created_at: "2026-02-18T10:00:00Z",
+                    updated_at: "2026-02-18T10:01:00Z",
+                };
+
+                fetchMock.mockResolvedValueOnce(
+                    createMockResponse(mockResults)
+                );
+
+                const results = await (client as unknown as ForgeSyteAPIClient & { getVideoJobResults: (jobId: string) => Promise<Record<string, unknown>> }).getVideoJobResults("video-job-789");
+
+                expect(results.results.detections).toHaveLength(1);
+            });
+        });
+    });
 });
 

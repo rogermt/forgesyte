@@ -234,6 +234,96 @@ export class ForgeSyteAPIClient {
             body: JSON.stringify({ args }),
         }) as unknown as Promise<ToolExecutionResponse>;
     }
+
+    // Video job submission
+    async submitVideo(
+        file: File,
+        pipelineId: string = "ocr_only",
+        onProgress?: (percent: number) => void
+    ): Promise<{ job_id: string }> {
+        return new Promise((resolve, reject) => {
+            const xhr = new XMLHttpRequest();
+            const url = new URL(`${this.baseUrl}/video/submit`, window.location.origin);
+            url.searchParams.append("pipeline_id", pipelineId);
+            xhr.open("POST", url.toString());
+
+            if (this.apiKey) {
+                xhr.setRequestHeader("X-API-Key", this.apiKey);
+            }
+
+            xhr.upload.onprogress = (event) => {
+                if (!onProgress || !event.lengthComputable) return;
+                const percent = (event.loaded / event.total) * 100;
+                onProgress(percent);
+            };
+
+            xhr.onload = () => {
+                if (xhr.status >= 200 && xhr.status < 300) {
+                    try {
+                        resolve(JSON.parse(xhr.responseText));
+                    } catch (e) {
+                        reject(new Error("Invalid server response."));
+                    }
+                } else {
+                    reject(new Error(`Upload failed with status ${xhr.status}.`));
+                }
+            };
+
+            xhr.onerror = () => reject(new Error("Network error during upload."));
+
+            const formData = new FormData();
+            formData.append("file", file);
+            xhr.send(formData);
+        });
+    }
+
+    // Video job status
+    async getVideoJobStatus(jobId: string): Promise<{
+        job_id: string;
+        status: "pending" | "running" | "completed" | "failed";
+        progress: number;
+        created_at: string;
+        updated_at: string;
+    }> {
+        const result = await this.fetch(`/video/status/${jobId}`);
+        return result as {
+            job_id: string;
+            status: "pending" | "running" | "completed" | "failed";
+            progress: number;
+            created_at: string;
+            updated_at: string;
+        };
+    }
+
+    // Video job results
+    async getVideoJobResults(jobId: string): Promise<{
+        job_id: string;
+        results: {
+            text?: string;
+            detections?: Array<{
+                label: string;
+                confidence: number;
+                bbox: number[];
+            }>;
+        };
+        created_at: string;
+        updated_at: string;
+    }> {
+        const result = await this.fetch(`/video/results/${jobId}`);
+        return result as {
+            job_id: string;
+            results: {
+                text?: string;
+                detections?: Array<{
+                    label: string;
+                    confidence: number;
+                    bbox: number[];
+                }>;
+            };
+            created_at: string;
+            updated_at: string;
+        };
+    }
 }
 
 export const apiClient = new ForgeSyteAPIClient();
