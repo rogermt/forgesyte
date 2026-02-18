@@ -3,7 +3,7 @@
 from io import BytesIO
 from uuid import uuid4
 
-from fastapi import APIRouter, HTTPException, UploadFile
+from fastapi import APIRouter, HTTPException, Query, UploadFile
 
 from app.core.database import SessionLocal
 from app.models.job import Job, JobStatus
@@ -13,6 +13,8 @@ from app.services.storage.local_storage import LocalStorageService
 router = APIRouter()
 storage = LocalStorageService()
 queue = InMemoryQueueService()
+
+DEFAULT_VIDEO_PIPELINE = "ocr_only"
 
 
 def validate_mp4_magic_bytes(data: bytes) -> None:
@@ -31,7 +33,10 @@ def validate_mp4_magic_bytes(data: bytes) -> None:
 @router.post("/v1/video/submit")
 async def submit_video(
     file: UploadFile,
-    pipeline_id: str,
+    pipeline_id: str = Query(
+        default=DEFAULT_VIDEO_PIPELINE,
+        description="Pipeline ID (optional, defaults to ocr_only)",
+    ),
 ):
     """Submit a video file for processing.
 
