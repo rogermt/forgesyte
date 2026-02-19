@@ -15,7 +15,8 @@ from pathlib import Path
 project_root = Path(__file__).parent.parent.parent.parent
 sys.path.insert(0, str(project_root))
 
-from server.app.workers.worker import JobWorker
+from app.core.database import init_db  # noqa: E402
+from server.app.workers.worker import JobWorker  # noqa: E402
 
 logging.basicConfig(
     level=logging.INFO,
@@ -29,6 +30,8 @@ def main():
     """Start the JobWorker."""
     try:
         logger.info("🚀 Starting JobWorker (Phase 16)...")
+
+        init_db()
 
         # Initialize worker with defaults:
         # - queue: InMemoryQueueService
