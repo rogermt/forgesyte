@@ -17,10 +17,10 @@ def test_ocr_only_pipeline_valid_json():
     import json
 
     pipeline_path = Path(__file__).resolve().parents[2] / "pipelines" / "ocr_only.json"
-    
+
     with open(pipeline_path, "r") as f:
         data = json.load(f)
-    
+
     assert data["id"] == "ocr_only"
     assert data["name"] == "OCR Only Pipeline"
     assert len(data["nodes"]) == 1
@@ -33,18 +33,19 @@ def test_ocr_only_pipeline_valid_json():
 
 def test_ocr_only_pipeline_loads_via_registry():
     """Test: ocr_only pipeline can be loaded by DagPipelineService."""
-    from app.services.pipeline_registry_service import PipelineRegistryService
     from pathlib import Path
+
+    from app.services.pipeline_registry_service import PipelineRegistryService
 
     # Get pipelines directory
     pipelines_dir = Path(__file__).resolve().parents[2] / "pipelines"
-    
+
     # Create registry
     registry = PipelineRegistryService(pipelines_dir)
-    
+
     # Load ocr_only pipeline
     pipeline = registry.get_pipeline("ocr_only")
-    
+
     assert pipeline is not None, "ocr_only pipeline not found in registry"
     assert pipeline.id == "ocr_only"
     assert len(pipeline.nodes) == 1

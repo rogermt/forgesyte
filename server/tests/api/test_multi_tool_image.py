@@ -46,9 +46,7 @@ class TestMultiToolSingleTool:
         """Single tool (OCR) returns OCR result."""
         with open(test_image_file, "rb") as f:
             response = await client.post(
-                "/v1/image/analyze-multi",
-                files={"file": f},
-                data={"tools": ["ocr"]}
+                "/v1/image/analyze-multi", files={"file": f}, data={"tools": ["ocr"]}
             )
 
         assert response.status_code == 200
@@ -68,7 +66,7 @@ class TestMultiToolMultipleTools:
             response = await client.post(
                 "/v1/image/analyze-multi",
                 files={"file": f},
-                data={"tools": ["ocr", "yolo-tracker"]}
+                data={"tools": ["ocr", "yolo-tracker"]},
             )
 
         assert response.status_code == 200
@@ -77,9 +75,7 @@ class TestMultiToolMultipleTools:
         assert "ocr" in data["tools"]
         assert "yolo-tracker" in data["tools"]
         # Both tools should have results or errors
-        assert (
-            "text" in data["tools"]["ocr"] or "error" in data["tools"]["ocr"]
-        )
+        assert "text" in data["tools"]["ocr"] or "error" in data["tools"]["ocr"]
         assert (
             "detections" in data["tools"]["yolo-tracker"]
             or "error" in data["tools"]["yolo-tracker"]
@@ -95,7 +91,7 @@ class TestMultiToolErrorHandling:
             response = await client.post(
                 "/v1/image/analyze-multi",
                 files={"file": f},
-                data={"tools": ["unknown_tool"]}
+                data={"tools": ["unknown_tool"]},
             )
 
         assert response.status_code == 200
@@ -108,9 +104,7 @@ class TestMultiToolErrorHandling:
         """Empty tools list returns 400 error."""
         with open(test_image_file, "rb") as f:
             response = await client.post(
-                "/v1/image/analyze-multi",
-                files={"file": f},
-                data={"tools": []}
+                "/v1/image/analyze-multi", files={"file": f}, data={"tools": []}
             )
 
         # FastAPI might return 422 for validation errors
@@ -131,9 +125,7 @@ class TestMultiToolResponseStructure:
         """Response has 'tools' key."""
         with open(test_image_file, "rb") as f:
             response = await client.post(
-                "/v1/image/analyze-multi",
-                files={"file": f},
-                data={"tools": ["ocr"]}
+                "/v1/image/analyze-multi", files={"file": f}, data={"tools": ["ocr"]}
             )
 
         assert response.status_code == 200
@@ -145,9 +137,7 @@ class TestMultiToolResponseStructure:
         """Response structure matches combined JSON contract."""
         with open(test_image_file, "rb") as f:
             response = await client.post(
-                "/v1/image/analyze-multi",
-                files={"file": f},
-                data={"tools": ["ocr"]}
+                "/v1/image/analyze-multi", files={"file": f}, data={"tools": ["ocr"]}
             )
 
         assert response.status_code == 200

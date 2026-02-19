@@ -16,10 +16,10 @@ import time
 from io import BytesIO
 from typing import Optional, Protocol
 
-from .worker_state import worker_last_heartbeat
 from ..core.database import SessionLocal
 from ..models.job import Job, JobStatus
 from ..services.queue.memory_queue import InMemoryQueueService
+from .worker_state import worker_last_heartbeat
 
 logger = logging.getLogger(__name__)
 

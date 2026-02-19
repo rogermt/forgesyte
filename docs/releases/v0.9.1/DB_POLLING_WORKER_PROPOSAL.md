@@ -438,3 +438,215 @@ That’s it:
 - **Stale ORM object** fixed via `db.refresh(job)`.
 - **Tests** keep working because `queue` is still in `__init__`.
 - **No fake diff headers**—just exact code you can paste.
+
+
+
+
+
+
+
+
+
+
+---
+
+# ✅ **STEP 1 — Modify `server/app/workers/run_job_worker.py`**
+
+You need to expose a function the API can call in a thread.
+
+Here is the **correct, repo‑aligned version** of the file:
+
+```python
+"""Startup script for JobWorker - processes video jobs.
+
+Run as:
+  python -m server.app.workers.run_job_worker
+"""
+
+import logging
+import sys
+from pathlib import Path
+
+# Add project root to Python path
+project_root = Path(__file__).parent.parent.parent.parent
+sys.path.insert(0, str(project_root))
+
+from app.core.database import init_db  # noqa: E402
+from server.app.workers.worker import JobWorker  # noqa: E402
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+)
+
+logger = logging.getLogger(__name__)
+
+
+def run_worker_forever():
+    """Run the JobWorker loop (used by FastAPI lifespan thread)."""
+    logger.info("🚀 Starting JobWorker thread...")
+
+    init_db()
+
+    worker = JobWorker()
+
+    logger.info("👷 JobWorker thread initialized")
+    worker.run_forever()
+
+
+def main():
+    """CLI entrypoint for standalone worker process."""
+    try:
+        logger.info("🚀 Starting JobWorker (standalone)...")
+
+        init_db()
+
+        worker = JobWorker()
+
+        logger.info("👷 JobWorker initialized")
+        worker.run_forever()
+
+    except Exception as e:
+        logger.error(f"❌ JobWorker failed: {e}", exc_info=True)
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except KeyboardInterrupt:
+        logger.info("⛔ JobWorker stopped by user")
+        sys.exit(0)
+```
+
+### What changed?
+- Added `run_worker_forever()` — this is what the API will call in a thread.
+- Kept `main()` so CLI still works.
+- No invention. No new imports. No new services.
+
+---
+
+# ✅ **STEP 2 — Modify your existing `lifespan` to start the worker thread**
+
+Inside the lifespan you pasted, add **exactly this block** right after DB init:
+
+```python
+    # ---------------------------------------------------------
+    # Start JobWorker thread (DuckDB requires same process)
+    # ---------------------------------------------------------
+    try:
+        from server.app.workers.run_job_worker import run_worker_forever
+
+        worker_thread = threading.Thread(
+            target=run_worker_forever,
+            name="job-worker-thread",
+            daemon=True,
+        )
+        worker_thread.start()
+        logger.info("JobWorker thread started")
+    except Exception as e:
+        logger.error("Failed to start JobWorker thread", extra={"error": str(e)})
+```
+
+### Full context (your lifespan with the worker added)
+
+```python
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    logger.info("Initializing ForgeSyte Core...")
+
+    # Database Initialization
+    try:
+        init_db()
+        logger.info("Database schema initialized")
+    except Exception as e:
+        logger.error("Failed to initialize database", extra={"error": str(e)})
+
+    # ---------------------------------------------------------
+    # Start JobWorker thread (DuckDB requires same process)
+    # ---------------------------------------------------------
+    try:
+        from server.app.workers.run_job_worker import run_worker_forever
+
+        worker_thread = threading.Thread(
+            target=run_worker_forever,
+            name="job-worker-thread",
+            daemon=True,
+        )
+        worker_thread.start()
+        logger.info("JobWorker thread started")
+    except Exception as e:
+        logger.error("Failed to start JobWorker thread", extra={"error": str(e)})
+
+    # Authentication
+    try:
+        init_auth_service()
+        logger.debug("Authentication service initialized")
+    except Exception as e:
+        logger.error("Failed to initialize authentication", extra={"error": str(e)})
+
+    # ... everything else unchanged ...
+
+    yield
+
+    # Shutdown
+    logger.info("Shutting down ForgeSyte...")
+    ...
+```
+
+### What this does
+- Worker now runs **inside the same process** as FastAPI.
+- DuckDB no longer sees two processes → **no lock crash**.
+- DB polling worker now actually works.
+
+---
+
+# ❗ **STEP 3 — STOP launching the worker as a second process**
+
+In your Kaggle notebook or startup script:
+
+### ❌ REMOVE this:
+
+```
+python -m server.app.workers.run_job_worker
+```
+
+or any second `Popen()` that starts the worker.
+
+### ✔ KEEP ONLY:
+
+```
+uvicorn server.app.main:app --host 0.0.0.0 --port 8000 --workers 1
+```
+
+**Important:**  
+Do NOT use `--reload` or `--workers > 1` — they spawn multiple processes.
+
+---
+
+# 🎯 **RESULT**
+
+You now have:
+
+```
+ONE process
+├── FastAPI (uvicorn)
+└── JobWorker thread
+```
+
+Both share:
+
+- the same DuckDB connection  
+- the same memory  
+- the same ORM  
+- the same lock (if you add one later)  
+
+→ **Video uploads finally get processed**  
+→ **No DuckDB lock errors**  
+→ **No queue**  
+→ **No drift**  
+→ **No fairy stories**
+
+---
+
+If you want, I can now generate the **final unified patch** for all files in one block.

@@ -30,6 +30,9 @@ from fastapi import (
 )
 
 from .auth import require_auth
+
+# Import tool mapping configuration
+from .config.tool_mappings import TOOL_MAPPING
 from .exceptions import ExternalServiceError
 from .mcp import (
     MCP_PROTOCOL_VERSION,
@@ -51,9 +54,6 @@ from .services.analysis_service import AnalysisService
 from .services.device_selector import validate_device
 from .services.job_management_service import JobManagementService
 from .services.plugin_management_service import PluginManagementService
-
-# Import tool mapping configuration
-from .config.tool_mappings import TOOL_MAPPING
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -402,33 +402,31 @@ async def analyze_image_multi(
         HTTPException: 500 if unexpected error occurs.
     """
     start_time = time.time()
-    
+
     logger.info(
-        "Multi-tool request received",
-        extra={"tools": tools, "file": file.filename}
+        "Multi-tool request received", extra={"tools": tools, "file": file.filename}
     )
-    
+
     # Read image bytes
     image_bytes = await file.read()
-    
+
     # Validate image
     if not image_bytes:
         logger.error("No image data provided")
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="No image data provided"
+            status_code=status.HTTP_400_BAD_REQUEST, detail="No image data provided"
         )
-    
+
     # Validate tools list
     if not tools or len(tools) == 0:
         logger.error("Empty tools list provided")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="At least one tool must be specified"
+            detail="At least one tool must be specified",
         )
-    
+
     results: Dict[str, Any] = {"tools": {}}
-    
+
     # Execute each tool
     for tool in tools:
         try:
@@ -443,42 +441,46 @@ async def analyze_image_multi(
                     # Default: use tool name as plugin_id and "analyze" as tool_name
                     plugin_id = tool
                     tool_name = "analyze"
-            
+
             # Execute tool via plugin service
             # Plugins expect "image_bytes" parameter (binary, not base64)
             result = plugin_service.run_plugin_tool(
                 plugin_id=plugin_id,
                 tool_name=tool_name,
-                args={"image_bytes": image_bytes}
+                args={"image_bytes": image_bytes},
             )
-            
+
             results["tools"][tool] = result
-            
+
             logger.debug(
                 f"Tool '{tool}' executed successfully",
-                extra={"plugin_id": plugin_id, "tool_name": tool_name}
+                extra={"plugin_id": plugin_id, "tool_name": tool_name},
             )
-            
+
         except Exception as e:
             logger.error(
                 f"Tool '{tool}' execution failed",
                 extra={"tool": tool, "error": str(e)},
-                exc_info=True
+                exc_info=True,
             )
             # Store error in results so other tools can still execute
             results["tools"][tool] = {"error": str(e)}
-    
+
     duration = time.time() - start_time
     logger.info(
         "Multi-tool request completed",
         extra={
             "tools": tools,
             "duration": f"{duration:.2f}s",
-            "success_count": sum(1 for t in tools if "error" not in results["tools"].get(t, {})),
-            "error_count": sum(1 for t in tools if "error" in results["tools"].get(t, {}))
-        }
+            "success_count": sum(
+                1 for t in tools if "error" not in results["tools"].get(t, {})
+            ),
+            "error_count": sum(
+                1 for t in tools if "error" in results["tools"].get(t, {})
+            ),
+        },
     )
-    
+
     return results
 
 
