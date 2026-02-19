@@ -16,9 +16,9 @@ import time
 from io import BytesIO
 from typing import Optional, Protocol
 
-from app.core.database import SessionLocal
-from app.models.job import Job, JobStatus
-from app.services.queue.memory_queue import InMemoryQueueService
+from ..core.database import SessionLocal
+from ..models.job import Job, JobStatus
+from ..services.queue.memory_queue import InMemoryQueueService
 
 logger = logging.getLogger(__name__)
 
