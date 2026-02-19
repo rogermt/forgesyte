@@ -41,7 +41,6 @@ from .api_routes.routes.job_results import router as job_results_router
 from .api_routes.routes.job_status import router as job_status_router
 from .api_routes.routes.video_file_processing import router as video_router
 from .api_routes.routes.video_submit import router as video_submit_router
-from .api_routes.routes.worker_health import router as worker_health_router
 
 # Services
 from .auth import init_auth_service
@@ -283,7 +282,6 @@ def create_app() -> FastAPI:
     app.include_router(plugins_router, prefix="")
     app.include_router(realtime_router, prefix=settings.api_prefix)
     app.include_router(health_router)
-    app.include_router(worker_health_router)
     app.include_router(execution_router)
     app.include_router(init_pipeline_routes())
     app.include_router(pipelines_router, prefix=settings.api_prefix)

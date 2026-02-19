@@ -107,6 +107,7 @@ class JobWorker:
 
             job.status = JobStatus.running
             db.commit()
+            worker_last_heartbeat.beat()
 
             logger.info("Job %s marked RUNNING", job_id)
 
