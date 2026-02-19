@@ -1,3 +1,101 @@
+# Current Source Snapshot — Worker Pipeline Files
+
+**Date**: 2026-02-19  
+**Purpose**: Pre-patch snapshot of the 4 files involved in worker job pickup
+
+---
+
+## 1. `server/app/api_routes/routes/video_submit.py`
+
+```python
+"""Video submission endpoint for Phase 16 job processing."""
+
+from io import BytesIO
+from uuid import uuid4
+
+from fastapi import APIRouter, HTTPException, Query, UploadFile
+
+from app.core.database import SessionLocal
+from app.models.job import Job, JobStatus
+from app.services.queue.memory_queue import InMemoryQueueService
+from app.services.storage.local_storage import LocalStorageService
+
+router = APIRouter()
+storage = LocalStorageService()
+queue = InMemoryQueueService()
+
+DEFAULT_VIDEO_PIPELINE = "ocr_only"
+
+
+def validate_mp4_magic_bytes(data: bytes) -> None:
+    """Validate that data contains MP4 magic bytes.
+
+    Args:
+        data: File bytes to validate
+
+    Raises:
+        HTTPException: If file is not a valid MP4
+    """
+    if b"ftyp" not in data[:64]:
+        raise HTTPException(status_code=400, detail="Invalid MP4 file")
+
+
+@router.post("/v1/video/submit")
+async def submit_video(
+    file: UploadFile,
+    pipeline_id: str = Query(
+        default=DEFAULT_VIDEO_PIPELINE,
+        description="Pipeline ID (optional, defaults to ocr_only)",
+    ),
+):
+    """Submit a video file for processing.
+
+    Args:
+        file: MP4 video file to process
+        pipeline_id: ID of the pipeline to use (e.g., "yolo_ocr")
+
+    Returns:
+        JSON with job_id for polling
+
+    Raises:
+        HTTPException: If file is invalid or processing fails
+    """
+    # Read and validate file
+    contents = await file.read()
+    validate_mp4_magic_bytes(contents)
+
+    # Create job record
+    job_id = str(uuid4())
+    input_path = f"{job_id}.mp4"
+
+    # Save file to storage
+    storage.save_file(src=BytesIO(contents), dest_path=input_path)
+
+    # Create database record
+    db = SessionLocal()
+    try:
+        job = Job(
+            job_id=job_id,
+            status=JobStatus.pending,
+            pipeline_id=pipeline_id,
+            input_path=input_path,
+        )
+        db.add(job)
+        db.commit()
+    finally:
+        db.close()
+
+    # Enqueue for processing
+    queue.enqueue(job_id)
+
+    return {"job_id": job_id}
+```
+
+---
+
+## 2. `server/app/workers/worker.py`
+
+```python
 """Job worker for Phase 16 asynchronous processing.
 
 This worker:
@@ -60,14 +158,15 @@ class JobWorker:
         storage: Optional[StorageService] = None,
         pipeline_service: Optional[PipelineService] = None,
     ) -> None:
-        """Initialize worker.
+        """Initialize worker with queue service.
 
         Args:
-            queue: Ignored (kept for backward compatibility with tests)
+            queue: QueueService instance (defaults to InMemoryQueueService)
             session_factory: Session factory (defaults to SessionLocal from database.py)
             storage: StorageService instance for file I/O
             pipeline_service: PipelineService instance for pipeline execution
         """
+        self._queue = queue or InMemoryQueueService()
         self._session_factory = session_factory or SessionLocal
         self._storage = storage
         self._pipeline_service = pipeline_service
@@ -88,37 +187,27 @@ class JobWorker:
         self._running = False
 
     def run_once(self) -> bool:
-        """Process one job from the database.
+        """Process one job from the queue.
 
         Returns:
-            True if a job was processed, False if no pending jobs
+            True if a job was processed, False if queue was empty
         """
+        job_id = self._queue.dequeue()
+        if job_id is None:
+            return False
+
         db = self._session_factory()
         try:
-            job = (
-                db.query(Job)
-                .filter(Job.status == JobStatus.pending)
-                .order_by(Job.created_at.asc())
-                .first()
-            )
+            job = db.query(Job).filter(Job.job_id == job_id).first()
 
             if job is None:
+                logger.warning("Dequeued job %s but no DB record found", job_id)
                 return False
 
-            rows_updated = (
-                db.query(Job)
-                .filter(Job.job_id == job.job_id)
-                .filter(Job.status == JobStatus.pending)
-                .update({"status": JobStatus.running})
-            )
+            job.status = JobStatus.running
             db.commit()
 
-            if rows_updated == 0:
-                return False
-
-            db.refresh(job)
-
-            logger.info("Job %s marked RUNNING", job.job_id)
+            logger.info("Job %s marked RUNNING", job_id)
 
             # COMMIT 6: Execute pipeline on input file
             return self._execute_pipeline(job, db)
@@ -199,3 +288,122 @@ class JobWorker:
             if not processed:
                 time.sleep(0.5)
         logger.info("Worker stopped")
+```
+
+---
+
+## 3. `server/app/models/job.py`
+
+```python
+"""Job SQLAlchemy ORM model."""
+
+import enum
+import uuid
+from datetime import datetime
+
+from duckdb_engine import UUID
+from sqlalchemy import Column, DateTime, Enum, String
+
+from ..core.database import Base
+
+
+class JobStatus(str, enum.Enum):
+    """Job processing status enumeration."""
+
+    pending = "pending"
+    running = "running"
+    completed = "completed"
+    failed = "failed"
+
+
+class Job(Base):
+    """Job database model for persistent job tracking."""
+
+    __tablename__ = "jobs"
+
+    job_id = Column(
+        UUID,
+        primary_key=True,
+        default=uuid.uuid4,
+        nullable=False,
+    )
+
+    status = Column(
+        Enum(JobStatus, name="job_status_enum"),
+        nullable=False,
+        default=JobStatus.pending,
+    )
+
+    pipeline_id = Column(String, nullable=False)
+
+    input_path = Column(String, nullable=False)
+    output_path = Column(String, nullable=True)
+
+    error_message = Column(String, nullable=True)
+
+    created_at = Column(
+        DateTime,
+        default=datetime.utcnow,
+        nullable=False,
+    )
+
+    updated_at = Column(
+        DateTime,
+        default=datetime.utcnow,
+        onupdate=datetime.utcnow,
+        nullable=False,
+    )
+```
+
+---
+
+## 4. `server/app/core/database.py`
+
+```python
+"""DuckDB SQLAlchemy database configuration."""
+
+from pathlib import Path
+from typing import Any
+
+from sqlalchemy import create_engine
+from sqlalchemy.orm import declarative_base, sessionmaker
+
+Base: Any = declarative_base()
+
+# Ensure data directory exists
+data_dir = Path("data")
+data_dir.mkdir(exist_ok=True)
+
+# File-based DuckDB for application runtime
+engine = create_engine(
+    "duckdb:///data/foregsyte.duckdb",
+    future=True,
+)
+
+SessionLocal = sessionmaker(
+    bind=engine,
+    autoflush=False,
+    autocommit=False,
+)
+
+
+def init_db():
+    """Initialize database schema - create tables if they don't exist."""
+    try:
+        # Import models to register them with Base
+        from ..models.job import Job  # noqa: F401
+
+        # Create all tables defined in models
+        Base.metadata.create_all(bind=engine)
+    except Exception as e:
+        raise RuntimeError(f"Could not initialize database schema: {e}") from e
+
+
+def get_db():
+    """Dependency for FastAPI to inject database session."""
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+```

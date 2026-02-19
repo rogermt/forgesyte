@@ -7,12 +7,10 @@ from fastapi import APIRouter, HTTPException, Query, UploadFile
 
 from app.core.database import SessionLocal
 from app.models.job import Job, JobStatus
-from app.services.queue.memory_queue import InMemoryQueueService
 from app.services.storage.local_storage import LocalStorageService
 
 router = APIRouter()
 storage = LocalStorageService()
-queue = InMemoryQueueService()
 
 DEFAULT_VIDEO_PIPELINE = "ocr_only"
 
@@ -74,8 +72,5 @@ async def submit_video(
         db.commit()
     finally:
         db.close()
-
-    # Enqueue for processing
-    queue.enqueue(job_id)
 
     return {"job_id": job_id}

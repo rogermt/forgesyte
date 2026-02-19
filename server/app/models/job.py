@@ -7,7 +7,7 @@ from datetime import datetime
 from duckdb_engine import UUID
 from sqlalchemy import Column, DateTime, Enum, String
 
-from app.core.database import Base
+from ..core.database import Base
 
 
 class JobStatus(str, enum.Enum):
