@@ -5,6 +5,7 @@ import logging
 from typing import Any, Optional
 
 from server.app.services.video_file_pipeline_service import VideoFilePipelineService
+from server.app.workers.worker_state import worker_last_heartbeat
 
 logger = logging.getLogger(__name__)
 
@@ -91,6 +92,9 @@ async def worker_loop() -> None:
     logger.info("👷 Worker loop started")
 
     while True:
+        # Send heartbeat to indicate worker is alive
+        worker_last_heartbeat.beat()
+
         job_id = job_repo.dequeue()
 
         if job_id:
