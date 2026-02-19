@@ -2,7 +2,7 @@
 
 from fastapi import APIRouter
 
-from server.app.workers.worker_state import worker_last_heartbeat
+from ...workers.worker_state import worker_last_heartbeat
 
 router = APIRouter()
 
