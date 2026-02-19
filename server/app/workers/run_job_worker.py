@@ -1,10 +1,7 @@
-"""Startup script for JobWorker - processes video jobs from queue.
+"""Startup script for JobWorker - processes video jobs.
 
 Run as:
   python -m server.app.workers.run_job_worker
-
-Or:
-  python server/app/workers/run_job_worker.py
 """
 
 import logging
@@ -26,24 +23,28 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+def run_worker_forever():
+    """Run the JobWorker loop (used by FastAPI lifespan thread)."""
+    logger.info("🚀 Starting JobWorker thread...")
+
+    init_db()
+
+    worker = JobWorker()
+
+    logger.info("👷 JobWorker thread initialized")
+    worker.run_forever()
+
+
 def main():
-    """Start the JobWorker."""
+    """CLI entrypoint for standalone worker process."""
     try:
-        logger.info("🚀 Starting JobWorker (Phase 16)...")
+        logger.info("🚀 Starting JobWorker (standalone)...")
 
         init_db()
 
-        # Initialize worker with defaults:
-        # - queue: InMemoryQueueService
-        # - session_factory: SessionLocal
-        # - storage: provided by services
-        # - pipeline_service: provided by services
         worker = JobWorker()
 
-        logger.info("✅ JobWorker initialized")
-        logger.info("👷 Running worker loop - waiting for jobs...")
-
-        # Run worker forever until Ctrl+C
+        logger.info("👷 JobWorker initialized")
         worker.run_forever()
 
     except Exception as e:
