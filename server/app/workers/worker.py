@@ -16,6 +16,7 @@ import time
 from io import BytesIO
 from typing import Optional, Protocol
 
+from .worker_state import worker_last_heartbeat
 from ..core.database import SessionLocal
 from ..models.job import Job, JobStatus
 from ..services.queue.memory_queue import InMemoryQueueService
@@ -182,6 +183,9 @@ class JobWorker:
         """Run the worker loop until shutdown signal is received."""
         logger.info("Worker started")
         while self._running:
+            # Send heartbeat to indicate worker is alive
+            worker_last_heartbeat.beat()
+
             processed = self.run_once()
             if not processed:
                 time.sleep(0.5)
