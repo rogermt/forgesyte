@@ -4,8 +4,8 @@ import asyncio
 import logging
 from typing import Any, Optional
 
-from server.app.services.video_file_pipeline_service import VideoFilePipelineService
-from server.app.workers.worker_state import worker_last_heartbeat
+from ..services.video_file_pipeline_service import VideoFilePipelineService
+from .worker_state import worker_last_heartbeat
 
 logger = logging.getLogger(__name__)
 

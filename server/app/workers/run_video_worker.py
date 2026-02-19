@@ -21,7 +21,7 @@ async def main():
     try:
         logger.info("🚀 Starting video worker process...")
 
-        from server.app.workers.video_worker import worker_loop
+        from .video_worker import worker_loop
 
         logger.info("✅ Worker module imported successfully")
 
