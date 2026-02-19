@@ -172,7 +172,7 @@ async def lifespan(app: FastAPI):
 
     # Start JobWorker thread (DuckDB requires same process)
     try:
-        from server.app.workers.run_job_worker import run_worker_forever
+        from .workers.run_job_worker import run_worker_forever
 
         worker_thread = threading.Thread(
             target=run_worker_forever,
