@@ -39,10 +39,10 @@ async def get_job_results(
         raise HTTPException(status_code=404, detail="Job not completed")
 
     # Load results from storage
+    # job.output_path is already a full path (from LocalStorageService.save_file)
     try:
         results_path = job.output_path
-        file_path = storage.load_file(results_path)
-        with open(file_path, "r") as f:
+        with open(results_path, "r") as f:
             results = json.load(f)
     except FileNotFoundError as err:
         raise HTTPException(status_code=404, detail="Results file not found") from err
