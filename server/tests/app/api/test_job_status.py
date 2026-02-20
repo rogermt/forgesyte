@@ -13,7 +13,8 @@ class TestJobStatusEndpoint:
     async def test_status_pending(self, client, session) -> None:
         """Assert pending job returns progress=0.0."""
         job = Job(
-            pipeline_id="yolo_ocr",
+            plugin_id="yolo-tracker",
+            tool="video_track",
             input_path="video_jobs/test.mp4",
             status=JobStatus.pending,
         )
@@ -34,7 +35,8 @@ class TestJobStatusEndpoint:
     async def test_status_running(self, client, session) -> None:
         """Assert running job returns progress=0.5."""
         job = Job(
-            pipeline_id="yolo_ocr",
+            plugin_id="yolo-tracker",
+            tool="video_track",
             input_path="video_jobs/test.mp4",
             status=JobStatus.running,
         )
@@ -52,7 +54,8 @@ class TestJobStatusEndpoint:
     async def test_status_completed(self, client, session) -> None:
         """Assert completed job returns progress=1.0."""
         job = Job(
-            pipeline_id="yolo_ocr",
+            plugin_id="yolo-tracker",
+            tool="video_track",
             input_path="video_jobs/test.mp4",
             output_path="video_jobs/test_results.json",
             status=JobStatus.completed,
@@ -71,7 +74,8 @@ class TestJobStatusEndpoint:
     async def test_status_failed(self, client, session) -> None:
         """Assert failed job returns progress=1.0."""
         job = Job(
-            pipeline_id="yolo_ocr",
+            plugin_id="yolo-tracker",
+            tool="video_track",
             input_path="video_jobs/test.mp4",
             status=JobStatus.failed,
             error_message="Test error",
@@ -90,7 +94,8 @@ class TestJobStatusEndpoint:
     async def test_status_response_schema(self, client, session) -> None:
         """Assert response has all required fields."""
         job = Job(
-            pipeline_id="yolo_ocr",
+            plugin_id="yolo-tracker",
+            tool="video_track",
             input_path="video_jobs/test.mp4",
             status=JobStatus.running,
         )

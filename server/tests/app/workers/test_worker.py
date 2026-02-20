@@ -51,9 +51,9 @@ def test_worker_run_once_marks_job_running(test_engine, session):
     job = Job(
         job_id=job_id,
         status=JobStatus.pending,
-        pipeline_id="test_pipeline",
+        plugin_id="test_plugin",
+        tool="test_tool",
         input_path="test.mp4",
-        tools='["detect_players", "track_players"]',
     )
     session.add(job)
     session.commit()
@@ -86,9 +86,9 @@ def test_worker_run_once_no_matching_job(test_engine, session):
     job = Job(
         job_id=job_id,
         status=JobStatus.completed,
-        pipeline_id="test_pipeline",
+        plugin_id="test_plugin",
+        tool="test_tool",
         input_path="test.mp4",
-        tools='["detect_players", "track_players"]',
     )
     session.add(job)
     session.commit()
@@ -119,9 +119,9 @@ def test_worker_multiple_run_once_calls(test_engine, session):
         job = Job(
             job_id=job_id,
             status=JobStatus.pending,
-            pipeline_id="test_pipeline",
+            plugin_id="test_plugin",
+            tool="test_tool",
             input_path="test.mp4",
-            tools='["detect_players", "track_players"]',
         )
         session.add(job)
     session.commit()
@@ -168,9 +168,9 @@ def test_worker_run_once_executes_pipeline(test_engine, session):
     job = Job(
         job_id=job_id,
         status=JobStatus.pending,
-        pipeline_id="test_pipeline",
+        plugin_id="test_plugin",
+        tool="test_tool",
         input_path="input/test.mp4",
-        tools='["detect_players", "track_players"]',
     )
     session.add(job)
     session.commit()
@@ -190,8 +190,8 @@ def test_worker_run_once_executes_pipeline(test_engine, session):
     # Verify pipeline was called with correct args
     mock_pipeline_service.run_on_file.assert_called_once_with(
         "/data/video_jobs/input/test.mp4",
-        "test_pipeline",
-        ["detect_players", "track_players"],
+        "test_plugin",
+        ["test_tool"],
     )
 
 
@@ -214,9 +214,9 @@ def test_worker_run_once_saves_results_to_storage(test_engine, session):
     job = Job(
         job_id=job_id,
         status=JobStatus.pending,
-        pipeline_id="test_pipeline",
+        plugin_id="test_plugin",
+        tool="test_tool",
         input_path="input/test.mp4",
-        tools='["detect_players", "track_players"]',
     )
     session.add(job)
     session.commit()
@@ -266,9 +266,9 @@ def test_worker_run_once_updates_job_completed(test_engine, session):
     job = Job(
         job_id=job_id,
         status=JobStatus.pending,
-        pipeline_id="test_pipeline",
+        plugin_id="test_plugin",
+        tool="test_tool",
         input_path="input/test.mp4",
-        tools='["detect_players", "track_players"]',
     )
     session.add(job)
     session.commit()
@@ -311,16 +311,16 @@ def test_worker_run_once_handles_pipeline_error(test_engine, session):
     job = Job(
         job_id=job_id,
         status=JobStatus.pending,
-        pipeline_id="nonexistent_pipeline",
+        plugin_id="nonexistent_plugin",
+        tool="test_tool",
         input_path="input/test.mp4",
-        tools='["detect_players", "track_players"]',
     )
     session.add(job)
     session.commit()
 
     # Setup mock to raise error
     mock_storage.load_file.return_value = "/data/video_jobs/input/test.mp4"
-    mock_pipeline_service.run_on_file.side_effect = ValueError("Pipeline not found")
+    mock_pipeline_service.run_on_file.side_effect = ValueError("Plugin not found")
 
     # Execute
     result = worker.run_once()
@@ -330,7 +330,7 @@ def test_worker_run_once_handles_pipeline_error(test_engine, session):
     session.expire_all()
     updated_job = session.query(Job).filter(Job.job_id == job_id).first()
     assert updated_job.status == JobStatus.failed
-    assert "Pipeline not found" in updated_job.error_message
+    assert "Plugin not found" in updated_job.error_message
 
 
 @pytest.mark.unit
@@ -352,9 +352,9 @@ def test_worker_run_once_handles_storage_error(test_engine, session):
     job = Job(
         job_id=job_id,
         status=JobStatus.pending,
-        pipeline_id="test_pipeline",
+        plugin_id="test_plugin",
+        tool="test_tool",
         input_path="input/missing.mp4",
-        tools='["detect_players", "track_players"]',
     )
     session.add(job)
     session.commit()

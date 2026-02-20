@@ -154,8 +154,8 @@ class JobWorker:
             # Execute pipeline on video file
             results = self._pipeline_service.run_on_file(
                 str(input_file_path),
-                job.pipeline_id,
-                json.loads(job.tools) if job.tools else [],
+                job.plugin_id,
+                [job.tool],
             )
             logger.info(
                 "Job %s: pipeline executed, %d results", job.job_id, len(results)

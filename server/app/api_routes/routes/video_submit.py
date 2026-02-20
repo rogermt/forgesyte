@@ -12,8 +12,6 @@ from app.services.storage.local_storage import LocalStorageService
 router = APIRouter()
 storage = LocalStorageService()
 
-DEFAULT_VIDEO_PIPELINE = "ocr_only"
-
 
 def validate_mp4_magic_bytes(data: bytes) -> None:
     """Validate that data contains MP4 magic bytes.
@@ -31,16 +29,15 @@ def validate_mp4_magic_bytes(data: bytes) -> None:
 @router.post("/v1/video/submit")
 async def submit_video(
     file: UploadFile,
-    pipeline_id: str = Query(
-        default=DEFAULT_VIDEO_PIPELINE,
-        description="Pipeline ID (optional, defaults to ocr_only)",
-    ),
+    plugin_id: str = Query(..., description="Plugin ID from /v1/plugins"),
+    tool: str = Query(..., description="Tool ID from plugin manifest"),
 ):
     """Submit a video file for processing.
 
     Args:
         file: MP4 video file to process
-        pipeline_id: ID of the pipeline to use (e.g., "yolo_ocr")
+        plugin_id: ID of the plugin to use (from /v1/plugins)
+        tool: ID of the tool to run (from plugin manifest)
 
     Returns:
         JSON with job_id for polling
@@ -65,7 +62,8 @@ async def submit_video(
         job = Job(
             job_id=job_id,
             status=JobStatus.pending,
-            pipeline_id=pipeline_id,
+            plugin_id=plugin_id,
+            tool=tool,
             input_path=input_path,
         )
         db.add(job)
