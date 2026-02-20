@@ -35,11 +35,11 @@ def run_worker_forever(plugin_manager: PluginRegistry):
     logger.info("🚀 Starting JobWorker thread...")
 
     storage = LocalStorageService()
-    pipeline_service = VideoPipelineService(plugin_manager)
+    plugin_service = VideoPipelineService(plugin_manager)
 
     worker = JobWorker(
         storage=storage,
-        pipeline_service=pipeline_service,
+        plugin_service=plugin_service,
     )
 
     logger.info("👷 JobWorker thread initialized")
