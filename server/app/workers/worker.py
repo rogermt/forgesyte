@@ -12,6 +12,7 @@ This worker:
 import json
 import logging
 import signal
+import threading
 import time
 from io import BytesIO
 from typing import List, Optional, Protocol
@@ -72,9 +73,10 @@ class JobWorker:
         self._pipeline_service = pipeline_service
         self._running = True
 
-        # Register signal handlers for graceful shutdown
-        signal.signal(signal.SIGINT, self._handle_signal)
-        signal.signal(signal.SIGTERM, self._handle_signal)
+        # Register signal handlers only if running in main thread
+        if threading.current_thread() is threading.main_thread():
+            signal.signal(signal.SIGINT, self._handle_signal)
+            signal.signal(signal.SIGTERM, self._handle_signal)
 
     def _handle_signal(self, signum: int, frame) -> None:
         """Handle shutdown signals gracefully.
