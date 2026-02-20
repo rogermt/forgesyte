@@ -13,6 +13,9 @@ project_root = Path(__file__).parent.parent.parent.parent
 sys.path.insert(0, str(project_root))
 
 from app.core.database import init_db  # noqa: E402
+from app.plugin_loader import PluginRegistry  # noqa: E402
+from app.services.storage.local_storage import LocalStorageService  # noqa: E402
+from app.services.video_pipeline_service import VideoPipelineService  # noqa: E402
 from server.app.workers.worker import JobWorker  # noqa: E402
 
 logging.basicConfig(
@@ -23,13 +26,23 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-def run_worker_forever():
-    """Run the JobWorker loop (used by FastAPI lifespan thread)."""
+def run_worker_forever(plugin_manager: PluginRegistry):
+    """Run the JobWorker loop (used by FastAPI lifespan thread).
+
+    Args:
+        plugin_manager: PluginRegistry instance for plugin access
+    """
     logger.info("🚀 Starting JobWorker thread...")
 
     init_db()
 
-    worker = JobWorker()
+    storage = LocalStorageService()
+    pipeline_service = VideoPipelineService(plugin_manager)
+
+    worker = JobWorker(
+        storage=storage,
+        pipeline_service=pipeline_service,
+    )
 
     logger.info("👷 JobWorker thread initialized")
     worker.run_forever()
@@ -42,7 +55,16 @@ def main():
 
         init_db()
 
-        worker = JobWorker()
+        plugin_manager = PluginRegistry()
+        plugin_manager.load_plugins()
+
+        storage = LocalStorageService()
+        pipeline_service = VideoPipelineService(plugin_manager)
+
+        worker = JobWorker(
+            storage=storage,
+            pipeline_service=pipeline_service,
+        )
 
         logger.info("👷 JobWorker initialized")
         worker.run_forever()

@@ -203,3 +203,102 @@ class TestPipelineLogging:
         assert info_logs[1].plugin_id == "test-plugin"
         assert info_logs[1].tool_name == "track_players"
         assert info_logs[1].step == 1
+
+
+class TestNewMethods:
+    """Test new Phase 16 compatibility methods."""
+
+    def test_run_on_file_exists(self):
+        """Test run_on_file method exists."""
+        registry = FakeRegistry(plugin=None)
+        service = VideoPipelineService(plugins=registry)
+        assert hasattr(service, "run_on_file")
+        assert callable(service.run_on_file)
+
+    def test_run_on_file_calls_run_pipeline(self):
+        """Test run_on_file wraps run_pipeline correctly."""
+        plugin = FakePlugin()
+        plugin.tools = {"detect_players": "detect_players"}
+        registry = FakeRegistry(plugin=plugin)
+        service = VideoPipelineService(plugins=registry)
+
+        result = service.run_on_file(
+            file_path="/path/to/video.mp4",
+            plugin_id="test-plugin",
+            tools=["detect_players"],
+        )
+
+        # Verify result structure
+        assert "result" in result
+        assert "steps" in result
+        assert len(result["steps"]) == 1
+
+    def test_run_on_file_with_file_path_payload(self):
+        """Test run_on_file creates payload with file_path."""
+        plugin = FakePlugin()
+        plugin.tools = {"detect_players": "detect_players"}
+        plugin.run_tool = lambda tool_name, payload: {
+            "file_path": payload.get("file_path"),
+            "tool": tool_name,
+        }
+        registry = FakeRegistry(plugin=plugin)
+        service = VideoPipelineService(plugins=registry)
+
+        result = service.run_on_file(
+            file_path="/path/to/video.mp4",
+            plugin_id="test-plugin",
+            tools=["detect_players"],
+        )
+
+        # Verify file_path was passed in payload
+        assert result["result"]["file_path"] == "/path/to/video.mp4"
+
+    def test_run_alias_exists(self):
+        """Test run method exists (alias for run_on_file)."""
+        registry = FakeRegistry(plugin=None)
+        service = VideoPipelineService(plugins=registry)
+        assert hasattr(service, "run")
+        assert callable(service.run)
+
+    def test_run_alias_calls_run_on_file(self):
+        """Test run method is an alias for run_on_file."""
+        plugin = FakePlugin()
+        plugin.tools = {"detect_players": "detect_players"}
+        registry = FakeRegistry(plugin=plugin)
+        service = VideoPipelineService(plugins=registry)
+
+        result = service.run(
+            file_path="/path/to/video.mp4",
+            plugin_id="test-plugin",
+            tools=["detect_players"],
+        )
+
+        # Verify result structure
+        assert "result" in result
+        assert "steps" in result
+
+    def test_run_on_payload_exists(self):
+        """Test run_on_payload method exists."""
+        registry = FakeRegistry(plugin=None)
+        service = VideoPipelineService(plugins=registry)
+        assert hasattr(service, "run_on_payload")
+        assert callable(service.run_on_payload)
+
+    def test_run_on_payload_calls_run_pipeline(self):
+        """Test run_on_payload wraps run_pipeline correctly."""
+        plugin = FakePlugin()
+        plugin.tools = {"detect_players": "detect_players"}
+        registry = FakeRegistry(plugin=plugin)
+        service = VideoPipelineService(plugins=registry)
+
+        custom_payload = {"custom_key": "custom_value"}
+        result = service.run_on_payload(
+            payload=custom_payload,
+            plugin_id="test-plugin",
+            tools=["detect_players"],
+        )
+
+        # Verify result structure
+        assert "result" in result
+        assert "steps" in result
+        assert len(result["steps"]) == 1

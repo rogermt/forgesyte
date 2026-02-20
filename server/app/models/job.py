@@ -43,6 +43,7 @@ class Job(Base):
     output_path = Column(String, nullable=True)
 
     error_message = Column(String, nullable=True)
+    tools = Column(String, nullable=True)  # JSON string of tool names
 
     created_at = Column(
         DateTime,

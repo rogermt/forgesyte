@@ -84,6 +84,50 @@ class VideoPipelineService:
         # Final output is the last tool's output
         return {"result": steps[-1]["output"], "steps": steps}
 
+    def run_on_file(
+        self, file_path: str, plugin_id: str, tools: List[str]
+    ) -> Dict[str, Any]:
+        """Phase-16 compatibility: run a pipeline using a file path.
+
+        Args:
+            file_path: Path to the video file to process
+            plugin_id: The plugin to execute tools from
+            tools: List of tool names to execute in order
+
+        Returns:
+            Dictionary with result and steps from pipeline execution
+        """
+        payload = {"file_path": file_path}
+        return self.run_pipeline(plugin_id, tools, payload)
+
+    def run(self, file_path: str, plugin_id: str, tools: List[str]) -> Dict[str, Any]:
+        """Alias used by some worker implementations.
+
+        Args:
+            file_path: Path to the video file to process
+            plugin_id: The plugin to execute tools from
+            tools: List of tool names to execute in order
+
+        Returns:
+            Dictionary with result and steps from pipeline execution
+        """
+        return self.run_on_file(file_path, plugin_id, tools)
+
+    def run_on_payload(
+        self, payload: Dict[str, Any], plugin_id: str, tools: List[str]
+    ) -> Dict[str, Any]:
+        """Optional compatibility wrapper for payload-based execution.
+
+        Args:
+            payload: Initial payload dictionary
+            plugin_id: The plugin to execute tools from
+            tools: List of tool names to execute in order
+
+        Returns:
+            Dictionary with result and steps from pipeline execution
+        """
+        return self.run_pipeline(plugin_id, tools, payload)
+
     def _validate(self, plugin_id: str, tools: List[str]) -> None:
         """Validate plugin_id and tools[] exist.
 

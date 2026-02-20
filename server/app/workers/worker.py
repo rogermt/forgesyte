@@ -14,7 +14,7 @@ import logging
 import signal
 import time
 from io import BytesIO
-from typing import Optional, Protocol
+from typing import List, Optional, Protocol
 
 from ..core.database import SessionLocal
 from ..models.job import Job, JobStatus
@@ -43,8 +43,7 @@ class PipelineService(Protocol):
         self,
         mp4_path: str,
         pipeline_id: str,
-        frame_stride: int = 1,
-        max_frames: Optional[int] = None,
+        tools: List[str],
     ):
         """Execute pipeline on video file."""
         ...
@@ -154,6 +153,7 @@ class JobWorker:
             results = self._pipeline_service.run_on_file(
                 str(input_file_path),
                 job.pipeline_id,
+                json.loads(job.tools) if job.tools else [],
             )
             logger.info(
                 "Job %s: pipeline executed, %d results", job.job_id, len(results)

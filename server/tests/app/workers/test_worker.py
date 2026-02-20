@@ -53,6 +53,7 @@ def test_worker_run_once_marks_job_running(test_engine, session):
         status=JobStatus.pending,
         pipeline_id="test_pipeline",
         input_path="test.mp4",
+        tools='["detect_players", "track_players"]',
     )
     session.add(job)
     session.commit()
@@ -87,6 +88,7 @@ def test_worker_run_once_no_matching_job(test_engine, session):
         status=JobStatus.completed,
         pipeline_id="test_pipeline",
         input_path="test.mp4",
+        tools='["detect_players", "track_players"]',
     )
     session.add(job)
     session.commit()
@@ -119,6 +121,7 @@ def test_worker_multiple_run_once_calls(test_engine, session):
             status=JobStatus.pending,
             pipeline_id="test_pipeline",
             input_path="test.mp4",
+            tools='["detect_players", "track_players"]',
         )
         session.add(job)
     session.commit()
@@ -167,6 +170,7 @@ def test_worker_run_once_executes_pipeline(test_engine, session):
         status=JobStatus.pending,
         pipeline_id="test_pipeline",
         input_path="input/test.mp4",
+        tools='["detect_players", "track_players"]',
     )
     session.add(job)
     session.commit()
@@ -184,7 +188,11 @@ def test_worker_run_once_executes_pipeline(test_engine, session):
 
     assert result is True
     # Verify pipeline was called with correct args
-    mock_pipeline_service.run_on_file.assert_called_once()
+    mock_pipeline_service.run_on_file.assert_called_once_with(
+        "/data/video_jobs/input/test.mp4",
+        "test_pipeline",
+        ["detect_players", "track_players"],
+    )
 
 
 @pytest.mark.unit
@@ -208,6 +216,7 @@ def test_worker_run_once_saves_results_to_storage(test_engine, session):
         status=JobStatus.pending,
         pipeline_id="test_pipeline",
         input_path="input/test.mp4",
+        tools='["detect_players", "track_players"]',
     )
     session.add(job)
     session.commit()
@@ -259,6 +268,7 @@ def test_worker_run_once_updates_job_completed(test_engine, session):
         status=JobStatus.pending,
         pipeline_id="test_pipeline",
         input_path="input/test.mp4",
+        tools='["detect_players", "track_players"]',
     )
     session.add(job)
     session.commit()
@@ -303,6 +313,7 @@ def test_worker_run_once_handles_pipeline_error(test_engine, session):
         status=JobStatus.pending,
         pipeline_id="nonexistent_pipeline",
         input_path="input/test.mp4",
+        tools='["detect_players", "track_players"]',
     )
     session.add(job)
     session.commit()
@@ -343,6 +354,7 @@ def test_worker_run_once_handles_storage_error(test_engine, session):
         status=JobStatus.pending,
         pipeline_id="test_pipeline",
         input_path="input/missing.mp4",
+        tools='["detect_players", "track_players"]',
     )
     session.add(job)
     session.commit()
