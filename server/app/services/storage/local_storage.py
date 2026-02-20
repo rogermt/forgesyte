@@ -5,7 +5,9 @@ from typing import BinaryIO
 
 from app.services.storage.base import StorageService
 
-BASE_DIR = Path("./data/video_jobs")
+# Absolute path to data/video_jobs directory
+# __file__ is .../server/app/services/storage/local_storage.py
+BASE_DIR = Path(__file__).resolve().parent.parent.parent.parent / "data" / "video_jobs"
 
 
 class LocalStorageService(StorageService):
@@ -23,7 +25,7 @@ class LocalStorageService(StorageService):
             dest_path: Destination path relative to storage root
 
         Returns:
-            Full path where file was saved
+            Relative path where file was saved (for storage in DB)
         """
         full_path = BASE_DIR / dest_path
         full_path.parent.mkdir(parents=True, exist_ok=True)
@@ -31,7 +33,8 @@ class LocalStorageService(StorageService):
         with open(full_path, "wb") as f:
             f.write(src.read())
 
-        return str(full_path)
+        # Return relative path only (not full path)
+        return dest_path
 
     def load_file(self, path: str) -> Path:
         """Return a local filesystem path to the stored file.
