@@ -18,20 +18,20 @@ class TestJobResultsEndpoint:
 
         # Create results file first
         results_data = {"results": [{"frame_index": 0, "result": {"text": "test"}}]}
-        results_file = "test_results.json"
-        results_path = Path("./data/video_jobs") / results_file
+        results_file = "video/output/test_results.json"
+        results_path = Path("./data/jobs") / results_file
         results_path.parent.mkdir(parents=True, exist_ok=True)
         with open(results_path, "w") as f:
             json.dump(results_data, f)
 
         # Create completed job with output_path
-        # Worker now stores relative path from LocalStorageService.save_file()
         job = Job(
             plugin_id="yolo-tracker",
             tool="video_track",
-            input_path="video_jobs/test.mp4",
+            input_path="video/test.mp4",
             output_path=results_file,
             status=JobStatus.completed,
+            job_type="video",
         )
         session.add(job)
         session.commit()
@@ -52,8 +52,9 @@ class TestJobResultsEndpoint:
         job = Job(
             plugin_id="yolo-tracker",
             tool="video_track",
-            input_path="video_jobs/test.mp4",
+            input_path="video/test.mp4",
             status=JobStatus.pending,
+            job_type="video",
         )
         session.add(job)
         session.commit()
@@ -67,8 +68,9 @@ class TestJobResultsEndpoint:
         job = Job(
             plugin_id="yolo-tracker",
             tool="video_track",
-            input_path="video_jobs/test.mp4",
+            input_path="video/test.mp4",
             status=JobStatus.running,
+            job_type="video",
         )
         session.add(job)
         session.commit()
@@ -82,9 +84,10 @@ class TestJobResultsEndpoint:
         job = Job(
             plugin_id="yolo-tracker",
             tool="video_track",
-            input_path="video_jobs/test.mp4",
+            input_path="video/test.mp4",
             status=JobStatus.failed,
             error_message="Test error",
+            job_type="video",
         )
         session.add(job)
         session.commit()

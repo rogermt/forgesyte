@@ -43,7 +43,7 @@ describe("VideoUpload Integration", () => {
             job_id: "test-job-123",
         });
 
-        render(<VideoUpload />);
+        render(<VideoUpload pluginId="yolo" selectedTools={["video_track"]} />);
 
         // Simulate file selection
         const fileInput = screen.getByLabelText(/upload/i) as HTMLInputElement;
@@ -62,7 +62,7 @@ describe("VideoUpload Integration", () => {
     });
 
     it("should reject non-MP4 files", () => {
-        render(<VideoUpload />);
+        render(<VideoUpload pluginId="yolo" selectedTools={["video_track"]} />);
 
         const fileInput = screen.getByLabelText(/upload/i) as HTMLInputElement;
         const file = new File([""], "test.jpg", { type: "image/jpeg" });
@@ -106,7 +106,7 @@ describe("VideoUpload Integration", () => {
             updated_at: "2026-02-18T10:01:00Z",
         });
 
-        render(<VideoUpload />);
+        render(<VideoUpload pluginId="yolo" selectedTools={["video_track"]} />);
 
         // Simulate file selection
         const fileInput = screen.getByLabelText(/upload/i) as HTMLInputElement;
@@ -149,7 +149,7 @@ describe("VideoUpload Integration", () => {
             updated_at: "2026-02-18T10:00:30Z",
         });
 
-        render(<VideoUpload />);
+        render(<VideoUpload pluginId="yolo" selectedTools={["video_track"]} />);
 
         // Simulate file selection
         const fileInput = screen.getByLabelText(/upload/i) as HTMLInputElement;
@@ -177,7 +177,7 @@ describe("VideoUpload Integration", () => {
         let resolveUpload: ((value: { job_id: string }) => void) | null = null;
 
         (apiClient.submitVideo as ReturnType<typeof vi.fn>).mockImplementation(
-            (_file: File, _pipelineId: string, onProgress?: (percent: number) => void) => {
+            (_file: File, _pluginId: string, _tool: string, onProgress?: (percent: number) => void) => {
                 progressCallback = onProgress || null;
                 return new Promise((resolve) => {
                     resolveUpload = resolve;
@@ -185,7 +185,7 @@ describe("VideoUpload Integration", () => {
             }
         );
 
-        render(<VideoUpload />);
+        render(<VideoUpload pluginId="yolo" selectedTools={["video_track"]} />);
 
         // Simulate file selection
         const fileInput = screen.getByLabelText(/upload/i) as HTMLInputElement;

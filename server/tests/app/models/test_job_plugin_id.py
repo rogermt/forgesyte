@@ -11,7 +11,8 @@ def test_job_accepts_plugin_id_and_tool(session):
     job = Job(
         plugin_id="ocr",
         tool="extract_text",
-        input_path="video_jobs/test.mp4",
+        input_path="image/test.png",
+        job_type="image",
     )
     session.add(job)
     session.commit()
@@ -33,6 +34,7 @@ def test_job_plugin_id_and_tool_not_nullable(session):
             plugin_id=None,  # NOT NULL
             tool=None,  # NOT NULL
             input_path="test.mp4",
+            job_type="video",
         )
         session.add(job)
         session.commit()
@@ -44,7 +46,8 @@ def test_job_plugin_id_and_tool_persist_through_status_change(session):
     job = Job(
         plugin_id="yolo-tracker",
         tool="video_track",
-        input_path="video_jobs/test.mp4",
+        input_path="video/test.mp4",
+        job_type="video",
     )
     session.add(job)
     session.commit()

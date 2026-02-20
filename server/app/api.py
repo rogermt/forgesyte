@@ -489,13 +489,15 @@ async def analyze_image_multi(
 # ============================================================================
 
 
-@router.get("/jobs/{job_id}", response_model=JobStatusResponse)
+@router.get("/jobs/{job_id}", response_model=JobStatusResponse, deprecated=True)
 async def get_job_status(
     job_id: str,
     auth: Dict[str, Any] = Depends(require_auth(["analyze"])),
     service: JobManagementService = Depends(get_job_service),
 ) -> JobStatusResponse:
     """Retrieve status and results for a specific analysis job.
+
+    DEPRECATED: Use /v1/jobs/{job_id} instead. TODO: Remove in v1.0.0
 
     Args:
         job_id: Unique job identifier to retrieve.
@@ -532,13 +534,15 @@ async def get_job_status(
     )
 
 
-@router.get("/jobs/{job_id}/result", response_model=JobResultResponse)
+@router.get("/jobs/{job_id}/result", response_model=JobResultResponse, deprecated=True)
 async def get_job_result(
     job_id: str,
     auth: Dict[str, Any] = Depends(require_auth(["analyze"])),
     service: JobManagementService = Depends(get_job_service),
 ) -> JobResultResponse:
     """Retrieve full results for a completed analysis job.
+
+    DEPRECATED: Use /v1/jobs/{job_id} instead. TODO: Remove in v1.0.0
 
     Returns the complete job result including frames and analysis output.
 
@@ -579,7 +583,7 @@ async def get_job_result(
     )
 
 
-@router.get("/jobs")
+@router.get("/jobs", deprecated=True)
 async def list_jobs(
     status: Optional[JobStatus] = None,
     plugin: Optional[str] = None,
@@ -588,6 +592,8 @@ async def list_jobs(
     service: JobManagementService = Depends(get_job_service),
 ) -> Dict[str, Any]:
     """List recent analysis jobs with optional filtering.
+
+    DEPRECATED: TODO: Remove in v1.0.0
 
     Args:
         status: Optional job status filter (queued, running, done, error).
@@ -631,13 +637,15 @@ async def list_jobs(
     }
 
 
-@router.delete("/jobs/{job_id}")
+@router.delete("/jobs/{job_id}", deprecated=True)
 async def cancel_job(
     job_id: str,
     auth: Dict[str, Any] = Depends(require_auth(["analyze"])),
     service: JobManagementService = Depends(get_job_service),
 ) -> Dict[str, Any]:
     """Cancel a queued or processing analysis job.
+
+    DEPRECATED: TODO: Remove in v1.0.0
 
     Only jobs in queued or processing state can be cancelled. Completed or
     errored jobs cannot be cancelled.

@@ -65,10 +65,18 @@ def test_worker_stores_relative_output_path_only(test_engine, session):
     # Critical assertions: path must be relative
     output_path = updated_job.output_path
     assert output_path is not None
-    assert not output_path.startswith("/"), f"Path should not be absolute: {output_path}"
-    assert "video_jobs" not in output_path, f"Path should not contain video_jobs prefix: {output_path}"
-    assert output_path.startswith("output/"), f"Expected output/ prefix, got: {output_path}"
-    assert output_path.endswith(".json"), f"Expected .json extension, got: {output_path}"
+    assert not output_path.startswith(
+        "/"
+    ), f"Path should not be absolute: {output_path}"
+    assert (
+        "video_jobs" not in output_path
+    ), f"Path should not contain video_jobs prefix: {output_path}"
+    assert output_path.startswith(
+        "output/"
+    ), f"Expected output/ prefix, got: {output_path}"
+    assert output_path.endswith(
+        ".json"
+    ), f"Expected .json extension, got: {output_path}"
 
 
 @pytest.mark.unit
@@ -87,7 +95,9 @@ def test_worker_does_not_store_absolute_path(test_engine, session):
     # Mock storage that incorrectly returns absolute path (simulating a bug)
     mock_storage = MagicMock()
     mock_storage.load_file.return_value = "/data/video_jobs/input/test.mp4"
-    mock_storage.save_file.return_value = "/data/video_jobs/output/test.json"  # BUG: absolute path!
+    mock_storage.save_file.return_value = (
+        "/data/video_jobs/output/test.json"  # BUG: absolute path!
+    )
 
     mock_pipeline_service = MagicMock()
     mock_pipeline_service.run_on_file.return_value = [{"frame_index": 0, "result": {}}]
@@ -127,7 +137,8 @@ def test_worker_does_not_store_absolute_path(test_engine, session):
     output_path = updated_job.output_path
     # This test passes because we're simulating a buggy storage service
     # In production, this assertion would fail (which is good - it means no bug)
-    assert output_path.startswith("/"), \
-        "This test simulates a buggy storage service that returns absolute paths. " \
-        "In production, LocalStorageService.save_file() should return relative paths only, " \
+    assert output_path.startswith("/"), (
+        "This test simulates a buggy storage service that returns absolute paths. "
+        "In production, LocalStorageService.save_file() should return relative paths only, "
         "so this assertion would fail (which is correct)."
+    )

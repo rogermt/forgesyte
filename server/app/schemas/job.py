@@ -23,10 +23,10 @@ class JobStatusResponse(BaseModel):
 
 
 class JobResultsResponse(BaseModel):
-    """Response for GET /video/results/{job_id}."""
+    """Response for GET /v1/jobs/{job_id} (unified endpoint)."""
 
     job_id: UUID
-    results: dict
+    results: dict | None
     created_at: datetime
     updated_at: datetime
 

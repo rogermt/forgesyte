@@ -15,11 +15,15 @@ router = APIRouter()
 storage = LocalStorageService()
 
 
-@router.get("/v1/video/results/{job_id}", response_model=JobResultsResponse)
+@router.get(
+    "/v1/video/results/{job_id}", response_model=JobResultsResponse, deprecated=True
+)
 async def get_job_results(
     job_id: UUID, db: Session = Depends(get_db)
 ) -> JobResultsResponse:
     """Get results of a completed job.
+
+    DEPRECATED: Use /v1/jobs/{job_id} instead. TODO: Remove in v1.0.0
 
     Args:
         job_id: UUID of the job

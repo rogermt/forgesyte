@@ -15,8 +15,9 @@ class TestJobStatusEndpoint:
         job = Job(
             plugin_id="yolo-tracker",
             tool="video_track",
-            input_path="video_jobs/test.mp4",
+            input_path="video/test.mp4",
             status=JobStatus.pending,
+            job_type="video",
         )
         session.add(job)
         session.commit()
@@ -37,8 +38,9 @@ class TestJobStatusEndpoint:
         job = Job(
             plugin_id="yolo-tracker",
             tool="video_track",
-            input_path="video_jobs/test.mp4",
+            input_path="video/test.mp4",
             status=JobStatus.running,
+            job_type="video",
         )
         session.add(job)
         session.commit()
@@ -56,9 +58,10 @@ class TestJobStatusEndpoint:
         job = Job(
             plugin_id="yolo-tracker",
             tool="video_track",
-            input_path="video_jobs/test.mp4",
-            output_path="video_jobs/test_results.json",
+            input_path="video/test.mp4",
+            output_path="video/output/test_results.json",
             status=JobStatus.completed,
+            job_type="video",
         )
         session.add(job)
         session.commit()
@@ -76,9 +79,10 @@ class TestJobStatusEndpoint:
         job = Job(
             plugin_id="yolo-tracker",
             tool="video_track",
-            input_path="video_jobs/test.mp4",
+            input_path="video/test.mp4",
             status=JobStatus.failed,
             error_message="Test error",
+            job_type="video",
         )
         session.add(job)
         session.commit()
@@ -96,8 +100,9 @@ class TestJobStatusEndpoint:
         job = Job(
             plugin_id="yolo-tracker",
             tool="video_track",
-            input_path="video_jobs/test.mp4",
+            input_path="video/test.mp4",
             status=JobStatus.running,
+            job_type="video",
         )
         session.add(job)
         session.commit()

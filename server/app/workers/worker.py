@@ -15,7 +15,7 @@ import signal
 import threading
 import time
 from io import BytesIO
-from typing import List, Optional, Protocol
+from typing import Any, Dict, List, Optional, Protocol
 
 from ..core.database import SessionLocal
 from ..models.job import Job, JobStatus
@@ -58,7 +58,7 @@ class JobWorker:
         queue: Optional[InMemoryQueueService] = None,
         session_factory=None,
         storage: Optional[StorageService] = None,
-        pipeline_service: Optional[PipelineService] = None,
+        plugin_service=None,
     ) -> None:
         """Initialize worker.
 
@@ -66,11 +66,11 @@ class JobWorker:
             queue: Ignored (kept for backward compatibility with tests)
             session_factory: Session factory (defaults to SessionLocal from database.py)
             storage: StorageService instance for file I/O
-            pipeline_service: PipelineService instance for pipeline execution
+            plugin_service: PluginManagementService instance for plugin execution
         """
         self._session_factory = session_factory or SessionLocal
         self._storage = storage
-        self._pipeline_service = pipeline_service
+        self._plugin_service = plugin_service
         self._running = True
 
         # Register signal handlers only if running in main thread
@@ -137,39 +137,142 @@ class JobWorker:
             True if pipeline executed successfully, False on error
         """
         try:
-            # Verify storage and pipeline services are available
-            if not self._storage or not self._pipeline_service:
-                logger.warning(
-                    "Job %s: storage or pipeline service not available", job.job_id
-                )
+            # Verify storage and plugin_service are available
+            if not self._storage:
+                logger.warning("Job %s: storage service not available", job.job_id)
                 job.status = JobStatus.failed
-                job.error_message = "Pipeline execution services not configured"
+                job.error_message = "Storage service not configured"
                 db.commit()
                 return False
 
-            # Load input file from storage
-            input_file_path = self._storage.load_file(job.input_path)
-            logger.info("Job %s: loaded input file %s", job.job_id, input_file_path)
+            # Use injected plugin_service or create default
+            if self._plugin_service:
+                plugin_service = self._plugin_service
+            else:
+                from ..plugin_loader import PluginRegistry
+                from ..services.plugin_management_service import PluginManagementService
 
-            # Execute pipeline on video file
-            results = self._pipeline_service.run_on_file(
-                str(input_file_path),
-                job.plugin_id,
-                [job.tool],
-            )
-            logger.info(
-                "Job %s: pipeline executed, %d results", job.job_id, len(results)
-            )
+                plugin_manager = PluginRegistry()
+                plugin_service = PluginManagementService(plugin_manager)
 
-            # Prepare JSON output
-            output_data = {"results": results}
+            manifest = plugin_service.get_plugin_manifest(job.plugin_id)
+            if not manifest:
+                job.status = JobStatus.failed
+                job.error_message = f"Plugin '{job.plugin_id}' not found"
+                db.commit()
+                return False
+
+            # Find tool definition in manifest (support both list and dict formats)
+            tools = manifest.get("tools", [])
+            tool_def = None
+
+            # Handle list format (Phase 12+)
+            if isinstance(tools, list):
+                for tool in tools:
+                    if tool.get("id") == job.tool:
+                        tool_def = tool
+                        break
+            # Handle dict format (legacy)
+            elif isinstance(tools, dict):
+                for tool_name, tool_info in tools.items():
+                    if tool_name == job.tool:
+                        tool_def = tool_info
+                        tool_def["id"] = tool_name
+                        break
+
+            if not tool_def:
+                job.status = JobStatus.failed
+                job.error_message = (
+                    f"Tool '{job.tool}' not found in plugin '{job.plugin_id}'"
+                )
+                db.commit()
+                return False
+
+            # Validate tool supports job_type
+            # inputs can be a list (legacy canonicalized) or dict (new format with parameter names)
+            tool_inputs = tool_def.get("inputs", [])
+            input_type_list = []
+
+            if isinstance(tool_inputs, list):
+                # Legacy format: ["image_bytes", "video_path"]
+                input_type_list = tool_inputs
+            elif isinstance(tool_inputs, dict):
+                # New format: {"image_base64": "string", "video_path": "string"}
+                input_type_list = list(tool_inputs.keys())
+
+            if job.job_type == "video":
+                if not any(i in input_type_list for i in ("video", "video_path")):
+                    job.status = JobStatus.failed
+                    job.error_message = (
+                        f"Tool '{job.tool}' does not support video input"
+                    )
+                    db.commit()
+                    return False
+            elif job.job_type == "image":
+                if not any(
+                    i in input_type_list for i in ("image_bytes", "image_base64")
+                ):
+                    job.status = JobStatus.failed
+                    job.error_message = (
+                        f"Tool '{job.tool}' does not support image input"
+                    )
+                    db.commit()
+                    return False
+            else:
+                job.status = JobStatus.failed
+                job.error_message = f"Unknown job_type: {job.job_type}"
+                db.commit()
+                return False
+
+            # Branch by job_type to prepare arguments
+            args: Dict[str, Any] = {}
+
+            if job.job_type == "video":
+                # Load video file from storage
+                video_path = self._storage.load_file(job.input_path)
+                args = {"video_path": str(video_path)}
+                logger.info("Job %s: loaded video file %s", job.job_id, video_path)
+            elif job.job_type == "image":
+                # Load image file from storage
+                image_path = self._storage.load_file(job.input_path)
+                with open(image_path, "rb") as f:
+                    image_bytes = f.read()
+
+                # Determine parameter name from manifest
+                # Use image_base64 if manifest specifies it, otherwise fall back to image_bytes
+                if "image_base64" in input_type_list:
+                    import base64
+
+                    image_base64 = base64.b64encode(image_bytes).decode("utf-8")
+                    args = {"image_base64": image_base64}
+                    # Add default values for optional parameters if not specified
+                    if "language" in input_type_list:
+                        args["language"] = "eng"
+                    if "psm" in input_type_list:
+                        args["psm"] = 6
+                else:
+                    args = {"image_bytes": image_bytes}
+                logger.info("Job %s: loaded image file %s", job.job_id, image_path)
+            else:
+                # Should never reach here due to validation above
+                job.status = JobStatus.failed
+                job.error_message = f"Unknown job_type: {job.job_type}"
+                db.commit()
+                return False
+
+            # Execute tool via plugin_service (includes sandbox and error handling)
+            result = plugin_service.run_plugin_tool(job.plugin_id, job.tool, args)
+            logger.info("Job %s: tool executed successfully", job.job_id)
+
+            # Prepare JSON output with unified storage path
+            output_data = {"results": result}
             output_json = json.dumps(output_data)
             output_bytes = BytesIO(output_json.encode())
 
-            # Save results to storage
+            # Save results to storage with job_type subdirectory
             output_path = self._storage.save_file(
                 output_bytes,
-                f"output/{job.job_id}.json",
+                f"{job.job_type}/output/{job.job_id}.json",
             )
             logger.info("Job %s: saved results to %s", job.job_id, output_path)
 

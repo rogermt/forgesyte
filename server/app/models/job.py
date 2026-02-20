@@ -44,6 +44,9 @@ class Job(Base):
     input_path = Column(String, nullable=False)
     output_path = Column(String, nullable=True)
 
+    # Job type: "image" or "video" (v0.9.2 unified job system)
+    job_type = Column(String, nullable=False)
+
     error_message = Column(String, nullable=True)
 
     created_at = Column(

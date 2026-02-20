@@ -144,6 +144,7 @@ export class ForgeSyteAPIClient {
     }
 
     async getJob(jobId: string): Promise<Job> {
+        // v0.9.2: Use unified /v1/jobs/{id} endpoint for both image and video jobs
         const result = (await this.fetch(`/jobs/${jobId}`)) as Record<
             string,
             unknown
@@ -268,6 +269,50 @@ export class ForgeSyteAPIClient {
         return response.json() as Promise<Record<string, unknown>>;
     }
 
+    // v0.9.2: Image job submission using unified job system
+    async submitImage(
+        file: File,
+        pluginId: string,
+        tool: string,
+        onProgress?: (percent: number) => void
+    ): Promise<{ job_id: string }> {
+        return new Promise((resolve, reject) => {
+            const xhr = new XMLHttpRequest();
+            const url = new URL(`${this.baseUrl}/image/submit`, window.location.origin);
+            url.searchParams.append("plugin_id", pluginId);
+            url.searchParams.append("tool", tool);
+            xhr.open("POST", url.toString());
+
+            if (this.apiKey) {
+                xhr.setRequestHeader("X-API-Key", this.apiKey);
+            }
+
+            xhr.upload.onprogress = (event) => {
+                if (!onProgress || !event.lengthComputable) return;
+                const percent = (event.loaded / event.total) * 100;
+                onProgress(percent);
+            };
+
+            xhr.onload = () => {
+                if (xhr.status >= 200 && xhr.status < 300) {
+                    try {
+                        resolve(JSON.parse(xhr.responseText));
+                    } catch (e) {
+                        reject(new Error("Invalid server response."));
+                    }
+                } else {
+                    reject(new Error(`Upload failed with status ${xhr.status}.`));
+                }
+            };
+
+            xhr.onerror = () => reject(new Error("Network error during upload."));
+
+            const formData = new FormData();
+            formData.append("file", file);
+            xhr.send(formData);
+        });
+    }
+
     // Video job submission
     async submitVideo(
         file: File,
@@ -363,3 +408,23 @@ export class ForgeSyteAPIClient {
 
 export const apiClient = new ForgeSyteAPIClient();
 export default apiClient;
+
+// v0.9.2: Utility function to filter tools by input type
+export function filterToolsByInputType(
+    tools: Array<{ id: string; inputs?: string[]; input_types?: string[] }>,
+    inputType: "image" | "video"
+): Array<{ id: string; inputs?: string[]; input_types?: string[] }> {
+    return tools.filter((tool) => {
+        const inputs = tool.inputs || tool.input_types || [];
+        if (inputType === "image") {
+            return inputs.some((i) =>
+                i === "image_bytes" || i === "image_base64" || i === "image"
+            );
+        } else if (inputType === "video") {
+            return inputs.some((i) =>
+                i === "video_path" || i === "video"
+            );
+        }
+        return false;
+    });
+}

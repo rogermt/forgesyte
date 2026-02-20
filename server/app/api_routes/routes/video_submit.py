@@ -51,7 +51,7 @@ async def submit_video(
 
     # Create job record
     job_id = str(uuid4())
-    input_path = f"{job_id}.mp4"
+    input_path = f"video/input/{job_id}.mp4"
 
     # Save file to storage
     storage.save_file(src=BytesIO(contents), dest_path=input_path)
@@ -65,6 +65,7 @@ async def submit_video(
             plugin_id=plugin_id,
             tool=tool,
             input_path=input_path,
+            job_type="video",
         )
         db.add(job)
         db.commit()

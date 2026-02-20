@@ -5,9 +5,9 @@ from typing import BinaryIO
 
 from app.services.storage.base import StorageService
 
-# Absolute path to data/video_jobs directory
+# Absolute path to data/jobs directory (v0.9.2 unified storage)
 # __file__ is .../server/app/services/storage/local_storage.py
-BASE_DIR = Path(__file__).resolve().parent.parent.parent.parent / "data" / "video_jobs"
+BASE_DIR = Path(__file__).resolve().parent.parent.parent.parent / "data" / "jobs"
 
 
 class LocalStorageService(StorageService):

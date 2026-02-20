@@ -38,12 +38,12 @@ def test_worker_run_once_marks_job_running(test_engine, session):
     Session = sessionmaker(bind=test_engine)
 
     mock_storage = MagicMock()
-    mock_pipeline_service = MagicMock()
+    mock_plugin_service = MagicMock()
 
     worker = JobWorker(
         session_factory=Session,
         storage=mock_storage,
-        pipeline_service=mock_pipeline_service,
+        plugin_service=mock_plugin_service,
     )
 
     # Create a pending job in the database
@@ -53,15 +53,19 @@ def test_worker_run_once_marks_job_running(test_engine, session):
         status=JobStatus.pending,
         plugin_id="test_plugin",
         tool="test_tool",
-        input_path="test.mp4",
+        input_path="video/input/test.mp4",
+        job_type="video",
     )
     session.add(job)
     session.commit()
 
     # Setup mock behaviors
-    mock_storage.load_file.return_value = "/data/video_jobs/test.mp4"
-    mock_storage.save_file.return_value = "output/test.json"
-    mock_pipeline_service.run_on_file.return_value = []
+    mock_storage.load_file.return_value = "/data/jobs/video/input/test.mp4"
+    mock_storage.save_file.return_value = "video/output/test.json"
+    mock_plugin_service.get_plugin_manifest.return_value = {
+        "tools": [{"id": "test_tool", "inputs": ["video_path"]}]
+    }
+    mock_plugin_service.run_plugin_tool.return_value = []
 
     # Run worker
     result = worker.run_once()
@@ -89,6 +93,7 @@ def test_worker_run_once_no_matching_job(test_engine, session):
         plugin_id="test_plugin",
         tool="test_tool",
         input_path="test.mp4",
+        job_type="video",
     )
     session.add(job)
     session.commit()
@@ -105,12 +110,12 @@ def test_worker_multiple_run_once_calls(test_engine, session):
     Session = sessionmaker(bind=test_engine)
 
     mock_storage = MagicMock()
-    mock_pipeline_service = MagicMock()
+    mock_plugin_service = MagicMock()
 
     worker = JobWorker(
         session_factory=Session,
         storage=mock_storage,
-        pipeline_service=mock_pipeline_service,
+        plugin_service=mock_plugin_service,
     )
 
     # Create multiple pending jobs
@@ -121,15 +126,19 @@ def test_worker_multiple_run_once_calls(test_engine, session):
             status=JobStatus.pending,
             plugin_id="test_plugin",
             tool="test_tool",
-            input_path="test.mp4",
+            input_path="video/input/test.mp4",
+            job_type="video",
         )
         session.add(job)
     session.commit()
 
     # Setup mock behaviors
-    mock_storage.load_file.return_value = "/data/video_jobs/test.mp4"
-    mock_storage.save_file.return_value = "output/test.json"
-    mock_pipeline_service.run_on_file.return_value = []
+    mock_storage.load_file.return_value = "/data/jobs/video/input/test.mp4"
+    mock_storage.save_file.return_value = "video/output/test.json"
+    mock_plugin_service.get_plugin_manifest.return_value = {
+        "tools": [{"id": "test_tool", "inputs": ["video_path"]}]
+    }
+    mock_plugin_service.run_plugin_tool.return_value = []
 
     # Process all jobs
     for _ in range(3):
@@ -155,12 +164,12 @@ def test_worker_run_once_executes_pipeline(test_engine, session):
     Session = sessionmaker(bind=test_engine)
 
     mock_storage = MagicMock()
-    mock_pipeline_service = MagicMock()
+    mock_plugin_service = MagicMock()
 
     worker = JobWorker(
         session_factory=Session,
         storage=mock_storage,
-        pipeline_service=mock_pipeline_service,
+        plugin_service=mock_plugin_service,
     )
 
     # Create pending job
@@ -170,15 +179,19 @@ def test_worker_run_once_executes_pipeline(test_engine, session):
         status=JobStatus.pending,
         plugin_id="test_plugin",
         tool="test_tool",
-        input_path="input/test.mp4",
+        input_path="video/input/test.mp4",
+        job_type="video",
     )
     session.add(job)
     session.commit()
 
     # Setup mock behaviors
-    mock_storage.load_file.return_value = "/data/video_jobs/input/test.mp4"
-    mock_storage.save_file.return_value = "output/test.json"
-    mock_pipeline_service.run_on_file.return_value = [
+    mock_storage.load_file.return_value = "/data/jobs/video/input/test.mp4"
+    mock_storage.save_file.return_value = "video/output/test.json"
+    mock_plugin_service.get_plugin_manifest.return_value = {
+        "tools": [{"id": "test_tool", "inputs": ["video_path"]}]
+    }
+    mock_plugin_service.run_plugin_tool.return_value = [
         {"frame_index": 0, "result": {"detections": []}},
         {"frame_index": 1, "result": {"detections": []}},
     ]
@@ -187,11 +200,11 @@ def test_worker_run_once_executes_pipeline(test_engine, session):
     result = worker.run_once()
 
     assert result is True
-    # Verify pipeline was called with correct args
-    mock_pipeline_service.run_on_file.assert_called_once_with(
-        "/data/video_jobs/input/test.mp4",
+    # Verify plugin service was called with correct args
+    mock_plugin_service.run_plugin_tool.assert_called_once_with(
         "test_plugin",
-        ["test_tool"],
+        "test_tool",
+        {"video_path": "/data/jobs/video/input/test.mp4"},
     )
 
 
@@ -201,12 +214,12 @@ def test_worker_run_once_saves_results_to_storage(test_engine, session):
     Session = sessionmaker(bind=test_engine)
 
     mock_storage = MagicMock()
-    mock_pipeline_service = MagicMock()
+    mock_plugin_service = MagicMock()
 
     worker = JobWorker(
         session_factory=Session,
         storage=mock_storage,
-        pipeline_service=mock_pipeline_service,
+        plugin_service=mock_plugin_service,
     )
 
     # Create pending job
@@ -216,7 +229,8 @@ def test_worker_run_once_saves_results_to_storage(test_engine, session):
         status=JobStatus.pending,
         plugin_id="test_plugin",
         tool="test_tool",
-        input_path="input/test.mp4",
+        input_path="video/input/test.mp4",
+        job_type="video",
     )
     session.add(job)
     session.commit()
@@ -225,9 +239,12 @@ def test_worker_run_once_saves_results_to_storage(test_engine, session):
     test_results = [
         {"frame_index": 0, "result": {"detections": [{"id": 1}]}},
     ]
-    mock_storage.load_file.return_value = "/data/video_jobs/input/test.mp4"
-    mock_storage.save_file.return_value = "output/test.json"
-    mock_pipeline_service.run_on_file.return_value = test_results
+    mock_storage.load_file.return_value = "/data/jobs/video/input/test.mp4"
+    mock_storage.save_file.return_value = "video/output/test.json"
+    mock_plugin_service.get_plugin_manifest.return_value = {
+        "tools": [{"id": "test_tool", "inputs": ["video_path"]}]
+    }
+    mock_plugin_service.run_plugin_tool.return_value = test_results
 
     # Execute
     result = worker.run_once()
@@ -253,12 +270,12 @@ def test_worker_run_once_updates_job_completed(test_engine, session):
     Session = sessionmaker(bind=test_engine)
 
     mock_storage = MagicMock()
-    mock_pipeline_service = MagicMock()
+    mock_plugin_service = MagicMock()
 
     worker = JobWorker(
         session_factory=Session,
         storage=mock_storage,
-        pipeline_service=mock_pipeline_service,
+        plugin_service=mock_plugin_service,
     )
 
     # Create pending job
@@ -268,15 +285,19 @@ def test_worker_run_once_updates_job_completed(test_engine, session):
         status=JobStatus.pending,
         plugin_id="test_plugin",
         tool="test_tool",
-        input_path="input/test.mp4",
+        input_path="video/input/test.mp4",
+        job_type="video",
     )
     session.add(job)
     session.commit()
 
     # Setup mock behaviors
-    mock_storage.load_file.return_value = "/data/video_jobs/input/test.mp4"
-    mock_storage.save_file.return_value = "output/test.json"
-    mock_pipeline_service.run_on_file.return_value = [
+    mock_storage.load_file.return_value = "/data/jobs/video/input/test.mp4"
+    mock_storage.save_file.return_value = "video/output/test.json"
+    mock_plugin_service.get_plugin_manifest.return_value = {
+        "tools": [{"id": "test_tool", "inputs": ["video_path"]}]
+    }
+    mock_plugin_service.run_plugin_tool.return_value = [
         {"frame_index": 0, "result": {"detections": []}},
     ]
 
@@ -288,7 +309,7 @@ def test_worker_run_once_updates_job_completed(test_engine, session):
     session.expire_all()
     updated_job = session.query(Job).filter(Job.job_id == job_id).first()
     assert updated_job.status == JobStatus.completed
-    assert updated_job.output_path == "output/test.json"
+    assert updated_job.output_path == "video/output/test.json"
     assert updated_job.error_message is None
 
 
@@ -298,53 +319,12 @@ def test_worker_run_once_handles_pipeline_error(test_engine, session):
     Session = sessionmaker(bind=test_engine)
 
     mock_storage = MagicMock()
-    mock_pipeline_service = MagicMock()
+    mock_plugin_service = MagicMock()
 
     worker = JobWorker(
         session_factory=Session,
         storage=mock_storage,
-        pipeline_service=mock_pipeline_service,
-    )
-
-    # Create pending job
-    job_id = str(uuid4())
-    job = Job(
-        job_id=job_id,
-        status=JobStatus.pending,
-        plugin_id="nonexistent_plugin",
-        tool="test_tool",
-        input_path="input/test.mp4",
-    )
-    session.add(job)
-    session.commit()
-
-    # Setup mock to raise error
-    mock_storage.load_file.return_value = "/data/video_jobs/input/test.mp4"
-    mock_pipeline_service.run_on_file.side_effect = ValueError("Plugin not found")
-
-    # Execute
-    result = worker.run_once()
-
-    assert result is False
-    # Verify job is now FAILED with error_message
-    session.expire_all()
-    updated_job = session.query(Job).filter(Job.job_id == job_id).first()
-    assert updated_job.status == JobStatus.failed
-    assert "Plugin not found" in updated_job.error_message
-
-
-@pytest.mark.unit
-def test_worker_run_once_handles_storage_error(test_engine, session):
-    """Test run_once marks job as failed on storage error."""
-    Session = sessionmaker(bind=test_engine)
-
-    mock_storage = MagicMock()
-    mock_pipeline_service = MagicMock()
-
-    worker = JobWorker(
-        session_factory=Session,
-        storage=mock_storage,
-        pipeline_service=mock_pipeline_service,
+        plugin_service=mock_plugin_service,
     )
 
     # Create pending job
@@ -354,13 +334,62 @@ def test_worker_run_once_handles_storage_error(test_engine, session):
         status=JobStatus.pending,
         plugin_id="test_plugin",
         tool="test_tool",
-        input_path="input/missing.mp4",
+        input_path="video/input/test.mp4",
+        job_type="video",
+    )
+    session.add(job)
+    session.commit()
+
+    # Setup mock to raise error
+    mock_storage.load_file.return_value = "/data/jobs/video/input/test.mp4"
+    mock_plugin_service.get_plugin_manifest.return_value = {
+        "tools": [{"id": "test_tool", "inputs": ["video_path"]}]
+    }
+    mock_plugin_service.run_plugin_tool.side_effect = ValueError("Plugin error")
+
+    # Execute
+    result = worker.run_once()
+
+    assert result is False
+    # Verify job is now FAILED with error_message
+    session.expire_all()
+    updated_job = session.query(Job).filter(Job.job_id == job_id).first()
+    assert updated_job.status == JobStatus.failed
+    assert "Plugin error" in updated_job.error_message
+
+
+@pytest.mark.unit
+def test_worker_run_once_handles_storage_error(test_engine, session):
+    """Test run_once marks job as failed on storage error."""
+    Session = sessionmaker(bind=test_engine)
+
+    mock_storage = MagicMock()
+    mock_plugin_service = MagicMock()
+
+    worker = JobWorker(
+        session_factory=Session,
+        storage=mock_storage,
+        plugin_service=mock_plugin_service,
+    )
+
+    # Create pending job
+    job_id = str(uuid4())
+    job = Job(
+        job_id=job_id,
+        status=JobStatus.pending,
+        plugin_id="test_plugin",
+        tool="test_tool",
+        input_path="video/input/missing.mp4",
+        job_type="video",
     )
     session.add(job)
     session.commit()
 
     # Setup mock to raise file not found
     mock_storage.load_file.side_effect = FileNotFoundError("File not found")
+    mock_plugin_service.get_plugin_manifest.return_value = {
+        "tools": [{"id": "test_tool", "inputs": ["video_path"]}]
+    }
 
     # Execute
     result = worker.run_once()

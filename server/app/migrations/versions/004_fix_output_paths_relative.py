@@ -48,15 +48,15 @@ def upgrade():
 
         if needs_update:
             conn.execute(
-                sa.text(
-                    "UPDATE jobs SET output_path = :rel WHERE job_id = :id"
-                ),
+                sa.text("UPDATE jobs SET output_path = :rel WHERE job_id = :id"),
                 {"rel": relative_path, "id": job_id},
             )
             updated_count += 1
 
     if updated_count > 0:
-        op.execute("UPDATE jobs SET updated_at = datetime('now') WHERE output_path IS NOT NULL")
+        op.execute(
+            "UPDATE jobs SET updated_at = datetime('now') WHERE output_path IS NOT NULL"
+        )
 
 
 def downgrade():
