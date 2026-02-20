@@ -37,13 +37,14 @@ class Job(Base):
         default=JobStatus.pending,
     )
 
-    pipeline_id = Column(String, nullable=False)
+    # Plugin and tool selection (replaces pipeline_id + tools)
+    plugin_id = Column(String, nullable=False)
+    tool = Column(String, nullable=False)
 
     input_path = Column(String, nullable=False)
     output_path = Column(String, nullable=True)
 
     error_message = Column(String, nullable=True)
-    tools = Column(String, nullable=True)  # JSON string of tool names
 
     created_at = Column(
         DateTime,

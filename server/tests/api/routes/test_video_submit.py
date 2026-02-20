@@ -19,7 +19,7 @@ def test_submit_video_success(session):
     response = client.post(
         "/v1/video/submit",
         files={"file": ("test.mp4", BytesIO(mp4_data))},
-        params={"pipeline_id": "yolo_ocr"},
+        params={"plugin_id": "yolo-tracker", "tool": "video_track"},
     )
 
     assert response.status_code == 200
@@ -37,15 +37,15 @@ def test_submit_video_invalid_mp4():
     response = client.post(
         "/v1/video/submit",
         files={"file": ("test.mp4", BytesIO(invalid_data))},
-        params={"pipeline_id": "yolo_ocr"},
+        params={"plugin_id": "yolo-tracker", "tool": "video_track"},
     )
 
     assert response.status_code == 400
 
 
 @pytest.mark.unit
-def test_submit_video_missing_pipeline():
-    """Test submission without pipeline_id uses default 'ocr_only'."""
+def test_submit_video_missing_plugin_id():
+    """Test submission without plugin_id returns 422."""
     client = TestClient(app)
 
     mp4_data = b"ftypmp42" + b"\x00" * 100
@@ -55,6 +55,5 @@ def test_submit_video_missing_pipeline():
         files={"file": ("test.mp4", BytesIO(mp4_data))},
     )
 
-    # Should succeed with default pipeline_id
-    assert response.status_code == 200
-    assert "job_id" in response.json()
+    # Should fail because plugin_id is required
+    assert response.status_code == 422
