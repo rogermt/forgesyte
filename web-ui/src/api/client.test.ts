@@ -342,7 +342,7 @@ describe("ForgeSyteAPIClient", () => {
 
     describe("Video API methods", () => {
         describe("submitVideo", () => {
-            it("should submit video with default pipeline", async () => {
+            it("should submit video with plugin_id and tool", async () => {
                 const mockFile = new File(["test"], "test.mp4", {
                     type: "video/mp4",
                 });
@@ -372,49 +372,12 @@ describe("ForgeSyteAPIClient", () => {
 
                 (global as unknown as { XMLHttpRequest: typeof MockXMLHttpRequest }).XMLHttpRequest = MockXMLHttpRequest;
 
-                const result = await (client as unknown as ForgeSyteAPIClient & { submitVideo: (file: File, pipelineId?: string, onProgress?: (percent: number) => void) => Promise<{ job_id: string }> }).submitVideo(mockFile);
+                const result = await (client as unknown as ForgeSyteAPIClient & { submitVideo: (file: File, pluginId: string, tool: string, onProgress?: (percent: number) => void) => Promise<{ job_id: string }> }).submitVideo(mockFile, "ocr", "extract_text");
 
                 expect(result).toEqual(mockResult);
                 expect(mockXHRInstances[0]?.open).toHaveBeenCalledWith(
                     "POST",
-                    expect.stringContaining("/video/submit?pipeline_id=ocr_only")
-                );
-            });
-
-            it("should submit video with explicit pipeline", async () => {
-                const mockFile = new File(["test"], "test.mp4", {
-                    type: "video/mp4",
-                });
-                const mockResult = { job_id: "video-job-456" };
-
-                const mockXHRInstances: MockXMLHttpRequest[] = [];
-
-                class MockXMLHttpRequest {
-                    open = vi.fn();
-                    send = vi.fn();
-                    setRequestHeader = vi.fn();
-                    upload = { onprogress: null as null };
-                    onload: (() => void) | null = null;
-                    onerror: (() => void) | null = null;
-                    status = 200;
-                    responseText = JSON.stringify(mockResult);
-
-                    constructor() {
-                        mockXHRInstances.push(this);
-                        setTimeout(() => {
-                            if (this.onload) this.onload();
-                        }, 0);
-                    }
-                }
-
-                (global as unknown as { XMLHttpRequest: typeof MockXMLHttpRequest }).XMLHttpRequest = MockXMLHttpRequest;
-
-                const result = await (client as unknown as ForgeSyteAPIClient & { submitVideo: (file: File, pipelineId?: string, onProgress?: (percent: number) => void) => Promise<{ job_id: string }> }).submitVideo(mockFile, "yolo_ocr");
-
-                expect(result).toEqual(mockResult);
-                expect(mockXHRInstances[0]?.open).toHaveBeenCalledWith(
-                    "POST",
-                    expect.stringContaining("/video/submit?pipeline_id=yolo_ocr")
+                    expect.stringContaining("/video/submit?plugin_id=ocr&tool=extract_text")
                 );
             });
 
@@ -449,7 +412,7 @@ describe("ForgeSyteAPIClient", () => {
 
                 (global as unknown as { XMLHttpRequest: typeof MockXMLHttpRequest }).XMLHttpRequest = MockXMLHttpRequest;
 
-                await (client as unknown as ForgeSyteAPIClient & { submitVideo: (file: File, pipelineId?: string, onProgress?: (percent: number) => void) => Promise<{ job_id: string }> }).submitVideo(mockFile, "ocr_only", progressCallback);
+                await (client as unknown as ForgeSyteAPIClient & { submitVideo: (file: File, pluginId: string, tool: string, onProgress?: (percent: number) => void) => Promise<{ job_id: string }> }).submitVideo(mockFile, "ocr", "extract_text", progressCallback);
 
                 expect(progressCallback).toHaveBeenCalledWith(50);
                 expect(progressCallback).toHaveBeenCalledWith(100);

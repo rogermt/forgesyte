@@ -271,13 +271,15 @@ export class ForgeSyteAPIClient {
     // Video job submission
     async submitVideo(
         file: File,
-        pipelineId: string = "ocr_only",
+        pluginId: string,
+        tool: string,
         onProgress?: (percent: number) => void
     ): Promise<{ job_id: string }> {
         return new Promise((resolve, reject) => {
             const xhr = new XMLHttpRequest();
             const url = new URL(`${this.baseUrl}/video/submit`, window.location.origin);
-            url.searchParams.append("pipeline_id", pipelineId);
+            url.searchParams.append("plugin_id", pluginId);
+            url.searchParams.append("tool", tool);
             xhr.open("POST", url.toString());
 
             if (this.apiKey) {

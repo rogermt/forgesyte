@@ -38,12 +38,12 @@ describe("VideoUpload", () => {
     });
 
     it("renders without errors", () => {
-        render(<VideoUpload />);
+        render(<VideoUpload pluginId={null} selectedTools={[]} />);
         expect(screen.getByText("Video Upload")).toBeInTheDocument();
     });
 
     it("accepts MP4 files", () => {
-        render(<VideoUpload />);
+        render(<VideoUpload pluginId="ocr" selectedTools={["extract_text"]} />);
 
         const fileInput = screen.getByLabelText(/upload/i) as HTMLInputElement;
         const file = new File(["test"], "test.mp4", { type: "video/mp4" });
@@ -55,7 +55,7 @@ describe("VideoUpload", () => {
     });
 
     it("rejects non-MP4 files", () => {
-        render(<VideoUpload />);
+        render(<VideoUpload pluginId="ocr" selectedTools={["extract_text"]} />);
 
         const fileInput = screen.getByLabelText(/upload/i) as HTMLInputElement;
         const file = new File(["test"], "test.jpg", { type: "image/jpeg" });
@@ -66,7 +66,31 @@ describe("VideoUpload", () => {
     });
 
     it("disables upload button when no file selected", () => {
-        render(<VideoUpload />);
+        render(<VideoUpload pluginId="ocr" selectedTools={["extract_text"]} />);
+
+        const uploadButton = screen.getByText("Upload");
+        expect(uploadButton).toBeDisabled();
+    });
+
+    it("disables upload button when no plugin selected", () => {
+        render(<VideoUpload pluginId={null} selectedTools={[]} />);
+
+        const fileInput = screen.getByLabelText(/upload/i) as HTMLInputElement;
+        const file = new File(["test"], "test.mp4", { type: "video/mp4" });
+
+        fireEvent.change(fileInput, { target: { files: [file] } });
+
+        const uploadButton = screen.getByText("Upload");
+        expect(uploadButton).toBeDisabled();
+    });
+
+    it("disables upload button when no tool selected", () => {
+        render(<VideoUpload pluginId="ocr" selectedTools={[]} />);
+
+        const fileInput = screen.getByLabelText(/upload/i) as HTMLInputElement;
+        const file = new File(["test"], "test.mp4", { type: "video/mp4" });
+
+        fireEvent.change(fileInput, { target: { files: [file] } });
 
         const uploadButton = screen.getByText("Upload");
         expect(uploadButton).toBeDisabled();
@@ -77,7 +101,7 @@ describe("VideoUpload", () => {
             () => new Promise(() => {}) // Never resolves
         );
 
-        render(<VideoUpload />);
+        render(<VideoUpload pluginId="ocr" selectedTools={["extract_text"]} />);
 
         const fileInput = screen.getByLabelText(/upload/i) as HTMLInputElement;
         const file = new File(["test"], "test.mp4", { type: "video/mp4" });
@@ -97,7 +121,7 @@ describe("VideoUpload", () => {
         let resolveUpload: ((value: { job_id: string }) => void) | null = null;
 
         (apiClient.submitVideo as ReturnType<typeof vi.fn>).mockImplementation(
-            (_file: File, _pipelineId: string, onProgress?: (percent: number) => void) => {
+            (_file: File, _pluginId: string, _tool: string, onProgress?: (percent: number) => void) => {
                 progressCallback = onProgress || null;
                 return new Promise((resolve) => {
                     resolveUpload = resolve;
@@ -105,7 +129,7 @@ describe("VideoUpload", () => {
             }
         );
 
-        render(<VideoUpload />);
+        render(<VideoUpload pluginId="ocr" selectedTools={["extract_text"]} />);
 
         const fileInput = screen.getByLabelText(/upload/i) as HTMLInputElement;
         const file = new File(["test"], "test.mp4", { type: "video/mp4" });
@@ -135,7 +159,7 @@ describe("VideoUpload", () => {
             job_id: "test-job-123",
         });
 
-        render(<VideoUpload />);
+        render(<VideoUpload pluginId="ocr" selectedTools={["extract_text"]} />);
 
         const fileInput = screen.getByLabelText(/upload/i) as HTMLInputElement;
         const file = new File(["test"], "test.mp4", { type: "video/mp4" });
@@ -155,7 +179,7 @@ describe("VideoUpload", () => {
             new Error("Upload failed")
         );
 
-        render(<VideoUpload />);
+        render(<VideoUpload pluginId="ocr" selectedTools={["extract_text"]} />);
 
         const fileInput = screen.getByLabelText(/upload/i) as HTMLInputElement;
         const file = new File(["test"], "test.mp4", { type: "video/mp4" });
@@ -175,7 +199,7 @@ describe("VideoUpload", () => {
             new Error("Upload failed")
         );
 
-        render(<VideoUpload />);
+        render(<VideoUpload pluginId="ocr" selectedTools={["extract_text"]} />);
 
         const fileInput = screen.getByLabelText(/upload/i) as HTMLInputElement;
         const file1 = new File(["test1"], "test1.mp4", { type: "video/mp4" });
@@ -201,7 +225,7 @@ describe("VideoUpload", () => {
             job_id: "test-job-123",
         });
 
-        render(<VideoUpload />);
+        render(<VideoUpload pluginId="ocr" selectedTools={["extract_text"]} />);
 
         const fileInput = screen.getByLabelText(/upload/i) as HTMLInputElement;
         const file1 = new File(["test1"], "test1.mp4", { type: "video/mp4" });

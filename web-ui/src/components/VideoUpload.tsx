@@ -2,7 +2,12 @@ import React, { useState } from "react";
 import { apiClient } from "../api/client";
 import { JobStatus } from "./JobStatus";
 
-export const VideoUpload: React.FC = () => {
+interface VideoUploadProps {
+  pluginId: string | null;
+  selectedTools: string[];
+}
+
+export const VideoUpload: React.FC<VideoUploadProps> = ({ pluginId, selectedTools }) => {
   const [file, setFile] = useState<File | null>(null);
   const [jobId, setJobId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -31,6 +36,15 @@ export const VideoUpload: React.FC = () => {
 
   const onUpload = async () => {
     if (!file) return;
+    if (!pluginId) {
+      setError("Please select a plugin first.");
+      return;
+    }
+    if (selectedTools.length === 0) {
+      setError("Please select a tool first.");
+      return;
+    }
+
     setError(null);
     setUploading(true);
     setProgress(0);
@@ -38,7 +52,8 @@ export const VideoUpload: React.FC = () => {
     try {
       const { job_id } = await apiClient.submitVideo(
         file,
-        "ocr_only", // Alpha: Use ocr_only pipeline
+        pluginId,
+        selectedTools[0],
         (p) => setProgress(p)
       );
       setJobId(job_id);
@@ -48,6 +63,8 @@ export const VideoUpload: React.FC = () => {
       setUploading(false);
     }
   };
+
+  const canUpload = file && pluginId && selectedTools.length > 0;
 
   return (
     <div style={{ padding: "20px", maxWidth: "800px", margin: "0 auto" }}>
@@ -66,11 +83,11 @@ export const VideoUpload: React.FC = () => {
 
       <button
         onClick={onUpload}
-        disabled={!file || uploading}
+        disabled={!canUpload || uploading}
         style={{
           marginTop: "10px",
           padding: "10px 20px",
-          cursor: file && !uploading ? "pointer" : "not-allowed",
+          cursor: canUpload && !uploading ? "pointer" : "not-allowed",
         }}
       >
         Upload
