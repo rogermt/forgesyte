@@ -60,7 +60,7 @@ def test_worker_run_once_marks_job_running(test_engine, session):
 
     # Setup mock behaviors
     mock_storage.load_file.return_value = "/data/video_jobs/test.mp4"
-    mock_storage.save_file.return_value = "/data/video_jobs/output/test.json"
+    mock_storage.save_file.return_value = "output/test.json"
     mock_pipeline_service.run_on_file.return_value = []
 
     # Run worker
@@ -128,7 +128,7 @@ def test_worker_multiple_run_once_calls(test_engine, session):
 
     # Setup mock behaviors
     mock_storage.load_file.return_value = "/data/video_jobs/test.mp4"
-    mock_storage.save_file.return_value = "/data/video_jobs/output/test.json"
+    mock_storage.save_file.return_value = "output/test.json"
     mock_pipeline_service.run_on_file.return_value = []
 
     # Process all jobs
@@ -177,7 +177,7 @@ def test_worker_run_once_executes_pipeline(test_engine, session):
 
     # Setup mock behaviors
     mock_storage.load_file.return_value = "/data/video_jobs/input/test.mp4"
-    mock_storage.save_file.return_value = "/data/video_jobs/output/test.json"
+    mock_storage.save_file.return_value = "output/test.json"
     mock_pipeline_service.run_on_file.return_value = [
         {"frame_index": 0, "result": {"detections": []}},
         {"frame_index": 1, "result": {"detections": []}},
@@ -226,7 +226,7 @@ def test_worker_run_once_saves_results_to_storage(test_engine, session):
         {"frame_index": 0, "result": {"detections": [{"id": 1}]}},
     ]
     mock_storage.load_file.return_value = "/data/video_jobs/input/test.mp4"
-    mock_storage.save_file.return_value = "/data/video_jobs/output/test.json"
+    mock_storage.save_file.return_value = "output/test.json"
     mock_pipeline_service.run_on_file.return_value = test_results
 
     # Execute
@@ -275,7 +275,7 @@ def test_worker_run_once_updates_job_completed(test_engine, session):
 
     # Setup mock behaviors
     mock_storage.load_file.return_value = "/data/video_jobs/input/test.mp4"
-    mock_storage.save_file.return_value = "/data/video_jobs/output/test.json"
+    mock_storage.save_file.return_value = "output/test.json"
     mock_pipeline_service.run_on_file.return_value = [
         {"frame_index": 0, "result": {"detections": []}},
     ]
@@ -288,7 +288,7 @@ def test_worker_run_once_updates_job_completed(test_engine, session):
     session.expire_all()
     updated_job = session.query(Job).filter(Job.job_id == job_id).first()
     assert updated_job.status == JobStatus.completed
-    assert updated_job.output_path == "/data/video_jobs/output/test.json"
+    assert updated_job.output_path == "output/test.json"
     assert updated_job.error_message is None
 
 

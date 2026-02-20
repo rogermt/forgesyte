@@ -25,12 +25,12 @@ class TestJobResultsEndpoint:
             json.dump(results_data, f)
 
         # Create completed job with output_path
-        # Worker stores full path from LocalStorageService.save_file()
+        # Worker now stores relative path from LocalStorageService.save_file()
         job = Job(
             plugin_id="yolo-tracker",
             tool="video_track",
             input_path="video_jobs/test.mp4",
-            output_path=str(results_path),
+            output_path=results_file,
             status=JobStatus.completed,
         )
         session.add(job)

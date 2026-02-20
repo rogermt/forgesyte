@@ -56,7 +56,7 @@ def upgrade():
             updated_count += 1
 
     if updated_count > 0:
-        op.execute(f"UPDATE jobs SET updated_at = datetime('now') WHERE output_path IS NOT NULL")
+        op.execute("UPDATE jobs SET updated_at = datetime('now') WHERE output_path IS NOT NULL")
 
 
 def downgrade():
