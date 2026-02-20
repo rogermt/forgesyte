@@ -16,7 +16,7 @@ from app.core.database import init_db  # noqa: E402
 from app.plugin_loader import PluginRegistry  # noqa: E402
 from app.services.storage.local_storage import LocalStorageService  # noqa: E402
 from app.services.video_pipeline_service import VideoPipelineService  # noqa: E402
-from server.app.workers.worker import JobWorker  # noqa: E402
+from app.workers.worker import JobWorker  # noqa: E402
 
 logging.basicConfig(
     level=logging.INFO,
@@ -33,8 +33,6 @@ def run_worker_forever(plugin_manager: PluginRegistry):
         plugin_manager: PluginRegistry instance for plugin access
     """
     logger.info("🚀 Starting JobWorker thread...")
-
-    init_db()
 
     storage = LocalStorageService()
     pipeline_service = VideoPipelineService(plugin_manager)
