@@ -160,8 +160,8 @@ async def submit_image(
     contents = await file.read()
     validate_image_magic_bytes(contents)
 
-    # Create job record
-    job_id = str(uuid4())
+    # Create job record with UUID object (not string)
+    job_id = uuid4()
     input_path = f"image/input/{job_id}_{file.filename}"
 
     # Save file to storage
@@ -171,7 +171,7 @@ async def submit_image(
     db = SessionLocal()
     try:
         job = Job(
-            job_id=job_id,
+            job_id=job_id,  # Pass UUID object, not string
             status=JobStatus.pending,
             plugin_id=plugin_id,
             tool=tool,
@@ -183,4 +183,4 @@ async def submit_image(
     finally:
         db.close()
 
-    return {"job_id": job_id}
+    return {"job_id": str(job_id)}  # Return string in response
