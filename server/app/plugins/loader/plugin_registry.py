@@ -180,6 +180,25 @@ class PluginRegistry:
         finally:
             self._rwlock.release_read()
 
+    def get(self, name: str):
+        """
+        Retrieve the actual plugin instance.
+
+        This replaces accidental fallback to PluginMetadata or plugin classes.
+        Used by image_submit.py, video_submit.py, and other endpoints.
+
+        Raises KeyError if plugin instance not found.
+
+        See: docs/releases/v0.9.3/MISSING_GET_IN_REGISTRY.md
+        """
+        # First try instance
+        instance = self.get_plugin_instance(name)
+        if instance is not None:
+            return instance
+
+        # If no instance exists, plugin is not loaded correctly
+        raise KeyError(f"Plugin instance for '{name}' not found")
+
     def mark_failed(self, name: str, reason: str) -> None:
         """Mark a plugin as FAILED with error reason."""
         with self._rwlock:
