@@ -3,17 +3,20 @@
 Provides GET /v1/jobs/{job_id} endpoint that returns both status and results
 for both image and video jobs, replacing the separate /v1/video/status and
 /v1/video/results endpoints.
+
+v0.9.3: Added GET /v1/jobs list endpoint for job listing with pagination.
 """
 
 import json
+from typing import List
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.models.job import Job, JobStatus
-from app.schemas.job import JobResultsResponse
+from app.schemas.job import JobListItem, JobListResponse, JobResultsResponse
 from app.services.storage.local_storage import LocalStorageService
 
 router = APIRouter()
@@ -35,6 +38,66 @@ def _calculate_progress(status: JobStatus) -> float:
         return 0.5
     else:  # completed or failed
         return 1.0
+
+
+@router.get("/v1/jobs", response_model=JobListResponse)
+async def list_jobs(
+    limit: int = Query(10, ge=1, le=100, description="Maximum number of jobs to return"),
+    skip: int = Query(0, ge=0, description="Number of jobs to skip for pagination"),
+    db: Session = Depends(get_db),
+) -> JobListResponse:
+    """List jobs with pagination.
+
+    Returns a paginated list of jobs ordered by creation date (newest first).
+    Results are only loaded for completed jobs.
+
+    Args:
+        limit: Maximum number of jobs to return (1-100, default 10)
+        skip: Number of jobs to skip for pagination (default 0)
+        db: Database session
+
+    Returns:
+        JobListResponse with jobs array and total count
+    """
+    # Query jobs with pagination
+    query = db.query(Job).order_by(Job.created_at.desc())
+    total_count = query.count()
+    jobs = query.offset(skip).limit(limit).all()
+
+    # Transform jobs to response format
+    job_items: List[JobListItem] = []
+
+    for job in jobs:
+        # Calculate progress
+        progress = _calculate_progress(job.status)
+
+        # Load results only for completed jobs
+        result = None
+        if job.status == JobStatus.completed and job.output_path:
+            try:
+                file_path = storage.load_file(job.output_path)
+                with open(file_path, "r") as f:
+                    result = json.load(f)
+            except (FileNotFoundError, json.JSONDecodeError):
+                result = None
+
+        # Build job item
+        job_items.append(
+            JobListItem(
+                job_id=str(job.job_id),
+                status=job.status.value,  # Issue #212: Use aligned status values
+                plugin=job.plugin_id,
+                created_at=job.created_at,
+                completed_at=job.updated_at
+                if job.status in (JobStatus.completed, JobStatus.failed)
+                else None,
+                result=result,
+                error=job.error_message,
+                progress=progress,
+            )
+        )
+
+    return JobListResponse(jobs=job_items, count=total_count)
 
 
 @router.get("/v1/jobs/{job_id}", response_model=JobResultsResponse)
