@@ -265,6 +265,16 @@ class JobWorker:
             logger.info("Job %s: tool executed successfully", job.job_id)
 
             # Prepare JSON output with unified storage path
+            # Handle Pydantic models (Issue #210): run_plugin_tool may return
+            # a Pydantic model instead of a plain dict, which json.dumps cannot serialize.
+            # Use model_dump() if available, otherwise use the result as-is.
+            if hasattr(result, "model_dump"):
+                # Pydantic v2: use model_dump() for JSON serialization
+                result = result.model_dump()
+            elif hasattr(result, "dict"):
+                # Pydantic v1: use dict() for backward compatibility
+                result = result.dict()
+
             output_data = {"results": result}
             output_json = json.dumps(output_data)
             output_bytes = BytesIO(output_json.encode())
