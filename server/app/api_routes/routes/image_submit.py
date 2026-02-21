@@ -7,7 +7,7 @@ for processing using the new Job model with job_type="image".
 from io import BytesIO
 from uuid import uuid4
 
-from fastapi import APIRouter, HTTPException, Query, UploadFile
+from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile
 
 from app.core.database import SessionLocal
 from app.models.job import Job, JobStatus
@@ -17,8 +17,37 @@ from app.services.storage.local_storage import LocalStorageService
 
 router = APIRouter()
 storage = LocalStorageService()
-plugin_manager = PluginRegistry()
-plugin_service = PluginManagementService(plugin_manager)
+
+
+def get_plugin_manager():
+    """Get plugin manager from app state with loaded plugins.
+
+    This replaces the module-level PluginRegistry() which was empty
+    because it never called load_plugins(). (Issue #209)
+
+    Returns:
+        PluginRegistry with loaded plugins from app state
+    """
+    from app.main import app
+
+    plugin_manager = getattr(app.state, "plugins", None)
+    if not plugin_manager:
+        # Fallback: create and load plugins (for tests without app state)
+        plugin_manager = PluginRegistry()
+        plugin_manager.load_plugins()
+    return plugin_manager
+
+
+def get_plugin_service(plugin_manager=Depends(get_plugin_manager)):
+    """Get plugin service with dependency injection.
+
+    Args:
+        plugin_manager: PluginRegistry from app state
+
+    Returns:
+        PluginManagementService instance
+    """
+    return PluginManagementService(plugin_manager)
 
 
 def validate_image_magic_bytes(data: bytes) -> None:
@@ -49,6 +78,8 @@ async def submit_image(
     file: UploadFile,
     plugin_id: str = Query(..., description="Plugin ID from /v1/plugins"),
     tool: str = Query(..., description="Tool ID from plugin manifest"),
+    plugin_manager=Depends(get_plugin_manager),
+    plugin_service=Depends(get_plugin_service),
 ):
     """Submit an image file for processing.
 
@@ -60,6 +91,8 @@ async def submit_image(
         file: Image file (PNG or JPEG) to process
         plugin_id: ID of the plugin to use (from /v1/plugins)
         tool: ID of the tool to run (from plugin manifest)
+        plugin_manager: PluginRegistry from app state (DI)
+        plugin_service: PluginManagementService instance (DI)
 
     Returns:
         JSON with job_id for polling via /v1/jobs/{job_id}
