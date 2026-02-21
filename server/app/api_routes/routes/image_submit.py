@@ -128,9 +128,18 @@ async def submit_image(
             detail=f"Tool '{tool}' definition not found in plugin '{plugin_id}'",
         )
 
-    # Validate tool supports image input
-    tool_inputs = tool_def.get("input_schema", {}).get("properties", {})
-    if not any(k in tool_inputs for k in ("image_bytes", "image_base64")):
+    # Validate tool supports image input (supports both Pydantic + flat dict schemas)
+    # See: docs/releases/v0.9.3/IMAGE_SUBMIT_400_ROOT_CAUSE.md
+    input_schema = tool_def.get("input_schema") or {}
+
+    # Pydantic-style: {"properties": {...}}
+    if "properties" in input_schema and isinstance(input_schema["properties"], dict):
+        tool_keys = set(input_schema["properties"].keys())
+    else:
+        # Flat dict style: {"image_bytes": {...}, ...}
+        tool_keys = set(input_schema.keys())
+
+    if not any(k in tool_keys for k in ("image_bytes", "image_base64")):
         raise HTTPException(
             status_code=400,
             detail=f"Tool '{tool}' does not support image input",
