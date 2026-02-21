@@ -20,13 +20,36 @@ class MockPlugin:
 
     def __init__(self):
         self.tools = {
-            "echo": {
+            "echo_tool": {
                 "handler": "echo_tool",
                 "description": "Echo tool",
                 "input_schema": {"type": "object"},
                 "output_schema": {"type": "object"},
-            }
+            },
+            "failing_tool": {
+                "handler": "failing_tool",
+                "description": "Failing tool",
+                "input_schema": {"type": "object"},
+                "output_schema": {"type": "object"},
+            },
+            "import_error_tool": {
+                "handler": "import_error_tool",
+                "description": "Import error tool",
+                "input_schema": {"type": "object"},
+                "output_schema": {"type": "object"},
+            },
         }
+
+    def run_tool(self, tool_name: str, args: dict) -> dict:
+        """Dispatch tool by name (BasePlugin contract)."""
+        handlers = {
+            "echo_tool": self.echo_tool,
+            "failing_tool": self.failing_tool,
+            "import_error_tool": self.import_error_tool,
+        }
+        if tool_name not in handlers:
+            raise ValueError(f"Unknown tool: {tool_name}")
+        return handlers[tool_name](**args)
 
     def echo_tool(self, message: str = "") -> dict:
         """Simple echo tool."""

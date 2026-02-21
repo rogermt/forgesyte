@@ -38,9 +38,7 @@ class FakePlugin:
         "extract_text": {
             "handler": "dummy_handler",
             "description": "Extract text from images",
-            "input_schema": {
-                "properties": {"image_bytes": {"type": "string"}}
-            },
+            "input_schema": {"properties": {"image_bytes": {"type": "string"}}},
             "output_schema": {"properties": {"text": {"type": "string"}}},
         },
     }
@@ -62,6 +60,7 @@ def mock_plugin_registry():
 def mock_plugin_service(mock_plugin_registry):
     """Create a mock plugin service."""
     from app.services.plugin_management_service import PluginManagementService
+
     return PluginManagementService(mock_plugin_registry)
 
 
@@ -70,6 +69,7 @@ def test_image_submit_validates_against_plugin_tools(
     session: Session, mock_plugin_service, mock_plugin_registry
 ):
     """Ensure image_submit validates tool against Plugin.tools, not manifest."""
+
     def override_get_plugin_manager():
         return mock_plugin_registry
 
@@ -114,6 +114,7 @@ def test_video_submit_validates_against_plugin_tools(
     session: Session, mock_plugin_service, mock_plugin_registry
 ):
     """Ensure video_submit validates tool against Plugin.tools, not manifest."""
+
     def override_get_plugin_manager():
         return mock_plugin_registry
 

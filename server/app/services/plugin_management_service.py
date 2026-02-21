@@ -368,13 +368,11 @@ class PluginManagementService:
 
         logger.debug(f"Found plugin: {plugin}")
 
-        # 2. Validate tool exists
-        if not hasattr(plugin, tool_name) or not callable(getattr(plugin, tool_name)):
-            available_tools = [
-                attr
-                for attr in dir(plugin)
-                if not attr.startswith("_") and callable(getattr(plugin, attr))
-            ]
+        # 2. Validate tool exists in plugin.tools (canonical source)
+        if not hasattr(plugin, "tools") or tool_name not in plugin.tools:
+            available_tools = (
+                list(plugin.tools.keys()) if hasattr(plugin, "tools") else []
+            )
             raise ValueError(
                 f"Tool '{tool_name}' not found in plugin '{plugin_id}'. "
                 f"Available: {available_tools}"
@@ -385,8 +383,8 @@ class PluginManagementService:
             extra={"plugin_id": plugin_id, "tool_name": tool_name},
         )
 
-        # 3. Get tool function
-        tool_func = getattr(plugin, tool_name)
+        # 3. Get tool function via BasePlugin contract dispatcher
+        tool_func = lambda **kw: plugin.run_tool(tool_name, kw)
 
         # 4. Mark plugin as RUNNING
         registry.mark_running(plugin_id)
