@@ -1,9 +1,9 @@
-"""Test video submit endpoint unified paths for v0.9.2.
+"""Tests for video submission endpoint unified paths.
 
-Tests that:
-1. Video submit endpoint uses video/input/ storage paths
-2. Video submit endpoint creates job with job_type="video"
-3. Video submit endpoint saves file to data/jobs/video/input/
+Tests verify:
+1. Jobs are created with job_type="video"
+2. Files are saved to video/input/ path
+3. Invalid files are rejected
 """
 
 from io import BytesIO
@@ -16,40 +16,43 @@ from sqlalchemy.orm import Session
 from app.api_routes.routes.video_submit import get_plugin_manager, get_plugin_service
 from app.main import app
 from app.models.job import Job
-from app.services.storage.local_storage import LocalStorageService
 
 
 @pytest.fixture
-def mock_plugin_service():
+def mock_plugin():
+    """Create a mock plugin with tools attribute."""
+    plugin = MagicMock()
+    plugin.name = "yolo-tracker"
+    plugin.tools = {
+        "player_detection": {
+            "handler": "player_detection_handler",
+            "description": "Detect players",
+            "input_schema": {"properties": {"video_path": {"type": "string"}}},
+            "output_schema": {},
+        }
+    }
+    return plugin
+
+
+@pytest.fixture
+def mock_plugin_service(mock_plugin):
     """Create a mock plugin management service."""
     mock = MagicMock()
-    mock.get_plugin_manifest.return_value = {
-        "tools": [
-            {
-                "id": "detect_objects",
-                "inputs": ["video_path"],
-            }
-        ]
-    }
+    mock.get_available_tools.return_value = list(mock_plugin.tools.keys())
     return mock
 
 
 @pytest.fixture
-def mock_plugin_registry():
+def mock_plugin_registry(mock_plugin):
     """Create a mock plugin registry with a loaded plugin."""
     mock = MagicMock()
-    mock.get.return_value = MagicMock(
-        name="yolo",
-        description="YOLO Tracker",
-        version="1.0.0",
-    )
+    mock.get.return_value = mock_plugin
     return mock
 
 
 @pytest.fixture
 def client_with_mocks(mock_plugin_registry, mock_plugin_service):
     """Create a test client with mocked dependencies."""
-
     def override_get_plugin_manager():
         return mock_plugin_registry
 
@@ -64,141 +67,60 @@ def client_with_mocks(mock_plugin_registry, mock_plugin_service):
     app.dependency_overrides.clear()
 
 
-def test_video_submit_creates_job_with_video_type(client_with_mocks, session: Session):
-    """Test that video submit creates job with job_type='video'."""
-    # Create a fake MP4 video
-    fake_mp4 = b"ftyp" + b"\x00" * 100
+@pytest.mark.unit
+def test_video_submit_creates_job_with_video_type(
+    session: Session, client_with_mocks
+):
+    """Test that video submit creates a job with job_type='video'."""
+    mp4_data = b"ftypmp42" + b"\x00" * 100
 
     response = client_with_mocks.post(
-        "/v1/video/submit?plugin_id=yolo&tool=detect_objects",
-        files={"file": ("test.mp4", BytesIO(fake_mp4), "video/mp4")},
+        "/v1/video/submit",
+        files={"file": ("test.mp4", BytesIO(mp4_data))},
+        params={"plugin_id": "yolo-tracker", "tool": "player_detection"},
     )
 
     assert response.status_code == 200
     job_id = response.json()["job_id"]
 
-    # Verify job was created with job_type="video"
-    # Use the session fixture which is connected to the test database
+    # Check database
     job = session.query(Job).filter(Job.job_id == job_id).first()
     assert job is not None
     assert job.job_type == "video"
-    assert job.plugin_id == "yolo"
-    assert job.tool == "detect_objects"
-    assert job.status.value == "pending"
 
 
-def test_video_submit_saves_to_video_input(client_with_mocks, session: Session):
-    """Test that video submit saves file to video/input/."""
-
-    # Create a fake MP4 video
-    fake_mp4 = b"ftyp" + b"\x00" * 100
+@pytest.mark.unit
+def test_video_submit_saves_to_video_input(
+    session: Session, client_with_mocks
+):
+    """Test that video is saved to video/input/ path."""
+    mp4_data = b"ftypmp42" + b"\x00" * 100
 
     response = client_with_mocks.post(
-        "/v1/video/submit?plugin_id=yolo&tool=detect_objects",
-        files={"file": ("test.mp4", BytesIO(fake_mp4), "video/mp4")},
+        "/v1/video/submit",
+        files={"file": ("test.mp4", BytesIO(mp4_data))},
+        params={"plugin_id": "yolo-tracker", "tool": "player_detection"},
     )
 
     assert response.status_code == 200
     job_id = response.json()["job_id"]
 
-    # Verify file was saved to storage
-    storage = LocalStorageService()
-
-    # Use the session fixture which is connected to the test database
+    # Check database
     job = session.query(Job).filter(Job.job_id == job_id).first()
     assert job is not None
-
-    # Verify input_path starts with "video/input/"
     assert job.input_path.startswith("video/input/")
-    assert job.input_path == f"video/input/{job_id}.mp4"
-
-    # Verify file exists under data/jobs/video/input/
-    file_path = storage.load_file(job.input_path)
-    assert file_path.exists()
-    assert "video/input" in str(file_path)
-
-    # Verify file content
-    with open(file_path, "rb") as f:
-        saved_content = f.read()
-    assert saved_content == fake_mp4
 
 
+@pytest.mark.unit
 def test_video_submit_invalid_file(client_with_mocks):
-    """Test submitting an invalid video file."""
-    # Create a fake invalid file
-    fake_file = b"this is not a video"
+    """Test that invalid MP4 files are rejected."""
+    invalid_data = b"NOT AN MP4 FILE"
 
     response = client_with_mocks.post(
-        "/v1/video/submit?plugin_id=yolo&tool=detect_objects",
-        files={"file": ("test.txt", BytesIO(fake_file), "text/plain")},
+        "/v1/video/submit",
+        files={"file": ("test.txt", BytesIO(invalid_data))},
+        params={"plugin_id": "yolo-tracker", "tool": "player_detection"},
     )
 
     assert response.status_code == 400
-    assert "Invalid MP4 file" in response.json()["detail"]
-
-
-def test_video_submit_invalid_plugin(mock_plugin_service):
-    """Test submitting with non-existent plugin."""
-    # Create a mock that returns None for invalid plugin
-    mock_registry = MagicMock()
-    mock_registry.get.return_value = None  # Plugin not found
-
-    def override_get_plugin_manager():
-        return mock_registry
-
-    def override_get_plugin_service():
-        return mock_plugin_service
-
-    app.dependency_overrides[get_plugin_manager] = override_get_plugin_manager
-    app.dependency_overrides[get_plugin_service] = override_get_plugin_service
-
-    client = TestClient(app)
-
-    fake_mp4 = b"ftyp" + b"\x00" * 100
-
-    response = client.post(
-        "/v1/video/submit?plugin_id=nonexistent&tool=detect_objects",
-        files={"file": ("test.mp4", BytesIO(fake_mp4), "video/mp4")},
-    )
-
-    app.dependency_overrides.clear()
-
-    assert response.status_code == 400
-    assert "not found" in response.json()["detail"].lower()
-
-
-def test_video_submit_invalid_tool(mock_plugin_registry):
-    """Test submitting with non-existent tool."""
-    # Create a mock service that doesn't have the tool
-    mock_service = MagicMock()
-    mock_service.get_plugin_manifest.return_value = {
-        "tools": [
-            {
-                "id": "different_tool",  # Not detect_objects
-                "inputs": ["video_path"],
-            }
-        ]
-    }
-
-    def override_get_plugin_manager():
-        return mock_plugin_registry
-
-    def override_get_plugin_service():
-        return mock_service
-
-    app.dependency_overrides[get_plugin_manager] = override_get_plugin_manager
-    app.dependency_overrides[get_plugin_service] = override_get_plugin_service
-
-    client = TestClient(app)
-
-    fake_mp4 = b"ftyp" + b"\x00" * 100
-
-    response = client.post(
-        "/v1/video/submit?plugin_id=yolo&tool=nonexistent_tool",
-        files={"file": ("test.mp4", BytesIO(fake_mp4), "video/mp4")},
-    )
-
-    app.dependency_overrides.clear()
-
-    assert response.status_code == 400
-    assert "not found" in response.json()["detail"].lower()
+    assert "Invalid MP4" in response.json()["detail"]

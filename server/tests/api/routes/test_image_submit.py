@@ -2,7 +2,7 @@
 
 Tests verify:
 1. Plugin validation works with properly loaded registry (Issue #209)
-2. Tool validation works correctly
+2. Tool validation uses Plugin.tools (canonical source, not manifest)
 3. Error handling for invalid plugin/tool
 """
 
@@ -11,43 +11,55 @@ from unittest.mock import MagicMock
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy.orm import Session
 
 from app.api_routes.routes.image_submit import get_plugin_manager, get_plugin_service
+from app.main import app
+from app.models.job import Job
 
 
 @pytest.fixture
-def mock_plugin_service():
+def mock_plugin():
+    """Create a mock plugin with tools attribute."""
+    plugin = MagicMock()
+    plugin.name = "ocr"
+    plugin.description = "OCR Plugin"
+    plugin.version = "1.0.0"
+    plugin.tools = {
+        "extract_text": {
+            "handler": "extract_text_handler",
+            "description": "Extract text from images",
+            "input_schema": {
+                "properties": {
+                    "image_bytes": {"type": "string"},
+                    "image_base64": {"type": "string"},
+                }
+            },
+            "output_schema": {"properties": {"text": {"type": "string"}}},
+        }
+    }
+    return plugin
+
+
+@pytest.fixture
+def mock_plugin_service(mock_plugin):
     """Create a mock plugin management service."""
     mock = MagicMock()
-    mock.get_plugin_manifest.return_value = {
-        "tools": [
-            {
-                "id": "extract_text",
-                "inputs": ["image_base64"],
-            }
-        ]
-    }
+    mock.get_available_tools.return_value = list(mock_plugin.tools.keys())
     return mock
 
 
 @pytest.fixture
-def mock_plugin_registry():
+def mock_plugin_registry(mock_plugin):
     """Create a mock plugin registry with a loaded plugin."""
     mock = MagicMock()
-    mock.get.return_value = MagicMock(
-        name="ocr",
-        description="OCR Plugin",
-        version="1.0.0",
-    )
+    mock.get.return_value = mock_plugin
     return mock
 
 
 @pytest.fixture
 def client_with_mocks(mock_plugin_registry, mock_plugin_service):
     """Create a test client with mocked dependencies."""
-    from app.main import app
-
-    # Override the dependency injection
     def override_get_plugin_manager():
         return mock_plugin_registry
 
@@ -59,14 +71,15 @@ def client_with_mocks(mock_plugin_registry, mock_plugin_service):
 
     yield TestClient(app)
 
-    # Clean up
     app.dependency_overrides.clear()
 
 
 class TestImageSubmitPluginValidation:
     """Tests for plugin validation in image submit endpoint."""
 
-    def test_submit_image_with_valid_plugin_and_tool(self, client_with_mocks):
+    def test_submit_image_with_valid_plugin_and_tool(
+        self, session: Session, client_with_mocks
+    ):
         """Test that image submission works with valid plugin and tool."""
         # Create a valid PNG image (1x1 pixel)
         png_data = b"\x89PNG\r\n\x1a\n" + b"\x00" * 100  # PNG magic bytes + padding
@@ -76,25 +89,28 @@ class TestImageSubmitPluginValidation:
             files={"file": ("test.png", BytesIO(png_data), "image/png")},
         )
 
-        # Should succeed (or fail for other reasons like DB, not plugin validation)
-        assert response.status_code in [
-            200,
-            500,
-        ], f"Unexpected status: {response.status_code}, body: {response.text}"
+        # Should succeed
+        assert response.status_code == 200, f"Unexpected status: {response.status_code}, body: {response.text}"
 
-    def test_submit_image_with_invalid_plugin(self, mock_plugin_service):
+        # Verify job was created
+        job_id = response.json()["job_id"]
+        job = session.query(Job).filter(Job.job_id == job_id).first()
+        assert job is not None
+        assert job.plugin_id == "ocr"
+
+    def test_submit_image_with_invalid_plugin(self):
         """Test that image submission fails with invalid plugin."""
-        from app.main import app
-
         # Create a mock that returns None for invalid plugin
         mock_registry = MagicMock()
         mock_registry.get.return_value = None  # Plugin not found
+
+        mock_service = MagicMock()
 
         def override_get_plugin_manager():
             return mock_registry
 
         def override_get_plugin_service():
-            return mock_plugin_service
+            return mock_service
 
         app.dependency_overrides[get_plugin_manager] = override_get_plugin_manager
         app.dependency_overrides[get_plugin_service] = override_get_plugin_service
@@ -113,23 +129,17 @@ class TestImageSubmitPluginValidation:
         assert response.status_code == 400
         assert "not found" in response.json()["detail"].lower()
 
-    def test_submit_image_with_invalid_tool(self, mock_plugin_registry):
+    def test_submit_image_with_invalid_tool(self, mock_plugin):
         """Test that image submission fails with invalid tool."""
-        from app.main import app
+        mock_registry = MagicMock()
+        mock_registry.get.return_value = mock_plugin
 
-        # Create a mock service that doesn't have the tool
+        # Service returns different tools
         mock_service = MagicMock()
-        mock_service.get_plugin_manifest.return_value = {
-            "tools": [
-                {
-                    "id": "different_tool",  # Not extract_text
-                    "inputs": ["image_base64"],
-                }
-            ]
-        }
+        mock_service.get_available_tools.return_value = ["different_tool"]
 
         def override_get_plugin_manager():
-            return mock_plugin_registry
+            return mock_registry
 
         def override_get_plugin_service():
             return mock_service
@@ -155,7 +165,9 @@ class TestImageSubmitPluginValidation:
 class TestImageSubmitValidation:
     """Tests for input validation in image submit endpoint."""
 
-    def test_submit_image_invalid_format(self, client_with_mocks):
+    def test_submit_image_invalid_format(
+        self, session: Session, client_with_mocks
+    ):
         """Test that non-PNG/JPEG files are rejected."""
         # Create a file with invalid magic bytes
         invalid_data = b"INVALID FILE CONTENT"
@@ -168,7 +180,9 @@ class TestImageSubmitValidation:
         assert response.status_code == 400
         assert "invalid" in response.json()["detail"].lower()
 
-    def test_submit_image_valid_jpeg(self, client_with_mocks):
+    def test_submit_image_valid_jpeg(
+        self, session: Session, client_with_mocks
+    ):
         """Test that JPEG files are accepted."""
         # Create a valid JPEG (minimal header)
         jpeg_data = b"\xFF\xD8\xFF" + b"\x00" * 100  # JPEG magic bytes + padding
@@ -178,32 +192,40 @@ class TestImageSubmitValidation:
             files={"file": ("test.jpg", BytesIO(jpeg_data), "image/jpeg")},
         )
 
-        assert response.status_code in [
-            200,
-            500,
-        ], f"Unexpected status: {response.status_code}"
+        assert response.status_code == 200, f"Unexpected status: {response.status_code}"
+
+        # Verify job was created
+        job_id = response.json()["job_id"]
+        job = session.query(Job).filter(Job.job_id == job_id).first()
+        assert job is not None
 
 
 class TestImageSubmitToolInputValidation:
     """Tests for tool input type validation."""
 
-    def test_submit_image_tool_supports_image_bytes(self, mock_plugin_registry):
+    def test_submit_image_tool_supports_image_bytes(self, mock_plugin, session: Session):
         """Test that tools with image_bytes input are accepted."""
-        from app.main import app
+        # Create plugin with image_bytes support
+        plugin = MagicMock()
+        plugin.tools = {
+            "extract_text": {
+                "handler": "extract_text_handler",
+                "description": "Extract text",
+                "input_schema": {
+                    "properties": {"image_bytes": {"type": "string"}}
+                },
+                "output_schema": {},
+            }
+        }
+
+        mock_registry = MagicMock()
+        mock_registry.get.return_value = plugin
 
         mock_service = MagicMock()
-        mock_service.get_plugin_manifest.return_value = {
-            "tools": [
-                {
-                    "id": "extract_text",
-                    "inputs": ["image_bytes"],  # Supports image_bytes
-                }
-            ]
-        }
-        png_data = b"\x89PNG\r\n\x1a\n" + b"\x00" * 100
+        mock_service.get_available_tools.return_value = list(plugin.tools.keys())
 
         def override_get_plugin_manager():
-            return mock_plugin_registry
+            return mock_registry
 
         def override_get_plugin_service():
             return mock_service
@@ -212,6 +234,8 @@ class TestImageSubmitToolInputValidation:
         app.dependency_overrides[get_plugin_service] = override_get_plugin_service
 
         client = TestClient(app)
+
+        png_data = b"\x89PNG\r\n\x1a\n" + b"\x00" * 100
 
         response = client.post(
             "/v1/image/submit?plugin_id=ocr&tool=extract_text",
@@ -220,25 +244,31 @@ class TestImageSubmitToolInputValidation:
 
         app.dependency_overrides.clear()
 
-        assert response.status_code in [200, 500]
+        assert response.status_code == 200
 
-    def test_submit_image_tool_does_not_support_image(self, mock_plugin_registry):
+    def test_submit_image_tool_does_not_support_image(self, mock_plugin):
         """Test that tools without image input are rejected."""
-        from app.main import app
+        # Create plugin with video-only tool
+        plugin = MagicMock()
+        plugin.tools = {
+            "video_only_tool": {
+                "handler": "video_handler",
+                "description": "Video only",
+                "input_schema": {
+                    "properties": {"video_path": {"type": "string"}}  # No image support
+                },
+                "output_schema": {},
+            }
+        }
+
+        mock_registry = MagicMock()
+        mock_registry.get.return_value = plugin
 
         mock_service = MagicMock()
-        mock_service.get_plugin_manifest.return_value = {
-            "tools": [
-                {
-                    "id": "video_only_tool",
-                    "inputs": ["video_path"],  # Only supports video
-                }
-            ]
-        }
-        png_data = b"\x89PNG\r\n\x1a\n" + b"\x00" * 100
+        mock_service.get_available_tools.return_value = list(plugin.tools.keys())
 
         def override_get_plugin_manager():
-            return mock_plugin_registry
+            return mock_registry
 
         def override_get_plugin_service():
             return mock_service
@@ -247,6 +277,8 @@ class TestImageSubmitToolInputValidation:
         app.dependency_overrides[get_plugin_service] = override_get_plugin_service
 
         client = TestClient(app)
+
+        png_data = b"\x89PNG\r\n\x1a\n" + b"\x00" * 100
 
         response = client.post(
             "/v1/image/submit?plugin_id=ocr&tool=video_only_tool",
@@ -264,8 +296,6 @@ class TestImageSubmitDI:
 
     def test_get_plugin_manager_uses_app_state(self):
         """Test that get_plugin_manager uses app.state.plugins when available."""
-        from app.main import app
-
         # Create a mock plugin manager
         mock_manager = MagicMock()
 
@@ -285,8 +315,6 @@ class TestImageSubmitDI:
 
     def test_get_plugin_manager_fallback_loads_plugins(self):
         """Test that get_plugin_manager falls back to loading plugins when app.state.plugins is None."""
-        from app.main import app
-
         # Remove app.state.plugins
         original_plugins = getattr(app.state, "plugins", None)
         if hasattr(app.state, "plugins"):

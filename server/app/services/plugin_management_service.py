@@ -57,6 +57,43 @@ class PluginManagementService:
         self.registry = registry
         logger.debug("PluginManagementService initialized")
 
+    def get_plugin_instance(self, plugin_id: str):
+        """Return the loaded plugin instance.
+
+        Args:
+            plugin_id: Plugin identifier
+
+        Returns:
+            Plugin instance with .tools attribute
+
+        Raises:
+            ValueError: If plugin not found
+        """
+        plugin = self.registry.get(plugin_id)
+        if not plugin:
+            raise ValueError(f"Plugin '{plugin_id}' not found")
+        return plugin
+
+    def get_available_tools(self, plugin_id: str) -> List[str]:
+        """Return the list of tool IDs defined in the plugin class.
+
+        This is the canonical source of truth for tool validation,
+        NOT the manifest.json file.
+
+        Args:
+            plugin_id: Plugin identifier
+
+        Returns:
+            List of tool names available in the plugin
+
+        Raises:
+            ValueError: If plugin not found or has no tools attribute
+        """
+        plugin = self.get_plugin_instance(plugin_id)
+        if not hasattr(plugin, "tools"):
+            raise ValueError(f"Plugin '{plugin_id}' has no tools attribute")
+        return list(plugin.tools.keys())
+
     async def list_plugins(self) -> List[Any]:
         """List all available vision plugins with metadata.
 

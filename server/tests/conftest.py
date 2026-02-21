@@ -665,8 +665,12 @@ def mock_session_local(session, monkeypatch):
     def mock_session_factory():
         return session
 
-    # Patch the module-level SessionLocal directly
+    # Patch the module-level SessionLocal directly for all submit endpoints
     monkeypatch.setattr(
         "app.api_routes.routes.video_submit.SessionLocal",
+        mock_session_factory,
+    )
+    monkeypatch.setattr(
+        "app.api_routes.routes.image_submit.SessionLocal",
         mock_session_factory,
     )

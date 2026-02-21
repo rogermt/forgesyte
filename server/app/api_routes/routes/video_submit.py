@@ -75,33 +75,16 @@ async def submit_video(
             detail=f"Plugin '{plugin_id}' not found",
         )
 
-    # Validate tool exists
-    manifest = plugin_service.get_plugin_manifest(plugin_id)
-    if not manifest:
+    # Validate tool exists using plugin.tools (canonical source, NOT manifest)
+    # See: docs/releases/v0.9.3/TOOL_CHECK_FIX.md
+    available_tools = plugin_service.get_available_tools(plugin_id)
+    if tool not in available_tools:
         raise HTTPException(
             status_code=400,
-            detail=f"Could not load manifest for plugin '{plugin_id}'",
-        )
-
-    # Find tool in manifest
-    tools = manifest.get("tools", [])
-    tool_def = None
-
-    if isinstance(tools, list):
-        for t in tools:
-            if t.get("id") == tool:
-                tool_def = t
-                break
-    elif isinstance(tools, dict):
-        for tool_name, tool_info in tools.items():
-            if tool_name == tool:
-                tool_def = tool_info
-                break
-
-    if not tool_def:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Tool '{tool}' not found in plugin '{plugin_id}'",
+            detail=(
+                f"Tool '{tool}' not found in plugin '{plugin_id}'. "
+                f"Available: {available_tools}"
+            ),
         )
 
     # Read and validate file

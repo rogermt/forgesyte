@@ -108,53 +108,33 @@ async def submit_image(
             detail=f"Plugin '{plugin_id}' not found",
         )
 
-    # Validate tool exists and supports image input
-    manifest = plugin_service.get_plugin_manifest(plugin_id)
-    if not manifest:
+    # Validate tool exists using plugin.tools (canonical source, NOT manifest)
+    # See: docs/releases/v0.9.3/TOOL_CHECK_FIX.md
+    available_tools = plugin_service.get_available_tools(plugin_id)
+    if tool not in available_tools:
         raise HTTPException(
             status_code=400,
-            detail=f"Could not load manifest for plugin '{plugin_id}'",
+            detail=(
+                f"Tool '{tool}' not found in plugin '{plugin_id}'. "
+                f"Available: {available_tools}"
+            ),
         )
 
-    # Find tool in manifest (handle both dict and list formats)
-    tools = manifest.get("tools", [])
-    tool_def = None
-
-    # Handle list format (Phase 12+)
-    if isinstance(tools, list):
-        for t in tools:
-            if t.get("id") == tool:
-                tool_def = t
-                break
-    # Handle dict format (legacy)
-    elif isinstance(tools, dict):
-        for tool_name, tool_info in tools.items():
-            if tool_name == tool:
-                tool_def = tool_info
-                tool_def["id"] = tool_name
-                break
-
+    # Get tool definition for input validation
+    tool_def = plugin.tools.get(tool)
     if not tool_def:
         raise HTTPException(
             status_code=400,
-            detail=f"Tool '{tool}' not found in plugin '{plugin_id}'",
+            detail=f"Tool '{tool}' definition not found in plugin '{plugin_id}'",
         )
 
     # Validate tool supports image input
-    tool_inputs = tool_def.get("inputs", [])
-    # Handle both list format (["image_bytes"]) and dict format ({"image_base64": "string"})
-    if isinstance(tool_inputs, list):
-        if not any(i in tool_inputs for i in ("image_bytes", "image_base64")):
-            raise HTTPException(
-                status_code=400,
-                detail=f"Tool '{tool}' does not support image input",
-            )
-    elif isinstance(tool_inputs, dict):
-        if not any(k in tool_inputs for k in ("image_bytes", "image_base64")):
-            raise HTTPException(
-                status_code=400,
-                detail=f"Tool '{tool}' does not support image input",
-            )
+    tool_inputs = tool_def.get("input_schema", {}).get("properties", {})
+    if not any(k in tool_inputs for k in ("image_bytes", "image_base64")):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Tool '{tool}' does not support image input",
+        )
 
     # Read and validate file
     contents = await file.read()

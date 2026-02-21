@@ -13,39 +13,40 @@ from app.models.job import Job
 
 
 @pytest.fixture
-def mock_plugin_service():
+def mock_plugin():
+    """Create a mock plugin with tools attribute."""
+    plugin = MagicMock()
+    plugin.name = "ocr"
+    plugin.tools = {
+        "extract_text": {
+            "handler": "extract_text_handler",
+            "description": "Extract text",
+            "input_schema": {"properties": {"video_path": {"type": "string"}}},
+            "output_schema": {},
+        },
+        "video_track": {
+            "handler": "video_track_handler",
+            "description": "Track video",
+            "input_schema": {"properties": {"video_path": {"type": "string"}}},
+            "output_schema": {},
+        },
+    }
+    return plugin
+
+
+@pytest.fixture
+def mock_plugin_service(mock_plugin):
     """Create a mock plugin management service."""
     mock = MagicMock()
-    mock.get_plugin_manifest.return_value = {
-        "tools": [
-            {
-                "id": "extract_text",
-                "inputs": ["video_path"],
-            },
-            {
-                "id": "video_track",
-                "inputs": ["video_path"],
-            },
-        ]
-    }
+    mock.get_available_tools.return_value = list(mock_plugin.tools.keys())
     return mock
 
 
 @pytest.fixture
-def mock_plugin_registry():
-    """Create a mock plugin registry with loaded plugins."""
-
-    def get_plugin(plugin_id):
-        if plugin_id in ("ocr", "yolo-tracker"):
-            return MagicMock(
-                name=plugin_id,
-                description=f"{plugin_id} Plugin",
-                version="1.0.0",
-            )
-        return None
-
+def mock_plugin_registry(mock_plugin):
+    """Create a mock plugin registry with a loaded plugin."""
     mock = MagicMock()
-    mock.get.side_effect = get_plugin
+    mock.get.return_value = mock_plugin
     return mock
 
 
@@ -54,7 +55,6 @@ def test_submit_with_plugin_id_and_tool_returns_200(
     session, mock_plugin_registry, mock_plugin_service
 ):
     """Test POST /v1/video/submit with plugin_id and tool returns 200."""
-
     def override_get_plugin_manager():
         return mock_plugin_registry
 
@@ -82,10 +82,9 @@ def test_submit_with_plugin_id_and_tool_returns_200(
 
 @pytest.mark.unit
 def test_submit_stores_plugin_id_in_job(
-    session: Session, mock_plugin_registry, mock_plugin_service
+    session: Session, mock_plugin, mock_plugin_registry, mock_plugin_service
 ):
     """Test plugin_id is stored in Job record."""
-
     def override_get_plugin_manager():
         return mock_plugin_registry
 
@@ -121,7 +120,6 @@ def test_submit_stores_tool_in_job(
     session: Session, mock_plugin_registry, mock_plugin_service
 ):
     """Test tool is stored in Job record."""
-
     def override_get_plugin_manager():
         return mock_plugin_registry
 
