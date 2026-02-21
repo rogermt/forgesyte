@@ -129,18 +129,8 @@ async def submit_image(
         )
 
     # Validate tool supports image input
-    # Normalize input schema (supports both Pydantic + flat dict formats)
-    # See: docs/releases/v0.9.3/IMAGE_SUBMIT_400_ROOT_CAUSE.md
-    input_schema = tool_def.get("input_schema") or {}
-
-    if "properties" in input_schema and isinstance(input_schema["properties"], dict):
-        # Pydantic schema format (OCR)
-        tool_keys = set(input_schema["properties"].keys())
-    else:
-        # Flat dict format (YOLO, Motion Detector, etc.)
-        tool_keys = set(input_schema.keys())
-
-    if not any(k in tool_keys for k in ("image_bytes", "image_base64")):
+    tool_inputs = tool_def.get("input_schema", {}).get("properties", {})
+    if not any(k in tool_inputs for k in ("image_bytes", "image_base64")):
         raise HTTPException(
             status_code=400,
             detail=f"Tool '{tool}' does not support image input",
