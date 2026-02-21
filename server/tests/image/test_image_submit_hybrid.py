@@ -1,8 +1,6 @@
 """Hybrid integration test — real storage in tmpdir, mocked plugins/DB."""
 
-import tempfile
 from io import BytesIO
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest

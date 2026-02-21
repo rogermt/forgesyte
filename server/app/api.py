@@ -13,28 +13,21 @@ Note: Legacy /analyze and /jobs endpoints were removed in v0.9.3.
       Use the unified job system via /v1/image/submit and /v1/jobs/{id}.
 """
 
-import json
 import logging
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 from fastapi import (
     APIRouter,
-    Body,
     Depends,
-    File,
     HTTPException,
-    Query,
     Request,
-    UploadFile,
     status,
 )
 
 from .auth import require_auth
 
 # Import tool mapping configuration
-from .config.tool_mappings import TOOL_MAPPING
-from .exceptions import ExternalServiceError
 from .mcp import (
     MCP_PROTOCOL_VERSION,
     MCP_SERVER_NAME,
@@ -43,14 +36,9 @@ from .mcp import (
     build_gemini_extension_manifest,
 )
 from .models_pydantic import (
-    JobResponse,
-    JobResultResponse,
-    JobStatus,
-    JobStatusResponse,
     PluginToolRunRequest,
     PluginToolRunResponse,
 )
-from .services.device_selector import validate_device
 from .services.plugin_management_service import PluginManagementService
 
 logger = logging.getLogger(__name__)

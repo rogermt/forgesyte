@@ -10,9 +10,6 @@ import json
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-import pytest
-
-from app.plugin_loader import PluginRegistry
 from app.services.plugin_management_service import PluginManagementService
 
 
@@ -23,11 +20,12 @@ class MockPlugin:
         self.name = name
         self._manifest_path = manifest_path
 
-    @property
     def __class__(self):
         """Mock class for module path."""
+
         class MockClass:
             __module__ = f"test_plugins.{self.name}"
+
         return MockClass
 
 
@@ -67,7 +65,10 @@ def test_manifest_with_inputs_preserved(plugin_service):
         result = service.get_plugin_manifest("test_plugin")
 
         assert result is not None
-        assert result["tools"]["extract_text"]["inputs"] == ["image_bytes", "detections"]
+        assert result["tools"]["extract_text"]["inputs"] == [
+            "image_bytes",
+            "detections",
+        ]
 
 
 def test_manifest_with_input_types_canonicalized(plugin_service):
@@ -108,8 +109,14 @@ def test_manifest_with_input_types_canonicalized(plugin_service):
         assert result is not None
         # Both 'inputs' and 'input_types' should exist
         assert "inputs" in result["tools"]["extract_text"]
-        assert result["tools"]["extract_text"]["inputs"] == ["image_bytes", "detections"]
-        assert result["tools"]["extract_text"]["input_types"] == ["image_bytes", "detections"]
+        assert result["tools"]["extract_text"]["inputs"] == [
+            "image_bytes",
+            "detections",
+        ]
+        assert result["tools"]["extract_text"]["input_types"] == [
+            "image_bytes",
+            "detections",
+        ]
 
 
 def test_manifest_without_inputs_gets_empty_list(plugin_service):

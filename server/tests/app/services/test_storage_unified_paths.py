@@ -18,7 +18,7 @@ from app.services.storage.local_storage import LocalStorageService
 def test_storage_base_dir_is_jobs():
     """Test that BASE_DIR points to data/jobs."""
     from app.services.storage.local_storage import BASE_DIR
-    
+
     assert BASE_DIR.name == "jobs"
     assert BASE_DIR.parent.name == "data"
 

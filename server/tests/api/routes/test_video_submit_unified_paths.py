@@ -11,7 +11,10 @@ from io import BytesIO
 import pytest
 from fastapi.testclient import TestClient
 
+from app.core.database import SessionLocal
 from app.main import app
+from app.models.job import Job
+from app.services.storage.local_storage import LocalStorageService
 
 
 @pytest.fixture
@@ -51,7 +54,6 @@ def test_video_submit_creates_job_with_video_type(client):
 
 def test_video_submit_saves_to_video_input(client):
     """Test that video submit saves file to video/input/."""
-    from app.services.storage.local_storage import LocalStorageService
 
     # Create a fake MP4 video
     fake_mp4 = b"ftyp" + b"\x00" * 100

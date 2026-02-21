@@ -83,13 +83,23 @@ async def submit_image(
             detail=f"Could not load manifest for plugin '{plugin_id}'",
         )
 
-    # Find tool in manifest
-    tools = manifest.get("tools", {})
+    # Find tool in manifest (handle both dict and list formats)
+    tools = manifest.get("tools", [])
     tool_def = None
-    for tool_name, tool_info in tools.items():
-        if tool_name == tool:
-            tool_def = tool_info
-            break
+
+    # Handle list format (Phase 12+)
+    if isinstance(tools, list):
+        for t in tools:
+            if t.get("id") == tool:
+                tool_def = t
+                break
+    # Handle dict format (legacy)
+    elif isinstance(tools, dict):
+        for tool_name, tool_info in tools.items():
+            if tool_name == tool:
+                tool_def = tool_info
+                tool_def["id"] = tool_name
+                break
 
     if not tool_def:
         raise HTTPException(
@@ -99,11 +109,19 @@ async def submit_image(
 
     # Validate tool supports image input
     tool_inputs = tool_def.get("inputs", [])
-    if not any(i in tool_inputs for i in ("image_bytes", "image_base64")):
-        raise HTTPException(
-            status_code=400,
-            detail=f"Tool '{tool}' does not support image input",
-        )
+    # Handle both list format (["image_bytes"]) and dict format ({"image_base64": "string"})
+    if isinstance(tool_inputs, list):
+        if not any(i in tool_inputs for i in ("image_bytes", "image_base64")):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Tool '{tool}' does not support image input",
+            )
+    elif isinstance(tool_inputs, dict):
+        if not any(k in tool_inputs for k in ("image_bytes", "image_base64")):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Tool '{tool}' does not support image input",
+            )
 
     # Read and validate file
     contents = await file.read()

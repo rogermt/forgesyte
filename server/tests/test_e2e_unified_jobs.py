@@ -8,9 +8,7 @@ Tests the complete flow:
 5. Verify JSON output format
 """
 
-import json
 from io import BytesIO
-from uuid import uuid4
 
 import pytest
 from fastapi.testclient import TestClient
@@ -118,6 +116,7 @@ def test_e2e_image_job_storage_paths(client, storage):
     # Run worker
     from app.plugin_loader import PluginRegistry
     from app.services.plugin_management_service import PluginManagementService
+
     plugin_manager = PluginRegistry()
     plugin_manager.load_plugins()
     plugin_service = PluginManagementService(plugin_manager)
@@ -147,6 +146,7 @@ def test_e2e_video_job_storage_paths(client, storage):
     # Run worker
     from app.plugin_loader import PluginRegistry
     from app.services.plugin_management_service import PluginManagementService
+
     plugin_manager = PluginRegistry()
     plugin_manager.load_plugins()
     plugin_service = PluginManagementService(plugin_manager)
@@ -199,6 +199,7 @@ def test_e2e_tool_validation_prevents_wrong_type(client):
     # Run worker
     from app.plugin_loader import PluginRegistry
     from app.services.plugin_management_service import PluginManagementService
+
     plugin_manager = PluginRegistry()
     plugin_manager.load_plugins()
     plugin_service = PluginManagementService(plugin_manager)
@@ -207,7 +208,6 @@ def test_e2e_tool_validation_prevents_wrong_type(client):
     # Fetch results (should be failed)
     resp = client.get(f"/v1/jobs/{job_id}")
     assert resp.status_code == 200
-    data = resp.json()
     # Job should have failed
     db = SessionLocal()
     job = db.query(Job).filter(Job.job_id == job_id).first()
