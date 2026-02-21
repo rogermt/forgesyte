@@ -117,7 +117,7 @@ vi.mock("./components/VideoTracker", () => ({
 
 vi.mock("./api/client", () => ({
   apiClient: {
-    analyzeImage: vi.fn(),
+    submitImage: vi.fn(),
     pollJob: vi.fn(),
     // IMPORTANT: return different manifests per plugin
     getPluginManifest: vi.fn((pluginId: string) => {

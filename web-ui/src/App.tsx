@@ -8,9 +8,7 @@
  * - Auto-select first valid tool from the newly loaded manifest
  *
  * Notes:
- * - Assumes your Option 2 API change is live:
- *   POST /v1/analyze?plugin=...&tool=...
- * - Assumes apiClient.analyzeImage(file, plugin, tool) exists (as per your working fix)
+ * - v0.9.3: Uses unified job system with submitImage and getJob
  */
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
@@ -21,7 +19,6 @@ import { JobList } from "./components/JobList";
 import { ResultsPanel } from "./components/ResultsPanel";
 import { VideoTracker } from "./components/VideoTracker";
 import { VideoUpload } from "./components/VideoUpload";
-import { ImageMultiToolForm } from "./components/ImageMultiToolForm";
 import { useWebSocket, FrameResult } from "./hooks/useWebSocket";
 import { apiClient, Job } from "./api/client";
 import { detectToolType } from "./utils/detectToolType";
@@ -30,7 +27,7 @@ import type { PluginManifest } from "./types/plugin";
 const WS_BACKEND_URL =
   import.meta.env.VITE_WS_BACKEND_URL || "ws://localhost:8000";
 
-type ViewMode = "stream" | "upload" | "jobs" | "video-upload" | "multi-tool-image";
+type ViewMode = "stream" | "upload" | "jobs" | "video-upload";
 
 function App() {
   // -------------------------------------------------------------------------
@@ -252,8 +249,8 @@ function App() {
 
       setIsUploading(true);
       try {
-        // Option 2 fix: backend accepts tool as a first-class query parameter
-        const response = await apiClient.analyzeImage(
+        // v0.9.3: Use unified job system with submitImage
+        const response = await apiClient.submitImage(
           file,
           selectedPlugin,
           selectedTools[0]
@@ -363,7 +360,7 @@ function App() {
         </div>
 
         <nav style={styles.nav}>
-          {(["stream", "upload", "jobs", "video-upload", "multi-tool-image"] as ViewMode[]).map((mode) => (
+          {(["stream", "upload", "jobs", "video-upload"] as ViewMode[]).map((mode) => (
             <button
               key={mode}
               style={{
@@ -379,7 +376,7 @@ function App() {
               }}
               onClick={() => setViewMode(mode)}
             >
-              {mode === "multi-tool-image" ? "Multi-Tool" : mode.charAt(0).toUpperCase() + mode.slice(1)}
+              {mode === "video-upload" ? "Upload Video" : mode.charAt(0).toUpperCase() + mode.slice(1)}
             </button>
           ))}
         </nav>
@@ -521,12 +518,6 @@ function App() {
           {viewMode === "video-upload" && (
             <div style={{ ...styles.panel, flex: 1 }}>
               <VideoUpload pluginId={selectedPlugin} selectedTools={selectedTools} />
-            </div>
-          )}
-
-          {viewMode === "multi-tool-image" && (
-            <div style={{ ...styles.panel, flex: 1 }}>
-              <ImageMultiToolForm />
             </div>
           )}
 

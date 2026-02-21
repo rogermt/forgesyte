@@ -32,17 +32,16 @@ export const JobStatus: React.FC<Props> = ({ jobId }) => {
 
     const poll = async () => {
       try {
-        const s = await apiClient.getVideoJobStatus(jobId);
-        setStatus(s.status);
+        const job = await apiClient.getJob(jobId);
+        setStatus(job.status as Status);
 
-        if (s.status === "completed") {
-          const r = await apiClient.getVideoJobResults(jobId);
-          setResults(r as VideoJobResults);
+        if (job.status === "done" && job.result) {
+          setResults(job.result as VideoJobResults);
           return;
         }
 
-        if (s.status === "failed") {
-          setError("Job failed.");
+        if (job.status === "error") {
+          setError(job.error || "Job failed.");
           return;
         }
 

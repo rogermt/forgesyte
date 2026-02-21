@@ -63,8 +63,8 @@ from .services import (
 # Phase 14 Settings
 from .settings import get_settings
 
-# Removed in v0.9.2: TaskProcessor replaced by JobWorker
-# from .tasks import init_task_processor, job_store
+# v0.9.2: TaskProcessor replaced by JobWorker
+# v0.9.3: Legacy AnalysisService and JobManagementService removed
 from .websocket_manager import ws_manager
 
 # ---------------------------------------------------------------------------
@@ -217,13 +217,9 @@ async def lifespan(app: FastAPI):
         logger.error("Startup audit failed", extra={"error": str(e)})
 
     # Services (v0.9.2: TaskProcessor removed, using JobWorker instead)
+    # v0.9.3: Legacy AnalysisService and JobManagementService removed
     try:
-        # Removed in v0.9.2: processor = init_task_processor(plugin_manager)
         app.state.analysis_service = VisionAnalysisService(plugin_manager, ws_manager)
-
-        # Removed in v0.9.2: image_acquisition = ImageAcquisitionService()
-        # Removed in v0.9.2: app.state.analysis_service_rest = AnalysisService(processor, image_acquisition)
-        # Note: analysis_service_rest may still be used by legacy endpoints, but without TaskProcessor
         app.state.plugin_service = PluginManagementService(plugin_manager)
 
         # Phase 14: Pipeline Services

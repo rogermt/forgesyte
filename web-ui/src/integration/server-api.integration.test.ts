@@ -345,14 +345,6 @@ describe("Server API Integration Tests", () => {
       const bareJob = mockJobResponse;
       expect(bareJob).toHaveProperty("id");
     });
-
-    it("analyze response can be parsed by analyzeImage()", async () => {
-      // Simulate: client.analyzeImage() calls /analyze and returns result
-      const result = mockAnalyzeResponse;
-
-      expect(result.job_id).toBeDefined();
-      expect(result.status).toBeDefined();
-    });
   });
 
   describe("Error Handling", () => {

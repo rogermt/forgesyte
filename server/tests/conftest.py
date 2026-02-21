@@ -133,13 +133,9 @@ def app_with_plugins():
     from app.main import app
     from app.plugin_loader import PluginRegistry
     from app.services import (
-        AnalysisService,
-        ImageAcquisitionService,
-        JobManagementService,
         PluginManagementService,
         VisionAnalysisService,
     )
-    from app.tasks import init_task_processor
     from app.websocket_manager import ws_manager
 
     # Initialize auth service FIRST (needed for API endpoints)
@@ -168,23 +164,9 @@ def app_with_plugins():
                 )
                 health_registry.mark_initialized(plugin_name)
 
-    # Initialize task processor
-    init_task_processor(plugin_manager)
-
     # Initialize services
-    from app import tasks as tasks_module
-
     # Vision analysis service for WebSocket
     app.state.analysis_service = VisionAnalysisService(plugin_manager, ws_manager)
-
-    # REST API services - get fresh references from modules
-    image_acquisition = ImageAcquisitionService()
-    app.state.analysis_service_rest = AnalysisService(
-        tasks_module.task_processor, image_acquisition
-    )
-    app.state.job_service = JobManagementService(
-        tasks_module.job_store, tasks_module.task_processor
-    )
     app.state.plugin_service = PluginManagementService(plugin_manager)
 
     return app
@@ -206,13 +188,9 @@ def app_with_mock_yolo_plugin():
     from app.auth import init_auth_service
     from app.main import app
     from app.services import (
-        AnalysisService,
-        ImageAcquisitionService,
-        JobManagementService,
         PluginManagementService,
         VisionAnalysisService,
     )
-    from app.tasks import init_task_processor
     from app.websocket_manager import ws_manager
 
     # Initialize auth service
@@ -235,23 +213,9 @@ def app_with_mock_yolo_plugin():
 
     app.state.plugins = mock_registry
 
-    # Initialize task processor
-    init_task_processor(mock_registry)
-
     # Initialize services
-    from app import tasks as tasks_module
-
     # Vision analysis service for WebSocket
     app.state.analysis_service = VisionAnalysisService(mock_registry, ws_manager)
-
-    # REST API services
-    image_acquisition = ImageAcquisitionService()
-    app.state.analysis_service_rest = AnalysisService(
-        tasks_module.task_processor, image_acquisition
-    )
-    app.state.job_service = JobManagementService(
-        tasks_module.job_store, tasks_module.task_processor
-    )
     app.state.plugin_service = PluginManagementService(mock_registry)
 
     return app

@@ -36,11 +36,6 @@ export interface Job {
     progress?: number | null;
 }
 
-export interface AnalysisResult {
-    job_id: string;
-    status: string;
-}
-
 export class ForgeSyteAPIClient {
     private baseUrl: string;
     private apiKey?: string;
@@ -106,41 +101,6 @@ export class ForgeSyteAPIClient {
         }
         // Fallback for older API versions
         return (result as Record<string, unknown>).plugins as Plugin[];
-    }
-
-    async analyzeImage(
-        file: File,
-        plugin: string,
-        tool?: string
-    ): Promise<AnalysisResult> {
-        const formData = new FormData();
-        formData.append("file", file);
-
-        const url = new URL(`${this.baseUrl}/analyze`, window.location.origin);
-        url.searchParams.append("plugin", plugin);
-        if (tool) {
-            url.searchParams.append("tool", tool);
-        }
-
-        const headers: HeadersInit = {};
-
-        if (this.apiKey) {
-            headers["X-API-Key"] = this.apiKey;
-        }
-
-        const response = await fetch(url.toString(), {
-            method: "POST",
-            headers,
-            body: formData,
-        });
-
-        if (!response.ok) {
-            throw new Error(
-                `API error: ${response.status} ${response.statusText}`
-            );
-        }
-
-        return response.json() as Promise<AnalysisResult>;
     }
 
     async getJob(jobId: string): Promise<Job> {
@@ -236,39 +196,6 @@ export class ForgeSyteAPIClient {
         }) as unknown as Promise<ToolExecutionResponse>;
     }
 
-    // Multi-tool image analysis
-    async analyzeMulti(
-        file: File,
-        tools: string[]
-    ): Promise<Record<string, unknown>> {
-        const formData = new FormData();
-        formData.append("file", file);
-        formData.append("tools", JSON.stringify(tools));
-
-        const url = new URL(`${this.baseUrl}/image/analyze-multi`, window.location.origin);
-        url.searchParams.append("tools", JSON.stringify(tools));
-
-        const headers: HeadersInit = {};
-
-        if (this.apiKey) {
-            headers["X-API-Key"] = this.apiKey;
-        }
-
-        const response = await fetch(url.toString(), {
-            method: "POST",
-            headers,
-            body: formData,
-        });
-
-        if (!response.ok) {
-            throw new Error(
-                `API error: ${response.status} ${response.statusText}`
-            );
-        }
-
-        return response.json() as Promise<Record<string, unknown>>;
-    }
-
     // v0.9.2: Image job submission using unified job system
     async submitImage(
         file: File,
@@ -355,54 +282,6 @@ export class ForgeSyteAPIClient {
             formData.append("file", file);
             xhr.send(formData);
         });
-    }
-
-    // Video job status
-    async getVideoJobStatus(jobId: string): Promise<{
-        job_id: string;
-        status: "pending" | "running" | "completed" | "failed";
-        progress: number;
-        created_at: string;
-        updated_at: string;
-    }> {
-        const result = await this.fetch(`/video/status/${jobId}`);
-        return result as {
-            job_id: string;
-            status: "pending" | "running" | "completed" | "failed";
-            progress: number;
-            created_at: string;
-            updated_at: string;
-        };
-    }
-
-    // Video job results
-    async getVideoJobResults(jobId: string): Promise<{
-        job_id: string;
-        results: {
-            text?: string;
-            detections?: Array<{
-                label: string;
-                confidence: number;
-                bbox: number[];
-            }>;
-        };
-        created_at: string;
-        updated_at: string;
-    }> {
-        const result = await this.fetch(`/video/results/${jobId}`);
-        return result as {
-            job_id: string;
-            results: {
-                text?: string;
-                detections?: Array<{
-                    label: string;
-                    confidence: number;
-                    bbox: number[];
-                }>;
-            };
-            created_at: string;
-            updated_at: string;
-        };
     }
 }
 
