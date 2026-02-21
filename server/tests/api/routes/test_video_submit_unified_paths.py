@@ -53,6 +53,7 @@ def mock_plugin_registry(mock_plugin):
 @pytest.fixture
 def client_with_mocks(mock_plugin_registry, mock_plugin_service):
     """Create a test client with mocked dependencies."""
+
     def override_get_plugin_manager():
         return mock_plugin_registry
 
@@ -68,9 +69,7 @@ def client_with_mocks(mock_plugin_registry, mock_plugin_service):
 
 
 @pytest.mark.unit
-def test_video_submit_creates_job_with_video_type(
-    session: Session, client_with_mocks
-):
+def test_video_submit_creates_job_with_video_type(session: Session, client_with_mocks):
     """Test that video submit creates a job with job_type='video'."""
     mp4_data = b"ftypmp42" + b"\x00" * 100
 
@@ -90,9 +89,7 @@ def test_video_submit_creates_job_with_video_type(
 
 
 @pytest.mark.unit
-def test_video_submit_saves_to_video_input(
-    session: Session, client_with_mocks
-):
+def test_video_submit_saves_to_video_input(session: Session, client_with_mocks):
     """Test that video is saved to video/input/ path."""
     mp4_data = b"ftypmp42" + b"\x00" * 100
 

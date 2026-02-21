@@ -44,8 +44,11 @@ def mock_plugin_registry(mock_plugin):
 
 
 @pytest.mark.unit
-def test_submit_video_success(session: Session, mock_plugin_registry, mock_plugin_service):
+def test_submit_video_success(
+    session: Session, mock_plugin_registry, mock_plugin_service
+):
     """Test video submission with valid MP4 file."""
+
     def override_get_plugin_manager():
         return mock_plugin_registry
 
@@ -136,6 +139,7 @@ def test_submit_video_invalid_tool(mock_plugin, mock_plugin_registry):
 @pytest.mark.unit
 def test_submit_video_invalid_file_format(mock_plugin_registry, mock_plugin_service):
     """Test video submission with invalid file format returns 400."""
+
     def override_get_plugin_manager():
         return mock_plugin_registry
 

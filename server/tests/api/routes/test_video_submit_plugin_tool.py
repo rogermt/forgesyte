@@ -55,6 +55,7 @@ def test_submit_with_plugin_id_and_tool_returns_200(
     session, mock_plugin_registry, mock_plugin_service
 ):
     """Test POST /v1/video/submit with plugin_id and tool returns 200."""
+
     def override_get_plugin_manager():
         return mock_plugin_registry
 
@@ -85,6 +86,7 @@ def test_submit_stores_plugin_id_in_job(
     session: Session, mock_plugin, mock_plugin_registry, mock_plugin_service
 ):
     """Test plugin_id is stored in Job record."""
+
     def override_get_plugin_manager():
         return mock_plugin_registry
 
@@ -120,6 +122,7 @@ def test_submit_stores_tool_in_job(
     session: Session, mock_plugin_registry, mock_plugin_service
 ):
     """Test tool is stored in Job record."""
+
     def override_get_plugin_manager():
         return mock_plugin_registry
 

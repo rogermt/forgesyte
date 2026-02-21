@@ -60,6 +60,7 @@ def mock_plugin_registry(mock_plugin):
 @pytest.fixture
 def client_with_mocks(mock_plugin_registry, mock_plugin_service):
     """Create a test client with mocked dependencies."""
+
     def override_get_plugin_manager():
         return mock_plugin_registry
 
@@ -90,7 +91,9 @@ class TestImageSubmitPluginValidation:
         )
 
         # Should succeed
-        assert response.status_code == 200, f"Unexpected status: {response.status_code}, body: {response.text}"
+        assert (
+            response.status_code == 200
+        ), f"Unexpected status: {response.status_code}, body: {response.text}"
 
         # Verify job was created
         job_id = response.json()["job_id"]
@@ -165,9 +168,7 @@ class TestImageSubmitPluginValidation:
 class TestImageSubmitValidation:
     """Tests for input validation in image submit endpoint."""
 
-    def test_submit_image_invalid_format(
-        self, session: Session, client_with_mocks
-    ):
+    def test_submit_image_invalid_format(self, session: Session, client_with_mocks):
         """Test that non-PNG/JPEG files are rejected."""
         # Create a file with invalid magic bytes
         invalid_data = b"INVALID FILE CONTENT"
@@ -180,9 +181,7 @@ class TestImageSubmitValidation:
         assert response.status_code == 400
         assert "invalid" in response.json()["detail"].lower()
 
-    def test_submit_image_valid_jpeg(
-        self, session: Session, client_with_mocks
-    ):
+    def test_submit_image_valid_jpeg(self, session: Session, client_with_mocks):
         """Test that JPEG files are accepted."""
         # Create a valid JPEG (minimal header)
         jpeg_data = b"\xFF\xD8\xFF" + b"\x00" * 100  # JPEG magic bytes + padding
@@ -203,7 +202,9 @@ class TestImageSubmitValidation:
 class TestImageSubmitToolInputValidation:
     """Tests for tool input type validation."""
 
-    def test_submit_image_tool_supports_image_bytes(self, mock_plugin, session: Session):
+    def test_submit_image_tool_supports_image_bytes(
+        self, mock_plugin, session: Session
+    ):
         """Test that tools with image_bytes input are accepted."""
         # Create plugin with image_bytes support
         plugin = MagicMock()
@@ -211,9 +212,7 @@ class TestImageSubmitToolInputValidation:
             "extract_text": {
                 "handler": "extract_text_handler",
                 "description": "Extract text",
-                "input_schema": {
-                    "properties": {"image_bytes": {"type": "string"}}
-                },
+                "input_schema": {"properties": {"image_bytes": {"type": "string"}}},
                 "output_schema": {},
             }
         }
