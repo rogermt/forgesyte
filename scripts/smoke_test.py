@@ -47,7 +47,7 @@ async def test_job_submission() -> str | None:
                 response = await client.post(
                     f"{BASE_URL}/v1/video/submit",
                     files={"file": ("test.mp4", f, "video/mp4")},
-                    params={"pipeline_id": "test_pipeline"},
+                    params={"plugin_id": "ocr", "tool": "extract_text"},
                     follow_redirects=True,
                 )
 

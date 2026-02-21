@@ -4,6 +4,7 @@ Verifies that plugin tool execution is properly wrapped in sandbox
 with state tracking and error isolation.
 """
 
+import typing
 from unittest.mock import MagicMock
 
 import pytest
@@ -40,9 +41,9 @@ class MockPlugin:
             },
         }
 
-    def run_tool(self, tool_name: str, args: dict) -> dict:
+    def run_tool(self, tool_name: str, args: dict) -> dict:  # type: ignore[type-arg]
         """Dispatch tool by name (BasePlugin contract)."""
-        handlers = {
+        handlers: dict[str, typing.Callable[..., dict]] = {
             "echo_tool": self.echo_tool,
             "failing_tool": self.failing_tool,
             "import_error_tool": self.import_error_tool,

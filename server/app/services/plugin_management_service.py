@@ -384,7 +384,8 @@ class PluginManagementService:
         )
 
         # 3. Get tool function via BasePlugin contract dispatcher
-        tool_func = lambda **kw: plugin.run_tool(tool_name, kw)
+        def tool_func(**kw):  # type: ignore[no-untyped-def]
+            return plugin.run_tool(tool_name, kw)
 
         # 4. Mark plugin as RUNNING
         registry.mark_running(plugin_id)

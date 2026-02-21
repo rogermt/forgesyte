@@ -11,7 +11,7 @@ from app.plugins.loader.plugin_registry import PluginRegistry
 class DummyPlugin:
     """Test plugin with tools attribute."""
 
-    tools = {
+    tools: dict[str, dict] = {
         "tool_a": {},
         "tool_b": {},
     }
@@ -44,16 +44,17 @@ def test_get_returns_plugin_instance_not_metadata_or_class(monkeypatch):
     plugin = registry.get("dummy")
 
     # Assert: must be the actual instance
-    assert isinstance(plugin, DummyPlugin), (
-        "PluginRegistry.get() must return the plugin instance"
-    )
+    assert isinstance(
+        plugin, DummyPlugin
+    ), "PluginRegistry.get() must return the plugin instance"
 
     # Assert: tools must come from the instance, not manifest or metadata
     assert hasattr(plugin, "tools"), "Plugin instance must have a 'tools' attribute"
 
-    assert set(plugin.tools.keys()) == {"tool_a", "tool_b"}, (
-        "PluginRegistry.get() returned wrong object; tools list incorrect"
-    )
+    assert set(plugin.tools.keys()) == {
+        "tool_a",
+        "tool_b",
+    }, "PluginRegistry.get() returned wrong object; tools list incorrect"
 
 
 def test_get_raises_keyerror_for_missing_plugin():
@@ -84,7 +85,5 @@ def test_get_raises_keyerror_for_plugin_without_instance():
         instance=None,  # <-- no instance
     )
 
-    with pytest.raises(
-        KeyError, match="Plugin instance for 'no_instance' not found"
-    ):
+    with pytest.raises(KeyError, match="Plugin instance for 'no_instance' not found"):
         registry.get("no_instance")

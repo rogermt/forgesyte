@@ -195,9 +195,7 @@ class TestAuthRequiredEndpoints:
         import base64
 
         fake_image = base64.b64encode(b"fake_image_data").decode()
-        response = client.post(
-            "/v1/analyze-execution", content=fake_image.encode()
-        )
+        response = client.post("/v1/analyze-execution", content=fake_image.encode())
         assert response.status_code in [401, 403, 422]
 
     def test_get_job_requires_auth(self, client: TestClient) -> None:
