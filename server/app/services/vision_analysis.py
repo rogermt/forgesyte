@@ -20,7 +20,7 @@ import base64
 import logging
 import time
 import uuid
-from typing import Any, Dict
+from typing import Any, Dict, List
 
 from ..protocols import WebSocketProvider
 from .plugin_management_service import PluginManagementService
@@ -167,7 +167,7 @@ class VisionAnalysisService:
                 {"type": "error", "message": error_msg, "frame_id": frame_id},
             )
 
-    async def list_available_plugins(self) -> Dict[str, Any]:
+    async def list_available_plugins(self) -> List[Any]:
         """Get list of available plugins with their metadata.
 
         Returns:
@@ -185,4 +185,4 @@ class VisionAnalysisService:
                 "Failed to list plugins",
                 extra={"error": str(e)},
             )
-            return {}
+            return []

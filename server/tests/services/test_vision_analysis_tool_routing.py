@@ -7,7 +7,7 @@ and errors when tools is missing (Phase 13 multi-tool requirement).
 import base64
 import os
 import sys
-from unittest.mock import AsyncMock, Mock, patch
+from unittest.mock import AsyncMock, Mock
 
 import pytest
 
@@ -72,9 +72,7 @@ class TestToolRoutingFromFrame:
         assert second_call[1]["plugin_id"] == "plugin1"
 
     @pytest.mark.asyncio
-    async def test_errors_when_tools_missing(
-        self, service, mock_ws_manager
-    ):
+    async def test_errors_when_tools_missing(self, service, mock_ws_manager):
         """When frame omits tools, should return an error (Phase 13 requirement)."""
         frame_data = {
             "data": base64.b64encode(b"image").decode("utf-8"),

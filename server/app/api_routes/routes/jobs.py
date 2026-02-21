@@ -42,7 +42,9 @@ def _calculate_progress(status: JobStatus) -> float:
 
 @router.get("/v1/jobs", response_model=JobListResponse)
 async def list_jobs(
-    limit: int = Query(10, ge=1, le=100, description="Maximum number of jobs to return"),
+    limit: int = Query(
+        10, ge=1, le=100, description="Maximum number of jobs to return"
+    ),
     skip: int = Query(0, ge=0, description="Number of jobs to skip for pagination"),
     db: Session = Depends(get_db),
 ) -> JobListResponse:
@@ -88,9 +90,11 @@ async def list_jobs(
                 status=job.status.value,  # Issue #212: Use aligned status values
                 plugin=job.plugin_id,
                 created_at=job.created_at,
-                completed_at=job.updated_at
-                if job.status in (JobStatus.completed, JobStatus.failed)
-                else None,
+                completed_at=(
+                    job.updated_at
+                    if job.status in (JobStatus.completed, JobStatus.failed)
+                    else None
+                ),
                 result=result,
                 error=job.error_message,
                 progress=progress,

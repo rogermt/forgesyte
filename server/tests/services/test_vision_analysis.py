@@ -43,9 +43,7 @@ class TestVisionAnalysisService:
         )
 
     @pytest.mark.asyncio
-    async def test_handle_frame_success(
-        self, service, plugin_service, mock_ws_manager
-    ):
+    async def test_handle_frame_success(self, service, plugin_service, mock_ws_manager):
         """Test successful frame handling."""
         plugin_service.run_plugin_tool.return_value = {"objects": []}
 
@@ -112,9 +110,7 @@ class TestVisionAnalysisService:
         mock_ws_manager.send_frame_result.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_handle_frame_invalid_data(
-        self, service, mock_ws_manager
-    ):
+    async def test_handle_frame_invalid_data(self, service, mock_ws_manager):
         """Test handling invalid frame data (missing both 'data' and 'image_data')."""
         await service.handle_frame("client1", "plugin1", {"frame_id": "frame1"})
 
@@ -125,9 +121,7 @@ class TestVisionAnalysisService:
         assert "Invalid frame data" in args[1]["message"]
 
     @pytest.mark.asyncio
-    async def test_handle_frame_missing_tools(
-        self, service, mock_ws_manager
-    ):
+    async def test_handle_frame_missing_tools(self, service, mock_ws_manager):
         """Test handling frame data missing 'tools' field (Phase 13 requirement)."""
         frame_data = {
             "data": base64.b64encode(b"image").decode("utf-8"),

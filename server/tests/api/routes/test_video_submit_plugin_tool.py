@@ -25,7 +25,7 @@ def mock_plugin_service():
             {
                 "id": "video_track",
                 "inputs": ["video_path"],
-            }
+            },
         ]
     }
     return mock
@@ -34,6 +34,7 @@ def mock_plugin_service():
 @pytest.fixture
 def mock_plugin_registry():
     """Create a mock plugin registry with loaded plugins."""
+
     def get_plugin(plugin_id):
         if plugin_id in ("ocr", "yolo-tracker"):
             return MagicMock(
@@ -42,15 +43,18 @@ def mock_plugin_registry():
                 version="1.0.0",
             )
         return None
-    
+
     mock = MagicMock()
     mock.get.side_effect = get_plugin
     return mock
 
 
 @pytest.mark.unit
-def test_submit_with_plugin_id_and_tool_returns_200(session, mock_plugin_registry, mock_plugin_service):
+def test_submit_with_plugin_id_and_tool_returns_200(
+    session, mock_plugin_registry, mock_plugin_service
+):
     """Test POST /v1/video/submit with plugin_id and tool returns 200."""
+
     def override_get_plugin_manager():
         return mock_plugin_registry
 
@@ -77,8 +81,11 @@ def test_submit_with_plugin_id_and_tool_returns_200(session, mock_plugin_registr
 
 
 @pytest.mark.unit
-def test_submit_stores_plugin_id_in_job(session: Session, mock_plugin_registry, mock_plugin_service):
+def test_submit_stores_plugin_id_in_job(
+    session: Session, mock_plugin_registry, mock_plugin_service
+):
     """Test plugin_id is stored in Job record."""
+
     def override_get_plugin_manager():
         return mock_plugin_registry
 
@@ -110,8 +117,11 @@ def test_submit_stores_plugin_id_in_job(session: Session, mock_plugin_registry, 
 
 
 @pytest.mark.unit
-def test_submit_stores_tool_in_job(session: Session, mock_plugin_registry, mock_plugin_service):
+def test_submit_stores_tool_in_job(
+    session: Session, mock_plugin_registry, mock_plugin_service
+):
     """Test tool is stored in Job record."""
+
     def override_get_plugin_manager():
         return mock_plugin_registry
 

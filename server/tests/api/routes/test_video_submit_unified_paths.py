@@ -49,6 +49,7 @@ def mock_plugin_registry():
 @pytest.fixture
 def client_with_mocks(mock_plugin_registry, mock_plugin_service):
     """Create a test client with mocked dependencies."""
+
     def override_get_plugin_manager():
         return mock_plugin_registry
 
@@ -102,7 +103,7 @@ def test_video_submit_saves_to_video_input(client_with_mocks, session: Session):
 
     # Verify file was saved to storage
     storage = LocalStorageService()
-    
+
     # Use the session fixture which is connected to the test database
     job = session.query(Job).filter(Job.job_id == job_id).first()
     assert job is not None

@@ -69,7 +69,7 @@ def create_job(db, status: JobStatus, plugin_id="ocr", with_result=False):
 def test_list_jobs_empty(client):
     """Test GET /v1/jobs when database is empty."""
     response = client.get("/v1/jobs?limit=10&skip=0")
-    
+
     assert response.status_code == 200
     data = response.json()
     assert data["jobs"] == []
@@ -79,28 +79,28 @@ def test_list_jobs_empty(client):
 def test_list_jobs_basic(client):
     """Test GET /v1/jobs returns jobs with correct status values."""
     db = SessionLocal()
-    
+
     # Create jobs with different statuses
     create_job(db, JobStatus.pending)
     create_job(db, JobStatus.running)
     create_job(db, JobStatus.completed, with_result=False)
     create_job(db, JobStatus.failed)
-    
+
     db.close()
-    
+
     response = client.get("/v1/jobs?limit=10&skip=0")
-    
+
     assert response.status_code == 200
     data = response.json()
-    
+
     assert "jobs" in data
     assert "count" in data
     assert data["count"] == 4
-    
+
     # Verify status values (Issue #212 aligned)
     statuses = {j["status"] for j in data["jobs"]}
     assert statuses == {"pending", "running", "completed", "failed"}
-    
+
     # Verify progress values (0.0, 0.5, 1.0)
     progress_values = {j["progress"] for j in data["jobs"]}
     assert progress_values == {0.0, 0.5, 1.0}
@@ -109,20 +109,20 @@ def test_list_jobs_basic(client):
 def test_list_jobs_pagination(client):
     """Test GET /v1/jobs with limit and skip parameters."""
     db = SessionLocal()
-    
+
     # Create 15 jobs
     for _ in range(15):
         create_job(db, JobStatus.pending)
-    
+
     db.close()
-    
+
     # First page
     response1 = client.get("/v1/jobs?limit=10&skip=0")
     assert response1.status_code == 200
     data1 = response1.json()
     assert len(data1["jobs"]) == 10
     assert data1["count"] == 15
-    
+
     # Second page
     response2 = client.get("/v1/jobs?limit=10&skip=10")
     assert response2.status_code == 200
@@ -134,30 +134,30 @@ def test_list_jobs_pagination(client):
 def test_list_jobs_with_results(client, storage):
     """Test GET /v1/jobs loads results for completed jobs."""
     db = SessionLocal()
-    
+
     # Create completed job with results
-    job = create_job(db, JobStatus.completed, with_result=True)
-    
+    create_job(db, JobStatus.completed, with_result=True)
+
     # Create results file
     results_data = {"text": "OCR result"}
     results_json = json.dumps(results_data)
     storage.save_file(BytesIO(results_json.encode()), "jobs/output.json")
-    
+
     # Create pending job (should not have results)
     create_job(db, JobStatus.pending)
-    
+
     db.close()
-    
+
     response = client.get("/v1/jobs?limit=10&skip=0")
-    
+
     assert response.status_code == 200
     data = response.json()
-    
+
     # Find completed job
     completed_job = next((j for j in data["jobs"] if j["status"] == "completed"), None)
     assert completed_job is not None
     assert completed_job["result"] is not None
-    
+
     # Find pending job
     pending_job = next((j for j in data["jobs"] if j["status"] == "pending"), None)
     assert pending_job is not None
@@ -167,17 +167,17 @@ def test_list_jobs_with_results(client, storage):
 def test_list_jobs_includes_plugin_and_tool(client):
     """Test GET /v1/jobs includes plugin_id and tool."""
     db = SessionLocal()
-    
+
     # Create job with specific plugin and tool
     create_job(db, JobStatus.pending, plugin_id="yolo-tracker")
-    
+
     db.close()
-    
+
     response = client.get("/v1/jobs?limit=10&skip=0")
-    
+
     assert response.status_code == 200
     data = response.json()
-    
+
     assert len(data["jobs"]) == 1
     job = data["jobs"][0]
     assert "plugin" in job
@@ -187,7 +187,7 @@ def test_list_jobs_includes_plugin_and_tool(client):
 def test_list_jobs_ordering(client):
     """Test GET /v1/jobs returns jobs ordered by created_at desc (newest first)."""
     db = SessionLocal()
-    
+
     # Create jobs with different timestamps
     job1 = create_job(db, JobStatus.pending)
     job1_id = str(job1.job_id)
@@ -195,14 +195,14 @@ def test_list_jobs_ordering(client):
     job2_id = str(job2.job_id)
     job3 = create_job(db, JobStatus.pending)
     job3_id = str(job3.job_id)
-    
+
     db.close()
-    
+
     response = client.get("/v1/jobs?limit=10&skip=0")
-    
+
     assert response.status_code == 200
     data = response.json()
-    
+
     # Jobs should be ordered newest first
     job_ids = [j["job_id"] for j in data["jobs"]]
     assert job_ids[0] == job3_id

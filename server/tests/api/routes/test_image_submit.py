@@ -8,14 +8,11 @@ Tests verify:
 
 from io import BytesIO
 from unittest.mock import MagicMock
-from uuid import uuid4
 
 import pytest
 from fastapi.testclient import TestClient
 
 from app.api_routes.routes.image_submit import get_plugin_manager, get_plugin_service
-from app.core.database import SessionLocal
-from app.models.job import Job, JobStatus
 
 
 @pytest.fixture
@@ -73,23 +70,26 @@ class TestImageSubmitPluginValidation:
         """Test that image submission works with valid plugin and tool."""
         # Create a valid PNG image (1x1 pixel)
         png_data = b"\x89PNG\r\n\x1a\n" + b"\x00" * 100  # PNG magic bytes + padding
-        
+
         response = client_with_mocks.post(
             "/v1/image/submit?plugin_id=ocr&tool=extract_text",
             files={"file": ("test.png", BytesIO(png_data), "image/png")},
         )
 
         # Should succeed (or fail for other reasons like DB, not plugin validation)
-        assert response.status_code in [200, 500], f"Unexpected status: {response.status_code}, body: {response.text}"
+        assert response.status_code in [
+            200,
+            500,
+        ], f"Unexpected status: {response.status_code}, body: {response.text}"
 
     def test_submit_image_with_invalid_plugin(self, mock_plugin_service):
         """Test that image submission fails with invalid plugin."""
         from app.main import app
-        
+
         # Create a mock that returns None for invalid plugin
         mock_registry = MagicMock()
         mock_registry.get.return_value = None  # Plugin not found
-        
+
         def override_get_plugin_manager():
             return mock_registry
 
@@ -98,11 +98,11 @@ class TestImageSubmitPluginValidation:
 
         app.dependency_overrides[get_plugin_manager] = override_get_plugin_manager
         app.dependency_overrides[get_plugin_service] = override_get_plugin_service
-        
+
         client = TestClient(app)
-        
+
         png_data = b"\x89PNG\r\n\x1a\n" + b"\x00" * 100
-        
+
         response = client.post(
             "/v1/image/submit?plugin_id=nonexistent&tool=extract_text",
             files={"file": ("test.png", BytesIO(png_data), "image/png")},
@@ -116,7 +116,7 @@ class TestImageSubmitPluginValidation:
     def test_submit_image_with_invalid_tool(self, mock_plugin_registry):
         """Test that image submission fails with invalid tool."""
         from app.main import app
-        
+
         # Create a mock service that doesn't have the tool
         mock_service = MagicMock()
         mock_service.get_plugin_manifest.return_value = {
@@ -136,11 +136,11 @@ class TestImageSubmitPluginValidation:
 
         app.dependency_overrides[get_plugin_manager] = override_get_plugin_manager
         app.dependency_overrides[get_plugin_service] = override_get_plugin_service
-        
+
         client = TestClient(app)
-        
+
         png_data = b"\x89PNG\r\n\x1a\n" + b"\x00" * 100
-        
+
         response = client.post(
             "/v1/image/submit?plugin_id=ocr&tool=nonexistent_tool",
             files={"file": ("test.png", BytesIO(png_data), "image/png")},
@@ -178,7 +178,10 @@ class TestImageSubmitValidation:
             files={"file": ("test.jpg", BytesIO(jpeg_data), "image/jpeg")},
         )
 
-        assert response.status_code in [200, 500], f"Unexpected status: {response.status_code}"
+        assert response.status_code in [
+            200,
+            500,
+        ], f"Unexpected status: {response.status_code}"
 
 
 class TestImageSubmitToolInputValidation:
@@ -187,7 +190,7 @@ class TestImageSubmitToolInputValidation:
     def test_submit_image_tool_supports_image_bytes(self, mock_plugin_registry):
         """Test that tools with image_bytes input are accepted."""
         from app.main import app
-        
+
         mock_service = MagicMock()
         mock_service.get_plugin_manifest.return_value = {
             "tools": [
@@ -207,9 +210,9 @@ class TestImageSubmitToolInputValidation:
 
         app.dependency_overrides[get_plugin_manager] = override_get_plugin_manager
         app.dependency_overrides[get_plugin_service] = override_get_plugin_service
-        
+
         client = TestClient(app)
-        
+
         response = client.post(
             "/v1/image/submit?plugin_id=ocr&tool=extract_text",
             files={"file": ("test.png", BytesIO(png_data), "image/png")},
@@ -222,7 +225,7 @@ class TestImageSubmitToolInputValidation:
     def test_submit_image_tool_does_not_support_image(self, mock_plugin_registry):
         """Test that tools without image input are rejected."""
         from app.main import app
-        
+
         mock_service = MagicMock()
         mock_service.get_plugin_manifest.return_value = {
             "tools": [
@@ -242,9 +245,9 @@ class TestImageSubmitToolInputValidation:
 
         app.dependency_overrides[get_plugin_manager] = override_get_plugin_manager
         app.dependency_overrides[get_plugin_service] = override_get_plugin_service
-        
+
         client = TestClient(app)
-        
+
         response = client.post(
             "/v1/image/submit?plugin_id=ocr&tool=video_only_tool",
             files={"file": ("test.png", BytesIO(png_data), "image/png")},
@@ -262,14 +265,14 @@ class TestImageSubmitDI:
     def test_get_plugin_manager_uses_app_state(self):
         """Test that get_plugin_manager uses app.state.plugins when available."""
         from app.main import app
-        
+
         # Create a mock plugin manager
         mock_manager = MagicMock()
-        
+
         # Set app.state.plugins
         original_plugins = getattr(app.state, "plugins", None)
         app.state.plugins = mock_manager
-        
+
         try:
             result = get_plugin_manager()
             assert result is mock_manager
@@ -283,12 +286,12 @@ class TestImageSubmitDI:
     def test_get_plugin_manager_fallback_loads_plugins(self):
         """Test that get_plugin_manager falls back to loading plugins when app.state.plugins is None."""
         from app.main import app
-        
+
         # Remove app.state.plugins
         original_plugins = getattr(app.state, "plugins", None)
         if hasattr(app.state, "plugins"):
             delattr(app.state, "plugins")
-        
+
         try:
             result = get_plugin_manager()
             # Should return a PluginRegistry (not None)

@@ -40,6 +40,7 @@ def mock_plugin_registry():
 @pytest.mark.unit
 def test_submit_video_success(session, mock_plugin_registry, mock_plugin_service):
     """Test successful video submission."""
+
     # Override dependencies
     def override_get_plugin_manager():
         return mock_plugin_registry

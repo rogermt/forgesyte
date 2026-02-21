@@ -5,7 +5,6 @@ instead of a plain dict. This test verifies the fix handles both cases.
 """
 
 import json
-from io import BytesIO
 from unittest.mock import MagicMock
 from uuid import uuid4
 
@@ -59,6 +58,7 @@ class TestWorkerPydanticSerialization:
 
         # Create a temp file for image loading
         import tempfile
+
         with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as f:
             f.write(b"\x89PNG\r\n\x1a\n" + b"\x00" * 100)
             temp_path = f.name
@@ -71,8 +71,7 @@ class TestWorkerPydanticSerialization:
             "tools": [{"id": "extract_text", "inputs": ["image_base64"]}]
         }
         mock_plugin_service.run_plugin_tool.return_value = MockOCROutput(
-            text="Hello, World!",
-            confidence=0.98
+            text="Hello, World!", confidence=0.98
         )
 
         # Create a real file for the worker to read
@@ -103,6 +102,7 @@ class TestWorkerPydanticSerialization:
 
         # Cleanup
         import os
+
         os.unlink(temp_path)
 
     @pytest.mark.unit
@@ -136,6 +136,7 @@ class TestWorkerPydanticSerialization:
         mock_storage.load_file.return_value = "/data/jobs/image/input/test.png"
 
         import tempfile
+
         with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as f:
             f.write(b"\x89PNG\r\n\x1a\n" + b"\x00" * 100)
             temp_path = f.name
@@ -149,7 +150,7 @@ class TestWorkerPydanticSerialization:
         }
         mock_plugin_service.run_plugin_tool.return_value = {
             "text": "Dict result",
-            "confidence": 0.85
+            "confidence": 0.85,
         }
 
         # Create a real file for the worker to read
@@ -164,6 +165,7 @@ class TestWorkerPydanticSerialization:
 
         # Cleanup
         import os
+
         os.unlink(temp_path)
 
     @pytest.mark.unit
@@ -195,6 +197,7 @@ class TestWorkerPydanticSerialization:
 
         # Setup mock behaviors
         import tempfile
+
         with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as f:
             f.write(b"\x89PNG\r\n\x1a\n" + b"\x00" * 100)
             temp_path = f.name
@@ -216,7 +219,7 @@ class TestWorkerPydanticSerialization:
         detection_result = Detection(
             label="person",
             confidence=0.95,
-            bbox=BoundingBox(x=10, y=20, width=100, height=200)
+            bbox=BoundingBox(x=10, y=20, width=100, height=200),
         )
 
         mock_plugin_service.get_plugin_manifest.return_value = {
@@ -249,4 +252,5 @@ class TestWorkerPydanticSerialization:
 
         # Cleanup
         import os
+
         os.unlink(temp_path)
