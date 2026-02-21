@@ -27,12 +27,17 @@ export interface Plugin {
 
 export interface Job {
     job_id: string;
-    status: "queued" | "running" | "done" | "error" | "not_found";
-    plugin: string;
-    result?: Record<string, unknown>;
-    error?: string | null;
+    status: "pending" | "running" | "completed" | "failed";  // Issue #212: Aligned with server enum
+    plugin_id?: string;  // v0.9.2: plugin_id from server
+    tool?: string;  // v0.9.2: tool from server
+    plugin?: string;  // Legacy: kept for backward compatibility
+    results?: Record<string, unknown>;  // v0.9.2: results from server
+    result?: Record<string, unknown>;  // Legacy: kept for backward compatibility
+    error_message?: string | null;  // v0.9.2: error_message from server
+    error?: string | null;  // Legacy: kept for backward compatibility
     created_at: string;
-    completed_at?: string | null;
+    updated_at?: string;  // v0.9.2: updated_at from server
+    completed_at?: string | null;  // Legacy
     progress?: number | null;
 }
 
@@ -165,7 +170,8 @@ export class ForgeSyteAPIClient {
         while (Date.now() - startTime < timeoutMs) {
             const job = await this.getJob(jobId);
 
-            if (job.status === "done" || job.status === "error") {
+            // Issue #212: Check for server status values (completed/failed)
+            if (job.status === "completed" || job.status === "failed") {
                 return job;
             }
 

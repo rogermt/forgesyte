@@ -35,13 +35,13 @@ export const JobStatus: React.FC<Props> = ({ jobId }) => {
         const job = await apiClient.getJob(jobId);
         setStatus(job.status as Status);
 
-        if (job.status === "done" && job.result) {
-          setResults(job.result as VideoJobResults);
+        if (job.status === "completed" && job.results) {
+          setResults(job.results as VideoJobResults);
           return;
         }
 
-        if (job.status === "error") {
-          setError(job.error || "Job failed.");
+        if (job.status === "failed") {
+          setError(job.error_message || job.error || "Job failed.");
           return;
         }
 

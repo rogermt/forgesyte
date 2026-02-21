@@ -26,12 +26,13 @@ import { FrameResult } from "../hooks/useWebSocket";
 export function createMockJob(overrides?: Partial<Job>): Job {
     const defaults: Job = {
         job_id: "550e8400-e29b-41d4-a716-446655440000",
-        status: "queued",
-        plugin: "motion_detector",
+        status: "pending",
+        plugin_id: "ocr",
+        tool: "extract_text",
         created_at: "2026-01-12T21:00:00Z",
-        completed_at: undefined,
-        result: undefined,
-        error: undefined,
+        updated_at: "2026-01-12T21:00:00Z",
+        results: undefined,
+        error_message: undefined,
         progress: 0,
     };
 
@@ -49,19 +50,11 @@ export function createMockJob(overrides?: Partial<Job>): Job {
  */
 export function createMockJobDone(overrides?: Partial<Job>): Job {
     return createMockJob({
-        status: "done",
-        completed_at: "2026-01-12T21:00:30Z",
-        result: {
-            motion_detected: true,
+        status: "completed",
+        updated_at: "2026-01-12T21:00:30Z",
+        results: {
+            text: "Extracted text from image",
             confidence: 0.95,
-            regions: [
-                {
-                    x: 100,
-                    y: 150,
-                    width: 200,
-                    height: 150,
-                },
-            ],
         },
         progress: 100,
         ...overrides,
@@ -96,9 +89,9 @@ export function createMockJobRunning(overrides?: Partial<Job>): Job {
  */
 export function createMockJobError(overrides?: Partial<Job>): Job {
     return createMockJob({
-        status: "error",
-        completed_at: "2026-01-12T20:05:00Z",
-        error: "Failed to process image: invalid format",
+        status: "failed",
+        updated_at: "2026-01-12T20:05:00Z",
+        error_message: "Failed to process image: invalid format",
         progress: null,
         ...overrides,
     });
@@ -120,7 +113,7 @@ export function createMockJobList(count: number = 4): Job[] {
         jobs.push(createMockJobRunning());
     }
     if (count >= 3) {
-        jobs.push(createMockJob({ status: "queued" }));
+        jobs.push(createMockJob({ status: "pending" }));
     }
     if (count >= 4) {
         jobs.push(createMockJobError());

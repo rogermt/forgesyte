@@ -21,39 +21,39 @@ describe("Mock Factories", () => {
         it("should create job with default values", () => {
             const job = createMockJob();
             expect(job.job_id).toBeDefined();
-            expect(job.status).toBe("queued");
-            expect(job.plugin).toBe("motion_detector");
+            expect(job.status).toBe("pending");
+            expect(job.plugin_id).toBe("ocr");
             expect(job.created_at).toBeDefined();
         });
 
         it("should allow overrides", () => {
-            const job = createMockJob({ status: "done", plugin: "ocr" });
-            expect(job.status).toBe("done");
-            expect(job.plugin).toBe("ocr");
+            const job = createMockJob({ status: "completed", plugin_id: "yolo" });
+            expect(job.status).toBe("completed");
+            expect(job.plugin_id).toBe("yolo");
         });
 
         it("should have required fields", () => {
             const job = createMockJob();
             expect(job).toHaveProperty("job_id");
             expect(job).toHaveProperty("status");
-            expect(job).toHaveProperty("plugin");
+            expect(job).toHaveProperty("plugin_id");
             expect(job).toHaveProperty("created_at");
         });
     });
 
     describe("createMockJobDone", () => {
-        it("should create job with done status", () => {
+        it("should create job with completed status", () => {
             const job = createMockJobDone();
-            expect(job.status).toBe("done");
-            expect(job.completed_at).toBeDefined();
-            expect(job.result).toBeDefined();
+            expect(job.status).toBe("completed");
+            expect(job.updated_at).toBeDefined();
+            expect(job.results).toBeDefined();
             expect(job.progress).toBe(100);
         });
 
         it("should have result data", () => {
             const job = createMockJobDone();
-            expect(job.result).toHaveProperty("motion_detected");
-            expect(job.result).toHaveProperty("confidence");
+            expect(job.results).toHaveProperty("text");
+            expect(job.results).toHaveProperty("confidence");
         });
     });
 
@@ -67,16 +67,16 @@ describe("Mock Factories", () => {
     });
 
     describe("createMockJobError", () => {
-        it("should create job with error status", () => {
+        it("should create job with failed status", () => {
             const job = createMockJobError();
-            expect(job.status).toBe("error");
-            expect(job.error).toBeDefined();
-            expect(job.completed_at).toBeDefined();
+            expect(job.status).toBe("failed");
+            expect(job.error_message).toBeDefined();
+            expect(job.updated_at).toBeDefined();
         });
 
         it("should have error message", () => {
             const job = createMockJobError();
-            expect(job.error).toContain("Failed");
+            expect(job.error_message).toContain("Failed");
         });
     });
 
@@ -84,10 +84,10 @@ describe("Mock Factories", () => {
         it("should create multiple jobs with different statuses", () => {
             const jobs = createMockJobList(4);
             expect(jobs).toHaveLength(4);
-            expect(jobs[0].status).toBe("done");
+            expect(jobs[0].status).toBe("completed");
             expect(jobs[1].status).toBe("running");
-            expect(jobs[2].status).toBe("queued");
-            expect(jobs[3].status).toBe("error");
+            expect(jobs[2].status).toBe("pending");
+            expect(jobs[3].status).toBe("failed");
         });
 
         it("should respect count parameter", () => {

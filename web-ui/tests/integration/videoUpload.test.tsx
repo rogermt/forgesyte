@@ -128,7 +128,7 @@ it.skip("should poll job status and display results when complete", async () => 
         // Mock job status progression to failed
         (apiClient.getJob as ReturnType<typeof vi.fn>).mockResolvedValue({
             job_id: "test-job-789",
-            status: "error",
+            status: "failed",
             error: "Job failed",
             plugin: "yolo",
             created_at: "2026-02-18T10:00:00Z",

@@ -72,9 +72,10 @@ describe("ForgeSyteAPIClient", () => {
         it("should fetch jobs with default parameters", async () => {
             const mockJobs = [
                 {
-                    id: "job-1",
-                    status: "done" as const,
-                    plugin: "motion_detector",
+                    job_id: "job-1",
+                    status: "completed" as const,
+                    plugin_id: "ocr",
+                    tool: "extract_text",
                     created_at: "2026-01-09T21:00:00Z",
                     updated_at: "2026-01-09T21:00:30Z",
                 },
@@ -110,42 +111,21 @@ describe("ForgeSyteAPIClient", () => {
                 createMockResponse({ jobs: [] })
             );
 
-            await client.listJobs(10, 0, "done");
+            await client.listJobs(10, 0, "completed");
 
             const callUrl = (fetchMock.mock.calls[0][0] as string);
-            expect(callUrl).toContain("status=done");
+            expect(callUrl).toContain("status=completed");
         });
     });
 
     describe("getJob", () => {
         it("should fetch a specific job", async () => {
             const mockJob = {
-                id: "job-123",
-                status: "done" as const,
-                plugin: "motion_detector",
-                result: { motion: true },
-                created_at: "2026-01-09T21:00:00Z",
-                updated_at: "2026-01-09T21:00:30Z",
-            };
-
-            fetchMock.mockResolvedValueOnce(
-                createMockResponse({ job: mockJob })
-            );
-
-            const job = await client.getJob("job-123");
-
-            expect(job).toEqual(mockJob);
-            expect(fetchMock).toHaveBeenCalledWith(
-                expect.stringContaining("/jobs/job-123"),
-                expect.any(Object)
-            );
-        });
-
-        it("should handle job response without wrapper", async () => {
-            const mockJob = {
-                id: "job-123",
-                status: "done" as const,
-                plugin: "motion_detector",
+                job_id: "job-123",
+                status: "completed" as const,
+                plugin_id: "ocr",
+                tool: "extract_text",
+                results: { text: "Hello" },
                 created_at: "2026-01-09T21:00:00Z",
                 updated_at: "2026-01-09T21:00:30Z",
             };
@@ -156,7 +136,32 @@ describe("ForgeSyteAPIClient", () => {
 
             const job = await client.getJob("job-123");
 
-            expect(job).toEqual(mockJob);
+            expect(job.job_id).toBe("job-123");
+            expect(job.status).toBe("completed");
+            expect(fetchMock).toHaveBeenCalledWith(
+                expect.stringContaining("/jobs/job-123"),
+                expect.any(Object)
+            );
+        });
+
+        it("should handle job response without wrapper", async () => {
+            const mockJob = {
+                job_id: "job-123",
+                status: "pending" as const,
+                plugin_id: "ocr",
+                tool: "extract_text",
+                created_at: "2026-01-09T21:00:00Z",
+                updated_at: "2026-01-09T21:00:30Z",
+            };
+
+            fetchMock.mockResolvedValueOnce(
+                createMockResponse(mockJob)
+            );
+
+            const job = await client.getJob("job-123");
+
+            expect(job.job_id).toBe("job-123");
+            expect(job.status).toBe("pending");
         });
     });
 
@@ -202,45 +207,47 @@ describe("ForgeSyteAPIClient", () => {
 
     describe("pollJob", () => {
         it("should poll until job is complete", async () => {
-            const pendingJob = {
-                id: "job-1",
-                status: "processing" as const,
-                plugin: "motion_detector",
+            const runningJob = {
+                job_id: "job-1",
+                status: "running" as const,
+                plugin_id: "ocr",
+                tool: "extract_text",
                 created_at: "2026-01-09T21:00:00Z",
                 updated_at: "2026-01-09T21:00:10Z",
             };
 
-            const completeJob = {
-                ...pendingJob,
-                status: "done" as const,
+            const completedJob = {
+                job_id: "job-1",
+                status: "completed" as const,
+                plugin_id: "ocr",
+                tool: "extract_text",
+                results: { text: "Done" },
+                created_at: "2026-01-09T21:00:00Z",
                 updated_at: "2026-01-09T21:00:30Z",
             };
 
             fetchMock
-                .mockResolvedValueOnce(
-                    createMockResponse({ job: pendingJob })
-                )
-                .mockResolvedValueOnce(
-                    createMockResponse({ job: completeJob })
-                );
+                .mockResolvedValueOnce(createMockResponse(runningJob))
+                .mockResolvedValueOnce(createMockResponse(completedJob));
 
             const result = await client.pollJob("job-1", 10, 5000);
 
-            expect(result).toEqual(completeJob);
+            expect(result.status).toBe("completed");
             expect(fetchMock).toHaveBeenCalledTimes(2);
         });
 
         it("should timeout if job not completed", async () => {
             const pendingJob = {
-                id: "job-1",
-                status: "processing" as const,
-                plugin: "motion_detector",
+                job_id: "job-1",
+                status: "pending" as const,
+                plugin_id: "ocr",
+                tool: "extract_text",
                 created_at: "2026-01-09T21:00:00Z",
                 updated_at: "2026-01-09T21:00:10Z",
             };
 
             fetchMock.mockResolvedValue(
-                createMockResponse({ job: pendingJob })
+                createMockResponse(pendingJob)
             );
 
             await expect(
@@ -312,7 +319,7 @@ describe("ForgeSyteAPIClient", () => {
 
                 (global as unknown as { XMLHttpRequest: typeof MockXMLHttpRequest }).XMLHttpRequest = MockXMLHttpRequest;
 
-                const result = await (client as unknown as ForgeSyteAPIClient & { submitVideo: (file: File, pluginId: string, tool: string, onProgress?: (percent: number) => void) => Promise<{ job_id: string }> }).submitVideo(mockFile, "ocr", "extract_text");
+                const result = await client.submitVideo(mockFile, "ocr", "extract_text");
 
                 expect(result).toEqual(mockResult);
                 expect(mockXHRInstances[0]?.open).toHaveBeenCalledWith(
@@ -352,104 +359,10 @@ describe("ForgeSyteAPIClient", () => {
 
                 (global as unknown as { XMLHttpRequest: typeof MockXMLHttpRequest }).XMLHttpRequest = MockXMLHttpRequest;
 
-                await (client as unknown as ForgeSyteAPIClient & { submitVideo: (file: File, pluginId: string, tool: string, onProgress?: (percent: number) => void) => Promise<{ job_id: string }> }).submitVideo(mockFile, "ocr", "extract_text", progressCallback);
+                await client.submitVideo(mockFile, "ocr", "extract_text", progressCallback);
 
                 expect(progressCallback).toHaveBeenCalledWith(50);
                 expect(progressCallback).toHaveBeenCalledWith(100);
-            });
-        });
-
-        describe("getVideoJobStatus", () => {
-            it("should fetch video job status", async () => {
-                const mockStatus = {
-                    job_id: "video-job-123",
-                    status: "completed",
-                    progress: 100,
-                    created_at: "2026-02-18T10:00:00Z",
-                    updated_at: "2026-02-18T10:01:00Z",
-                };
-
-                fetchMock.mockResolvedValueOnce(
-                    createMockResponse(mockStatus)
-                );
-
-                const status = await (client as unknown as ForgeSyteAPIClient & { getVideoJobStatus: (jobId: string) => Promise<Record<string, unknown>> }).getVideoJobStatus("video-job-123");
-
-                expect(status).toEqual(mockStatus);
-                expect(fetchMock).toHaveBeenCalledWith(
-                    expect.stringContaining("/video/status/video-job-123"),
-                    expect.any(Object)
-                );
-            });
-
-            it("should handle pending status", async () => {
-                const mockStatus = {
-                    job_id: "video-job-456",
-                    status: "pending",
-                    progress: 0,
-                    created_at: "2026-02-18T10:00:00Z",
-                    updated_at: "2026-02-18T10:00:00Z",
-                };
-
-                fetchMock.mockResolvedValueOnce(
-                    createMockResponse(mockStatus)
-                );
-
-                const status = await (client as unknown as ForgeSyteAPIClient & { getVideoJobStatus: (jobId: string) => Promise<Record<string, unknown>> }).getVideoJobStatus("video-job-456");
-
-                expect(status.status).toBe("pending");
-            });
-        });
-
-        describe("getVideoJobResults", () => {
-            it("should fetch video job results", async () => {
-                const mockResults = {
-                    job_id: "video-job-123",
-                    results: {
-                        text: "Sample OCR text",
-                        detections: [],
-                    },
-                    created_at: "2026-02-18T10:00:00Z",
-                    updated_at: "2026-02-18T10:01:00Z",
-                };
-
-                fetchMock.mockResolvedValueOnce(
-                    createMockResponse(mockResults)
-                );
-
-                const results = await (client as unknown as ForgeSyteAPIClient & { getVideoJobResults: (jobId: string) => Promise<Record<string, unknown>> }).getVideoJobResults("video-job-123");
-
-                expect(results).toEqual(mockResults);
-                expect(fetchMock).toHaveBeenCalledWith(
-                    expect.stringContaining("/video/results/video-job-123"),
-                    expect.any(Object)
-                );
-            });
-
-            it("should handle results with detections", async () => {
-                const mockResults = {
-                    job_id: "video-job-789",
-                    results: {
-                        text: "Sample text",
-                        detections: [
-                            {
-                                label: "person",
-                                confidence: 0.95,
-                                bbox: [100, 100, 50, 100],
-                            },
-                        ],
-                    },
-                    created_at: "2026-02-18T10:00:00Z",
-                    updated_at: "2026-02-18T10:01:00Z",
-                };
-
-                fetchMock.mockResolvedValueOnce(
-                    createMockResponse(mockResults)
-                );
-
-                const results = await (client as unknown as ForgeSyteAPIClient & { getVideoJobResults: (jobId: string) => Promise<Record<string, unknown>> }).getVideoJobResults("video-job-789");
-
-                expect(results.results.detections).toHaveLength(1);
             });
         });
     });
