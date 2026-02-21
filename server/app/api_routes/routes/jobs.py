@@ -50,7 +50,7 @@ async def get_job(job_id: UUID, db: Session = Depends(get_db)) -> JobResultsResp
         db: Database session
 
     Returns:
-        JobResultsResponse with job_id, results, status, progress, timestamps
+        JobResultsResponse with job_id, status, results, error_message, timestamps
 
     Raises:
         HTTPException: 404 if job not found
@@ -68,7 +68,9 @@ async def get_job(job_id: UUID, db: Session = Depends(get_db)) -> JobResultsResp
     if job.status != JobStatus.completed:
         return JobResultsResponse(
             job_id=job.job_id,
+            status=job.status.value,  # Issue #211: Include status
             results=None,
+            error_message=job.error_message,
             created_at=job.created_at,
             updated_at=job.updated_at,
         )
@@ -86,7 +88,9 @@ async def get_job(job_id: UUID, db: Session = Depends(get_db)) -> JobResultsResp
 
     return JobResultsResponse(
         job_id=job.job_id,
+        status=job.status.value,  # Issue #211: Include status
         results=results,
+        error_message=job.error_message,
         created_at=job.created_at,
         updated_at=job.updated_at,
     )

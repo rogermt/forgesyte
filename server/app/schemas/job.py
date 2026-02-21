@@ -1,7 +1,7 @@
 """Schemas for job endpoints."""
 
 from datetime import datetime
-from typing import Literal
+from typing import Literal, Optional
 from uuid import UUID
 
 from pydantic import BaseModel
@@ -23,10 +23,15 @@ class JobStatusResponse(BaseModel):
 
 
 class JobResultsResponse(BaseModel):
-    """Response for GET /v1/jobs/{job_id} (unified endpoint)."""
+    """Response for GET /v1/jobs/{job_id} (unified endpoint).
+
+    Issue #211: Added status field for web-UI polling.
+    """
 
     job_id: UUID
+    status: str  # "pending", "running", "completed", "failed"
     results: dict | None
+    error_message: Optional[str] = None
     created_at: datetime
     updated_at: datetime
 
