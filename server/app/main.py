@@ -219,8 +219,10 @@ async def lifespan(app: FastAPI):
     # Services (v0.9.2: TaskProcessor removed, using JobWorker instead)
     # v0.9.3: Legacy AnalysisService and JobManagementService removed
     try:
-        app.state.analysis_service = VisionAnalysisService(plugin_manager, ws_manager)
         app.state.plugin_service = PluginManagementService(plugin_manager)
+        app.state.analysis_service = VisionAnalysisService(
+            app.state.plugin_service, ws_manager
+        )
 
         # Phase 14: Pipeline Services
         from .services.pipeline_registry_service import PipelineRegistryService
