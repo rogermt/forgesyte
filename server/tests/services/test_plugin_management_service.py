@@ -206,8 +206,11 @@ class TestPluginManagementService:
         """Verify registry.get() returns PluginInterface instance, not metadata dict."""
         # Create a mock plugin instance with callable methods
         mock_plugin = Mock()
-        mock_plugin.some_method.return_value = {"data": "test"}
         mock_plugin.metadata.return_value = {"name": "plugin1", "version": "1.0"}
+        # Set up tools dict for validation
+        mock_plugin.tools = {"some_method": {}}
+        # Mock run_tool to return expected result
+        mock_plugin.run_tool.return_value = {"data": "test"}
 
         # Simulate the difference between registry.get() and registry.list()
         # registry.get() -> returns plugin instance (has callable methods)
@@ -232,11 +235,11 @@ class TestPluginManagementService:
 
         # Create a mock async plugin method
         # Note: run_plugin_tool handles the event loop internally
-        async def async_tool(**kwargs):
-            return {"async_result": "success"}
-
         mock_plugin = Mock()
-        mock_plugin.async_tool = async_tool
+        # Set up tools dict for validation
+        mock_plugin.tools = {"async_tool": {}}
+        # Mock run_tool to return expected result
+        mock_plugin.run_tool.return_value = {"async_result": "success"}
 
         mock_registry.get.return_value = mock_plugin
 
