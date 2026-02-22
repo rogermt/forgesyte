@@ -98,7 +98,7 @@ describe("JobList", () => {
 
             await waitFor(() => {
                 expect(screen.getByText("Recent Jobs")).toBeInTheDocument();
-                expect(screen.getByText("done")).toBeInTheDocument();
+                expect(screen.getByText("completed")).toBeInTheDocument();
                 expect(screen.getByText("running")).toBeInTheDocument();
             });
         });
@@ -154,7 +154,7 @@ describe("JobList", () => {
 
             await waitFor(() => {
                 expect(screen.getByText("Recent Jobs")).toBeInTheDocument();
-                expect(screen.getByText("done")).toBeInTheDocument();
+                expect(screen.getByText("completed")).toBeInTheDocument();
                 expect(screen.getByText("running")).toBeInTheDocument();
             });
         });
@@ -167,7 +167,7 @@ describe("JobList", () => {
             render(<JobList onJobSelect={vi.fn()} />);
 
             await waitFor(() => {
-                expect(screen.getByText("motion_detector")).toBeInTheDocument();
+                expect(screen.getByText("ocr")).toBeInTheDocument();
             });
         });
 
@@ -189,10 +189,10 @@ describe("JobList", () => {
 
     describe("status color rendering", () => {
         const statuses = [
-            { statusValue: "done" as const, factory: createMockJobDone },
-            { statusValue: "error" as const, factory: createMockJobError },
+            { statusValue: "completed" as const, factory: createMockJobDone },
+            { statusValue: "failed" as const, factory: createMockJobError },
             { statusValue: "running" as const, factory: createMockJobRunning },
-            { statusValue: "queued" as const, factory: createMockJob },
+            { statusValue: "pending" as const, factory: createMockJob },
         ];
 
         statuses.forEach(({ statusValue, factory }) => {
@@ -211,7 +211,7 @@ describe("JobList", () => {
             });
         });
 
-        it("should display error status with proper styling", async () => {
+        it("should display failed status with proper styling", async () => {
             const job = createMockJobError();
 
             (client.apiClient.listJobs as ReturnType<typeof vi.fn>).mockResolvedValue([
@@ -221,7 +221,7 @@ describe("JobList", () => {
             render(<JobList onJobSelect={vi.fn()} />);
 
             await waitFor(() => {
-                expect(screen.getByText("error")).toBeInTheDocument();
+                expect(screen.getByText("failed")).toBeInTheDocument();
             });
         });
     });

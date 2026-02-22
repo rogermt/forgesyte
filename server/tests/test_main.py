@@ -54,13 +54,12 @@ def mock_ws_manager():
 
 
 @pytest.mark.asyncio
-async def test_lifespan_startup_shutdown(mock_plugin_manager, mock_task_processor):
+async def test_lifespan_startup_shutdown(mock_plugin_manager):
     """Test that lifespan context manager initializes and cleans up correctly."""
 
     # Mock dependencies
     with (
         patch("app.main.PluginRegistry", return_value=mock_plugin_manager),
-        patch("app.main.init_task_processor", return_value=mock_task_processor),
         patch("app.main.VisionAnalysisService") as MockVisionService,
         patch("app.main.init_auth_service") as mock_init_auth,
     ):
@@ -78,13 +77,8 @@ async def test_lifespan_startup_shutdown(mock_plugin_manager, mock_task_processo
             assert app.state.plugins == mock_plugin_manager
             mock_plugin_manager.load_plugins.assert_called_once()
 
-            # Check task processor initialized
-            assert mock_task_processor is not None
-
             # Check services initialized
             assert hasattr(app.state, "analysis_service")
-            assert hasattr(app.state, "analysis_service_rest")
-            assert hasattr(app.state, "job_service")
             assert hasattr(app.state, "plugin_service")
 
         # Shutdown phase — mock should have been called

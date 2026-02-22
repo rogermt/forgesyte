@@ -7,13 +7,14 @@ and errors when tools is missing (Phase 13 multi-tool requirement).
 import base64
 import os
 import sys
-from unittest.mock import AsyncMock, Mock, patch
+from unittest.mock import AsyncMock, Mock
 
 import pytest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../.."))
 
 from app.protocols import PluginRegistry, WebSocketProvider
+from app.services.plugin_management_service import PluginManagementService
 from app.services.vision_analysis import VisionAnalysisService
 
 
@@ -32,16 +33,21 @@ class TestToolRoutingFromFrame:
         return ws
 
     @pytest.fixture
-    def service(self, mock_registry, mock_ws_manager):
-        return VisionAnalysisService(plugins=mock_registry, ws_manager=mock_ws_manager)
+    def plugin_service(self, mock_registry):
+        return Mock(spec=PluginManagementService)
+
+    @pytest.fixture
+    def service(self, plugin_service, mock_ws_manager):
+        return VisionAnalysisService(
+            plugin_service=plugin_service, ws_manager=mock_ws_manager
+        )
 
     @pytest.mark.asyncio
     async def test_uses_tools_from_frame_data(
-        self, service, mock_registry, mock_ws_manager
+        self, service, plugin_service, mock_ws_manager
     ):
-        """When frame includes tools field, run_pipeline should use those tools."""
-        mock_plugin = Mock()
-        mock_registry.get.return_value = mock_plugin
+        """When frame includes tools field, run_plugin_tool should use those tools."""
+        plugin_service.run_plugin_tool.return_value = {"detections": []}
 
         frame_data = {
             "data": base64.b64encode(b"image").decode("utf-8"),
@@ -50,26 +56,24 @@ class TestToolRoutingFromFrame:
             "options": {},
         }
 
-        with patch.object(
-            service.video_pipeline_service,
-            "run_pipeline",
-            return_value={"detections": []},
-        ) as mock_run_pipeline:
-            await service.handle_frame("client1", "plugin1", frame_data)
+        await service.handle_frame("client1", "plugin1", frame_data)
 
-        mock_run_pipeline.assert_called_once()
-        call_kwargs = mock_run_pipeline.call_args[1]
-        assert call_kwargs["tools"] == ["ball_detection", "player_detection"]
-        assert call_kwargs["plugin_id"] == "plugin1"
+        # Should call run_plugin_tool for each tool
+        assert plugin_service.run_plugin_tool.call_count == 2
+
+        # First call should be for ball_detection
+        first_call = plugin_service.run_plugin_tool.call_args_list[0]
+        assert first_call[1]["tool_name"] == "ball_detection"
+        assert first_call[1]["plugin_id"] == "plugin1"
+
+        # Second call should be for player_detection
+        second_call = plugin_service.run_plugin_tool.call_args_list[1]
+        assert second_call[1]["tool_name"] == "player_detection"
+        assert second_call[1]["plugin_id"] == "plugin1"
 
     @pytest.mark.asyncio
-    async def test_errors_when_tools_missing(
-        self, service, mock_registry, mock_ws_manager
-    ):
+    async def test_errors_when_tools_missing(self, service, mock_ws_manager):
         """When frame omits tools, should return an error (Phase 13 requirement)."""
-        mock_plugin = Mock()
-        mock_registry.get.return_value = mock_plugin
-
         frame_data = {
             "data": base64.b64encode(b"image").decode("utf-8"),
             "frame_id": "f2",

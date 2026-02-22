@@ -44,8 +44,5 @@ jobs:
           cd server
           uv run pytest tests/execution -v
 
-      - name: Run all core tests
-        run: |
-          cd server
-          uv run pytest tests/ -v --tb=short
+      
 

@@ -1,11 +1,10 @@
 """Tests for StorageService implementations."""
 
 from io import BytesIO
-from pathlib import Path
 
 import pytest
 
-from app.services.storage.local_storage import LocalStorageService
+from app.services.storage.local_storage import BASE_DIR, LocalStorageService
 
 
 @pytest.mark.unit
@@ -19,8 +18,9 @@ def test_local_storage_save_file():
 
     assert result is not None
     assert "video1.mp4" in result
-    assert Path(result).exists()
-    assert Path(result).read_bytes() == contents
+    full_path = BASE_DIR / result
+    assert full_path.exists()
+    assert full_path.read_bytes() == contents
 
 
 @pytest.mark.unit
@@ -56,7 +56,8 @@ def test_local_storage_delete_file():
 
     storage.delete_file("test_videos/video3.mp4")
 
-    assert not Path(saved_path).exists()
+    full_path = BASE_DIR / saved_path
+    assert not full_path.exists()
 
 
 @pytest.mark.unit
@@ -77,5 +78,6 @@ def test_local_storage_creates_directories():
 
     result = storage.save_file(src, "deeply/nested/path/video.mp4")
 
-    assert Path(result).exists()
-    assert Path(result).parent.exists()
+    full_path = BASE_DIR / result
+    assert full_path.exists()
+    assert full_path.parent.exists()

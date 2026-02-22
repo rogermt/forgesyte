@@ -1,5 +1,6 @@
 """DuckDB SQLAlchemy database configuration."""
 
+import os
 from pathlib import Path
 from typing import Any
 
@@ -8,13 +9,15 @@ from sqlalchemy.orm import declarative_base, sessionmaker
 
 Base: Any = declarative_base()
 
-# Ensure data directory exists
+# Ensure data directory exists (for file-based DB)
 data_dir = Path("data")
 data_dir.mkdir(exist_ok=True)
 
-# File-based DuckDB for application runtime
+# DB URL configurable via environment (tests use in-memory, prod uses file)
+DATABASE_URL = os.getenv("FORGESYTE_DATABASE_URL", "duckdb:///data/foregsyte.duckdb")
+
 engine = create_engine(
-    "duckdb:///data/foregsyte.duckdb",
+    DATABASE_URL,
     future=True,
 )
 

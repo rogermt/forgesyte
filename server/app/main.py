@@ -15,6 +15,7 @@ It provides:
 import logging
 import logging.handlers
 import os
+import threading
 import uuid
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -37,10 +38,13 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from .api import router as api_router
 from .api_plugins import router as plugins_router
 from .api_routes.routes.execution import router as execution_router
+from .api_routes.routes.image_submit import router as image_submit_router
 from .api_routes.routes.job_results import router as job_results_router
 from .api_routes.routes.job_status import router as job_status_router
+from .api_routes.routes.jobs import router as jobs_router
 from .api_routes.routes.video_file_processing import router as video_router
 from .api_routes.routes.video_submit import router as video_submit_router
+from .api_routes.routes.worker_health import router as worker_health_router
 
 # Services
 from .auth import init_auth_service
@@ -52,16 +56,15 @@ from .realtime import websocket_router as realtime_router
 from .routes.routes_pipelines import router as pipelines_router
 from .routes_pipeline import init_pipeline_routes
 from .services import (
-    AnalysisService,
-    ImageAcquisitionService,
-    JobManagementService,
     PluginManagementService,
     VisionAnalysisService,
 )
 
 # Phase 14 Settings
 from .settings import get_settings
-from .tasks import init_task_processor, job_store
+
+# v0.9.2: TaskProcessor replaced by JobWorker
+# v0.9.3: Legacy AnalysisService and JobManagementService removed
 from .websocket_manager import ws_manager
 
 # ---------------------------------------------------------------------------
@@ -213,15 +216,13 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.error("Startup audit failed", extra={"error": str(e)})
 
-    # Task Processor + Services
+    # Services (v0.9.2: TaskProcessor removed, using JobWorker instead)
+    # v0.9.3: Legacy AnalysisService and JobManagementService removed
     try:
-        processor = init_task_processor(plugin_manager)
-        app.state.analysis_service = VisionAnalysisService(plugin_manager, ws_manager)
-
-        image_acquisition = ImageAcquisitionService()
-        app.state.analysis_service_rest = AnalysisService(processor, image_acquisition)
-        app.state.job_service = JobManagementService(job_store, processor)
         app.state.plugin_service = PluginManagementService(plugin_manager)
+        app.state.analysis_service = VisionAnalysisService(
+            app.state.plugin_service, ws_manager
+        )
 
         # Phase 14: Pipeline Services
         from .services.pipeline_registry_service import PipelineRegistryService
@@ -232,6 +233,25 @@ async def lifespan(app: FastAPI):
 
     except Exception as e:
         logger.error("Service initialization failed", extra={"error": str(e)})
+
+    # Start JobWorker thread (DuckDB requires same process)
+    # Disabled in pytest via FORGESYTE_ENABLE_WORKERS=0 to prevent DB lock errors
+    if os.getenv("FORGESYTE_ENABLE_WORKERS", "1") == "1":
+        try:
+            from .workers.run_job_worker import run_worker_forever
+
+            worker_thread = threading.Thread(
+                target=run_worker_forever,
+                args=(plugin_manager,),
+                name="job-worker-thread",
+                daemon=True,
+            )
+            worker_thread.start()
+            logger.info("JobWorker thread started")
+        except Exception as e:
+            logger.error("Failed to start JobWorker thread", extra={"error": str(e)})
+    else:
+        logger.debug("JobWorker thread disabled (FORGESYTE_ENABLE_WORKERS=0)")
 
     yield
 
@@ -282,11 +302,14 @@ def create_app() -> FastAPI:
     app.include_router(plugins_router, prefix="")
     app.include_router(realtime_router, prefix=settings.api_prefix)
     app.include_router(health_router)
+    app.include_router(worker_health_router)
     app.include_router(execution_router)
     app.include_router(init_pipeline_routes())
     app.include_router(pipelines_router, prefix=settings.api_prefix)
     app.include_router(video_router, prefix=settings.api_prefix)
     app.include_router(video_submit_router, prefix="")
+    app.include_router(image_submit_router, prefix="")
+    app.include_router(jobs_router, prefix="")
     app.include_router(job_status_router, prefix="")
     app.include_router(job_results_router, prefix="")
 

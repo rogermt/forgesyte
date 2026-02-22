@@ -1,5 +1,6 @@
 """Pipeline routes for Phase 13 - Multi-Tool Linear Pipelines.
 
+v0.9.3 — Updated to use PluginManagementService instead of VideoPipelineService.
 This module provides REST endpoints for video pipeline execution.
 """
 
@@ -9,7 +10,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 
 from .protocols import PluginRegistry
 from .schemas.pipeline import PipelineRequest
-from .services.video_pipeline_service import VideoPipelineService
+from .services.plugin_management_service import PluginManagementService
 
 
 def get_plugin_registry(request: Request) -> PluginRegistry:
@@ -17,11 +18,11 @@ def get_plugin_registry(request: Request) -> PluginRegistry:
     return request.app.state.plugins
 
 
-def get_pipeline_service(
+def get_plugin_service(
     plugins: PluginRegistry = Depends(get_plugin_registry),
-) -> VideoPipelineService:
-    """Dependency to get the VideoPipelineService."""
-    return VideoPipelineService(plugins)
+) -> PluginManagementService:
+    """Dependency to get the PluginManagementService."""
+    return PluginManagementService(plugins)
 
 
 def init_pipeline_routes() -> APIRouter:
@@ -31,17 +32,37 @@ def init_pipeline_routes() -> APIRouter:
     @router.post("/video/pipeline")
     async def run_video_pipeline(
         req: PipelineRequest,
-        pipeline_service: VideoPipelineService = Depends(get_pipeline_service),
+        plugin_service: PluginManagementService = Depends(get_plugin_service),
     ) -> Dict[str, Any]:
-        """Execute a linear pipeline of tools for a single plugin."""
+        """Execute a linear pipeline of tools for a single plugin.
+
+        v0.9.3: Updated to use PluginManagementService.run_plugin_tool()
+        for each tool in the pipeline instead of VideoPipelineService.
+        """
         try:
-            result = pipeline_service.run_pipeline(
-                plugin_id=req.plugin_id,
-                tools=req.tools,
-                payload=req.payload,
-            )
-            return result
+            # Execute each tool sequentially
+            results = []
+            current_payload = req.payload
+
+            for tool_name in req.tools:
+                result = plugin_service.run_plugin_tool(
+                    plugin_id=req.plugin_id,
+                    tool_name=tool_name,
+                    args=current_payload,
+                )
+                results.append(result)
+                # Use the result as input for the next tool
+                current_payload = result
+
+            return {
+                "result": results[-1] if results else {},
+                "steps": results,
+                "plugin_id": req.plugin_id,
+                "tools": req.tools,
+            }
         except ValueError as e:
             raise HTTPException(status_code=400, detail=str(e)) from e
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e)) from e
 
     return router

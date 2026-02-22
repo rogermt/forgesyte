@@ -1,26 +1,29 @@
-"""Vision analysis service for orchestrating plugin-based image analysis.
+"""Vision analysis service for WebSocket streaming.
 
-This service handles the coordination of image analysis across multiple vision
-plugins, managing the execution flow and returning structured results.
+v0.9.3 — Rewritten to use the unified plugin system.
+This service is used ONLY for the /v1/stream WebSocket endpoint.
+It performs real-time per-frame analysis by calling plugin.run_tool()
+directly on each incoming frame.
 
 The service depends on Protocols (PluginRegistry, WebSocketProvider) rather than
 concrete implementations, making it easily testable and extensible.
 
 Example:
     from .vision_analysis import VisionAnalysisService
-    from ..protocols import PluginRegistry, WebSocketProvider
+    from .plugin_management_service import PluginManagementService
 
-    service = VisionAnalysisService(plugin_registry, ws_provider)
+    plugin_service = PluginManagementService(plugin_registry)
+    service = VisionAnalysisService(plugin_service, ws_manager)
 """
 
 import base64
 import logging
 import time
 import uuid
-from typing import Any, Dict
+from typing import Any, Dict, List
 
-from ..protocols import PluginRegistry, WebSocketProvider
-from .video_pipeline_service import VideoPipelineService
+from ..protocols import WebSocketProvider
+from .plugin_management_service import PluginManagementService
 
 logger = logging.getLogger(__name__)
 
@@ -32,25 +35,24 @@ class VisionAnalysisService:
     dispatching to plugins, and sending results back to clients.
 
     Depends on Protocols for flexibility and testability:
-    - PluginRegistry: Abstracts where plugins come from
+    - PluginManagementService: Abstracts plugin execution
     - WebSocketProvider: Abstracts message delivery mechanism
     """
 
-    def __init__(self, plugins: PluginRegistry, ws_manager: WebSocketProvider) -> None:
+    def __init__(
+        self, plugin_service: PluginManagementService, ws_manager: WebSocketProvider
+    ) -> None:
         """Initialize vision analysis service with dependencies.
 
         Args:
-            plugins: Plugin registry (implements PluginRegistry protocol)
+            plugin_service: Plugin management service for executing tools
             ws_manager: WebSocket manager (implements WebSocketProvider protocol)
 
         Raises:
-            TypeError: If plugins or ws_manager don't have required methods
+            TypeError: If plugin_service or ws_manager don't have required methods
         """
-        self.plugins = plugins
+        self.plugin_service = plugin_service
         self.ws_manager = ws_manager
-
-        # Phase‑13: Inject pipeline executor
-        self.video_pipeline_service = VideoPipelineService(plugins)
 
         logger.debug("VisionAnalysisService initialized")
 
@@ -60,36 +62,22 @@ class VisionAnalysisService:
         """Process a single frame through a vision plugin.
 
         Orchestrates the complete analysis pipeline:
-        1. Validate plugin exists
-        2. Decode base64 image data
-        3. Time the analysis execution
-        4. Execute plugin analysis
-        5. Send results back to client
-        6. Handle errors gracefully
+        1. Decode base64 image data
+        2. Time the analysis execution
+        3. Execute plugin analysis
+        4. Send results back to client
+        5. Handle errors gracefully
 
         Args:
             client_id: Unique client identifier
             plugin_name: Name of plugin to use
             data: Frame data dict with 'data' (base64) and optional 'options'
-                  {"data": "<base64>", "options": {...}, "frame_id": "..."}
+                  {"data": "<base64>", "options": {...}, "frame_id": "...", "tools": [...]}
 
         Raises:
             PluginNotFoundError: If plugin doesn't exist (sent to client)
             PluginExecutionError: If plugin.run_tool() fails (sent to client)
         """
-        # Validate plugin exists
-        active_plugin = self.plugins.get(plugin_name)
-        if not active_plugin:
-            error_msg = f"Plugin '{plugin_name}' not found"
-            logger.warning(
-                "Plugin not found",
-                extra={"client_id": client_id, "plugin": plugin_name},
-            )
-            await self.ws_manager.send_personal(
-                client_id, {"type": "error", "message": error_msg}
-            )
-            return
-
         # Generate frame ID if not provided
         frame_id = data.get("frame_id", str(uuid.uuid4()))
 
@@ -111,29 +99,27 @@ class VisionAnalysisService:
             # Time the analysis execution
             start_time = time.time()
 
-            # -----------------------------------------
-            # PHASE‑13 MULTI‑TOOL PIPELINE EXECUTION
-            # -----------------------------------------
+            # Get tools from request
             tools = data.get("tools")
             if not tools:
                 raise ValueError("WebSocket frame missing 'tools' field")
 
-            payload = {
-                "image_bytes": image_bytes,
-                "options": data.get("options", {}),
-                "frame_id": frame_id,
-            }
+            # Execute each tool sequentially and collect results
+            # For streaming, we typically run one tool per frame
+            results = []
+            for tool_name in tools:
+                tool_result = self.plugin_service.run_plugin_tool(
+                    plugin_id=plugin_name,
+                    tool_name=tool_name,
+                    args={
+                        "image_bytes": image_bytes,
+                        "options": data.get("options", {}),
+                    },
+                )
+                results.append(tool_result)
 
-            # Execute pipeline via VideoPipelineService
-            result = self.video_pipeline_service.run_pipeline(
-                plugin_id=plugin_name,
-                tools=tools,
-                payload=payload,
-            )
-
-            # Extract final output from pipeline result
-            # Pipeline returns {"result": final_output, "steps": [...]}
-            final_output = result["result"]
+            # Use the last result as the final output
+            final_output = results[-1] if results else {}
 
             processing_time = (time.time() - start_time) * 1000
 
@@ -181,7 +167,7 @@ class VisionAnalysisService:
                 {"type": "error", "message": error_msg, "frame_id": frame_id},
             )
 
-    async def list_available_plugins(self) -> Dict[str, Any]:
+    async def list_available_plugins(self) -> List[Any]:
         """Get list of available plugins with their metadata.
 
         Returns:
@@ -191,7 +177,7 @@ class VisionAnalysisService:
             RuntimeError: If plugin list cannot be retrieved
         """
         try:
-            result = self.plugins.list()
+            result = await self.plugin_service.list_plugins()
             logger.debug("Listed plugins", extra={"count": len(result)})
             return result
         except Exception as e:
@@ -199,4 +185,4 @@ class VisionAnalysisService:
                 "Failed to list plugins",
                 extra={"error": str(e)},
             )
-            return {}
+            return []

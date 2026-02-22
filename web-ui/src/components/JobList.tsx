@@ -35,13 +35,13 @@ export function JobList({ onJobSelect }: JobListProps) {
 
     const getStatusColor = (status: string) => {
         switch (status) {
-            case "done":
+            case "completed":
                 return "var(--accent-green)";
-            case "error":
+            case "failed":
                 return "var(--accent-red)";
             case "running":
                 return "var(--accent-yellow)";
-            case "queued":
+            case "pending":
                 return "var(--accent-cyan)";
             default:
                 return "var(--text-muted)";
@@ -50,13 +50,13 @@ export function JobList({ onJobSelect }: JobListProps) {
 
     const getStatusBackground = (status: string) => {
         switch (status) {
-            case "done":
+            case "completed":
                 return "rgba(76, 175, 80, 0.1)";
-            case "error":
+            case "failed":
                 return "rgba(220, 53, 69, 0.1)";
             case "running":
                 return "rgba(255, 193, 7, 0.1)";
-            case "queued":
+            case "pending":
                 return "rgba(0, 229, 255, 0.1)";
             default:
                 return "transparent";
@@ -169,7 +169,7 @@ export function JobList({ onJobSelect }: JobListProps) {
                                     color: "var(--text-secondary)",
                                 }}
                             >
-                                {job.plugin}
+                                {job.plugin_id || job.plugin}
                             </div>
                             <div
                                 style={{

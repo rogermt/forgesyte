@@ -3,6 +3,7 @@
 Tests full flow: job submission → execution → device usage logging.
 """
 
+import base64
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -13,16 +14,24 @@ class TestDeviceIntegration:
 
     @pytest.mark.asyncio
     async def test_job_submission_with_device_param(self, client) -> None:
-        """Verify job submission captures device parameter end-to-end."""
+        """Verify job submission with plugin parameter works end-to-end."""
+        # Encode test PNG bytes as base64
+        png_bytes = b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR"
+        image_base64 = base64.b64encode(png_bytes).decode("utf-8")
+
         response = await client.post(
-            "/v1/analyze?plugin=ocr&device=cpu",
-            files={"file": ("test.png", b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR")},
+            "/v1/analyze-execution",
+            json={
+                "plugin": "ocr",
+                "image": image_base64,
+                "mime_type": "image/png",
+            },
         )
 
         assert response.status_code == 200
         data = response.json()
         assert data["job_id"]
-        assert data["device_requested"] == "cpu"
+        assert data["plugin"] == "ocr"
 
     @pytest.mark.asyncio
     async def test_device_tracking_called_on_job_completion(self) -> None:

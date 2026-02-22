@@ -15,23 +15,13 @@ def test_post_video_pipeline(app_with_plugins):
 
     client = TestClient(app_with_plugins)
 
-    expected_result = {
-        "result": {"tool": "detect_players", "step_completed": "detect_players"},
-        "steps": [
-            {
-                "tool": "detect_players",
-                "output": {
-                    "tool": "detect_players",
-                    "step_completed": "detect_players",
-                },
-            }
-        ],
-    }
-
     with patch(
-        "app.services.video_pipeline_service.VideoPipelineService.run_pipeline"
+        "app.routes_pipeline.PluginManagementService.run_plugin_tool"
     ) as mock_run:
-        mock_run.return_value = expected_result
+        mock_run.return_value = {
+            "tool": "detect_players",
+            "step_completed": "detect_players",
+        }
 
         response = client.post(
             "/video/pipeline",
@@ -45,7 +35,8 @@ def test_post_video_pipeline(app_with_plugins):
         assert response.status_code == 200
         data = response.json()
         assert "result" in data
-        assert data == expected_result
+        assert "steps" in data
+        assert len(data["steps"]) == 1
 
 
 def test_pipeline_missing_plugin_id_returns_422(app_with_plugins):
@@ -76,25 +67,20 @@ def test_pipeline_missing_tools_returns_422(app_with_plugins):
     assert response.status_code == 422
 
 
-def test_pipeline_empty_tools_returns_400(app_with_plugins):
-    """Test validation error when tools is empty list."""
-    from unittest.mock import patch
-
+def test_pipeline_empty_tools_returns_200_with_empty_result(app_with_plugins):
+    """Test that empty tools list returns 200 with empty steps."""
     client = TestClient(app_with_plugins)
 
-    with patch(
-        "app.services.video_pipeline_service.VideoPipelineService.run_pipeline"
-    ) as mock_run:
-        mock_run.side_effect = ValueError("Pipeline requires a non-empty tools[] array")
+    response = client.post(
+        "/video/pipeline",
+        json={
+            "plugin_id": "test-plugin",
+            "tools": [],
+            "payload": {"test": "data"},
+        },
+    )
 
-        response = client.post(
-            "/video/pipeline",
-            json={
-                "plugin_id": "test-plugin",
-                "tools": [],
-                "payload": {"test": "data"},
-            },
-        )
-
-        assert response.status_code == 400
-        assert "Pipeline requires a non-empty tools" in response.json()["detail"]
+    assert response.status_code == 200
+    data = response.json()
+    assert data["result"] == {}
+    assert data["steps"] == []

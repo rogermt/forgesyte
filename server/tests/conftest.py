@@ -39,6 +39,16 @@ import os
 import sys
 from typing import Any, Dict, Optional
 
+# ============================================================================
+# SET ENV VARS BEFORE ANY APP IMPORTS (CRITICAL)
+# ============================================================================
+
+# Disable job worker thread in pytest (prevents DuckDB file lock errors)
+os.environ["FORGESYTE_ENABLE_WORKERS"] = "0"
+
+# Use in-memory DuckDB for tests (isolated, fast, no lock contention)
+os.environ["FORGESYTE_DATABASE_URL"] = "duckdb:///:memory:"
+
 # Configure authentication BEFORE importing app or pytest
 # This ensures that when app.main initializes during TestClient creation,
 # it will have API keys configured and enforce authentication
@@ -133,13 +143,9 @@ def app_with_plugins():
     from app.main import app
     from app.plugin_loader import PluginRegistry
     from app.services import (
-        AnalysisService,
-        ImageAcquisitionService,
-        JobManagementService,
         PluginManagementService,
         VisionAnalysisService,
     )
-    from app.tasks import init_task_processor
     from app.websocket_manager import ws_manager
 
     # Initialize auth service FIRST (needed for API endpoints)
@@ -168,24 +174,65 @@ def app_with_plugins():
                 )
                 health_registry.mark_initialized(plugin_name)
 
-    # Initialize task processor
-    init_task_processor(plugin_manager)
-
     # Initialize services
-    from app import tasks as tasks_module
-
     # Vision analysis service for WebSocket
     app.state.analysis_service = VisionAnalysisService(plugin_manager, ws_manager)
-
-    # REST API services - get fresh references from modules
-    image_acquisition = ImageAcquisitionService()
-    app.state.analysis_service_rest = AnalysisService(
-        tasks_module.task_processor, image_acquisition
-    )
-    app.state.job_service = JobManagementService(
-        tasks_module.job_store, tasks_module.task_processor
-    )
     app.state.plugin_service = PluginManagementService(plugin_manager)
+
+    # Phase 12: Initialize execution service chain for /v1/analyze-execution endpoint
+    import base64
+    import inspect
+
+    from app.services.execution import (
+        AnalysisExecutionService,
+        JobExecutionService,
+        PluginExecutionService,
+    )
+
+    # Create a tool_runner that delegates to loaded plugins
+    # ToolRunner contract: async def(tool_name: str, args: dict) -> dict
+    async def tool_runner(tool_name: str, args: dict) -> dict:
+        # Default to 'analyze' if tool_name is empty
+        effective_tool = tool_name or "analyze"
+        # Get the first loaded plugin (for tests, typically OCR)
+        plugin_name = loaded_list[0] if loaded_list else "ocr"
+        plugin = plugin_manager.get(plugin_name)
+
+        # Convert base64 image string to bytes for plugins that expect image_bytes
+        processed_args = dict(args)
+        if "image" in processed_args and isinstance(processed_args["image"], str):
+            try:
+                processed_args["image_bytes"] = base64.b64decode(
+                    processed_args["image"]
+                )
+            except Exception:
+                pass  # Keep original if decode fails
+
+        if plugin and hasattr(plugin, "run_tool"):
+            # run_tool may be sync or async
+            result = plugin.run_tool(effective_tool, processed_args)
+            if inspect.iscoroutine(result):
+                result = await result
+            # Handle Pydantic models
+            if hasattr(result, "model_dump"):
+                return result.model_dump()
+            return result if isinstance(result, dict) else {"result": result}
+
+        # Fallback: try analyze method directly
+        if plugin and hasattr(plugin, "analyze"):
+            image_data = processed_args.get(
+                "image_bytes", processed_args.get("image", b"")
+            )
+            result = plugin.analyze(image_data)
+            if hasattr(result, "model_dump"):
+                return result.model_dump()
+            return result if isinstance(result, dict) else {"result": result}
+        raise RuntimeError(f"No plugin available for tool {effective_tool}")
+
+    plugin_exec_service = PluginExecutionService(tool_runner)
+    job_exec_service = JobExecutionService(plugin_exec_service)
+    analysis_exec_service = AnalysisExecutionService(job_exec_service)
+    app.state.analysis_execution_service = analysis_exec_service
 
     return app
 
@@ -206,13 +253,9 @@ def app_with_mock_yolo_plugin():
     from app.auth import init_auth_service
     from app.main import app
     from app.services import (
-        AnalysisService,
-        ImageAcquisitionService,
-        JobManagementService,
         PluginManagementService,
         VisionAnalysisService,
     )
-    from app.tasks import init_task_processor
     from app.websocket_manager import ws_manager
 
     # Initialize auth service
@@ -235,23 +278,9 @@ def app_with_mock_yolo_plugin():
 
     app.state.plugins = mock_registry
 
-    # Initialize task processor
-    init_task_processor(mock_registry)
-
     # Initialize services
-    from app import tasks as tasks_module
-
     # Vision analysis service for WebSocket
     app.state.analysis_service = VisionAnalysisService(mock_registry, ws_manager)
-
-    # REST API services
-    image_acquisition = ImageAcquisitionService()
-    app.state.analysis_service_rest = AnalysisService(
-        tasks_module.task_processor, image_acquisition
-    )
-    app.state.job_service = JobManagementService(
-        tasks_module.job_store, tasks_module.task_processor
-    )
     app.state.plugin_service = PluginManagementService(mock_registry)
 
     return app
@@ -646,8 +675,8 @@ def mock_task_processor(mock_job_store: MockJobStore) -> MockTaskProcessor:
 def test_engine(tmp_path):
     """Create temporary DuckDB engine for tests.
 
-    Uses a temporary file-based database (not :memory:) to ensure
-    all sessions see the same schema and data.
+    Uses a function-scoped temporary file to avoid DuckDB native crashes
+    during process teardown (SIGABRT on exit).
 
     Args:
         tmp_path: Pytest's temporary directory fixture
@@ -668,6 +697,8 @@ def test_engine(tmp_path):
     Base.metadata.create_all(engine)
 
     yield engine
+
+    # Explicitly dispose engine before process exit to avoid DuckDB SIGABRT
     engine.dispose()
 
 
@@ -676,7 +707,7 @@ def session(test_engine):
     """Create a database session for tests.
 
     Args:
-        test_engine: In-memory DuckDB engine
+        test_engine: Function-scoped DuckDB engine
 
     Yields:
         SQLAlchemy session
@@ -693,6 +724,11 @@ def session(test_engine):
 def mock_session_local(session, monkeypatch):
     """Monkeypatch SessionLocal to use test session.
 
+    Note: We patch SessionLocal for direct usage in submit endpoints,
+    but we do NOT patch get_db here. The client fixture handles get_db
+    via dependency_overrides, which correctly uses the original function
+    reference stored in FastAPI's Depends() objects.
+
     Args:
         session: Test database session
         monkeypatch: Pytest monkeypatch
@@ -701,8 +737,16 @@ def mock_session_local(session, monkeypatch):
     def mock_session_factory():
         return session
 
-    # Patch the module-level SessionLocal directly
+    # Patch the module-level SessionLocal directly for all submit endpoints
     monkeypatch.setattr(
         "app.api_routes.routes.video_submit.SessionLocal",
         mock_session_factory,
     )
+    monkeypatch.setattr(
+        "app.api_routes.routes.image_submit.SessionLocal",
+        mock_session_factory,
+    )
+
+    # Do NOT patch get_db here - client fixture uses dependency_overrides
+    # which correctly overrides the original function reference stored in
+    # FastAPI's Depends() objects.

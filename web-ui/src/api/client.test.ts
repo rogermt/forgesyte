@@ -72,9 +72,10 @@ describe("ForgeSyteAPIClient", () => {
         it("should fetch jobs with default parameters", async () => {
             const mockJobs = [
                 {
-                    id: "job-1",
-                    status: "done" as const,
-                    plugin: "motion_detector",
+                    job_id: "job-1",
+                    status: "completed" as const,
+                    plugin_id: "ocr",
+                    tool: "analyze",
                     created_at: "2026-01-09T21:00:00Z",
                     updated_at: "2026-01-09T21:00:30Z",
                 },
@@ -110,42 +111,21 @@ describe("ForgeSyteAPIClient", () => {
                 createMockResponse({ jobs: [] })
             );
 
-            await client.listJobs(10, 0, "done");
+            await client.listJobs(10, 0, "completed");
 
             const callUrl = (fetchMock.mock.calls[0][0] as string);
-            expect(callUrl).toContain("status=done");
+            expect(callUrl).toContain("status=completed");
         });
     });
 
     describe("getJob", () => {
         it("should fetch a specific job", async () => {
             const mockJob = {
-                id: "job-123",
-                status: "done" as const,
-                plugin: "motion_detector",
-                result: { motion: true },
-                created_at: "2026-01-09T21:00:00Z",
-                updated_at: "2026-01-09T21:00:30Z",
-            };
-
-            fetchMock.mockResolvedValueOnce(
-                createMockResponse({ job: mockJob })
-            );
-
-            const job = await client.getJob("job-123");
-
-            expect(job).toEqual(mockJob);
-            expect(fetchMock).toHaveBeenCalledWith(
-                expect.stringContaining("/jobs/job-123"),
-                expect.any(Object)
-            );
-        });
-
-        it("should handle job response without wrapper", async () => {
-            const mockJob = {
-                id: "job-123",
-                status: "done" as const,
-                plugin: "motion_detector",
+                job_id: "job-123",
+                status: "completed" as const,
+                plugin_id: "ocr",
+                tool: "analyze",
+                results: { text: "Hello" },
                 created_at: "2026-01-09T21:00:00Z",
                 updated_at: "2026-01-09T21:00:30Z",
             };
@@ -156,67 +136,32 @@ describe("ForgeSyteAPIClient", () => {
 
             const job = await client.getJob("job-123");
 
-            expect(job).toEqual(mockJob);
-        });
-    });
-
-    describe("analyzeImage", () => {
-        it("should upload file and return analysis result", async () => {
-            const mockFile = new File(["test"], "test.jpg", {
-                type: "image/jpeg",
-            });
-            const mockResult = { job_id: "job-123", status: "processing" };
-
-            fetchMock.mockResolvedValueOnce({
-                ok: true,
-                json: async () => mockResult,
-            });
-
-            const result = await client.analyzeImage(mockFile, "motion_detector");
-
-            expect(result).toEqual(mockResult);
+            expect(job.job_id).toBe("job-123");
+            expect(job.status).toBe("completed");
             expect(fetchMock).toHaveBeenCalledWith(
-                expect.stringContaining("/analyze"),
-                expect.objectContaining({
-                    method: "POST",
-                })
+                expect.stringContaining("/jobs/job-123"),
+                expect.any(Object)
             );
         });
 
-        it("should pass plugin as query parameter, not form field", async () => {
-            const mockFile = new File(["test"], "test.jpg", {
-                type: "image/jpeg",
-            });
-            const mockResult = { job_id: "job-123", status: "processing" };
+        it("should handle job response without wrapper", async () => {
+            const mockJob = {
+                job_id: "job-123",
+                status: "pending" as const,
+                plugin_id: "ocr",
+                tool: "analyze",
+                created_at: "2026-01-09T21:00:00Z",
+                updated_at: "2026-01-09T21:00:30Z",
+            };
 
-            fetchMock.mockResolvedValueOnce({
-                ok: true,
-                json: async () => mockResult,
-            });
-
-            await client.analyzeImage(mockFile, "moderation");
-
-            const callUrl = fetchMock.mock.calls[0][0] as string;
-            expect(callUrl).toContain("plugin=moderation");
-        });
-
-        it("should include API key in headers", async () => {
-            const clientWithKey = new ForgeSyteAPIClient(
-                "http://localhost:3000/v1",
-                "test-api-key"
+            fetchMock.mockResolvedValueOnce(
+                createMockResponse(mockJob)
             );
 
-            const mockFile = new File(["test"], "test.jpg");
+            const job = await client.getJob("job-123");
 
-            fetchMock.mockResolvedValueOnce({
-                ok: true,
-                json: async () => ({ job_id: "job-1" }),
-            });
-
-            await clientWithKey.analyzeImage(mockFile, "plugin");
-
-            const callArgs = fetchMock.mock.calls[0][1] as RequestInit;
-            expect(callArgs.headers).toBeDefined();
+            expect(job.job_id).toBe("job-123");
+            expect(job.status).toBe("pending");
         });
     });
 
@@ -262,45 +207,47 @@ describe("ForgeSyteAPIClient", () => {
 
     describe("pollJob", () => {
         it("should poll until job is complete", async () => {
-            const pendingJob = {
-                id: "job-1",
-                status: "processing" as const,
-                plugin: "motion_detector",
+            const runningJob = {
+                job_id: "job-1",
+                status: "running" as const,
+                plugin_id: "ocr",
+                tool: "analyze",
                 created_at: "2026-01-09T21:00:00Z",
                 updated_at: "2026-01-09T21:00:10Z",
             };
 
-            const completeJob = {
-                ...pendingJob,
-                status: "done" as const,
+            const completedJob = {
+                job_id: "job-1",
+                status: "completed" as const,
+                plugin_id: "ocr",
+                tool: "analyze",
+                results: { text: "Done" },
+                created_at: "2026-01-09T21:00:00Z",
                 updated_at: "2026-01-09T21:00:30Z",
             };
 
             fetchMock
-                .mockResolvedValueOnce(
-                    createMockResponse({ job: pendingJob })
-                )
-                .mockResolvedValueOnce(
-                    createMockResponse({ job: completeJob })
-                );
+                .mockResolvedValueOnce(createMockResponse(runningJob))
+                .mockResolvedValueOnce(createMockResponse(completedJob));
 
             const result = await client.pollJob("job-1", 10, 5000);
 
-            expect(result).toEqual(completeJob);
+            expect(result.status).toBe("completed");
             expect(fetchMock).toHaveBeenCalledTimes(2);
         });
 
         it("should timeout if job not completed", async () => {
             const pendingJob = {
-                id: "job-1",
-                status: "processing" as const,
-                plugin: "motion_detector",
+                job_id: "job-1",
+                status: "pending" as const,
+                plugin_id: "ocr",
+                tool: "analyze",
                 created_at: "2026-01-09T21:00:00Z",
                 updated_at: "2026-01-09T21:00:10Z",
             };
 
             fetchMock.mockResolvedValue(
-                createMockResponse({ job: pendingJob })
+                createMockResponse(pendingJob)
             );
 
             await expect(
@@ -339,5 +286,84 @@ describe("ForgeSyteAPIClient", () => {
             expect(headers["X-API-Key"]).toBeUndefined();
         });
     });
-});
 
+    describe("Video API methods", () => {
+        describe("submitVideo", () => {
+            it("should submit video with plugin_id and tool", async () => {
+                const mockFile = new File(["test"], "test.mp4", {
+                    type: "video/mp4",
+                });
+                const mockResult = { job_id: "video-job-123" };
+
+                // Mock XMLHttpRequest class
+                const mockXHRInstances: MockXMLHttpRequest[] = [];
+
+                class MockXMLHttpRequest {
+                    open = vi.fn();
+                    send = vi.fn();
+                    setRequestHeader = vi.fn();
+                    upload = { onprogress: null as null };
+                    onload: (() => void) | null = null;
+                    onerror: (() => void) | null = null;
+                    status = 200;
+                    responseText = JSON.stringify(mockResult);
+
+                    constructor() {
+                        mockXHRInstances.push(this);
+                        // Simulate successful upload
+                        setTimeout(() => {
+                            if (this.onload) this.onload();
+                        }, 0);
+                    }
+                }
+
+                (global as unknown as { XMLHttpRequest: typeof MockXMLHttpRequest }).XMLHttpRequest = MockXMLHttpRequest;
+
+                const result = await client.submitVideo(mockFile, "ocr", "analyze");
+
+                expect(result).toEqual(mockResult);
+                expect(mockXHRInstances[0]?.open).toHaveBeenCalledWith(
+                    "POST",
+                    expect.stringContaining("/video/submit?plugin_id=ocr&tool=analyze")
+                );
+            });
+
+            it("should call progress callback during upload", async () => {
+                const mockFile = new File(["test"], "test.mp4", {
+                    type: "video/mp4",
+                });
+                const mockResult = { job_id: "video-job-789" };
+                const progressCallback = vi.fn();
+
+                class MockXMLHttpRequest {
+                    open = vi.fn();
+                    send = vi.fn();
+                    setRequestHeader = vi.fn();
+                    upload = { onprogress: null as null };
+                    onload: (() => void) | null = null;
+                    onerror: (() => void) | null = null;
+                    status = 200;
+                    responseText = JSON.stringify(mockResult);
+
+                    constructor() {
+                        // Simulate upload progress
+                        setTimeout(() => {
+                            if (this.upload.onprogress) {
+                                this.upload.onprogress({ lengthComputable: true, loaded: 50, total: 100 } as ProgressEvent);
+                                this.upload.onprogress({ lengthComputable: true, loaded: 100, total: 100 } as ProgressEvent);
+                            }
+                            if (this.onload) this.onload();
+                        }, 0);
+                    }
+                }
+
+                (global as unknown as { XMLHttpRequest: typeof MockXMLHttpRequest }).XMLHttpRequest = MockXMLHttpRequest;
+
+                await client.submitVideo(mockFile, "ocr", "analyze", progressCallback);
+
+                expect(progressCallback).toHaveBeenCalledWith(50);
+                expect(progressCallback).toHaveBeenCalledWith(100);
+            });
+        });
+    });
+});

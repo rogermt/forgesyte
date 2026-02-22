@@ -3,16 +3,32 @@
 from io import BytesIO
 from uuid import uuid4
 
-from fastapi import APIRouter, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile
 
 from app.core.database import SessionLocal
 from app.models.job import Job, JobStatus
-from app.services.queue.memory_queue import InMemoryQueueService
+from app.plugin_loader import PluginRegistry
+from app.services.plugin_management_service import PluginManagementService
 from app.services.storage.local_storage import LocalStorageService
 
 router = APIRouter()
 storage = LocalStorageService()
-queue = InMemoryQueueService()
+
+
+def get_plugin_manager():
+    """Get plugin manager from app state with loaded plugins."""
+    from app.main import app
+
+    plugin_manager = getattr(app.state, "plugins", None)
+    if not plugin_manager:
+        plugin_manager = PluginRegistry()
+        plugin_manager.load_plugins()
+    return plugin_manager
+
+
+def get_plugin_service(plugin_manager=Depends(get_plugin_manager)):
+    """Get plugin service with dependency injection."""
+    return PluginManagementService(plugin_manager)
 
 
 def validate_mp4_magic_bytes(data: bytes) -> None:
@@ -31,13 +47,19 @@ def validate_mp4_magic_bytes(data: bytes) -> None:
 @router.post("/v1/video/submit")
 async def submit_video(
     file: UploadFile,
-    pipeline_id: str,
+    plugin_id: str = Query(..., description="Plugin ID from /v1/plugins"),
+    tool: str = Query(..., description="Tool ID from plugin manifest"),
+    plugin_manager=Depends(get_plugin_manager),
+    plugin_service=Depends(get_plugin_service),
 ):
     """Submit a video file for processing.
 
     Args:
         file: MP4 video file to process
-        pipeline_id: ID of the pipeline to use (e.g., "yolo_ocr")
+        plugin_id: ID of the plugin to use (from /v1/plugins)
+        tool: ID of the tool to run (from plugin manifest)
+        plugin_manager: PluginRegistry from app state (DI)
+        plugin_service: PluginManagementService instance (DI)
 
     Returns:
         JSON with job_id for polling
@@ -45,13 +67,58 @@ async def submit_video(
     Raises:
         HTTPException: If file is invalid or processing fails
     """
+    # Validate plugin exists
+    plugin = plugin_manager.get(plugin_id)
+    if not plugin:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Plugin '{plugin_id}' not found",
+        )
+
+    # Validate tool exists using plugin.tools (canonical source, NOT manifest)
+    # See: docs/releases/v0.9.3/TOOL_CHECK_FIX.md
+    available_tools = plugin_service.get_available_tools(plugin_id)
+    if tool not in available_tools:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"Tool '{tool}' not found in plugin '{plugin_id}'. "
+                f"Available: {available_tools}"
+            ),
+        )
+
+    # Get tool definition for input validation
+    tool_def = plugin.tools.get(tool)
+    if not tool_def:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Tool '{tool}' definition not found in plugin '{plugin_id}'",
+        )
+
+    # Validate tool supports video input (supports both Pydantic + flat dict schemas)
+    # See: docs/releases/v0.9.3/IMAGE_SUBMIT_400_ROOT_CAUSE.md
+    input_schema = tool_def.get("input_schema") or {}
+
+    # Pydantic-style: {"properties": {...}}
+    if "properties" in input_schema and isinstance(input_schema["properties"], dict):
+        tool_keys = set(input_schema["properties"].keys())
+    else:
+        # Flat dict style: {"video_path": {...}, ...}
+        tool_keys = set(input_schema.keys())
+
+    if not any(k in tool_keys for k in ("video_path", "image_bytes")):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Tool '{tool}' does not support video input",
+        )
+
     # Read and validate file
     contents = await file.read()
     validate_mp4_magic_bytes(contents)
 
-    # Create job record
-    job_id = str(uuid4())
-    input_path = f"{job_id}.mp4"
+    # Create job record with UUID object (not string)
+    job_id = uuid4()
+    input_path = f"video/input/{job_id}.mp4"
 
     # Save file to storage
     storage.save_file(src=BytesIO(contents), dest_path=input_path)
@@ -60,17 +127,16 @@ async def submit_video(
     db = SessionLocal()
     try:
         job = Job(
-            job_id=job_id,
+            job_id=job_id,  # Pass UUID object, not string
             status=JobStatus.pending,
-            pipeline_id=pipeline_id,
+            plugin_id=plugin_id,
+            tool=tool,
             input_path=input_path,
+            job_type="video",
         )
         db.add(job)
         db.commit()
     finally:
         db.close()
 
-    # Enqueue for processing
-    queue.enqueue(job_id)
-
-    return {"job_id": job_id}
+    return {"job_id": str(job_id)}  # Return string in response
