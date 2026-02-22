@@ -28,19 +28,21 @@ def client():
 
 @pytest.fixture
 def mock_deps():
-    """Patch all external deps: plugin_manager, plugin_service, storage, DB."""
+    """Patch dependency injections: get_plugin_manager, get_plugin_service, storage."""
     mock_plugin = MagicMock()
+    mock_plugin_service = MagicMock()
     mock_db = MagicMock()
 
     with (
-        patch(f"{ROUTE}.plugin_manager") as pm,
-        patch(f"{ROUTE}.plugin_service") as ps,
+        patch(f"{ROUTE}.get_plugin_manager") as get_pm,
+        patch(f"{ROUTE}.get_plugin_service") as get_ps,
         patch(f"{ROUTE}.storage") as st,
         patch(f"{ROUTE}.SessionLocal", return_value=mock_db),
     ):
-        pm.get.return_value = mock_plugin
-        ps.get_plugin_manifest.return_value = FAKE_MANIFEST
-        yield {"plugin_manager": pm, "plugin_service": ps, "storage": st, "db": mock_db}
+        get_pm.return_value = mock_plugin
+        get_ps.return_value = mock_plugin_service
+        mock_plugin_service.get_plugin_manifest.return_value = FAKE_MANIFEST
+        yield {"plugin_manager": mock_plugin, "plugin_service": mock_plugin_service, "storage": st, "db": mock_db}
 
 
 class TestImageSubmitSuccess:

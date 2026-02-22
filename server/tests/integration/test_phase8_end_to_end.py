@@ -20,7 +20,7 @@ class TestPhase8Pipeline:
     async def test_end_to_end_job_with_device_and_logging(self, client) -> None:
         """Verify complete pipeline: submit job with device, verify device and logs."""
         response = await client.post(
-            "/v1/analyze?plugin=ocr&device=cpu",
+            "/v1/analyze-execution?plugin=ocr&device=cpu",
             files={"file": ("test.png", b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR")},
         )
 
@@ -36,14 +36,14 @@ class TestPhase8Pipeline:
         """Verify device parameter validation in pipeline."""
         # Valid device
         response = await client.post(
-            "/v1/analyze?plugin=ocr&device=gpu",
+            "/v1/analyze-execution?plugin=ocr&device=gpu",
             files={"file": ("test.png", b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR")},
         )
         assert response.status_code == 200
 
         # Invalid device
         response = await client.post(
-            "/v1/analyze?plugin=ocr&device=invalid",
+            "/v1/analyze-execution?plugin=ocr&device=invalid",
             files={"file": ("test.png", b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR")},
         )
         assert response.status_code == 400
@@ -167,7 +167,7 @@ class TestPhase8Pipeline:
     async def test_end_to_end_device_default_when_not_specified(self, client) -> None:
         """Phase 12: Device defaults to 'default' when not specified (plugin resolves via models.yaml)."""
         response = await client.post(
-            "/v1/analyze?plugin=ocr",
+            "/v1/analyze-execution?plugin=ocr",
             files={"file": ("test.png", b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR")},
         )
 
@@ -179,7 +179,7 @@ class TestPhase8Pipeline:
     async def test_end_to_end_case_insensitive_device(self, client) -> None:
         """Verify device parameter is case-insensitive."""
         response = await client.post(
-            "/v1/analyze?plugin=ocr&device=GPU",
+            "/v1/analyze-execution?plugin=ocr&device=GPU",
             files={"file": ("test.png", b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR")},
         )
 

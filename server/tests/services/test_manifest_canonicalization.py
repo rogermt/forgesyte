@@ -29,8 +29,9 @@ class MockPlugin:
         return MockClass
 
 
-def test_manifest_with_inputs_preserved(plugin_service):
+def test_manifest_with_inputs_preserved(app_with_plugins):
     """Test that manifests with 'inputs' field are preserved."""
+    plugin_service = app_with_plugins.state.plugin_service
     with TemporaryDirectory() as tmpdir:
         plugin_dir = Path(tmpdir) / "test_plugin"
         plugin_dir.mkdir()
@@ -71,8 +72,9 @@ def test_manifest_with_inputs_preserved(plugin_service):
         ]
 
 
-def test_manifest_with_input_types_canonicalized(plugin_service):
+def test_manifest_with_input_types_canonicalized(app_with_plugins):
     """Test that manifests with 'input_types' are canonicalized to 'inputs'."""
+    plugin_service = app_with_plugins.state.plugin_service
     with TemporaryDirectory() as tmpdir:
         plugin_dir = Path(tmpdir) / "test_plugin"
         plugin_dir.mkdir()
@@ -119,8 +121,9 @@ def test_manifest_with_input_types_canonicalized(plugin_service):
         ]
 
 
-def test_manifest_without_inputs_gets_empty_list(plugin_service):
+def test_manifest_without_inputs_gets_empty_list(app_with_plugins):
     """Test that manifests without 'inputs' or 'input_types' get empty 'inputs' list."""
+    plugin_service = app_with_plugins.state.plugin_service
     with TemporaryDirectory() as tmpdir:
         plugin_dir = Path(tmpdir) / "test_plugin"
         plugin_dir.mkdir()
@@ -158,8 +161,9 @@ def test_manifest_without_inputs_gets_empty_list(plugin_service):
         assert result["tools"]["simple_tool"]["inputs"] == []
 
 
-def test_real_ocr_manifest_canonicalization(plugin_service):
+def test_real_ocr_manifest_canonicalization(app_with_plugins):
     """Test that the real OCR plugin manifest is properly canonicalized."""
+    plugin_service = app_with_plugins.state.plugin_service
     manifest = plugin_service.get_plugin_manifest("ocr")
     assert manifest is not None
     assert "tools" in manifest
@@ -172,8 +176,9 @@ def test_real_ocr_manifest_canonicalization(plugin_service):
         assert "image_bytes" in analyze["inputs"]
 
 
-def test_real_yolo_manifest_canonicalization(plugin_service):
+def test_real_yolo_manifest_canonicalization(app_with_plugins):
     """Test that the real YOLO plugin manifest is properly canonicalized."""
+    plugin_service = app_with_plugins.state.plugin_service
     manifest = plugin_service.get_plugin_manifest("yolo")
     assert manifest is not None
     assert "tools" in manifest

@@ -149,7 +149,8 @@ class TestPluginManagementService:
         """Test successful sync tool execution via registry.get()."""
         # Create a mock plugin with a callable tool method
         mock_plugin = Mock()
-        mock_plugin.test_tool.return_value = {"result": "success"}
+        mock_plugin.tools = {"test_tool"}  # Set tools dict for validation
+        mock_plugin.run_tool.return_value = {"result": "success"}  # Mock the run_tool method
 
         # registry.get() returns the plugin instance
         mock_registry.get.return_value = mock_plugin
@@ -163,7 +164,7 @@ class TestPluginManagementService:
 
         assert result == {"result": "success"}
         mock_registry.get.assert_called_once_with("test-plugin")
-        mock_plugin.test_tool.assert_called_once_with(arg1="value1")
+        mock_plugin.run_tool.assert_called_once_with("test_tool", {"arg1": "value1"})
 
     def test_run_plugin_tool_plugin_not_found(self, service, mock_registry):
         """Test ValueError when plugin not found."""
