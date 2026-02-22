@@ -2,5 +2,5 @@
 
 | Plugin | Tool | Input Types | Output Types | Capabilities |
 |--------|------|-------------|--------------|--------------|
-| `ocr` | `extract_text` | image_bytes, detections | text | text_extraction |
+| `ocr` | `analyze` | image_bytes, detections | text | text_extraction |
 | `yolo` | `detect_objects` | image_bytes | detections | object_detection |
