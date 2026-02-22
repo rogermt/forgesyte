@@ -10,7 +10,6 @@ Tests verify:
 """
 
 import json
-from io import BytesIO
 from unittest.mock import MagicMock, patch
 from uuid import uuid4
 

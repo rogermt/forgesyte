@@ -18,7 +18,7 @@ from fastapi.testclient import TestClient
 
 from app.api_routes.routes.image_submit import get_plugin_manager, get_plugin_service
 from app.main import app
-from app.models.job import Job, JobStatus
+from app.models.job import Job
 
 
 @pytest.fixture
@@ -106,9 +106,7 @@ class TestMultiToolSubmission:
         assert job is not None
         assert job.job_type == "image_multi"
 
-    def test_submit_image_multi_tool_stores_tool_list(
-        self, session, client_multi_tool
-    ):
+    def test_submit_image_multi_tool_stores_tool_list(self, session, client_multi_tool):
         """Test that multi-tool submission stores tool_list as JSON."""
         png_data = b"\x89PNG\r\n\x1a\n" + b"\x00" * 100
 
@@ -148,9 +146,7 @@ class TestMultiToolSubmission:
         assert job.tool == "player_detection"
         assert job.tool_list is None
 
-    def test_submit_image_multi_tool_validates_all_tools(
-        self, mock_multi_tool_plugin
-    ):
+    def test_submit_image_multi_tool_validates_all_tools(self, mock_multi_tool_plugin):
         """Test that all tools are validated against plugin.tools."""
         mock_registry = MagicMock()
         mock_registry.get.return_value = mock_multi_tool_plugin
