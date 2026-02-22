@@ -674,3 +674,11 @@ def mock_session_local(session, monkeypatch):
         "app.api_routes.routes.image_submit.SessionLocal",
         mock_session_factory,
     )
+    # Patch core.database.get_db for FastAPI dependency injection
+    def mock_get_db():
+        yield session
+
+    monkeypatch.setattr(
+        "app.core.database.get_db",
+        mock_get_db,
+    )

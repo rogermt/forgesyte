@@ -13,7 +13,7 @@ from io import BytesIO
 import pytest
 from fastapi.testclient import TestClient
 
-from app.core.database import SessionLocal
+from app.core.database import get_db
 from app.main import app
 from app.models.job import Job, JobStatus
 from app.plugin_loader import PluginRegistry
@@ -22,10 +22,37 @@ from app.services.storage.local_storage import LocalStorageService
 from app.workers.worker import JobWorker
 
 
+def has_yolo_plugin():
+    """Check if YOLO plugin is available (GPU-only, may not be present)."""
+    try:
+        registry = PluginRegistry()
+        registry.load_plugins()
+        return "yolo" in registry.plugins
+    except Exception:
+        return False
+
+
+requires_yolo = pytest.mark.skipif(
+    not has_yolo_plugin(), reason="YOLO plugin not available (GPU-only)"
+)
+
+
 @pytest.fixture
-def client():
-    """Create a test client."""
-    return TestClient(app)
+def client(session):
+    """Create a test client with dependency overrides for database session."""
+    # Override get_db dependency to use test session
+    def override_get_db():
+        try:
+            yield session
+        finally:
+            pass  # Don't close test session, fixture handles it
+
+    app.dependency_overrides[get_db] = override_get_db
+
+    yield TestClient(app)
+
+    # Clean up dependency overrides
+    app.dependency_overrides.clear()
 
 
 @pytest.fixture
@@ -42,28 +69,28 @@ def plugin_service():
     return PluginManagementService(plugin_manager)
 
 
-def run_worker_once(storage, plugin_service):
+def run_worker_once(storage, plugin_service, session):
     """Run worker once to process all pending jobs."""
-    db = SessionLocal()
     worker = JobWorker(
-        session_factory=SessionLocal,
+        session_factory=lambda: session,
         storage=storage,
-        pipeline_service=None,  # Not used in v0.9.2 worker
+        plugin_service=plugin_service,
     )
     # Process all pending jobs
-    jobs = db.query(Job).filter(Job.status == JobStatus.pending).all()
+    jobs = session.query(Job).filter(Job.status == JobStatus.pending).all()
     for job in jobs:
-        worker._execute_pipeline(job, db)
-    db.close()
+        worker._execute_pipeline(job, session)
+    session.commit()
 
 
-def test_e2e_ocr_image_and_yolo_video(client, storage, plugin_service):
+@requires_yolo
+def test_e2e_ocr_image_and_yolo_video(client, storage, plugin_service, session):
     """Test end-to-end flow: OCR image + YOLO video via unified /v1/jobs/{id}."""
     # 1) Submit OCR image job
     fake_png = b"\x89PNG\r\n\x1a\n" + b"\x00" * 100
     with BytesIO(fake_png) as f:
         resp = client.post(
-            "/v1/image/submit?plugin_id=ocr&tool=extract_text",
+            "/v1/image/submit?plugin_id=ocr&tool=analyze",
             files={"file": ("test.png", f, "image/png")},
         )
     assert resp.status_code == 200
@@ -80,7 +107,7 @@ def test_e2e_ocr_image_and_yolo_video(client, storage, plugin_service):
     video_job_id = resp.json()["job_id"]
 
     # 3) Run worker to process both jobs
-    run_worker_once(storage, plugin_service)
+    run_worker_once(storage, plugin_service, session)
 
     # 4) Fetch results via unified /v1/jobs/{id}
 
@@ -101,37 +128,30 @@ def test_e2e_ocr_image_and_yolo_video(client, storage, plugin_service):
     assert "results" in data["results"]  # Nested results structure
 
 
-def test_e2e_image_job_storage_paths(client, storage):
+def test_e2e_image_job_storage_paths(client, storage, plugin_service, session):
     """Test that image jobs use correct storage paths."""
     # Submit image job
     fake_png = b"\x89PNG\r\n\x1a\n" + b"\x00" * 100
     with BytesIO(fake_png) as f:
         resp = client.post(
-            "/v1/image/submit?plugin_id=ocr&tool=extract_text",
+            "/v1/image/submit?plugin_id=ocr&tool=analyze",
             files={"file": ("test.png", f, "image/png")},
         )
     assert resp.status_code == 200
     job_id = resp.json()["job_id"]
 
     # Run worker
-    from app.plugin_loader import PluginRegistry
-    from app.services.plugin_management_service import PluginManagementService
-
-    plugin_manager = PluginRegistry()
-    plugin_manager.load_plugins()
-    plugin_service = PluginManagementService(plugin_manager)
-    run_worker_once(storage, plugin_service)
+    run_worker_once(storage, plugin_service, session)
 
     # Verify storage paths
-    db = SessionLocal()
-    job = db.query(Job).filter(Job.job_id == job_id).first()
+    job = session.query(Job).filter(Job.job_id == job_id).first()
     assert job is not None
     assert job.input_path.startswith("image/input/")
     assert job.output_path.startswith("image/output/")
-    db.close()
 
 
-def test_e2e_video_job_storage_paths(client, storage):
+@requires_yolo
+def test_e2e_video_job_storage_paths(client, storage, plugin_service, session):
     """Test that video jobs use correct storage paths."""
     # Submit video job
     fake_mp4 = b"ftyp" + b"\x00" * 100
@@ -144,30 +164,22 @@ def test_e2e_video_job_storage_paths(client, storage):
     job_id = resp.json()["job_id"]
 
     # Run worker
-    from app.plugin_loader import PluginRegistry
-    from app.services.plugin_management_service import PluginManagementService
-
-    plugin_manager = PluginRegistry()
-    plugin_manager.load_plugins()
-    plugin_service = PluginManagementService(plugin_manager)
-    run_worker_once(storage, plugin_service)
+    run_worker_once(storage, plugin_service, session)
 
     # Verify storage paths
-    db = SessionLocal()
-    job = db.query(Job).filter(Job.job_id == job_id).first()
+    job = session.query(Job).filter(Job.job_id == job_id).first()
     assert job is not None
     assert job.input_path.startswith("video/input/")
     assert job.output_path.startswith("video/output/")
-    db.close()
 
 
-def test_e2e_unified_endpoint_returns_null_for_pending(client):
+def test_e2e_unified_endpoint_returns_null_for_pending(client, session):
     """Test that unified endpoint returns None for results when job is pending."""
     # Submit image job
     fake_png = b"\x89PNG\r\n\x1a\n" + b"\x00" * 100
     with BytesIO(fake_png) as f:
         resp = client.post(
-            "/v1/image/submit?plugin_id=ocr&tool=extract_text",
+            "/v1/image/submit?plugin_id=ocr&tool=analyze",
             files={"file": ("test.png", f, "image/png")},
         )
     assert resp.status_code == 200
@@ -181,13 +193,13 @@ def test_e2e_unified_endpoint_returns_null_for_pending(client):
     assert data["results"] is None  # Pending jobs return None for results
 
 
-def test_e2e_tool_validation_prevents_wrong_type(client):
+def test_e2e_tool_validation_prevents_wrong_type(client, storage, plugin_service, session):
     """Test that tool validation prevents using image tools on video jobs."""
     # Try to submit a video job with an image-only tool
     fake_mp4 = b"ftyp" + b"\x00" * 100
     with BytesIO(fake_mp4) as f:
         resp = client.post(
-            "/v1/video/submit?plugin_id=ocr&tool=extract_text",  # OCR is image-only
+            "/v1/video/submit?plugin_id=ocr&tool=analyze",  # OCR is image-only
             files={"file": ("test.mp4", f, "video/mp4")},
         )
     # This should fail at the endpoint level or worker level
@@ -197,20 +209,12 @@ def test_e2e_tool_validation_prevents_wrong_type(client):
     job_id = resp.json()["job_id"]
 
     # Run worker
-    from app.plugin_loader import PluginRegistry
-    from app.services.plugin_management_service import PluginManagementService
-
-    plugin_manager = PluginRegistry()
-    plugin_manager.load_plugins()
-    plugin_service = PluginManagementService(plugin_manager)
-    run_worker_once(storage, plugin_service)
+    run_worker_once(storage, plugin_service, session)
 
     # Fetch results (should be failed)
     resp = client.get(f"/v1/jobs/{job_id}")
     assert resp.status_code == 200
     # Job should have failed
-    db = SessionLocal()
-    job = db.query(Job).filter(Job.job_id == job_id).first()
+    job = session.query(Job).filter(Job.job_id == job_id).first()
     assert job.status == JobStatus.failed
     assert "does not support video input" in job.error_message.lower()
-    db.close()

@@ -15,16 +15,24 @@ from uuid import uuid4
 import pytest
 from fastapi.testclient import TestClient
 
-from app.core.database import SessionLocal
+from app.core.database import get_db
 from app.main import app
 from app.models.job import Job, JobStatus
 from app.services.storage.local_storage import LocalStorageService
 
 
 @pytest.fixture
-def client():
-    """Create a test client."""
-    return TestClient(app)
+def client(session):
+    """Create a test client with dependency overrides for database session."""
+    def override_get_db():
+        try:
+            yield session
+        finally:
+            pass
+
+    app.dependency_overrides[get_db] = override_get_db
+    yield TestClient(app)
+    app.dependency_overrides.clear()
 
 
 @pytest.fixture
@@ -42,21 +50,19 @@ def test_get_job_not_found(client):
     assert "not found" in response.json()["detail"].lower()
 
 
-def test_get_job_pending(client):
+def test_get_job_pending(client, session):
     """Test GET /v1/jobs/{id} for pending job."""
-    db = SessionLocal()
-
     # Create a pending job
     job = Job(
         job_id=uuid4(),
         status=JobStatus.pending,
         plugin_id="ocr",
-        tool="extract_text",
+        tool="analyze",
         input_path="image/input/test.png",
         job_type="image",
     )
-    db.add(job)
-    db.commit()
+    session.add(job)
+    session.commit()
 
     response = client.get(f"/v1/jobs/{job.job_id}")
 
@@ -67,13 +73,9 @@ def test_get_job_pending(client):
     assert "created_at" in data
     assert "updated_at" in data
 
-    db.close()
 
-
-def test_get_job_running(client):
+def test_get_job_running(client, session):
     """Test GET /v1/jobs/{id} for running job."""
-    db = SessionLocal()
-
     # Create a running job
     job = Job(
         job_id=uuid4(),
@@ -83,8 +85,8 @@ def test_get_job_running(client):
         input_path="video/input/test.mp4",
         job_type="video",
     )
-    db.add(job)
-    db.commit()
+    session.add(job)
+    session.commit()
 
     response = client.get(f"/v1/jobs/{job.job_id}")
 
@@ -93,26 +95,22 @@ def test_get_job_running(client):
     assert data["job_id"] == str(job.job_id)
     assert data["results"] is None
 
-    db.close()
 
-
-def test_get_job_completed(client, storage):
+def test_get_job_completed(client, session, storage):
     """Test GET /v1/jobs/{id} for completed job with results."""
-    db = SessionLocal()
-
     # Create a completed job
     job_id = uuid4()
     job = Job(
         job_id=job_id,
         status=JobStatus.completed,
         plugin_id="ocr",
-        tool="extract_text",
+        tool="analyze",
         input_path="image/input/test.png",
         output_path="image/output/test.json",
         job_type="image",
     )
-    db.add(job)
-    db.commit()
+    session.add(job)
+    session.commit()
 
     # Create results file
     results_data = {"results": {"text": "extracted text"}}
@@ -127,25 +125,21 @@ def test_get_job_completed(client, storage):
     assert data["results"] is not None
     assert data["results"]["results"]["text"] == "extracted text"
 
-    db.close()
 
-
-def test_get_job_failed(client):
+def test_get_job_failed(client, session):
     """Test GET /v1/jobs/{id} for failed job."""
-    db = SessionLocal()
-
     # Create a failed job
     job = Job(
         job_id=uuid4(),
         status=JobStatus.failed,
         plugin_id="ocr",
-        tool="extract_text",
+        tool="analyze",
         input_path="image/input/test.png",
         job_type="image",
         error_message="Processing failed",
     )
-    db.add(job)
-    db.commit()
+    session.add(job)
+    session.commit()
 
     response = client.get(f"/v1/jobs/{job.job_id}")
 
@@ -154,26 +148,22 @@ def test_get_job_failed(client):
     assert data["job_id"] == str(job.job_id)
     assert data["results"] is None
 
-    db.close()
 
-
-def test_get_job_image_type(client, storage):
+def test_get_job_image_type(client, session, storage):
     """Test GET /v1/jobs/{id} for image job."""
-    db = SessionLocal()
-
     # Create a completed image job
     job_id = uuid4()
     job = Job(
         job_id=job_id,
         status=JobStatus.completed,
         plugin_id="ocr",
-        tool="extract_text",
+        tool="analyze",
         input_path="image/input/test.png",
         output_path="image/output/test.json",
         job_type="image",
     )
-    db.add(job)
-    db.commit()
+    session.add(job)
+    session.commit()
 
     # Create results file
     results_data = {"results": {"text": "OCR result"}}
@@ -186,13 +176,9 @@ def test_get_job_image_type(client, storage):
     data = response.json()
     assert data["results"]["results"]["text"] == "OCR result"
 
-    db.close()
 
-
-def test_get_job_video_type(client, storage):
+def test_get_job_video_type(client, session, storage):
     """Test GET /v1/jobs/{id} for video job."""
-    db = SessionLocal()
-
     # Create a completed video job
     job_id = uuid4()
     job = Job(
@@ -204,8 +190,8 @@ def test_get_job_video_type(client, storage):
         output_path="video/output/test.json",
         job_type="video",
     )
-    db.add(job)
-    db.commit()
+    session.add(job)
+    session.commit()
 
     # Create results file
     results_data = {"results": {"objects": []}}
@@ -218,52 +204,44 @@ def test_get_job_video_type(client, storage):
     data = response.json()
     assert data["results"]["results"]["objects"] == []
 
-    db.close()
 
-
-def test_get_job_results_file_not_found(client):
+def test_get_job_results_file_not_found(client, session):
     """Test GET /v1/jobs/{id} when results file is missing."""
-    db = SessionLocal()
-
     # Create a completed job without results file
     job_id = uuid4()
     job = Job(
         job_id=job_id,
         status=JobStatus.completed,
         plugin_id="ocr",
-        tool="extract_text",
+        tool="analyze",
         input_path="image/input/test.png",
         output_path="image/output/nonexistent.json",
         job_type="image",
     )
-    db.add(job)
-    db.commit()
+    session.add(job)
+    session.commit()
 
     response = client.get(f"/v1/jobs/{job_id}")
 
     assert response.status_code == 404
     assert "results file not found" in response.json()["detail"].lower()
 
-    db.close()
 
-
-def test_get_job_results_invalid_json(client, storage):
+def test_get_job_results_invalid_json(client, session, storage):
     """Test GET /v1/jobs/{id} when results file contains invalid JSON."""
-    db = SessionLocal()
-
     # Create a completed job with invalid JSON results
     job_id = uuid4()
     job = Job(
         job_id=job_id,
         status=JobStatus.completed,
         plugin_id="ocr",
-        tool="extract_text",
+        tool="analyze",
         input_path="image/input/test.png",
         output_path="image/output/invalid.json",
         job_type="image",
     )
-    db.add(job)
-    db.commit()
+    session.add(job)
+    session.commit()
 
     # Create invalid JSON file
     storage.save_file(BytesIO(b"invalid json"), "image/output/invalid.json")
@@ -272,5 +250,3 @@ def test_get_job_results_invalid_json(client, storage):
 
     assert response.status_code == 500
     assert "invalid results file" in response.json()["detail"].lower()
-
-    db.close()

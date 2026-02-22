@@ -82,7 +82,7 @@ class TestOcrOnlyPipelineNodes:
         """Read node must reference valid plugin and tool."""
         read = next(n for n in pipeline["nodes"] if n["id"] == "read")
         assert read["plugin_id"] == "ocr"
-        assert read["tool_id"] == "extract_text"
+        assert read["tool_id"] == "analyze"
         assert "input_schema" in read
 
     def test_read_input_schema_has_image_bytes(self, pipeline: dict) -> None:

@@ -18,8 +18,8 @@ def mock_plugin():
     plugin = MagicMock()
     plugin.name = "ocr"
     plugin.tools = {
-        "extract_text": {
-            "handler": "extract_text_handler",
+        "analyze": {
+            "handler": "analyze_handler",
             "description": "Extract text",
             "input_schema": {"properties": {"video_path": {"type": "string"}}},
             "output_schema": {},
@@ -72,7 +72,7 @@ def test_submit_with_plugin_id_and_tool_returns_200(
     response = client.post(
         "/v1/video/submit",
         files={"file": ("test.mp4", BytesIO(mp4_data))},
-        params={"plugin_id": "ocr", "tool": "extract_text"},
+        params={"plugin_id": "ocr", "tool": "analyze"},
     )
 
     app.dependency_overrides.clear()
@@ -139,7 +139,7 @@ def test_submit_stores_tool_in_job(
     response = client.post(
         "/v1/video/submit",
         files={"file": ("test.mp4", BytesIO(mp4_data))},
-        params={"plugin_id": "ocr", "tool": "extract_text"},
+        params={"plugin_id": "ocr", "tool": "analyze"},
     )
 
     app.dependency_overrides.clear()
@@ -150,7 +150,7 @@ def test_submit_stores_tool_in_job(
     # Verify tool was stored
     job = session.query(Job).filter(Job.job_id == job_id).first()
     assert job is not None
-    assert job.tool == "extract_text"
+    assert job.tool == "analyze"
 
 
 @pytest.mark.unit
@@ -163,7 +163,7 @@ def test_submit_missing_plugin_id_returns_422():
     response = client.post(
         "/v1/video/submit",
         files={"file": ("test.mp4", BytesIO(mp4_data))},
-        params={"tool": "extract_text"},  # Missing plugin_id
+        params={"tool": "analyze"},  # Missing plugin_id
     )
 
     assert response.status_code == 422

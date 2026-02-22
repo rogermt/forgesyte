@@ -10,7 +10,7 @@ def test_job_accepts_plugin_id_and_tool(session):
     """Test Job model accepts plugin_id and tool columns."""
     job = Job(
         plugin_id="ocr",
-        tool="extract_text",
+        tool="analyze",
         input_path="image/test.png",
         job_type="image",
     )
@@ -19,7 +19,7 @@ def test_job_accepts_plugin_id_and_tool(session):
 
     assert job.job_id is not None
     assert job.plugin_id == "ocr"
-    assert job.tool == "extract_text"
+    assert job.tool == "analyze"
     assert job.status == JobStatus.pending
 
 

@@ -26,8 +26,8 @@ def mock_plugin():
     plugin.description = "OCR Plugin"
     plugin.version = "1.0.0"
     plugin.tools = {
-        "extract_text": {
-            "handler": "extract_text_handler",
+        "analyze": {
+            "handler": "analyze_handler",
             "description": "Extract text from images",
             "input_schema": {
                 "properties": {
@@ -86,7 +86,7 @@ class TestImageSubmitPluginValidation:
         png_data = b"\x89PNG\r\n\x1a\n" + b"\x00" * 100  # PNG magic bytes + padding
 
         response = client_with_mocks.post(
-            "/v1/image/submit?plugin_id=ocr&tool=extract_text",
+            "/v1/image/submit?plugin_id=ocr&tool=analyze",
             files={"file": ("test.png", BytesIO(png_data), "image/png")},
         )
 
@@ -123,7 +123,7 @@ class TestImageSubmitPluginValidation:
         png_data = b"\x89PNG\r\n\x1a\n" + b"\x00" * 100
 
         response = client.post(
-            "/v1/image/submit?plugin_id=nonexistent&tool=extract_text",
+            "/v1/image/submit?plugin_id=nonexistent&tool=analyze",
             files={"file": ("test.png", BytesIO(png_data), "image/png")},
         )
 
@@ -174,7 +174,7 @@ class TestImageSubmitValidation:
         invalid_data = b"INVALID FILE CONTENT"
 
         response = client_with_mocks.post(
-            "/v1/image/submit?plugin_id=ocr&tool=extract_text",
+            "/v1/image/submit?plugin_id=ocr&tool=analyze",
             files={"file": ("test.txt", BytesIO(invalid_data), "text/plain")},
         )
 
@@ -187,7 +187,7 @@ class TestImageSubmitValidation:
         jpeg_data = b"\xFF\xD8\xFF" + b"\x00" * 100  # JPEG magic bytes + padding
 
         response = client_with_mocks.post(
-            "/v1/image/submit?plugin_id=ocr&tool=extract_text",
+            "/v1/image/submit?plugin_id=ocr&tool=analyze",
             files={"file": ("test.jpg", BytesIO(jpeg_data), "image/jpeg")},
         )
 
@@ -209,8 +209,8 @@ class TestImageSubmitToolInputValidation:
         # Create plugin with image_bytes support
         plugin = MagicMock()
         plugin.tools = {
-            "extract_text": {
-                "handler": "extract_text_handler",
+            "analyze": {
+                "handler": "analyze_handler",
                 "description": "Extract text",
                 "input_schema": {"properties": {"image_bytes": {"type": "string"}}},
                 "output_schema": {},
@@ -237,7 +237,7 @@ class TestImageSubmitToolInputValidation:
         png_data = b"\x89PNG\r\n\x1a\n" + b"\x00" * 100
 
         response = client.post(
-            "/v1/image/submit?plugin_id=ocr&tool=extract_text",
+            "/v1/image/submit?plugin_id=ocr&tool=analyze",
             files={"file": ("test.png", BytesIO(png_data), "image/png")},
         )
 

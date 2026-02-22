@@ -14,7 +14,7 @@ ROUTE = "app.api_routes.routes.image_submit"
 FAKE_PNG = b"\x89PNG\r\n\x1a\n" + b"\x00" * 50
 FAKE_MANIFEST = {
     "tools": {
-        "extract_text": {
+        "analyze": {
             "inputs": ["image_bytes"],
         }
     }
@@ -58,7 +58,7 @@ class TestImageSubmitHybrid:
         _, tmp_path = tmp_storage
 
         response = client.post(
-            "/v1/image/submit?plugin_id=ocr&tool=extract_text",
+            "/v1/image/submit?plugin_id=ocr&tool=analyze",
             files={"file": ("test.png", BytesIO(FAKE_PNG), "image/png")},
         )
         assert response.status_code == 200
@@ -71,7 +71,7 @@ class TestImageSubmitHybrid:
         _, tmp_path = tmp_storage
 
         response = client.post(
-            "/v1/image/submit?plugin_id=ocr&tool=extract_text",
+            "/v1/image/submit?plugin_id=ocr&tool=analyze",
             files={"file": ("photo.png", BytesIO(FAKE_PNG), "image/png")},
         )
         job_id = response.json()["job_id"]
@@ -84,7 +84,7 @@ class TestImageSubmitHybrid:
         _, tmp_path = tmp_storage
 
         client.post(
-            "/v1/image/submit?plugin_id=ocr&tool=extract_text",
+            "/v1/image/submit?plugin_id=ocr&tool=analyze",
             files={"file": ("test.png", BytesIO(FAKE_PNG), "image/png")},
         )
 

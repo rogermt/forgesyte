@@ -41,7 +41,7 @@ def test_manifest_with_inputs_preserved(plugin_service):
             "version": "1.0.0",
             "description": "Test plugin",
             "tools": {
-                "extract_text": {
+                "analyze": {
                     "description": "Extract text",
                     "inputs": ["image_bytes", "detections"],
                     "output_types": ["text"],
@@ -65,7 +65,7 @@ def test_manifest_with_inputs_preserved(plugin_service):
         result = service.get_plugin_manifest("test_plugin")
 
         assert result is not None
-        assert result["tools"]["extract_text"]["inputs"] == [
+        assert result["tools"]["analyze"]["inputs"] == [
             "image_bytes",
             "detections",
         ]
@@ -83,7 +83,7 @@ def test_manifest_with_input_types_canonicalized(plugin_service):
             "version": "1.0.0",
             "description": "Test plugin",
             "tools": {
-                "extract_text": {
+                "analyze": {
                     "description": "Extract text",
                     "input_types": ["image_bytes", "detections"],  # Legacy field
                     "output_types": ["text"],
@@ -108,12 +108,12 @@ def test_manifest_with_input_types_canonicalized(plugin_service):
 
         assert result is not None
         # Both 'inputs' and 'input_types' should exist
-        assert "inputs" in result["tools"]["extract_text"]
-        assert result["tools"]["extract_text"]["inputs"] == [
+        assert "inputs" in result["tools"]["analyze"]
+        assert result["tools"]["analyze"]["inputs"] == [
             "image_bytes",
             "detections",
         ]
-        assert result["tools"]["extract_text"]["input_types"] == [
+        assert result["tools"]["analyze"]["input_types"] == [
             "image_bytes",
             "detections",
         ]
@@ -164,12 +164,12 @@ def test_real_ocr_manifest_canonicalization(plugin_service):
     assert manifest is not None
     assert "tools" in manifest
 
-    # Check that extract_text tool has canonicalized inputs
-    extract_text = manifest["tools"].get("extract_text")
-    if extract_text:
-        assert "inputs" in extract_text
+    # Check that analyze tool has canonicalized inputs
+    analyze = manifest["tools"].get("analyze")
+    if analyze:
+        assert "inputs" in analyze
         # Should have image_bytes at minimum
-        assert "image_bytes" in extract_text["inputs"]
+        assert "image_bytes" in analyze["inputs"]
 
 
 def test_real_yolo_manifest_canonicalization(plugin_service):

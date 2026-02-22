@@ -35,7 +35,7 @@ class FakePlugin:
             "input_schema": {"properties": {"video_path": {"type": "string"}}},
             "output_schema": {"properties": {"detections": {"type": "array"}}},
         },
-        "extract_text": {
+        "analyze": {
             "handler": "dummy_handler",
             "description": "Extract text from images",
             "input_schema": {"properties": {"image_bytes": {"type": "string"}}},
@@ -87,7 +87,7 @@ def test_image_submit_validates_against_plugin_tools(
         response = client.post(
             "/v1/image/submit",
             files={"file": ("test.jpg", BytesIO(jpeg_data))},
-            params={"plugin_id": "test-plugin", "tool": "extract_text"},
+            params={"plugin_id": "test-plugin", "tool": "analyze"},
         )
         assert response.status_code == 200
 
@@ -104,7 +104,7 @@ def test_image_submit_validates_against_plugin_tools(
         )
         assert response.status_code == 400
         assert "Available:" in response.json()["detail"]
-        assert "extract_text" in response.json()["detail"]
+        assert "analyze" in response.json()["detail"]
     finally:
         app.dependency_overrides.clear()
 
@@ -160,5 +160,5 @@ def test_get_available_tools_returns_plugin_tools_keys(mock_plugin_service):
     tools = mock_plugin_service.get_available_tools("test-plugin")
     assert isinstance(tools, list)
     assert "player_detection" in tools
-    assert "extract_text" in tools
+    assert "analyze" in tools
     assert "on_load" not in tools  # lifecycle method should NOT be in tools

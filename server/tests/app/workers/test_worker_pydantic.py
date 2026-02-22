@@ -46,7 +46,7 @@ class TestWorkerPydanticSerialization:
             job_id=job_id,
             status=JobStatus.pending,
             plugin_id="ocr",
-            tool="extract_text",
+            tool="analyze",
             input_path="image/input/test.png",
             job_type="image",
         )
@@ -68,7 +68,7 @@ class TestWorkerPydanticSerialization:
 
         # Return a Pydantic model (simulating OCROutput)
         mock_plugin_service.get_plugin_manifest.return_value = {
-            "tools": [{"id": "extract_text", "inputs": ["image_base64"]}]
+            "tools": [{"id": "analyze", "inputs": ["image_base64"]}]
         }
         mock_plugin_service.run_plugin_tool.return_value = MockOCROutput(
             text="Hello, World!", confidence=0.98
@@ -125,7 +125,7 @@ class TestWorkerPydanticSerialization:
             job_id=job_id,
             status=JobStatus.pending,
             plugin_id="ocr",
-            tool="extract_text",
+            tool="analyze",
             input_path="image/input/test.png",
             job_type="image",
         )
@@ -146,7 +146,7 @@ class TestWorkerPydanticSerialization:
 
         # Return a plain dict (existing behavior)
         mock_plugin_service.get_plugin_manifest.return_value = {
-            "tools": [{"id": "extract_text", "inputs": ["image_base64"]}]
+            "tools": [{"id": "analyze", "inputs": ["image_base64"]}]
         }
         mock_plugin_service.run_plugin_tool.return_value = {
             "text": "Dict result",
@@ -188,7 +188,7 @@ class TestWorkerPydanticSerialization:
             job_id=job_id,
             status=JobStatus.pending,
             plugin_id="ocr",
-            tool="extract_text",
+            tool="analyze",
             input_path="image/input/test.png",
             job_type="image",
         )
@@ -223,7 +223,7 @@ class TestWorkerPydanticSerialization:
         )
 
         mock_plugin_service.get_plugin_manifest.return_value = {
-            "tools": [{"id": "extract_text", "inputs": ["image_base64"]}]
+            "tools": [{"id": "analyze", "inputs": ["image_base64"]}]
         }
         mock_plugin_service.run_plugin_tool.return_value = detection_result
 

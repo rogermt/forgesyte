@@ -14,7 +14,7 @@ FAKE_PNG = b"\x89PNG\r\n\x1a\n" + b"\x00" * 10
 FAKE_JPEG = b"\xFF\xD8\xFF" + b"\x00" * 10
 FAKE_MANIFEST = {
     "tools": {
-        "extract_text": {
+        "analyze": {
             "inputs": ["image_bytes"],
         }
     }
@@ -48,7 +48,7 @@ class TestImageSubmitSuccess:
 
     def test_png_returns_200_with_job_id(self, client, mock_deps):
         response = client.post(
-            "/v1/image/submit?plugin_id=ocr&tool=extract_text",
+            "/v1/image/submit?plugin_id=ocr&tool=analyze",
             files={"file": ("test.png", BytesIO(FAKE_PNG), "image/png")},
         )
         assert response.status_code == 200
@@ -58,7 +58,7 @@ class TestImageSubmitSuccess:
 
     def test_jpeg_returns_200_with_job_id(self, client, mock_deps):
         response = client.post(
-            "/v1/image/submit?plugin_id=ocr&tool=extract_text",
+            "/v1/image/submit?plugin_id=ocr&tool=analyze",
             files={"file": ("test.jpg", BytesIO(FAKE_JPEG), "image/jpeg")},
         )
         assert response.status_code == 200
@@ -66,14 +66,14 @@ class TestImageSubmitSuccess:
 
     def test_saves_file_to_storage(self, client, mock_deps):
         client.post(
-            "/v1/image/submit?plugin_id=ocr&tool=extract_text",
+            "/v1/image/submit?plugin_id=ocr&tool=analyze",
             files={"file": ("test.png", BytesIO(FAKE_PNG), "image/png")},
         )
         mock_deps["storage"].save_file.assert_called_once()
 
     def test_creates_db_record(self, client, mock_deps):
         client.post(
-            "/v1/image/submit?plugin_id=ocr&tool=extract_text",
+            "/v1/image/submit?plugin_id=ocr&tool=analyze",
             files={"file": ("test.png", BytesIO(FAKE_PNG), "image/png")},
         )
         mock_deps["db"].add.assert_called_once()
@@ -86,7 +86,7 @@ class TestImageSubmitValidation:
     def test_invalid_file_returns_400(self, client, mock_deps):
         fake_file = b"this is not an image"
         response = client.post(
-            "/v1/image/submit?plugin_id=ocr&tool=extract_text",
+            "/v1/image/submit?plugin_id=ocr&tool=analyze",
             files={"file": ("test.txt", BytesIO(fake_file), "text/plain")},
         )
         assert response.status_code == 400
@@ -96,7 +96,7 @@ class TestImageSubmitValidation:
         with patch(f"{ROUTE}.plugin_manager") as pm:
             pm.get.return_value = None
             response = client.post(
-                "/v1/image/submit?plugin_id=nonexistent&tool=extract_text",
+                "/v1/image/submit?plugin_id=nonexistent&tool=analyze",
                 files={"file": ("test.png", BytesIO(FAKE_PNG), "image/png")},
             )
         assert response.status_code == 400
@@ -145,7 +145,7 @@ class TestImageSubmitValidation:
             pm.get.return_value = MagicMock()
             ps.get_plugin_manifest.return_value = None
             response = client.post(
-                "/v1/image/submit?plugin_id=ocr&tool=extract_text",
+                "/v1/image/submit?plugin_id=ocr&tool=analyze",
                 files={"file": ("test.png", BytesIO(FAKE_PNG), "image/png")},
             )
         assert response.status_code == 400
