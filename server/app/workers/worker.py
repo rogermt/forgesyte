@@ -129,6 +129,12 @@ class JobWorker:
     def _execute_pipeline(self, job: Job, db) -> bool:
         """Execute pipeline on job input file.
 
+        v0.9.4: Supports multi-tool execution for image_multi job type.
+        - Parses tool_list for multi-tool jobs
+        - Executes tools sequentially via run_plugin_tool()
+        - Aggregates results into {"plugin_id": ..., "tools": {...}} format
+        - Fail-fast: one tool failure fails entire job
+
         Args:
             job: Job model instance
             db: Database session
@@ -162,90 +168,114 @@ class JobWorker:
                 db.commit()
                 return False
 
-            # Find tool definition in manifest (support both list and dict formats)
-            tools = manifest.get("tools", [])
-            tool_def = None
+            # v0.9.4: Determine tools to execute based on job_type
+            is_multi_tool = job.job_type == "image_multi"
 
-            # Handle list format (Phase 12+)
-            if isinstance(tools, list):
-                for tool in tools:
-                    if tool.get("id") == job.tool:
-                        tool_def = tool
-                        break
-            # Handle dict format (legacy)
-            elif isinstance(tools, dict):
-                for tool_name, tool_info in tools.items():
-                    if tool_name == job.tool:
-                        tool_def = tool_info
-                        tool_def["id"] = tool_name
-                        break
-
-            if not tool_def:
-                job.status = JobStatus.failed
-                job.error_message = (
-                    f"Tool '{job.tool}' not found in plugin '{job.plugin_id}'"
-                )
-                db.commit()
-                return False
-
-            # Validate tool supports job_type
-            # inputs can be a list (legacy canonicalized) or dict (new format with parameter names)
-            tool_inputs = tool_def.get("inputs", [])
-            input_type_list = []
-
-            if isinstance(tool_inputs, list):
-                # Legacy format: ["image_bytes", "video_path"]
-                input_type_list = tool_inputs
-            elif isinstance(tool_inputs, dict):
-                # New format: {"image_base64": "string", "video_path": "string"}
-                input_type_list = list(tool_inputs.keys())
-
-            if job.job_type == "video":
-                if not any(i in input_type_list for i in ("video", "video_path")):
+            if is_multi_tool:
+                # Parse tool_list from JSON
+                if not job.tool_list:
                     job.status = JobStatus.failed
-                    job.error_message = (
-                        f"Tool '{job.tool}' does not support video input"
-                    )
+                    job.error_message = "Multi-tool job has no tool_list"
                     db.commit()
                     return False
-            elif job.job_type == "image":
-                if not any(
-                    i in input_type_list for i in ("image_bytes", "image_base64")
-                ):
-                    job.status = JobStatus.failed
-                    job.error_message = (
-                        f"Tool '{job.tool}' does not support image input"
-                    )
-                    db.commit()
-                    return False
+                tools_to_run = json.loads(job.tool_list)
             else:
-                job.status = JobStatus.failed
-                job.error_message = f"Unknown job_type: {job.job_type}"
-                db.commit()
-                return False
+                # Single-tool job
+                if not job.tool:
+                    job.status = JobStatus.failed
+                    job.error_message = "Single-tool job has no tool"
+                    db.commit()
+                    return False
+                tools_to_run = [job.tool]
+
+            # Validate all tools exist and support the job type
+            manifest_tools = manifest.get("tools", [])
+
+            for tool_name in tools_to_run:
+                tool_def = None
+
+                # Handle list format (Phase 12+)
+                if isinstance(manifest_tools, list):
+                    for t in manifest_tools:
+                        if t.get("id") == tool_name:
+                            tool_def = t
+                            break
+                # Handle dict format (legacy)
+                elif isinstance(manifest_tools, dict):
+                    if tool_name in manifest_tools:
+                        tool_def = manifest_tools[tool_name]
+                        tool_def["id"] = tool_name
+
+                if not tool_def:
+                    job.status = JobStatus.failed
+                    job.error_message = (
+                        f"Tool '{tool_name}' not found in plugin '{job.plugin_id}'"
+                    )
+                    db.commit()
+                    return False
+
+                # Validate tool supports job_type
+                tool_inputs = tool_def.get("inputs", [])
+                input_type_list = []
+
+                if isinstance(tool_inputs, list):
+                    input_type_list = tool_inputs
+                elif isinstance(tool_inputs, dict):
+                    input_type_list = list(tool_inputs.keys())
+
+                if job.job_type in ("image", "image_multi"):
+                    if not any(
+                        i in input_type_list for i in ("image_bytes", "image_base64")
+                    ):
+                        job.status = JobStatus.failed
+                        job.error_message = (
+                            f"Tool '{tool_name}' does not support image input"
+                        )
+                        db.commit()
+                        return False
+                elif job.job_type == "video":
+                    if not any(i in input_type_list for i in ("video", "video_path")):
+                        job.status = JobStatus.failed
+                        job.error_message = (
+                            f"Tool '{tool_name}' does not support video input"
+                        )
+                        db.commit()
+                        return False
 
             # Branch by job_type to prepare arguments
             args: Dict[str, Any] = {}
 
-            if job.job_type == "video":
-                # Load video file from storage
-                video_path = self._storage.load_file(job.input_path)
-                args = {"video_path": str(video_path)}
-                logger.info("Job %s: loaded video file %s", job.job_id, video_path)
-            elif job.job_type == "image":
+            if job.job_type in ("image", "image_multi"):
                 # Load image file from storage
                 image_path = self._storage.load_file(job.input_path)
                 with open(image_path, "rb") as f:
                     image_bytes = f.read()
 
-                # Determine parameter name from manifest
+                # Determine parameter name from first tool's manifest
+                first_tool_def = None
+                if isinstance(manifest_tools, list):
+                    for t in manifest_tools:
+                        if t.get("id") == tools_to_run[0]:
+                            first_tool_def = t
+                            break
+                elif isinstance(manifest_tools, dict):
+                    first_tool_def = manifest_tools.get(tools_to_run[0])
+
+                if first_tool_def:
+                    tool_inputs = first_tool_def.get("inputs", [])
+                    if isinstance(tool_inputs, dict):
+                        input_type_list = list(tool_inputs.keys())
+                    else:
+                        input_type_list = tool_inputs
+                else:
+                    input_type_list = []
+
                 # Use image_base64 if manifest specifies it, otherwise fall back to image_bytes
                 if "image_base64" in input_type_list:
                     import base64
 
                     image_base64 = base64.b64encode(image_bytes).decode("utf-8")
                     args = {"image_base64": image_base64}
-                    # Add default values for optional parameters if not specified
                     if "language" in input_type_list:
                         args["language"] = "eng"
                     if "psm" in input_type_list:
@@ -253,29 +283,44 @@ class JobWorker:
                 else:
                     args = {"image_bytes": image_bytes}
                 logger.info("Job %s: loaded image file %s", job.job_id, image_path)
+
+            elif job.job_type == "video":
+                # Load video file from storage
+                video_path = self._storage.load_file(job.input_path)
+                args = {"video_path": str(video_path)}
+                logger.info("Job %s: loaded video file %s", job.job_id, video_path)
             else:
-                # Should never reach here due to validation above
                 job.status = JobStatus.failed
                 job.error_message = f"Unknown job_type: {job.job_type}"
                 db.commit()
                 return False
 
-            # Execute tool via plugin_service (includes sandbox and error handling)
-            result = plugin_service.run_plugin_tool(job.plugin_id, job.tool, args)
-            logger.info("Job %s: tool executed successfully", job.job_id)
+            # v0.9.4: Execute tools
+            results: Dict[str, Any] = {}
 
-            # Prepare JSON output with unified storage path
-            # Handle Pydantic models (Issue #210): run_plugin_tool may return
-            # a Pydantic model instead of a plain dict, which json.dumps cannot serialize.
-            # Use model_dump() if available, otherwise use the result as-is.
-            if hasattr(result, "model_dump"):
-                # Pydantic v2: use model_dump() for JSON serialization
-                result = result.model_dump()
-            elif hasattr(result, "dict"):
-                # Pydantic v1: use dict() for backward compatibility
-                result = result.dict()
+            for tool_name in tools_to_run:
+                logger.info("Job %s: executing tool '%s'", job.job_id, tool_name)
 
-            output_data = {"results": result}
+                # Execute tool via plugin_service (includes sandbox and error handling)
+                result = plugin_service.run_plugin_tool(job.plugin_id, tool_name, args)
+
+                # Handle Pydantic models
+                if hasattr(result, "model_dump"):
+                    result = result.model_dump()
+                elif hasattr(result, "dict"):
+                    result = result.dict()
+
+                results[tool_name] = result
+                logger.info(
+                    "Job %s: tool '%s' executed successfully", job.job_id, tool_name
+                )
+
+            # v0.9.4: Prepare output based on job type
+            if is_multi_tool:
+                output_data = {"plugin_id": job.plugin_id, "tools": results}
+            else:
+                output_data = {"results": results[tools_to_run[0]]}
+
             output_json = json.dumps(output_data)
             output_bytes = BytesIO(output_json.encode())
 
