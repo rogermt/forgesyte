@@ -31,7 +31,7 @@ class MockPlugin:
 
 def test_manifest_with_inputs_preserved(app_with_plugins):
     """Test that manifests with 'inputs' field are preserved."""
-    plugin_service = app_with_plugins.state.plugin_service
+    _ = app_with_plugins  # Fixture used for app context
     with TemporaryDirectory() as tmpdir:
         plugin_dir = Path(tmpdir) / "test_plugin"
         plugin_dir.mkdir()
@@ -74,7 +74,7 @@ def test_manifest_with_inputs_preserved(app_with_plugins):
 
 def test_manifest_with_input_types_canonicalized(app_with_plugins):
     """Test that manifests with 'input_types' are canonicalized to 'inputs'."""
-    plugin_service = app_with_plugins.state.plugin_service
+    _ = app_with_plugins  # Fixture used for app context
     with TemporaryDirectory() as tmpdir:
         plugin_dir = Path(tmpdir) / "test_plugin"
         plugin_dir.mkdir()
@@ -123,7 +123,7 @@ def test_manifest_with_input_types_canonicalized(app_with_plugins):
 
 def test_manifest_without_inputs_gets_empty_list(app_with_plugins):
     """Test that manifests without 'inputs' or 'input_types' get empty 'inputs' list."""
-    plugin_service = app_with_plugins.state.plugin_service
+    _ = app_with_plugins  # Fixture used for app context
     with TemporaryDirectory() as tmpdir:
         plugin_dir = Path(tmpdir) / "test_plugin"
         plugin_dir.mkdir()

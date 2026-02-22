@@ -150,7 +150,9 @@ class TestPluginManagementService:
         # Create a mock plugin with a callable tool method
         mock_plugin = Mock()
         mock_plugin.tools = {"test_tool"}  # Set tools dict for validation
-        mock_plugin.run_tool.return_value = {"result": "success"}  # Mock the run_tool method
+        mock_plugin.run_tool.return_value = {
+            "result": "success"
+        }  # Mock the run_tool method
 
         # registry.get() returns the plugin instance
         mock_registry.get.return_value = mock_plugin

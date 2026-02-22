@@ -179,6 +179,61 @@ def app_with_plugins():
     app.state.analysis_service = VisionAnalysisService(plugin_manager, ws_manager)
     app.state.plugin_service = PluginManagementService(plugin_manager)
 
+    # Phase 12: Initialize execution service chain for /v1/analyze-execution endpoint
+    import base64
+    import inspect
+
+    from app.services.execution import (
+        AnalysisExecutionService,
+        JobExecutionService,
+        PluginExecutionService,
+    )
+
+    # Create a tool_runner that delegates to loaded plugins
+    # ToolRunner contract: async def(tool_name: str, args: dict) -> dict
+    async def tool_runner(tool_name: str, args: dict) -> dict:
+        # Default to 'analyze' if tool_name is empty
+        effective_tool = tool_name or "analyze"
+        # Get the first loaded plugin (for tests, typically OCR)
+        plugin_name = loaded_list[0] if loaded_list else "ocr"
+        plugin = plugin_manager.get(plugin_name)
+
+        # Convert base64 image string to bytes for plugins that expect image_bytes
+        processed_args = dict(args)
+        if "image" in processed_args and isinstance(processed_args["image"], str):
+            try:
+                processed_args["image_bytes"] = base64.b64decode(
+                    processed_args["image"]
+                )
+            except Exception:
+                pass  # Keep original if decode fails
+
+        if plugin and hasattr(plugin, "run_tool"):
+            # run_tool may be sync or async
+            result = plugin.run_tool(effective_tool, processed_args)
+            if inspect.iscoroutine(result):
+                result = await result
+            # Handle Pydantic models
+            if hasattr(result, "model_dump"):
+                return result.model_dump()
+            return result if isinstance(result, dict) else {"result": result}
+
+        # Fallback: try analyze method directly
+        if plugin and hasattr(plugin, "analyze"):
+            image_data = processed_args.get(
+                "image_bytes", processed_args.get("image", b"")
+            )
+            result = plugin.analyze(image_data)
+            if hasattr(result, "model_dump"):
+                return result.model_dump()
+            return result if isinstance(result, dict) else {"result": result}
+        raise RuntimeError(f"No plugin available for tool {effective_tool}")
+
+    plugin_exec_service = PluginExecutionService(tool_runner)
+    job_exec_service = JobExecutionService(plugin_exec_service)
+    analysis_exec_service = AnalysisExecutionService(job_exec_service)
+    app.state.analysis_execution_service = analysis_exec_service
+
     return app
 
 
