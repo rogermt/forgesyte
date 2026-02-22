@@ -617,6 +617,7 @@ def test_engine():
         SQLAlchemy engine for testing
     """
     import tempfile
+
     from sqlalchemy import create_engine
 
     from app.core.database import Base
@@ -631,10 +632,11 @@ def test_engine():
     Base.metadata.create_all(engine)
 
     yield engine
-    
+
     engine.dispose()
     # Cleanup temp directory
     import shutil
+
     try:
         shutil.rmtree(temp_dir)
     except Exception:
@@ -660,16 +662,16 @@ def session(test_engine):
 
     Session = sessionmaker(bind=test_engine)
     s = Session()
-    
+
     # Clear all tables for test isolation
     try:
         s.query(Job).delete()
         s.commit()
     except Exception:
         s.rollback()
-    
+
     yield s
-    
+
     # Cleanup after test
     try:
         s.query(Job).delete()
