@@ -75,7 +75,7 @@ describe("ForgeSyteAPIClient", () => {
                     job_id: "job-1",
                     status: "completed" as const,
                     plugin_id: "ocr",
-                    tool: "extract_text",
+                    tool: "analyze",
                     created_at: "2026-01-09T21:00:00Z",
                     updated_at: "2026-01-09T21:00:30Z",
                 },
@@ -124,7 +124,7 @@ describe("ForgeSyteAPIClient", () => {
                 job_id: "job-123",
                 status: "completed" as const,
                 plugin_id: "ocr",
-                tool: "extract_text",
+                tool: "analyze",
                 results: { text: "Hello" },
                 created_at: "2026-01-09T21:00:00Z",
                 updated_at: "2026-01-09T21:00:30Z",
@@ -149,7 +149,7 @@ describe("ForgeSyteAPIClient", () => {
                 job_id: "job-123",
                 status: "pending" as const,
                 plugin_id: "ocr",
-                tool: "extract_text",
+                tool: "analyze",
                 created_at: "2026-01-09T21:00:00Z",
                 updated_at: "2026-01-09T21:00:30Z",
             };
@@ -211,7 +211,7 @@ describe("ForgeSyteAPIClient", () => {
                 job_id: "job-1",
                 status: "running" as const,
                 plugin_id: "ocr",
-                tool: "extract_text",
+                tool: "analyze",
                 created_at: "2026-01-09T21:00:00Z",
                 updated_at: "2026-01-09T21:00:10Z",
             };
@@ -220,7 +220,7 @@ describe("ForgeSyteAPIClient", () => {
                 job_id: "job-1",
                 status: "completed" as const,
                 plugin_id: "ocr",
-                tool: "extract_text",
+                tool: "analyze",
                 results: { text: "Done" },
                 created_at: "2026-01-09T21:00:00Z",
                 updated_at: "2026-01-09T21:00:30Z",
@@ -241,7 +241,7 @@ describe("ForgeSyteAPIClient", () => {
                 job_id: "job-1",
                 status: "pending" as const,
                 plugin_id: "ocr",
-                tool: "extract_text",
+                tool: "analyze",
                 created_at: "2026-01-09T21:00:00Z",
                 updated_at: "2026-01-09T21:00:10Z",
             };
@@ -319,12 +319,12 @@ describe("ForgeSyteAPIClient", () => {
 
                 (global as unknown as { XMLHttpRequest: typeof MockXMLHttpRequest }).XMLHttpRequest = MockXMLHttpRequest;
 
-                const result = await client.submitVideo(mockFile, "ocr", "extract_text");
+                const result = await client.submitVideo(mockFile, "ocr", "analyze");
 
                 expect(result).toEqual(mockResult);
                 expect(mockXHRInstances[0]?.open).toHaveBeenCalledWith(
                     "POST",
-                    expect.stringContaining("/video/submit?plugin_id=ocr&tool=extract_text")
+                    expect.stringContaining("/video/submit?plugin_id=ocr&tool=analyze")
                 );
             });
 
@@ -359,7 +359,7 @@ describe("ForgeSyteAPIClient", () => {
 
                 (global as unknown as { XMLHttpRequest: typeof MockXMLHttpRequest }).XMLHttpRequest = MockXMLHttpRequest;
 
-                await client.submitVideo(mockFile, "ocr", "extract_text", progressCallback);
+                await client.submitVideo(mockFile, "ocr", "analyze", progressCallback);
 
                 expect(progressCallback).toHaveBeenCalledWith(50);
                 expect(progressCallback).toHaveBeenCalledWith(100);

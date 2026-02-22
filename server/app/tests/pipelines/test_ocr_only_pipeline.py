@@ -25,7 +25,7 @@ def test_ocr_only_pipeline_valid_json():
     assert data["name"] == "OCR Only Pipeline"
     assert len(data["nodes"]) == 1
     assert data["nodes"][0]["plugin_id"] == "ocr"
-    assert data["nodes"][0]["tool_id"] == "extract_text"
+    assert data["nodes"][0]["tool_id"] == "analyze"
     assert data["entry_nodes"] == ["read"]
     assert data["output_nodes"] == ["read"]
     assert len(data["edges"]) == 0  # No edges for single node pipeline

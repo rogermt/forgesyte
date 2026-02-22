@@ -28,7 +28,7 @@ export function createMockJob(overrides?: Partial<Job>): Job {
         job_id: "550e8400-e29b-41d4-a716-446655440000",
         status: "pending",
         plugin_id: "ocr",
-        tool: "extract_text",
+        tool: "analyze",
         created_at: "2026-01-12T21:00:00Z",
         updated_at: "2026-01-12T21:00:00Z",
         results: undefined,

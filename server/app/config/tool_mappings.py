@@ -14,6 +14,6 @@ from typing import Dict, Tuple
 
 # Maps user-facing tool names to (plugin_id, tool_name) tuples
 TOOL_MAPPING: Dict[str, Tuple[str, str]] = {
-    "ocr": ("ocr", "extract_text"),
+    "ocr": ("ocr", "analyze"),
     "yolo-tracker": ("yolo", "detect_objects"),
 }
