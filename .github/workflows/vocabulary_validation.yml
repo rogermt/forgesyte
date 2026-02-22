@@ -83,7 +83,7 @@ jobs:
 
       - name: Install OCR plugin
         working-directory: ./server
-        run: uv pip install -e ../forgesyte-plugins/plugins/ocr
+        run: uv pip install -e ../../forgesyte-plugins/plugins/ocr
 
       - name: Run job processing smoke test
         working-directory: ./server
