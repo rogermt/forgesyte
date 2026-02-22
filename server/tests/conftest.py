@@ -659,6 +659,11 @@ def session(test_engine):
 def mock_session_local(session, monkeypatch):
     """Monkeypatch SessionLocal to use test session.
 
+    Note: We patch SessionLocal for direct usage in submit endpoints,
+    but we do NOT patch get_db here. The client fixture handles get_db
+    via dependency_overrides, which correctly uses the original function
+    reference stored in FastAPI's Depends() objects.
+
     Args:
         session: Test database session
         monkeypatch: Pytest monkeypatch
@@ -677,11 +682,6 @@ def mock_session_local(session, monkeypatch):
         mock_session_factory,
     )
 
-    # Patch core.database.get_db for FastAPI dependency injection
-    def mock_get_db():
-        yield session
-
-    monkeypatch.setattr(
-        "app.core.database.get_db",
-        mock_get_db,
-    )
+    # Do NOT patch get_db here - client fixture uses dependency_overrides
+    # which correctly overrides the original function reference stored in
+    # FastAPI's Depends() objects.
