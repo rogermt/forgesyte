@@ -30,16 +30,24 @@ def test_worker_stores_relative_output_path_only(test_engine, session):
     mock_storage.load_file.return_value = "/data/video_jobs/input/test.mp4"
     mock_storage.save_file.side_effect = lambda src, dest: dest  # Return relative path
 
-    mock_pipeline_service = MagicMock()
-    mock_pipeline_service.run_on_file.return_value = [{"frame_index": 0, "result": {}}]
+    # Mock plugin_service (JobWorker uses plugin_service, not pipeline_service)
+    mock_plugin_service = MagicMock()
+    mock_plugin_service.get_plugin_manifest.return_value = {
+        "tools": {
+            "test_tool": {
+                "inputs": ["video_path"],
+            }
+        }
+    }
+    mock_plugin_service.run_plugin_tool.return_value = {"result": "ok"}
 
     worker = JobWorker(
         session_factory=Session,
         storage=mock_storage,
-        pipeline_service=mock_pipeline_service,
+        plugin_service=mock_plugin_service,
     )
 
-    # Create pending job
+    # Create pending job (job_type is required)
     job_id = str(uuid4())
     job = Job(
         job_id=job_id,
@@ -47,6 +55,7 @@ def test_worker_stores_relative_output_path_only(test_engine, session):
         plugin_id="test_plugin",
         tool="test_tool",
         input_path="input/test.mp4",
+        job_type="video",  # Required field
     )
     session.add(job)
     session.commit()
@@ -72,8 +81,8 @@ def test_worker_stores_relative_output_path_only(test_engine, session):
         "video_jobs" not in output_path
     ), f"Path should not contain video_jobs prefix: {output_path}"
     assert output_path.startswith(
-        "output/"
-    ), f"Expected output/ prefix, got: {output_path}"
+        "video/output/"
+    ), f"Expected video/output/ prefix, got: {output_path}"
     assert output_path.endswith(
         ".json"
     ), f"Expected .json extension, got: {output_path}"
@@ -99,16 +108,24 @@ def test_worker_does_not_store_absolute_path(test_engine, session):
         "/data/video_jobs/output/test.json"  # BUG: absolute path!
     )
 
-    mock_pipeline_service = MagicMock()
-    mock_pipeline_service.run_on_file.return_value = [{"frame_index": 0, "result": {}}]
+    # Mock plugin_service (JobWorker uses plugin_service, not pipeline_service)
+    mock_plugin_service = MagicMock()
+    mock_plugin_service.get_plugin_manifest.return_value = {
+        "tools": {
+            "test_tool": {
+                "inputs": ["video_path"],
+            }
+        }
+    }
+    mock_plugin_service.run_plugin_tool.return_value = {"result": "ok"}
 
     worker = JobWorker(
         session_factory=Session,
         storage=mock_storage,
-        pipeline_service=mock_pipeline_service,
+        plugin_service=mock_plugin_service,
     )
 
-    # Create pending job
+    # Create pending job (job_type is required)
     job_id = str(uuid4())
     job = Job(
         job_id=job_id,
@@ -116,6 +133,7 @@ def test_worker_does_not_store_absolute_path(test_engine, session):
         plugin_id="test_plugin",
         tool="test_tool",
         input_path="input/test.mp4",
+        job_type="video",  # Required field
     )
     session.add(job)
     session.commit()

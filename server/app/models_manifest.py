@@ -14,6 +14,8 @@ ALLOWED_PLUGIN_TYPES = {"yolo", "ocr", "custom"}
 class ManifestTool(BaseModel):
     """Schema for a single tool entry in a plugin manifest."""
 
+    model_config = ConfigDict(extra="allow")  # Preserve legacy fields like input_types
+
     id: str = Field(..., description="Unique tool identifier")
     title: str = Field("", description="Human-readable tool name")
     description: str = Field("", description="Tool description")

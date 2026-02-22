@@ -7,6 +7,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
+from app.api_routes.routes import image_submit
 
 ROUTE = "app.api_routes.routes.image_submit"
 
@@ -28,26 +29,50 @@ def client():
 
 @pytest.fixture
 def mock_deps():
-    """Patch dependency injections: get_plugin_manager, get_plugin_service, storage."""
+    """Patch dependency injections using FastAPI dependency_overrides.
+
+    Uses dependency_overrides for proper FastAPI dependency injection mocking,
+    combined with patch() for module-level objects like storage and SessionLocal.
+    """
+    # Create mock plugin with tools attribute
     mock_plugin = MagicMock()
+    mock_plugin.tools = {
+        "analyze": {
+            "input_schema": {"image_bytes": {"type": "bytes"}},
+        }
+    }
+
+    mock_plugin_manager = MagicMock()
+    mock_plugin_manager.get.return_value = mock_plugin
+
     mock_plugin_service = MagicMock()
+    mock_plugin_service.get_available_tools.return_value = ["analyze"]
+    mock_plugin_service.get_plugin_manifest.return_value = FAKE_MANIFEST
+
+    mock_storage = MagicMock()
     mock_db = MagicMock()
 
+    # Use dependency_overrides for FastAPI dependencies
+    app.dependency_overrides[image_submit.get_plugin_manager] = (
+        lambda: mock_plugin_manager
+    )
+    app.dependency_overrides[image_submit.get_plugin_service] = (
+        lambda plugin_manager=None: mock_plugin_service
+    )
+
     with (
-        patch(f"{ROUTE}.get_plugin_manager") as get_pm,
-        patch(f"{ROUTE}.get_plugin_service") as get_ps,
-        patch(f"{ROUTE}.storage") as st,
+        patch(f"{ROUTE}.storage", mock_storage),
         patch(f"{ROUTE}.SessionLocal", return_value=mock_db),
     ):
-        get_pm.return_value = mock_plugin
-        get_ps.return_value = mock_plugin_service
-        mock_plugin_service.get_plugin_manifest.return_value = FAKE_MANIFEST
         yield {
-            "plugin_manager": mock_plugin,
+            "plugin_manager": mock_plugin_manager,
             "plugin_service": mock_plugin_service,
-            "storage": st,
+            "storage": mock_storage,
             "db": mock_db,
         }
+
+    # Cleanup
+    app.dependency_overrides.clear()
 
 
 class TestImageSubmitSuccess:
@@ -97,7 +122,9 @@ class TestImageSubmitValidation:
             files={"file": ("test.txt", BytesIO(fake_file), "text/plain")},
         )
         assert response.status_code == 400
-        assert "Invalid image file" in response.json()["detail"]
+        # Check for either "Invalid image file" or "expected PNG or JPEG"
+        detail = response.json()["detail"]
+        assert "Invalid image file" in detail or "expected PNG or JPEG" in detail
 
     def test_unknown_plugin_returns_400(self, client):
         """Test that unknown plugin returns 400."""

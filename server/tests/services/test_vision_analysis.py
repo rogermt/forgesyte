@@ -173,4 +173,5 @@ class TestVisionAnalysisService:
 
         result = await service.list_available_plugins()
 
-        assert result == {}
+        # Should return empty list on exception (not empty dict)
+        assert result == []

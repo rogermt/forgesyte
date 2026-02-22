@@ -88,3 +88,10 @@ repos:
         pass_filenames: false
         stages: [pre-commit, commit-msg]
 
+      - id: server-tests
+        name: Run server tests
+        entry: bash -c 'cd server && uv run pytest tests/ -x -q'
+        language: system
+        pass_filenames: false
+        stages: [pre-commit]
+
