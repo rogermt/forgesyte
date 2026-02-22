@@ -26,11 +26,15 @@ class JobResultsResponse(BaseModel):
     """Response for GET /v1/jobs/{job_id} (unified endpoint).
 
     Issue #211: Added status field for web-UI polling.
+    v0.9.4: Added tool_list and job_type for multi-tool support.
     """
 
     job_id: UUID
     status: str  # "pending", "running", "completed", "failed"
     results: dict | None
+    tool: Optional[str] = None  # v0.9.4: Single tool (backward compatible)
+    tool_list: Optional[List[str]] = None  # v0.9.4: Multi-tool list
+    job_type: Optional[str] = None  # v0.9.4: "image" | "image_multi" | "video"
     error_message: Optional[str] = None
     created_at: datetime
     updated_at: datetime
