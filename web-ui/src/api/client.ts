@@ -29,7 +29,9 @@ export interface Job {
     job_id: string;
     status: "pending" | "running" | "completed" | "failed";  // Issue #212: Aligned with server enum
     plugin_id?: string;  // v0.9.2: plugin_id from server
-    tool?: string;  // v0.9.2: tool from server
+    tool?: string;  // v0.9.2: tool from server (single-tool)
+    tool_list?: string[];  // v0.9.4: tool_list from server (multi-tool)
+    job_type?: "image" | "image_multi" | "video";  // v0.9.4: job type
     plugin?: string;  // Legacy: kept for backward compatibility
     results?: Record<string, unknown>;  // v0.9.2: results from server
     result?: Record<string, unknown>;  // Legacy: kept for backward compatibility
@@ -203,17 +205,25 @@ export class ForgeSyteAPIClient {
     }
 
     // v0.9.2: Image job submission using unified job system
+    // v0.9.4: Updated to accept array of tools for multi-tool support
     async submitImage(
         file: File,
         pluginId: string,
-        tool: string,
+        tools: string | string[],  // v0.9.4: Accept single tool or array of tools
         onProgress?: (percent: number) => void
     ): Promise<{ job_id: string }> {
         return new Promise((resolve, reject) => {
             const xhr = new XMLHttpRequest();
             const url = new URL(`${this.baseUrl}/image/submit`, window.location.origin);
             url.searchParams.append("plugin_id", pluginId);
-            url.searchParams.append("tool", tool);
+            
+            // v0.9.4: Support multiple tools - append each as separate query param
+            if (Array.isArray(tools)) {
+                tools.forEach(t => url.searchParams.append("tool", t));
+            } else {
+                url.searchParams.append("tool", tools);
+            }
+            
             xhr.open("POST", url.toString());
 
             if (this.apiKey) {
