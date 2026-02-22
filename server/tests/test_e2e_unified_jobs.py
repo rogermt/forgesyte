@@ -40,6 +40,7 @@ requires_yolo = pytest.mark.skipif(
 @pytest.fixture
 def client(session):
     """Create a test client with dependency overrides for database session."""
+
     # Override get_db dependency to use test session
     def override_get_db():
         try:
@@ -193,7 +194,9 @@ def test_e2e_unified_endpoint_returns_null_for_pending(client, session):
     assert data["results"] is None  # Pending jobs return None for results
 
 
-def test_e2e_tool_validation_prevents_wrong_type(client, storage, plugin_service, session):
+def test_e2e_tool_validation_prevents_wrong_type(
+    client, storage, plugin_service, session
+):
     """Test that tool validation prevents using image tools on video jobs."""
     # Try to submit a video job with an image-only tool
     fake_mp4 = b"ftyp" + b"\x00" * 100

@@ -20,6 +20,7 @@ from app.services.storage.local_storage import LocalStorageService
 @pytest.fixture
 def client(session):
     """Create a test client with dependency overrides for database session."""
+
     def override_get_db():
         try:
             yield session
