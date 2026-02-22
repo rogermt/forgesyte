@@ -1,1 +1,1 @@
-{"name": "ocr", "version": "1.0.0", "description": "OCR text extraction plugin", "tools": {"extract_text": {"description": "Extract text from image using OCR", "input_types": ["image_bytes", "detections"], "output_types": ["text"], "capabilities": ["text_extraction"]}}}
+{"name": "ocr", "version": "1.0.0", "description": "OCR text extraction plugin", "tools": {"analyze": {"description": "Extract text and blocks from an image using OCR", "input_types": ["image_bytes", "detections"], "output_types": ["text"], "capabilities": ["text_extraction"]}}}

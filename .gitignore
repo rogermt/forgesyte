@@ -221,7 +221,16 @@ server/forgesyte.log*
 **/$'\n'/
 
 # Video files
-server/data/video_jobs/*.mp4
+server/data/jobs/video/*
+server/data/jobs/test_videos/*
+server/data/jobs/deeply/nested/path/*.mp4
+server/data/jobs/image/input/*
+server/data/jobs/jobs/*
+server/data/jobs/image/output/*
 
 # DuckDB runtime database
-server/data/*.duckdb
+server/data/*.duckdb*
+
+
+
+

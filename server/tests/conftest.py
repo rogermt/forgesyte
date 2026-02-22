@@ -133,13 +133,9 @@ def app_with_plugins():
     from app.main import app
     from app.plugin_loader import PluginRegistry
     from app.services import (
-        AnalysisService,
-        ImageAcquisitionService,
-        JobManagementService,
         PluginManagementService,
         VisionAnalysisService,
     )
-    from app.tasks import init_task_processor
     from app.websocket_manager import ws_manager
 
     # Initialize auth service FIRST (needed for API endpoints)
@@ -168,23 +164,9 @@ def app_with_plugins():
                 )
                 health_registry.mark_initialized(plugin_name)
 
-    # Initialize task processor
-    init_task_processor(plugin_manager)
-
     # Initialize services
-    from app import tasks as tasks_module
-
     # Vision analysis service for WebSocket
     app.state.analysis_service = VisionAnalysisService(plugin_manager, ws_manager)
-
-    # REST API services - get fresh references from modules
-    image_acquisition = ImageAcquisitionService()
-    app.state.analysis_service_rest = AnalysisService(
-        tasks_module.task_processor, image_acquisition
-    )
-    app.state.job_service = JobManagementService(
-        tasks_module.job_store, tasks_module.task_processor
-    )
     app.state.plugin_service = PluginManagementService(plugin_manager)
 
     return app
@@ -206,13 +188,9 @@ def app_with_mock_yolo_plugin():
     from app.auth import init_auth_service
     from app.main import app
     from app.services import (
-        AnalysisService,
-        ImageAcquisitionService,
-        JobManagementService,
         PluginManagementService,
         VisionAnalysisService,
     )
-    from app.tasks import init_task_processor
     from app.websocket_manager import ws_manager
 
     # Initialize auth service
@@ -235,23 +213,9 @@ def app_with_mock_yolo_plugin():
 
     app.state.plugins = mock_registry
 
-    # Initialize task processor
-    init_task_processor(mock_registry)
-
     # Initialize services
-    from app import tasks as tasks_module
-
     # Vision analysis service for WebSocket
     app.state.analysis_service = VisionAnalysisService(mock_registry, ws_manager)
-
-    # REST API services
-    image_acquisition = ImageAcquisitionService()
-    app.state.analysis_service_rest = AnalysisService(
-        tasks_module.task_processor, image_acquisition
-    )
-    app.state.job_service = JobManagementService(
-        tasks_module.job_store, tasks_module.task_processor
-    )
     app.state.plugin_service = PluginManagementService(mock_registry)
 
     return app
@@ -646,8 +610,8 @@ def mock_task_processor(mock_job_store: MockJobStore) -> MockTaskProcessor:
 def test_engine(tmp_path):
     """Create temporary DuckDB engine for tests.
 
-    Uses a temporary file-based database (not :memory:) to ensure
-    all sessions see the same schema and data.
+    Uses a function-scoped temporary file to avoid DuckDB native crashes
+    during process teardown (SIGABRT on exit).
 
     Args:
         tmp_path: Pytest's temporary directory fixture
@@ -668,6 +632,8 @@ def test_engine(tmp_path):
     Base.metadata.create_all(engine)
 
     yield engine
+
+    # Explicitly dispose engine before process exit to avoid DuckDB SIGABRT
     engine.dispose()
 
 
@@ -676,7 +642,7 @@ def session(test_engine):
     """Create a database session for tests.
 
     Args:
-        test_engine: In-memory DuckDB engine
+        test_engine: Function-scoped DuckDB engine
 
     Yields:
         SQLAlchemy session
@@ -693,6 +659,11 @@ def session(test_engine):
 def mock_session_local(session, monkeypatch):
     """Monkeypatch SessionLocal to use test session.
 
+    Note: We patch SessionLocal for direct usage in submit endpoints,
+    but we do NOT patch get_db here. The client fixture handles get_db
+    via dependency_overrides, which correctly uses the original function
+    reference stored in FastAPI's Depends() objects.
+
     Args:
         session: Test database session
         monkeypatch: Pytest monkeypatch
@@ -701,8 +672,16 @@ def mock_session_local(session, monkeypatch):
     def mock_session_factory():
         return session
 
-    # Patch the module-level SessionLocal directly
+    # Patch the module-level SessionLocal directly for all submit endpoints
     monkeypatch.setattr(
         "app.api_routes.routes.video_submit.SessionLocal",
         mock_session_factory,
     )
+    monkeypatch.setattr(
+        "app.api_routes.routes.image_submit.SessionLocal",
+        mock_session_factory,
+    )
+
+    # Do NOT patch get_db here - client fixture uses dependency_overrides
+    # which correctly overrides the original function reference stored in
+    # FastAPI's Depends() objects.

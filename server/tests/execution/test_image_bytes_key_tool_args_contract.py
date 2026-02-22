@@ -99,7 +99,6 @@ class TestIssue164ToolArgsContract:
             "tasks.py",
             "services/vision_analysis.py",
             "mcp/handlers.py",
-            "services/analysis_service.py",
         ]
 
         for relative_path in files_to_check:

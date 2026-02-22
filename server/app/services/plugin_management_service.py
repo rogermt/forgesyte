@@ -57,6 +57,43 @@ class PluginManagementService:
         self.registry = registry
         logger.debug("PluginManagementService initialized")
 
+    def get_plugin_instance(self, plugin_id: str):
+        """Return the loaded plugin instance.
+
+        Args:
+            plugin_id: Plugin identifier
+
+        Returns:
+            Plugin instance with .tools attribute
+
+        Raises:
+            ValueError: If plugin not found
+        """
+        plugin = self.registry.get(plugin_id)
+        if not plugin:
+            raise ValueError(f"Plugin '{plugin_id}' not found")
+        return plugin
+
+    def get_available_tools(self, plugin_id: str) -> List[str]:
+        """Return the list of tool IDs defined in the plugin class.
+
+        This is the canonical source of truth for tool validation,
+        NOT the manifest.json file.
+
+        Args:
+            plugin_id: Plugin identifier
+
+        Returns:
+            List of tool names available in the plugin
+
+        Raises:
+            ValueError: If plugin not found or has no tools attribute
+        """
+        plugin = self.get_plugin_instance(plugin_id)
+        if not hasattr(plugin, "tools"):
+            raise ValueError(f"Plugin '{plugin_id}' has no tools attribute")
+        return list(plugin.tools.keys())
+
     async def list_plugins(self) -> List[Any]:
         """List all available vision plugins with metadata.
 
@@ -264,6 +301,14 @@ class PluginManagementService:
                 if key not in manifest:
                     manifest[key] = raw_manifest[key]
 
+            # Canonicalize inputs: normalize 'input_types' to 'inputs' for backward compatibility
+            for tool in manifest.get("tools", []):
+                if "inputs" not in tool or not tool["inputs"]:
+                    if "input_types" in tool and tool["input_types"]:
+                        tool["inputs"] = tool["input_types"]
+                    else:
+                        tool["inputs"] = []
+
             logger.debug(
                 f"Loaded manifest for plugin '{plugin_id}': "
                 f"{len(manifest.get('tools', []))} tools"
@@ -323,13 +368,11 @@ class PluginManagementService:
 
         logger.debug(f"Found plugin: {plugin}")
 
-        # 2. Validate tool exists
-        if not hasattr(plugin, tool_name) or not callable(getattr(plugin, tool_name)):
-            available_tools = [
-                attr
-                for attr in dir(plugin)
-                if not attr.startswith("_") and callable(getattr(plugin, attr))
-            ]
+        # 2. Validate tool exists in plugin.tools (canonical source)
+        if not hasattr(plugin, "tools") or tool_name not in plugin.tools:
+            available_tools = (
+                list(plugin.tools.keys()) if hasattr(plugin, "tools") else []
+            )
             raise ValueError(
                 f"Tool '{tool_name}' not found in plugin '{plugin_id}'. "
                 f"Available: {available_tools}"
@@ -340,8 +383,9 @@ class PluginManagementService:
             extra={"plugin_id": plugin_id, "tool_name": tool_name},
         )
 
-        # 3. Get tool function
-        tool_func = getattr(plugin, tool_name)
+        # 3. Get tool function via BasePlugin contract dispatcher
+        def tool_func(**kw):  # type: ignore[no-untyped-def]
+            return plugin.run_tool(tool_name, kw)
 
         # 4. Mark plugin as RUNNING
         registry.mark_running(plugin_id)

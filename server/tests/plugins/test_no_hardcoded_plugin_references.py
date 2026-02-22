@@ -20,6 +20,7 @@ SOURCE_ROOT = "app"
 EXEMPTED_PATHS = {
     "app/schemas/plugin_types.py",  # Registry pattern requires knowing plugin names
     "app/tests/video/test_integration_video_processing.py",  # Tests must reference pipelines by ID
+    "app/config/tool_mappings.py",  # Configuration file for tool name mappings
 }
 
 

@@ -29,11 +29,15 @@ def _calculate_progress(status: JobStatus) -> float:
         return 1.0
 
 
-@router.get("/v1/video/status/{job_id}", response_model=JobStatusResponse)
+@router.get(
+    "/v1/video/status/{job_id}", response_model=JobStatusResponse, deprecated=True
+)
 async def get_job_status(
     job_id: UUID, db: Session = Depends(get_db)
 ) -> JobStatusResponse:
     """Get status of a job.
+
+    DEPRECATED: Use /v1/jobs/{job_id} instead. TODO: Remove in v1.0.0
 
     Args:
         job_id: UUID of the job

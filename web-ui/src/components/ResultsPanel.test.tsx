@@ -90,7 +90,7 @@ describe("ResultsPanel - Styling Updates", () => {
             );
 
             expect(screen.getByText(new RegExp(mockJob.job_id))).toBeInTheDocument();
-            expect(screen.getByText(/Status: done/)).toBeInTheDocument();
+            expect(screen.getByText(/Status: completed/)).toBeInTheDocument();
         });
 
         it("should display JSON result in code block", () => {

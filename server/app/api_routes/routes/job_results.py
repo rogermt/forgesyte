@@ -15,11 +15,15 @@ router = APIRouter()
 storage = LocalStorageService()
 
 
-@router.get("/v1/video/results/{job_id}", response_model=JobResultsResponse)
+@router.get(
+    "/v1/video/results/{job_id}", response_model=JobResultsResponse, deprecated=True
+)
 async def get_job_results(
     job_id: UUID, db: Session = Depends(get_db)
 ) -> JobResultsResponse:
     """Get results of a completed job.
+
+    DEPRECATED: Use /v1/jobs/{job_id} instead. TODO: Remove in v1.0.0
 
     Args:
         job_id: UUID of the job
@@ -39,6 +43,7 @@ async def get_job_results(
         raise HTTPException(status_code=404, detail="Job not completed")
 
     # Load results from storage
+    # job.output_path is now a relative path (e.g., "output/<id>.json")
     try:
         results_path = job.output_path
         file_path = storage.load_file(results_path)
@@ -51,6 +56,7 @@ async def get_job_results(
 
     return JobResultsResponse(
         job_id=job.job_id,
+        status=job.status.value if hasattr(job.status, "value") else str(job.status),
         results=results,
         created_at=job.created_at,
         updated_at=job.updated_at,

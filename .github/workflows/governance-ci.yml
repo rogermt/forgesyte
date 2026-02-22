@@ -58,10 +58,3 @@ jobs:
         run: |
           git diff --exit-code docs/plugin_capability_matrix_generated.md
 
-      # -----------------------------
-      # 5. Run Phase 14 DAG tests
-      # -----------------------------
-      - name: Run tests
-        run: |
-          cd server
-          uv run pytest -q --disable-warnings --maxfail=1

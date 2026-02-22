@@ -7,7 +7,7 @@ from datetime import datetime
 from duckdb_engine import UUID
 from sqlalchemy import Column, DateTime, Enum, String
 
-from app.core.database import Base
+from ..core.database import Base
 
 
 class JobStatus(str, enum.Enum):
@@ -37,10 +37,15 @@ class Job(Base):
         default=JobStatus.pending,
     )
 
-    pipeline_id = Column(String, nullable=False)
+    # Plugin and tool selection (replaces pipeline_id + tools)
+    plugin_id = Column(String, nullable=False)
+    tool = Column(String, nullable=False)
 
     input_path = Column(String, nullable=False)
     output_path = Column(String, nullable=True)
+
+    # Job type: "image" or "video" (v0.9.2 unified job system)
+    job_type = Column(String, nullable=False)
 
     error_message = Column(String, nullable=True)
 

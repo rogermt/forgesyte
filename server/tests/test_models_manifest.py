@@ -29,7 +29,7 @@ class TestPluginManifest:
         m = PluginManifest(
             name="text-extractor",
             type="ocr",
-            tools=[ManifestTool(id="extract_text")],
+            tools=[ManifestTool(id="analyze")],
         )
         assert m.type == "ocr"
 

@@ -86,9 +86,9 @@ vi.mock("./components/ToolSelector", () => ({
         data-testid="select-extract-text"
         onClick={() => {
           const current = props.selectedTools;
-          const newTools = current.includes("extract_text")
-            ? current.filter((t) => t !== "extract_text")
-            : [...current, "extract_text"];
+          const newTools = current.includes("analyze")
+            ? current.filter((t) => t !== "analyze")
+            : [...current, "analyze"];
           props.onToolChange(newTools);
         }}
       >
@@ -117,7 +117,7 @@ vi.mock("./components/VideoTracker", () => ({
 
 vi.mock("./api/client", () => ({
   apiClient: {
-    analyzeImage: vi.fn(),
+    submitImage: vi.fn(),
     pollJob: vi.fn(),
     // IMPORTANT: return different manifests per plugin
     getPluginManifest: vi.fn((pluginId: string) => {
@@ -155,7 +155,7 @@ vi.mock("./api/client", () => ({
           version: "1.0.0",
           entrypoint: "plugin.py",
           tools: {
-            extract_text: {
+            analyze: {
               inputs: { image: { type: "string" } },
               outputs: {},
               description: "Extract text",
@@ -315,24 +315,24 @@ describe("App - Tool Routing via sendFrame (Multi-Tool Support)", () => {
       expect(screen.getByTestId("selected-tools")).toHaveTextContent("player_detection,ball_detection");
     });
 
-    // Switch plugin to OCR -> App should reset selectedTools -> auto-select OCR's first tool ("extract_text")
+    // Switch plugin to OCR -> App should reset selectedTools -> auto-select OCR's first tool ("analyze")
     await user.click(screen.getByTestId("select-ocr"));
 
     // When connected, App should also call switchPlugin on the websocket
     expect(mockSwitchPlugin).toHaveBeenCalledWith("ocr");
 
     await waitFor(() => {
-      expect(screen.getByTestId("selected-tools")).toHaveTextContent("extract_text");
+      expect(screen.getByTestId("selected-tools")).toHaveTextContent("analyze");
     });
 
     // Verify useWebSocket was called with reset tools option
     expect(mockUseWebSocket).toHaveBeenCalledWith(
       expect.objectContaining({
-        tools: ["extract_text"],
+        tools: ["analyze"],
       })
     );
 
-    // Start streaming and emit frame -> must use extract_text, not previous yolo tools
+    // Start streaming and emit frame -> must use analyze, not previous yolo tools
     await startStreaming(user);
     await user.click(screen.getByTestId("emit-frame"));
 
