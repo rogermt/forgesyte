@@ -72,10 +72,19 @@ jobs:
       - name: Install uv
         run: pip install uv
       
+      - name: Clone forgesyte-plugins
+        run: |
+          cd ..
+          git clone --depth 1 https://github.com/rogermt/forgesyte-plugins.git forgesyte-plugins
+
       - name: Install server dependencies
         working-directory: ./server
         run: uv sync
-      
+
+      - name: Install OCR plugin
+        working-directory: ./server
+        run: uv pip install -e ../forgesyte-plugins/plugins/ocr
+
       - name: Run job processing smoke test
         working-directory: ./server
         run: |
