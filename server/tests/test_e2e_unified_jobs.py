@@ -22,6 +22,14 @@ from app.services.storage.local_storage import LocalStorageService
 from app.workers.worker import JobWorker
 
 
+def _plugins_available():
+    """Check if plugins are available in the environment."""
+    plugin_manager = PluginRegistry()
+    load_result = plugin_manager.load_plugins()
+    loaded_list = list(load_result.get("loaded", {}).keys())
+    return len(loaded_list) > 0
+
+
 def has_yolo_plugin():
     """Check if YOLO plugin is available (GPU-only, may not be present)."""
     try:
@@ -34,6 +42,11 @@ def has_yolo_plugin():
 
 requires_yolo = pytest.mark.skipif(
     not has_yolo_plugin(), reason="YOLO plugin not available (GPU-only)"
+)
+
+requires_plugins = pytest.mark.skipif(
+    not _plugins_available(),
+    reason="No plugins available (forgesyte-plugins not installed)",
 )
 
 
@@ -129,6 +142,7 @@ def test_e2e_ocr_image_and_yolo_video(client, storage, plugin_service, session):
     assert "results" in data["results"]  # Nested results structure
 
 
+@requires_plugins
 def test_e2e_image_job_storage_paths(client, storage, plugin_service, session):
     """Test that image jobs use correct storage paths."""
     # Submit image job
@@ -174,6 +188,7 @@ def test_e2e_video_job_storage_paths(client, storage, plugin_service, session):
     assert job.output_path.startswith("video/output/")
 
 
+@requires_plugins
 def test_e2e_unified_endpoint_returns_null_for_pending(client, session):
     """Test that unified endpoint returns None for results when job is pending."""
     # Submit image job
@@ -194,6 +209,7 @@ def test_e2e_unified_endpoint_returns_null_for_pending(client, session):
     assert data["results"] is None  # Pending jobs return None for results
 
 
+@requires_plugins
 def test_e2e_tool_validation_prevents_wrong_type(
     client, storage, plugin_service, session
 ):
