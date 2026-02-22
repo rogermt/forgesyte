@@ -22,15 +22,8 @@ class MockPluginWithManifest:
     def __init__(self, module_name: str):
         self._module_name = module_name
         self.tools = {"analyze": {"input_schema": {"image_bytes": {"type": "bytes"}}}}
-
-    @property
-    def __class__(self):
-        """Mock class for module path."""
-
-        class MockClass:
-            __module__ = self._module_name
-
-        return MockClass
+        # Create a dynamic class with the correct module
+        self.__class__ = type("MockClass", (), {"__module__": module_name})
 
 
 class MockRegistry:

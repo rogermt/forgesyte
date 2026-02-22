@@ -10,8 +10,6 @@ For pipeline validation tests, see:
 - tests/pipelines/test_pipeline_acceptance.py - Pipeline acceptance tests
 """
 
-import pytest
-
 
 def test_pipeline_validation_placeholder():
     """Placeholder test - original tests removed due to architectural changes.

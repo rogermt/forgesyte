@@ -6,8 +6,8 @@ from unittest.mock import MagicMock, patch
 import pytest
 from fastapi.testclient import TestClient
 
-from app.main import app
 from app.api_routes.routes import image_submit
+from app.main import app
 
 ROUTE = "app.api_routes.routes.image_submit"
 

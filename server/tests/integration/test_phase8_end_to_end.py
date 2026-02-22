@@ -8,15 +8,27 @@ Validates the complete Phase 8 observability, normalisation, and device selectio
 - Pipeline integrity
 """
 
-from unittest.mock import AsyncMock, MagicMock
-
 import pytest
+
+
+def _plugins_available():
+    """Check if plugins are available in the environment."""
+    from app.plugin_loader import PluginRegistry
+
+    plugin_manager = PluginRegistry()
+    load_result = plugin_manager.load_plugins()
+    loaded_list = list(load_result.get("loaded", {}).keys())
+    return len(loaded_list) > 0
 
 
 class TestPhase8Pipeline:
     """End-to-end tests for Phase 8 complete pipeline."""
 
     @pytest.mark.asyncio
+    @pytest.mark.skipif(
+        not _plugins_available(),
+        reason="No plugins available (forgesyte-plugins not installed)",
+    )
     async def test_end_to_end_job_with_device_and_logging(self, client) -> None:
         """Verify complete pipeline: submit job with plugin, verify result."""
         import base64
@@ -41,6 +53,10 @@ class TestPhase8Pipeline:
         assert data["status"] == "done"
 
     @pytest.mark.asyncio
+    @pytest.mark.skipif(
+        not _plugins_available(),
+        reason="No plugins available (forgesyte-plugins not installed)",
+    )
     async def test_end_to_end_device_selector_validation(self, client) -> None:
         """Verify plugin parameter handling in pipeline."""
         import base64
@@ -67,6 +83,8 @@ class TestPhase8Pipeline:
     @pytest.mark.asyncio
     async def test_end_to_end_normalisation_in_pipeline(self) -> None:
         """Verify plugin output normalisation happens in pipeline."""
+        from unittest.mock import AsyncMock, MagicMock
+
         from app.models_pydantic import JobStatus
         from app.tasks import TaskProcessor
 
@@ -124,6 +142,8 @@ class TestPhase8Pipeline:
     @pytest.mark.asyncio
     async def test_end_to_end_device_tracking_integration(self) -> None:
         """Verify device tracking is called during job processing."""
+        from unittest.mock import AsyncMock, MagicMock
+
         from app.tasks import TaskProcessor
 
         mock_plugin_manager = MagicMock()
@@ -180,6 +200,10 @@ class TestPhase8Pipeline:
         assert call["device_used"] == "gpu"
 
     @pytest.mark.asyncio
+    @pytest.mark.skipif(
+        not _plugins_available(),
+        reason="No plugins available (forgesyte-plugins not installed)",
+    )
     async def test_end_to_end_device_default_when_not_specified(self, client) -> None:
         """Phase 12: Verify analysis works with default plugin parameter."""
         import base64
@@ -202,6 +226,10 @@ class TestPhase8Pipeline:
         assert data["plugin"] == "ocr"
 
     @pytest.mark.asyncio
+    @pytest.mark.skipif(
+        not _plugins_available(),
+        reason="No plugins available (forgesyte-plugins not installed)",
+    )
     async def test_end_to_end_case_insensitive_device(self, client) -> None:
         """Verify plugin name is case-sensitive (plugin names must match exactly)."""
         import base64
@@ -225,6 +253,8 @@ class TestPhase8Pipeline:
     @pytest.mark.asyncio
     async def test_end_to_end_plugin_output_formats(self) -> None:
         """Verify pipeline handles different plugin output formats."""
+        from unittest.mock import AsyncMock, MagicMock
+
         from app.models_pydantic import JobStatus
         from app.tasks import TaskProcessor
 
