@@ -606,50 +606,76 @@ def mock_task_processor(mock_job_store: MockJobStore) -> MockTaskProcessor:
 # ============================================================================
 
 
-@pytest.fixture(scope="function")
-def test_engine(tmp_path):
+@pytest.fixture(scope="session")
+def test_engine():
     """Create temporary DuckDB engine for tests.
 
-    Uses a temporary file-based database (not :memory:) to ensure
-    all sessions see the same schema and data.
-
-    Args:
-        tmp_path: Pytest's temporary directory fixture
+    Uses a shared temporary file for the test session to avoid
+    file lock contention while being fast.
 
     Returns:
         SQLAlchemy engine for testing
     """
+    import tempfile
     from sqlalchemy import create_engine
 
     from app.core.database import Base
     from app.models.job import Job  # noqa: F401 - registers model with Base
 
-    # Create a temporary database file
-    db_path = tmp_path / "test.duckdb"
+    # Create a session-scoped temp file
+    temp_dir = tempfile.mkdtemp(prefix="forgesyte_test_")
+    db_path = os.path.join(temp_dir, "test.duckdb")
     db_uri = f"duckdb:///{db_path}"
 
     engine = create_engine(db_uri, future=True)
     Base.metadata.create_all(engine)
 
     yield engine
+    
     engine.dispose()
+    # Cleanup temp directory
+    import shutil
+    try:
+        shutil.rmtree(temp_dir)
+    except Exception:
+        pass
 
 
 @pytest.fixture
 def session(test_engine):
     """Create a database session for tests.
 
+    Uses session-scoped engine but clears tables between tests
+    for proper isolation.
+
     Args:
-        test_engine: In-memory DuckDB engine
+        test_engine: Session-scoped DuckDB engine
 
     Yields:
         SQLAlchemy session
     """
     from sqlalchemy.orm import sessionmaker
 
+    from app.models.job import Job  # noqa: F401
+
     Session = sessionmaker(bind=test_engine)
     s = Session()
+    
+    # Clear all tables for test isolation
+    try:
+        s.query(Job).delete()
+        s.commit()
+    except Exception:
+        s.rollback()
+    
     yield s
+    
+    # Cleanup after test
+    try:
+        s.query(Job).delete()
+        s.commit()
+    except Exception:
+        s.rollback()
     s.close()
 
 

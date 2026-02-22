@@ -15,16 +15,24 @@ from uuid import uuid4
 import pytest
 from fastapi.testclient import TestClient
 
-from app.core.database import SessionLocal
+from app.core.database import get_db
 from app.main import app
 from app.models.job import Job, JobStatus
 from app.services.storage.local_storage import LocalStorageService
 
 
 @pytest.fixture
-def client():
-    """Create a test client."""
-    return TestClient(app)
+def client(session):
+    """Create a test client with dependency overrides for database session."""
+    def override_get_db():
+        try:
+            yield session
+        finally:
+            pass
+
+    app.dependency_overrides[get_db] = override_get_db
+    yield TestClient(app)
+    app.dependency_overrides.clear()
 
 
 @pytest.fixture
@@ -33,22 +41,7 @@ def storage():
     return LocalStorageService()
 
 
-@pytest.fixture(autouse=True)
-def clean_database():
-    """Clean database before each test."""
-    db = SessionLocal()
-    db.query(Job).delete()
-    db.commit()
-    db.close()
-    yield
-    # Cleanup after test
-    db = SessionLocal()
-    db.query(Job).delete()
-    db.commit()
-    db.close()
-
-
-def create_job(db, status: JobStatus, plugin_id="ocr", with_result=False):
+def create_job(session, status: JobStatus, plugin_id="ocr", with_result=False):
     """Helper to create a test job."""
     job = Job(
         job_id=uuid4(),
@@ -60,14 +53,18 @@ def create_job(db, status: JobStatus, plugin_id="ocr", with_result=False):
         output_path="jobs/output.json" if with_result else None,
         error_message="test error" if status == JobStatus.failed else None,
     )
-    db.add(job)
-    db.commit()
-    db.refresh(job)
+    session.add(job)
+    session.commit()
+    session.refresh(job)
     return job
 
 
-def test_list_jobs_empty(client):
+def test_list_jobs_empty(client, session):
     """Test GET /v1/jobs when database is empty."""
+    # Clean database
+    session.query(Job).delete()
+    session.commit()
+
     response = client.get("/v1/jobs?limit=10&skip=0")
 
     assert response.status_code == 200
@@ -76,17 +73,17 @@ def test_list_jobs_empty(client):
     assert data["count"] == 0
 
 
-def test_list_jobs_basic(client):
+def test_list_jobs_basic(client, session):
     """Test GET /v1/jobs returns jobs with correct status values."""
-    db = SessionLocal()
+    # Clean database
+    session.query(Job).delete()
+    session.commit()
 
     # Create jobs with different statuses
-    create_job(db, JobStatus.pending)
-    create_job(db, JobStatus.running)
-    create_job(db, JobStatus.completed, with_result=False)
-    create_job(db, JobStatus.failed)
-
-    db.close()
+    create_job(session, JobStatus.pending)
+    create_job(session, JobStatus.running)
+    create_job(session, JobStatus.completed, with_result=False)
+    create_job(session, JobStatus.failed)
 
     response = client.get("/v1/jobs?limit=10&skip=0")
 
@@ -106,15 +103,15 @@ def test_list_jobs_basic(client):
     assert progress_values == {0.0, 0.5, 1.0}
 
 
-def test_list_jobs_pagination(client):
+def test_list_jobs_pagination(client, session):
     """Test GET /v1/jobs with limit and skip parameters."""
-    db = SessionLocal()
+    # Clean database
+    session.query(Job).delete()
+    session.commit()
 
     # Create 15 jobs
     for _ in range(15):
-        create_job(db, JobStatus.pending)
-
-    db.close()
+        create_job(session, JobStatus.pending)
 
     # First page
     response1 = client.get("/v1/jobs?limit=10&skip=0")
@@ -131,12 +128,14 @@ def test_list_jobs_pagination(client):
     assert data2["count"] == 15
 
 
-def test_list_jobs_with_results(client, storage):
+def test_list_jobs_with_results(client, session, storage):
     """Test GET /v1/jobs loads results for completed jobs."""
-    db = SessionLocal()
+    # Clean database
+    session.query(Job).delete()
+    session.commit()
 
     # Create completed job with results
-    create_job(db, JobStatus.completed, with_result=True)
+    create_job(session, JobStatus.completed, with_result=True)
 
     # Create results file
     results_data = {"text": "OCR result"}
@@ -144,9 +143,7 @@ def test_list_jobs_with_results(client, storage):
     storage.save_file(BytesIO(results_json.encode()), "jobs/output.json")
 
     # Create pending job (should not have results)
-    create_job(db, JobStatus.pending)
-
-    db.close()
+    create_job(session, JobStatus.pending)
 
     response = client.get("/v1/jobs?limit=10&skip=0")
 
@@ -164,14 +161,14 @@ def test_list_jobs_with_results(client, storage):
     assert pending_job["result"] is None
 
 
-def test_list_jobs_includes_plugin_and_tool(client):
+def test_list_jobs_includes_plugin_and_tool(client, session):
     """Test GET /v1/jobs includes plugin_id and tool."""
-    db = SessionLocal()
+    # Clean database
+    session.query(Job).delete()
+    session.commit()
 
     # Create job with specific plugin and tool
-    create_job(db, JobStatus.pending, plugin_id="yolo-tracker")
-
-    db.close()
+    create_job(session, JobStatus.pending, plugin_id="yolo-tracker")
 
     response = client.get("/v1/jobs?limit=10&skip=0")
 
@@ -184,19 +181,19 @@ def test_list_jobs_includes_plugin_and_tool(client):
     assert job["plugin"] == "yolo-tracker"
 
 
-def test_list_jobs_ordering(client):
+def test_list_jobs_ordering(client, session):
     """Test GET /v1/jobs returns jobs ordered by created_at desc (newest first)."""
-    db = SessionLocal()
+    # Clean database
+    session.query(Job).delete()
+    session.commit()
 
     # Create jobs with different timestamps
-    job1 = create_job(db, JobStatus.pending)
+    job1 = create_job(session, JobStatus.pending)
     job1_id = str(job1.job_id)
-    job2 = create_job(db, JobStatus.pending)
+    job2 = create_job(session, JobStatus.pending)
     job2_id = str(job2.job_id)
-    job3 = create_job(db, JobStatus.pending)
+    job3 = create_job(session, JobStatus.pending)
     job3_id = str(job3.job_id)
-
-    db.close()
 
     response = client.get("/v1/jobs?limit=10&skip=0")
 
