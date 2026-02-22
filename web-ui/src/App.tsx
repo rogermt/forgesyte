@@ -249,11 +249,11 @@ function App() {
 
       setIsUploading(true);
       try {
-        // v0.9.3: Use unified job system with submitImage
+        // v0.9.4: Pass all selected tools (not just first) for multi-tool support
         const response = await apiClient.submitImage(
           file,
           selectedPlugin,
-          selectedTools[0]
+          selectedTools  // CHANGED: was selectedTools[0]
         );
         const job = await apiClient.pollJob(response.job_id);
         setUploadResult(job);

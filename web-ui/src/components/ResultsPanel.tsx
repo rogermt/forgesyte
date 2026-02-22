@@ -7,6 +7,7 @@ import { FrameResult } from "../hooks/useWebSocket";
 import { Job } from "../api/client";
 import { BoundingBoxOverlay, BoundingBox } from "./BoundingBoxOverlay";
 import { RadarView, PlayerPosition } from "./RadarView";
+import { ImageMultiToolResults } from "./ImageMultiToolResults";
 
 export interface ResultsPanelProps {
     mode?: "stream" | "job";
@@ -89,6 +90,20 @@ function extractPlayerPositions(result: Record<string, unknown>): PlayerPosition
     }
 
     return players;
+}
+
+/**
+ * Helper function to detect if result is multi-tool format.
+ * v0.9.4: Multi-tool results have {plugin_id, tools: {...}} structure.
+ */
+function isMultiToolResult(result: Record<string, unknown>): boolean {
+    return (
+        typeof result === "object" &&
+        result !== null &&
+        "plugin_id" in result &&
+        "tools" in result &&
+        typeof result.tools === "object"
+    );
 }
 
 export function ResultsPanel({
@@ -249,45 +264,72 @@ export function ResultsPanel({
                                 <div style={styles.subLabel}>
                                     Status: {job.status}
                                 </div>
+                                {/* v0.9.4: Show job type and tools for multi-tool jobs */}
+                                {job.job_type && (
+                                    <div style={styles.subLabel}>
+                                        Type: {job.job_type}
+                                    </div>
+                                )}
+                                {job.tool_list && job.tool_list.length > 0 && (
+                                    <div style={styles.subLabel}>
+                                        Tools: {job.tool_list.join(", ")}
+                                    </div>
+                                )}
                             </div>
                         </div>
 
-                        {/* Render specialized components for job results */}
-                        {job.result && typeof job.result === "object" ? (
-                            <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-                                {/* Bounding box overlay */}
-                                {extractBoundingBoxes(job.result as Record<string, unknown>).length > 0 && (
-                                    <div>
-                                        <div style={styles.label}>Detection Results</div>
-                                        <BoundingBoxOverlay
-                                            boxes={extractBoundingBoxes(job.result as Record<string, unknown>)}
-                                        />
-                                    </div>
-                                )}
-
-                                {/* Radar/pitch view */}
-                                {extractPlayerPositions(job.result as Record<string, unknown>).length > 0 && (
-                                    <div>
-                                        <div style={styles.label}>Player Positions</div>
-                                        <RadarView
-                                            players={extractPlayerPositions(job.result as Record<string, unknown>)}
-                                        />
-                                    </div>
-                                )}
-
-                                {/* Raw result JSON */}
-                                <div>
-                                    <div style={styles.label}>Raw Result</div>
+                        {/* v0.9.4: Handle multi-tool results format */}
+                        {/* Use job.results (plural) from backend, fallback to job.result (legacy) */}
+                        {(() => {
+                            const resultData = job.results || job.result;
+                            if (!resultData || typeof resultData !== "object") {
+                                return (
                                     <pre style={styles.codeBlock}>
-                                        {JSON.stringify(job.result, null, 2)}
+                                        {JSON.stringify(resultData, null, 2)}
                                     </pre>
+                                );
+                            }
+
+                            const result = resultData as Record<string, unknown>;
+
+                            // Check for multi-tool result format
+                            if (isMultiToolResult(result)) {
+                                return <ImageMultiToolResults results={result as { tools: Record<string, unknown> }} />;
+                            }
+
+                            // Single-tool result: render specialized components
+                            return (
+                                <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+                                    {/* Bounding box overlay */}
+                                    {extractBoundingBoxes(result).length > 0 && (
+                                        <div>
+                                            <div style={styles.label}>Detection Results</div>
+                                            <BoundingBoxOverlay
+                                                boxes={extractBoundingBoxes(result)}
+                                            />
+                                        </div>
+                                    )}
+
+                                    {/* Radar/pitch view */}
+                                    {extractPlayerPositions(result).length > 0 && (
+                                        <div>
+                                            <div style={styles.label}>Player Positions</div>
+                                            <RadarView
+                                                players={extractPlayerPositions(result)}
+                                            />
+                                        </div>
+                                    )}
+
+                                    {/* Raw result JSON */}
+                                    <div>
+                                        <div style={styles.label}>Raw Result</div>
+                                        <pre style={styles.codeBlock}>
+                                            {JSON.stringify(result, null, 2)}
+                                        </pre>
+                                    </div>
                                 </div>
-                            </div>
-                        ) : (
-                            <pre style={styles.codeBlock}>
-                                {JSON.stringify(job.result, null, 2)}
-                            </pre>
-                        )}
+                            );
+                        })()}
                     </div>
                 ) : mode === "job" ? (
                     <p style={styles.emptyState}>
