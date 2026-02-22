@@ -39,6 +39,16 @@ import os
 import sys
 from typing import Any, Dict, Optional
 
+# ============================================================================
+# SET ENV VARS BEFORE ANY APP IMPORTS (CRITICAL)
+# ============================================================================
+
+# Disable job worker thread in pytest (prevents DuckDB file lock errors)
+os.environ["FORGESYTE_ENABLE_WORKERS"] = "0"
+
+# Use in-memory DuckDB for tests (isolated, fast, no lock contention)
+os.environ["FORGESYTE_DATABASE_URL"] = "duckdb:///:memory:"
+
 # Configure authentication BEFORE importing app or pytest
 # This ensures that when app.main initializes during TestClient creation,
 # it will have API keys configured and enforce authentication

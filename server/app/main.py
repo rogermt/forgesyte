@@ -235,19 +235,23 @@ async def lifespan(app: FastAPI):
         logger.error("Service initialization failed", extra={"error": str(e)})
 
     # Start JobWorker thread (DuckDB requires same process)
-    try:
-        from .workers.run_job_worker import run_worker_forever
+    # Disabled in pytest via FORGESYTE_ENABLE_WORKERS=0 to prevent DB lock errors
+    if os.getenv("FORGESYTE_ENABLE_WORKERS", "1") == "1":
+        try:
+            from .workers.run_job_worker import run_worker_forever
 
-        worker_thread = threading.Thread(
-            target=run_worker_forever,
-            args=(plugin_manager,),
-            name="job-worker-thread",
-            daemon=True,
-        )
-        worker_thread.start()
-        logger.info("JobWorker thread started")
-    except Exception as e:
-        logger.error("Failed to start JobWorker thread", extra={"error": str(e)})
+            worker_thread = threading.Thread(
+                target=run_worker_forever,
+                args=(plugin_manager,),
+                name="job-worker-thread",
+                daemon=True,
+            )
+            worker_thread.start()
+            logger.info("JobWorker thread started")
+        except Exception as e:
+            logger.error("Failed to start JobWorker thread", extra={"error": str(e)})
+    else:
+        logger.debug("JobWorker thread disabled (FORGESYTE_ENABLE_WORKERS=0)")
 
     yield
 
