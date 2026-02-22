@@ -9,24 +9,10 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 
-def _plugins_available():
-    """Check if plugins are available in the environment."""
-    from app.plugin_loader import PluginRegistry
-
-    plugin_manager = PluginRegistry()
-    load_result = plugin_manager.load_plugins()
-    loaded_list = list(load_result.get("loaded", {}).keys())
-    return len(loaded_list) > 0
-
-
 class TestDeviceIntegration:
     """Integration tests for device selector with observability."""
 
     @pytest.mark.asyncio
-    @pytest.mark.skipif(
-        not _plugins_available(),
-        reason="No plugins available (forgesyte-plugins not installed)",
-    )
     async def test_job_submission_with_device_param(self, client) -> None:
         """Verify job submission with plugin parameter works end-to-end."""
         # Encode test PNG bytes as base64

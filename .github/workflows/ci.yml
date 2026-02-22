@@ -67,6 +67,11 @@ jobs:
           cd server
           uv sync
 
+      - name: Install OCR plugin
+        run: |
+          cd server
+          uv pip install -e ../../forgesyte-plugins/plugins/ocr
+
       - name: Run pytest with coverage
         run: |
           cd server
