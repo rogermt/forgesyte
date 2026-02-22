@@ -37,18 +37,37 @@ def tmp_storage(tmp_path):
 
 @pytest.fixture
 def client(tmp_storage):
+    from app.api_routes.routes import image_submit
+
     svc, _ = tmp_storage
     mock_db = MagicMock()
 
+    # Set up mock plugin and service
+    mock_plugin = MagicMock()
+    mock_plugin.tools = {
+        "analyze": {"input_schema": {"image_bytes": {"type": "bytes"}}}
+    }
+    mock_plugin_manager = MagicMock()
+    mock_plugin_manager.get.return_value = mock_plugin
+    mock_plugin_service = MagicMock()
+    mock_plugin_service.get_available_tools.return_value = ["analyze"]
+    mock_plugin_service.get_plugin_manifest.return_value = FAKE_MANIFEST
+
+    # Use dependency_overrides for FastAPI DI
+    app.dependency_overrides[image_submit.get_plugin_manager] = (
+        lambda: mock_plugin_manager
+    )
+    app.dependency_overrides[image_submit.get_plugin_service] = (
+        lambda pm=None: mock_plugin_service
+    )
+
     with (
         patch(f"{ROUTE}.storage", svc),
-        patch(f"{ROUTE}.plugin_manager") as pm,
-        patch(f"{ROUTE}.plugin_service") as ps,
         patch(f"{ROUTE}.SessionLocal", return_value=mock_db),
     ):
-        pm.get.return_value = MagicMock()
-        ps.get_plugin_manifest.return_value = FAKE_MANIFEST
         yield TestClient(app)
+
+    app.dependency_overrides.clear()
 
 
 class TestImageSubmitHybrid:
