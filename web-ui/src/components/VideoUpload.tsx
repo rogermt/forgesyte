@@ -1,18 +1,46 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { apiClient } from "../api/client";
 import { JobStatus } from "./JobStatus";
+import type { PluginManifest } from "../types/plugin";
 
 interface VideoUploadProps {
   pluginId: string | null;
-  selectedTools: string[];
+  manifest?: PluginManifest | null;
 }
 
-export const VideoUpload: React.FC<VideoUploadProps> = ({ pluginId, selectedTools }) => {
+export const VideoUpload: React.FC<VideoUploadProps> = ({ pluginId, manifest }) => {
   const [file, setFile] = useState<File | null>(null);
   const [jobId, setJobId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState<number>(0);
+
+  // v0.9.5: Filter tools that support video input
+  const availableVideoTools = useMemo(() => {
+    if (!manifest?.tools) return [];
+
+    const tools = manifest.tools;
+    const toolEntries = Array.isArray(tools)
+      ? tools
+      : Object.entries(tools).map(([id, tool]) => ({ id, ...tool }));
+
+    return toolEntries.filter(
+      (tool) => tool.input_types?.includes("video")
+    );
+  }, [manifest]);
+
+  // v0.9.5: Show fallback if no video tools available
+  if (availableVideoTools.length === 0) {
+    return (
+      <div style={{ padding: "20px", maxWidth: "800px", margin: "0 auto" }}>
+        <h2>Video Upload</h2>
+        <p>No video-compatible tools available for this plugin.</p>
+      </div>
+    );
+  }
+
+  // v0.9.5: Use first available video tool (ignore selectedTools which may be image-only)
+  const videoTool = availableVideoTools[0];
 
   const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0] ?? null;
@@ -40,20 +68,17 @@ export const VideoUpload: React.FC<VideoUploadProps> = ({ pluginId, selectedTool
       setError("Please select a plugin first.");
       return;
     }
-    if (selectedTools.length === 0) {
-      setError("Please select a tool first.");
-      return;
-    }
 
     setError(null);
     setUploading(true);
     setProgress(0);
 
     try {
+      // v0.9.5: Use video tool, not selectedTools[0]
       const { job_id } = await apiClient.submitVideo(
         file,
         pluginId,
-        selectedTools[0],
+        videoTool.id || Object.keys(manifest?.tools || {})[0],
         (p) => setProgress(p)
       );
       setJobId(job_id);
@@ -64,11 +89,15 @@ export const VideoUpload: React.FC<VideoUploadProps> = ({ pluginId, selectedTool
     }
   };
 
-  const canUpload = file && pluginId && selectedTools.length > 0;
+  const canUpload = file && pluginId;
 
   return (
     <div style={{ padding: "20px", maxWidth: "800px", margin: "0 auto" }}>
       <h2>Video Upload</h2>
+
+      <p style={{ color: "var(--text-secondary)", fontSize: "13px", marginBottom: "12px" }}>
+        Using tool: <strong>{videoTool.title || videoTool.id}</strong>
+      </p>
 
       <label htmlFor="video-upload">Upload video:</label>
       <input id="video-upload" type="file" accept="video/mp4" onChange={onFileChange} />

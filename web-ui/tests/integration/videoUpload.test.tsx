@@ -16,6 +16,21 @@ vi.mock("../../src/api/client", () => ({
 
 import { apiClient } from "../../src/api/client";
 
+// v0.9.5: Default manifest with video tool for integration tests
+const videoManifest = {
+    id: "yolo",
+    name: "yolo",
+    version: "1.0.0",
+    tools: {
+        video_player_detection: {
+            title: "Video Player Detection",
+            description: "Run player detection on video",
+            input_types: ["video"],
+            output_types: ["video_detections"],
+        },
+    },
+};
+
 describe("VideoUpload Integration", () => {
     beforeEach(() => {
         vi.clearAllMocks();
@@ -27,7 +42,7 @@ describe("VideoUpload Integration", () => {
             job_id: "test-job-123",
         });
 
-        render(<VideoUpload pluginId="yolo" selectedTools={["video_track"]} />);
+        render(<VideoUpload pluginId="yolo" manifest={videoManifest} />);
 
         // Simulate file selection
         const fileInput = screen.getByLabelText(/upload/i) as HTMLInputElement;
@@ -46,7 +61,7 @@ describe("VideoUpload Integration", () => {
     });
 
     it("should reject non-MP4 files", () => {
-        render(<VideoUpload pluginId="yolo" selectedTools={["video_track"]} />);
+        render(<VideoUpload pluginId="yolo" manifest={videoManifest} />);
 
         const fileInput = screen.getByLabelText(/upload/i) as HTMLInputElement;
         const file = new File([""], "test.jpg", { type: "image/jpeg" });
@@ -91,7 +106,7 @@ it.skip("should poll job status and display results when complete", async () => 
             }
         });
 
-        render(<VideoUpload pluginId="yolo" selectedTools={["video_track"]} />);
+        render(<VideoUpload pluginId="yolo" manifest={videoManifest} />);
 
         // Simulate file selection
         const fileInput = screen.getByLabelText(/upload/i) as HTMLInputElement;
@@ -134,7 +149,7 @@ it.skip("should poll job status and display results when complete", async () => 
             created_at: "2026-02-18T10:00:00Z",
         });
 
-        render(<VideoUpload pluginId="yolo" selectedTools={["video_track"]} />);
+        render(<VideoUpload pluginId="yolo" manifest={videoManifest} />);
 
         // Simulate file selection
         const fileInput = screen.getByLabelText(/upload/i) as HTMLInputElement;
@@ -170,7 +185,7 @@ it.skip("should poll job status and display results when complete", async () => 
             }
         );
 
-        render(<VideoUpload pluginId="yolo" selectedTools={["video_track"]} />);
+        render(<VideoUpload pluginId="yolo" manifest={videoManifest} />);
 
         // Simulate file selection
         const fileInput = screen.getByLabelText(/upload/i) as HTMLInputElement;

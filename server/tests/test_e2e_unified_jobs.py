@@ -197,7 +197,11 @@ def test_e2e_unified_endpoint_returns_null_for_pending(client, session):
 def test_e2e_tool_validation_prevents_wrong_type(
     client, storage, plugin_service, session
 ):
-    """Test that tool validation prevents using image tools on video jobs."""
+    """Test that tool validation prevents using image tools on video jobs.
+
+    v0.9.5: Endpoint now validates input_types and rejects video jobs with
+    image-only tools at the API level (returns 400).
+    """
     # Try to submit a video job with an image-only tool
     fake_mp4 = b"ftyp" + b"\x00" * 100
     with BytesIO(fake_mp4) as f:
@@ -205,19 +209,6 @@ def test_e2e_tool_validation_prevents_wrong_type(
             "/v1/video/submit?plugin_id=ocr&tool=analyze",  # OCR is image-only
             files={"file": ("test.mp4", f, "video/mp4")},
         )
-    # This should fail at the endpoint level or worker level
-    # For now, the endpoint doesn't validate, but the worker will fail
-    assert resp.status_code == 200  # Endpoint accepts it
-
-    job_id = resp.json()["job_id"]
-
-    # Run worker
-    run_worker_once(storage, plugin_service, session)
-
-    # Fetch results (should be failed)
-    resp = client.get(f"/v1/jobs/{job_id}")
-    assert resp.status_code == 200
-    # Job should have failed
-    job = session.query(Job).filter(Job.job_id == job_id).first()
-    assert job.status == JobStatus.failed
-    assert "does not support video input" in job.error_message.lower()
+    # v0.9.5: Endpoint validates input_types and rejects with 400
+    assert resp.status_code == 400
+    assert "does not support video input" in resp.json()["detail"].lower()

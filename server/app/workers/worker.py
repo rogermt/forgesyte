@@ -316,10 +316,16 @@ class JobWorker:
                 )
 
             # v0.9.4: Prepare output based on job type
+            # v0.9.5: Unified output format for all job types
             if is_multi_tool:
                 output_data = {"plugin_id": job.plugin_id, "tools": results}
             else:
-                output_data = {"results": results[tools_to_run[0]]}
+                # Single-tool job (image or video)
+                output_data = {
+                    "plugin_id": job.plugin_id,
+                    "tool": tools_to_run[0],
+                    "results": results[tools_to_run[0]],
+                }
 
             output_json = json.dumps(output_data)
             output_bytes = BytesIO(output_json.encode())

@@ -95,21 +95,12 @@ async def submit_video(
             detail=f"Tool '{tool}' definition not found in plugin '{plugin_id}'",
         )
 
-    # Validate tool supports video input (supports both Pydantic + flat dict schemas)
-    # See: docs/releases/v0.9.3/IMAGE_SUBMIT_400_ROOT_CAUSE.md
-    input_schema = tool_def.get("input_schema") or {}
-
-    # Pydantic-style: {"properties": {...}}
-    if "properties" in input_schema and isinstance(input_schema["properties"], dict):
-        tool_keys = set(input_schema["properties"].keys())
-    else:
-        # Flat dict style: {"video_path": {...}, ...}
-        tool_keys = set(input_schema.keys())
-
-    if not any(k in tool_keys for k in ("video_path", "image_bytes")):
+    # v0.9.5: Validate tool supports video input using input_types array
+    input_types = tool_def.get("input_types", [])
+    if "video" not in input_types:
         raise HTTPException(
             status_code=400,
-            detail=f"Tool '{tool}' does not support video input",
+            detail=f"Tool '{tool}' does not support video input (input_types: {input_types})",
         )
 
     # Read and validate file

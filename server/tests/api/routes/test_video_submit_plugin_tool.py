@@ -21,12 +21,14 @@ def mock_plugin():
         "analyze": {
             "handler": "analyze_handler",
             "description": "Extract text",
+            "input_types": ["video"],  # v0.9.5: Video input support
             "input_schema": {"properties": {"video_path": {"type": "string"}}},
             "output_schema": {},
         },
         "video_track": {
             "handler": "video_track_handler",
             "description": "Track video",
+            "input_types": ["video"],  # v0.9.5: Video input support
             "input_schema": {"properties": {"video_path": {"type": "string"}}},
             "output_schema": {},
         },

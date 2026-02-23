@@ -20,6 +20,7 @@ def mock_plugin():
         "player_detection": {
             "handler": "player_detection_handler",
             "description": "Detect players",
+            "input_types": ["video"],  # v0.9.5: Video input support
             "input_schema": {"properties": {"video_path": {"type": "string"}}},
             "output_schema": {"properties": {"detections": {"type": "array"}}},
         }
