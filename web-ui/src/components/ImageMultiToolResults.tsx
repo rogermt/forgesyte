@@ -39,19 +39,7 @@ export const ImageMultiToolResults: React.FC<Props> = ({ results }) => {
                 >
                     <div style={toolLabelStyle}>{toolName}</div>
 
-                    {toolName === "ocr" && typeof toolResult === "object" && toolResult !== null && (
-                        <div style={{ marginBottom: "8px", fontSize: "13px" }}>
-                            <p style={{ margin: "0 0 4px 0" }}>
-                                <strong>Text:</strong>{" "}
-                                {(toolResult as { text: string }).text}
-                            </p>
-                            <p style={{ margin: "0" }}>
-                                <strong>Confidence:</strong>{" "}
-                                {(toolResult as { confidence: number }).confidence?.toFixed(2)}
-                            </p>
-                        </div>
-                    )}
-
+                    {/* Generic JSON display - no tool-specific logic */}
                     <pre style={codeBlockStyle}>
                         {JSON.stringify(toolResult, null, 2)}
                     </pre>
