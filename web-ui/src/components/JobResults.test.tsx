@@ -132,9 +132,9 @@ describe("JobResults", () => {
             results: undefined,
             created_at: "2026-02-18T10:00:00Z",
             updated_at: "2026-02-18T10:01:00Z",
-        };
+        } as Parameters<typeof JobResults>[0];
 
-        render(<JobResults results={mockResults as any} />);
+        render(<JobResults results={mockResults} />);
         expect(screen.getByText(/No results available/i)).toBeInTheDocument();
     });
 });
