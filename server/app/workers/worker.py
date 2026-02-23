@@ -15,6 +15,7 @@ import signal
 import threading
 import time
 from io import BytesIO
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Protocol
 
 from ..core.database import SessionLocal
@@ -23,6 +24,19 @@ from ..services.queue.memory_queue import InMemoryQueueService
 from .worker_state import worker_last_heartbeat
 
 logger = logging.getLogger(__name__)
+
+# v0.9.6: File handler for progress debugging (downloadable from Kaggle)
+_progress_logger = logging.getLogger("progress_debug")
+_progress_logger.setLevel(logging.DEBUG)
+# Create logs directory if it doesn't exist
+_log_dir = Path(__file__).parent.parent.parent.parent / "logs"
+_log_dir.mkdir(exist_ok=True)
+_file_handler = logging.FileHandler(_log_dir / "worker_progress.log", mode="a")
+_file_handler.setLevel(logging.DEBUG)
+_file_handler.setFormatter(
+    logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
+)
+_progress_logger.addHandler(_file_handler)
 
 
 class StorageService(Protocol):
@@ -118,8 +132,16 @@ class JobWorker:
             total_frames: Total frames in video
             db: Database session
         """
+        _progress_logger.debug(
+            "[PROGRESS] _update_job_progress called: job=%s frame=%d/%d",
+            job_id,
+            current_frame,
+            total_frames,
+        )
+
         if total_frames <= 0:
             logger.warning("Progress update skipped: total_frames <= 0")
+            _progress_logger.warning("[PROGRESS] Skipped: total_frames <= 0")
             return
 
         percent = int((current_frame / total_frames) * 100)
@@ -139,8 +161,24 @@ class JobWorker:
                     total_frames,
                     percent,
                 )
+                _progress_logger.info(
+                    "[PROGRESS] DB UPDATED: job=%s frame=%d/%d percent=%d",
+                    job_id,
+                    current_frame,
+                    total_frames,
+                    percent,
+                )
             else:
                 logger.warning("Progress update failed: job %s not found in DB", job_id)
+                _progress_logger.warning(
+                    "[PROGRESS] FAILED: job %s not found in DB", job_id
+                )
+        else:
+            _progress_logger.debug(
+                "[PROGRESS] Throttled (not 5%% boundary): job=%s percent=%d",
+                job_id,
+                percent,
+            )
 
     def _handle_signal(self, signum: int, frame) -> None:
         """Handle shutdown signals gracefully.
@@ -359,17 +397,33 @@ class JobWorker:
                     job.job_id,
                     total_frames,
                 )
+                _progress_logger.info(
+                    "[PROGRESS] Video job started: job=%s video_path=%s total_frames=%d",
+                    job.job_id,
+                    video_path,
+                    total_frames,
+                )
 
                 # v0.9.6: Create progress callback for video jobs
                 def progress_callback(
                     current_frame: int, total: int = total_frames
                 ) -> None:
+                    _progress_logger.debug(
+                        "[PROGRESS] Callback invoked: job=%s frame=%d/%d",
+                        job.job_id,
+                        current_frame,
+                        total,
+                    )
                     self._update_job_progress(str(job.job_id), current_frame, total, db)
 
                 args = {
                     "video_path": str(video_path),
                     "progress_callback": progress_callback,
                 }
+                _progress_logger.info(
+                    "[PROGRESS] progress_callback created and added to args: job=%s",
+                    job.job_id,
+                )
                 logger.info("Job %s: loaded video file %s", job.job_id, video_path)
             else:
                 job.status = JobStatus.failed
@@ -385,6 +439,11 @@ class JobWorker:
 
                 # v0.9.6: Extract progress_callback from args (for video jobs)
                 progress_callback = args.pop("progress_callback", None)
+                _progress_logger.info(
+                    "[PROGRESS] Extracted progress_callback from args: job=%s callback=%s",
+                    job.job_id,
+                    "YES" if progress_callback else "NONE",
+                )
 
                 # Execute tool via plugin_service (includes sandbox and error handling)
                 result = plugin_service.run_plugin_tool(
@@ -392,6 +451,11 @@ class JobWorker:
                     tool_name,
                     args,
                     progress_callback=progress_callback,
+                )
+                _progress_logger.info(
+                    "[PROGRESS] run_plugin_tool returned: job=%s tool=%s",
+                    job.job_id,
+                    tool_name,
                 )
 
                 # Handle Pydantic models
