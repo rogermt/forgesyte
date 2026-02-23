@@ -331,6 +331,7 @@ class PluginManagementService:
         plugin_id: str,
         tool_name: str,
         args: Dict[str, Any],
+        progress_callback: Optional[Any] = None,
     ) -> Dict[str, Any]:
         """Execute a plugin tool with given arguments using sandbox.
 
@@ -338,10 +339,14 @@ class PluginManagementService:
         and executes the tool in a crash-proof sandbox. Handles both sync
         and async tool functions with state tracking.
 
+        v0.9.6: Added progress_callback for video progress tracking.
+
         Args:
             plugin_id: Plugin ID
             tool_name: Tool function name (must exist as method on plugin)
             args: Tool arguments (dict, should match manifest input schema)
+            progress_callback: Optional callback(current_frame, total_frames)
+                for progress updates during video processing.
 
         Returns:
             Tool result dict (should match manifest output schema)
@@ -384,7 +389,10 @@ class PluginManagementService:
         )
 
         # 3. Get tool function via BasePlugin contract dispatcher
+        # v0.9.6: Inject progress_callback into tool kwargs if provided
         def tool_func(**kw):  # type: ignore[no-untyped-def]
+            if progress_callback is not None:
+                kw["progress_callback"] = progress_callback
             return plugin.run_tool(tool_name, kw)
 
         # 4. Mark plugin as RUNNING

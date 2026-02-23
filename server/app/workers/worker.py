@@ -78,6 +78,60 @@ class JobWorker:
             signal.signal(signal.SIGINT, self._handle_signal)
             signal.signal(signal.SIGTERM, self._handle_signal)
 
+    @staticmethod
+    def _get_total_frames(video_path: str) -> int:
+        """Get total frame count from video metadata using OpenCV.
+
+        Uses cv2.VideoCapture to read frame count from video header.
+        This is fast (metadata-only, no decoding).
+
+        Args:
+            video_path: Path to video file
+
+        Returns:
+            Total frame count, or 100 as fallback heuristic if OpenCV fails
+        """
+        try:
+            import cv2
+
+            cap = cv2.VideoCapture(video_path)
+            total = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+            cap.release()
+            return total if total > 0 else 100
+        except Exception:
+            return 100  # Fallback heuristic
+
+    def _update_job_progress(
+        self, job_id: str, current_frame: int, total_frames: int, db
+    ) -> None:
+        """Update job progress in database, throttled to every 5%.
+
+        Updates progress percentage based on current frame position.
+        Throttles updates to reduce database write volume:
+        - Updates on first frame (1%)
+        - Updates on every 5% boundary
+        - Always updates on last frame (100%)
+
+        Args:
+            job_id: Job UUID string
+            current_frame: Current frame being processed (1-indexed)
+            total_frames: Total frames in video
+            db: Database session
+        """
+        if total_frames <= 0:
+            return
+
+        percent = int((current_frame / total_frames) * 100)
+        percent = max(0, min(100, percent))
+
+        # Throttle: only update every 5% to reduce DB writes
+        # Also update on first frame (1) and last frame (total_frames)
+        if current_frame == 1 or current_frame == total_frames or percent % 5 == 0:
+            job = db.query(Job).filter(Job.job_id == job_id).first()
+            if job:
+                job.progress = percent
+                db.commit()
+
     def _handle_signal(self, signum: int, frame) -> None:
         """Handle shutdown signals gracefully.
 
@@ -287,7 +341,20 @@ class JobWorker:
             elif job.job_type == "video":
                 # Load video file from storage
                 video_path = self._storage.load_file(job.input_path)
-                args = {"video_path": str(video_path)}
+
+                # v0.9.6: Get total frames for progress tracking
+                total_frames = self._get_total_frames(str(video_path))
+
+                # v0.9.6: Create progress callback for video jobs
+                def progress_callback(
+                    current_frame: int, total: int = total_frames
+                ) -> None:
+                    self._update_job_progress(str(job.job_id), current_frame, total, db)
+
+                args = {
+                    "video_path": str(video_path),
+                    "progress_callback": progress_callback,
+                }
                 logger.info("Job %s: loaded video file %s", job.job_id, video_path)
             else:
                 job.status = JobStatus.failed
@@ -301,8 +368,16 @@ class JobWorker:
             for tool_name in tools_to_run:
                 logger.info("Job %s: executing tool '%s'", job.job_id, tool_name)
 
+                # v0.9.6: Extract progress_callback from args (for video jobs)
+                progress_callback = args.pop("progress_callback", None)
+
                 # Execute tool via plugin_service (includes sandbox and error handling)
-                result = plugin_service.run_plugin_tool(job.plugin_id, tool_name, args)
+                result = plugin_service.run_plugin_tool(
+                    job.plugin_id,
+                    tool_name,
+                    args,
+                    progress_callback=progress_callback,
+                )
 
                 # Handle Pydantic models
                 if hasattr(result, "model_dump"):
@@ -341,6 +416,9 @@ class JobWorker:
             job.status = JobStatus.completed
             job.output_path = output_path
             job.error_message = None
+            # v0.9.6: Ensure 100% progress on completion
+            if job.job_type == "video":
+                job.progress = 100
             db.commit()
 
             logger.info("Job %s marked COMPLETED", job.job_id)

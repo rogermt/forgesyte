@@ -8,11 +8,14 @@ from pydantic import BaseModel
 
 
 class JobStatusResponse(BaseModel):
-    """Response for GET /video/status/{job_id}."""
+    """Response for GET /video/status/{job_id}.
+
+    v0.9.6: progress is Optional[float] - null for pre-v0.9.6 jobs.
+    """
 
     job_id: UUID
     status: Literal["pending", "running", "completed", "failed"]
-    progress: float
+    progress: Optional[float]  # v0.9.6: None for pre-v0.9.6 jobs
     created_at: datetime
     updated_at: datetime
 
