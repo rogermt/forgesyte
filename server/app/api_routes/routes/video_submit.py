@@ -87,15 +87,31 @@ async def submit_video(
             ),
         )
 
-    # Get tool definition for input validation
-    tool_def = plugin.tools.get(tool)
+    # v0.9.5: Validate tool supports video input using input_types from MANIFEST
+    # NOTE: plugin.tools uses ToolSchema which forbids input_types (extra="forbid")
+    # So we must read input_types from manifest.json, not from plugin.tools dict
+    manifest = plugin_service.get_plugin_manifest(plugin_id)
+    if not manifest:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Manifest not found for plugin '{plugin_id}'",
+        )
+
+    # Find tool in manifest tools array
+    manifest_tools = manifest.get("tools", [])
+    tool_def = None
+    for t in manifest_tools:
+        if t.get("id") == tool:
+            tool_def = t
+            break
+
     if not tool_def:
         raise HTTPException(
             status_code=400,
-            detail=f"Tool '{tool}' definition not found in plugin '{plugin_id}'",
+            detail=f"Tool '{tool}' definition not found in manifest for '{plugin_id}'",
         )
 
-    # v0.9.5: Validate tool supports video input using input_types array
+    # Check input_types from manifest
     input_types = tool_def.get("input_types", [])
     if "video" not in input_types:
         raise HTTPException(

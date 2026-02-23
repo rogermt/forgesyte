@@ -4,6 +4,10 @@ This test validates the fix from docs/releases/v0.9.3/TOOL_CHECK_FIX.md:
 - Plugin class defines actual tools in Plugin.tools attribute
 - Manifest.json defines lifecycle methods (on_load, run_tool, etc.)
 - Endpoints must validate against Plugin.tools, NOT manifest.json
+
+v0.9.5 Update:
+- input_types is read from manifest.json, not plugin.tools
+- plugin.tools uses ToolSchema which forbids input_types (extra="forbid")
 """
 
 from io import BytesIO
@@ -25,21 +29,23 @@ from app.models.job import Job
 
 
 class FakePlugin:
-    """Fake plugin with tools attribute for testing."""
+    """Fake plugin with tools attribute for testing.
+
+    NOTE: plugin.tools uses ToolSchema which forbids input_types (extra="forbid").
+    So we don't include input_types here - it comes from the manifest.
+    """
 
     name = "test-plugin"
     tools = {
         "player_detection": {
             "handler": "dummy_handler",
             "description": "Detect players",
-            "input_types": ["video"],  # v0.9.5: Video input support
             "input_schema": {"properties": {"video_path": {"type": "string"}}},
             "output_schema": {"properties": {"detections": {"type": "array"}}},
         },
         "analyze": {
             "handler": "dummy_handler",
             "description": "Extract text from images",
-            "input_types": ["image_bytes"],  # v0.9.5: Image input support
             "input_schema": {"properties": {"image_bytes": {"type": "string"}}},
             "output_schema": {"properties": {"text": {"type": "string"}}},
         },
@@ -47,6 +53,36 @@ class FakePlugin:
 
     def dummy_handler(self, *args, **kwargs):
         return {"result": "ok"}
+
+
+@pytest.fixture
+def mock_manifest():
+    """Create a mock manifest with input_types.
+
+    The manifest.json file contains input_types which plugin.tools cannot have
+    due to ToolSchema's extra="forbid" restriction.
+    """
+    return {
+        "id": "test-plugin",
+        "name": "Test Plugin",
+        "version": "1.0.0",
+        "tools": [
+            {
+                "id": "player_detection",
+                "title": "Player Detection",
+                "description": "Detect players",
+                "input_types": ["video"],
+                "output_types": ["detections"],
+            },
+            {
+                "id": "analyze",
+                "title": "Analyze",
+                "description": "Extract text from images",
+                "input_types": ["image_bytes"],
+                "output_types": ["text"],
+            },
+        ],
+    }
 
 
 @pytest.fixture
@@ -59,11 +95,12 @@ def mock_plugin_registry():
 
 
 @pytest.fixture
-def mock_plugin_service(mock_plugin_registry):
-    """Create a mock plugin service."""
-    from app.services.plugin_management_service import PluginManagementService
-
-    return PluginManagementService(mock_plugin_registry)
+def mock_plugin_service(mock_plugin_registry, mock_manifest):
+    """Create a mock plugin service with manifest support."""
+    mock = MagicMock()
+    mock.get_available_tools.return_value = list(FakePlugin.tools.keys())
+    mock.get_plugin_manifest.return_value = mock_manifest
+    return mock
 
 
 @pytest.mark.unit

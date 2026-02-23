@@ -14,21 +14,23 @@ from app.models.job import Job
 
 @pytest.fixture
 def mock_plugin():
-    """Create a mock plugin with tools attribute."""
+    """Create a mock plugin with tools attribute.
+
+    NOTE: plugin.tools uses ToolSchema which forbids input_types (extra="forbid").
+    So we don't include input_types here - it comes from the manifest.
+    """
     plugin = MagicMock()
     plugin.name = "ocr"
     plugin.tools = {
         "analyze": {
             "handler": "analyze_handler",
             "description": "Extract text",
-            "input_types": ["video"],  # v0.9.5: Video input support
             "input_schema": {"properties": {"video_path": {"type": "string"}}},
             "output_schema": {},
         },
         "video_track": {
             "handler": "video_track_handler",
             "description": "Track video",
-            "input_types": ["video"],  # v0.9.5: Video input support
             "input_schema": {"properties": {"video_path": {"type": "string"}}},
             "output_schema": {},
         },
@@ -37,10 +39,41 @@ def mock_plugin():
 
 
 @pytest.fixture
-def mock_plugin_service(mock_plugin):
+def mock_manifest():
+    """Create a mock manifest with input_types.
+
+    The manifest.json file contains input_types which plugin.tools cannot have
+    due to ToolSchema's extra="forbid" restriction.
+    """
+    return {
+        "id": "ocr",
+        "name": "OCR",
+        "version": "1.0.0",
+        "tools": [
+            {
+                "id": "analyze",
+                "title": "Analyze",
+                "description": "Extract text",
+                "input_types": ["video"],  # v0.9.5: Video input support
+                "output_types": ["text"],
+            },
+            {
+                "id": "video_track",
+                "title": "Video Track",
+                "description": "Track video",
+                "input_types": ["video"],  # v0.9.5: Video input support
+                "output_types": ["tracks"],
+            },
+        ],
+    }
+
+
+@pytest.fixture
+def mock_plugin_service(mock_plugin, mock_manifest):
     """Create a mock plugin management service."""
     mock = MagicMock()
     mock.get_available_tools.return_value = list(mock_plugin.tools.keys())
+    mock.get_plugin_manifest.return_value = mock_manifest
     return mock
 
 
@@ -85,15 +118,18 @@ def test_submit_with_plugin_id_and_tool_returns_200(
 
 @pytest.mark.unit
 def test_submit_stores_plugin_id_in_job(
-    session: Session, mock_plugin, mock_plugin_registry, mock_plugin_service
+    session: Session, mock_plugin, mock_plugin_registry, mock_manifest
 ):
     """Test plugin_id is stored in Job record."""
+    mock_service = MagicMock()
+    mock_service.get_available_tools.return_value = list(mock_plugin.tools.keys())
+    mock_service.get_plugin_manifest.return_value = mock_manifest
 
     def override_get_plugin_manager():
         return mock_plugin_registry
 
     def override_get_plugin_service():
-        return mock_plugin_service
+        return mock_service
 
     app.dependency_overrides[get_plugin_manager] = override_get_plugin_manager
     app.dependency_overrides[get_plugin_service] = override_get_plugin_service
