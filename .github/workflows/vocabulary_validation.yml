@@ -85,6 +85,11 @@ jobs:
         working-directory: ./server
         run: uv pip install -e ../../forgesyte-plugins/plugins/ocr
 
+      - name: Install OCR plugin
+        working-directory: ./server
+        run: uv pip install -e ../../forgesyte-plugins/plugins/plugins/forgesyte-yolo-tracker
+      
+
       - name: Run job processing smoke test
         working-directory: ./server
         run: |

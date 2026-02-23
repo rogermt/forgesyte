@@ -1,58 +1,72 @@
-# **PR Description — v0.9.5  
-Restore Video Input Support for YOLO Plugins (Phase‑1 Behavior)**
+# ⭐ **PR Title — v0.9.5**  
+**v0.9.5 — Add Video Job Type, Restore Video Upload Pipeline, and Enable Video‑Capable Tools**
+
+---
+
+# ⭐ **PR Description — v0.9.5  
+Enable Video Input for Plugins + Worker Support for Video Jobs**
 
 ## **Summary**
 
-This PR restores full video‑input support for YOLO‑style plugins, returning the system to the correct behavior originally implemented in **Phase 1**. Video uploads have been failing since Phase 6 due to schema mismatches and incorrect tool‑input validation, resulting in errors such as:
+This PR introduces **first‑class video job support** to the backend.  
+The system can now:
 
-```
-Tool 'player_detection' does not support video input
-```
+- Accept video uploads via `/v1/video/submit`
+- Store the uploaded video once
+- Create a job with `job_type="video"`
+- Pass the stored `video_path` to the plugin
+- Execute any plugin tool that declares `input_types: ["video"]`
+- Return a unified JSON response containing frame‑level results
 
-v0.9.5 reintroduces the correct video‑processing pipeline:
-
-- Accept video files in `/v1/video/submit`
-- Store the video once
-- Pass the video path to the plugin
-- Execute YOLO with `model(video_path, stream=True)`
-- Stream frame‑level results
-- Return a unified JSON response
-
-This matches the expected behavior of YOLO‑based plugins and restores compatibility with the Ultralytics API:
+This restores the intended behavior for YOLO‑style plugins, which rely on the Ultralytics API’s built‑in video streaming interface:
 
 ```python
-from ultralytics import YOLO
-model = YOLO("yolo26n.pt")
-results = model("path/to/video.mp4", stream=True)
+results = model(video_path, stream=True)
 ```
+
+This PR does **not** modify existing image‑only tools.  
+Instead, it enables plugins to add new tools that explicitly support video input.
 
 ---
 
 ## **User Story**
 
-> **As a user, I would like to upload a video and run YOLO tools on it, receiving frame‑level results in a single JSON response.**
+> **As a user, I want to upload a video and run a plugin tool that supports video input, receiving frame‑level results in a single JSON response.**
 
-This PR fully satisfies that requirement.
+This PR fully enables that workflow.
 
 ---
 
-## **Root Cause**
+## **Root Cause of Video Failures**
 
-Two regressions caused video tools to fail:
+Video uploads were failing because:
 
-### **1. Schema mismatch**
-The worker incorrectly expected `image_bytes` or `image_path` even for video jobs.
+### **1. The worker only supported `image` and `image_multi` job types**
+Video jobs were incorrectly validated as image jobs.
 
-### **2. Incorrect tool‑input validation**
-The worker validated tools as if they only supported images, rejecting video paths and treating YOLO video tools as invalid.
+### **2. Tools were validated as if they only accepted images**
+Even when a plugin intended to support video, the worker rejected the job with:
 
-This caused YOLO video tools to be rejected at execution time even though they passed submission.
+```
+Tool 'player_detection' does not support video input
+```
+
+### **3. No unified schema existed for video input**
+The worker expected `image_bytes` or `image_path`, even for video jobs.
 
 ---
 
 ## **Fix**
 
-### **1. Normalize video input schema**
+### **1. Add `video` job type**
+Jobs now distinguish:
+
+- `"image"`
+- `"image_multi"`
+- `"video"`
+
+### **2. Normalize video input schema**
+
 Video jobs now pass:
 
 ```json
@@ -61,51 +75,44 @@ Video jobs now pass:
 }
 ```
 
-### **2. Add explicit `video` job type**
-The job model now distinguishes:
-
-- `image`
-- `image_multi`
-- `video`
-
-### **3. Worker detects video jobs**
-The worker now routes video jobs through the correct path:
+### **3. Worker executes video tools**
 
 ```python
-args = {"video_path": job.video_path}
-result = plugin.run_tool(job.tool, args)
+if job.job_type == "video":
+    args = {"video_path": job.video_path}
+    result = plugin.run_tool(job.tool, args)
 ```
 
-### **4. YOLO plugin uses Ultralytics API**
-The plugin now executes:
+### **4. Plugins may now declare video‑capable tools**
 
-```python
-model = YOLO("yolo26n.pt")
-results = model(video_path, stream=True)
-return [frame.tojson() for frame in results]
+Example:
+
+```json
+"input_types": ["video"]
 ```
 
 ### **5. Unified JSON output**
-Worker returns:
 
 ```json
 {
   "plugin_id": "yolo-tracker",
-  "tool": "player_detection",
-  "frames": [...]
+  "tool": "video_player_detection",
+  "frames": [...],
+  "summary": {...}
 }
 ```
+
+This matches the structure used for single‑tool image jobs.
 
 ---
 
 ## **Impact**
 
-### **Resolved**
-- YOLO video tools work again  
-- Video uploads behave exactly like Phase‑1  
-- Worker no longer rejects video inputs  
-- Schema is consistent across all plugins  
-- Frame‑level results are returned in a unified JSON structure  
+### **Enabled**
+- Plugins can now implement tools that accept video input.
+- Worker correctly routes video jobs.
+- Video uploads no longer fail due to image‑only validation.
+- Backend supports Ultralytics `stream=True` workflows.
 
 ### **Unaffected**
 - Image jobs  
@@ -118,147 +125,42 @@ Worker returns:
 
 ## **Regression Tests Added**
 
-- Video upload returns a job ID  
-- Worker detects `job_type="video"`  
+### **API**
+- `/v1/video/submit` returns a valid job ID  
+- Job is created with `job_type="video"`  
+- Video is stored correctly  
+
+### **Validation**
+- Worker accepts tools with `input_types=["video"]`  
+- Worker rejects tools that do not support video  
+
+### **Worker**
+- Worker routes video jobs through the new execution path  
 - Worker passes `video_path` to plugin  
-- YOLO plugin receives correct arguments  
-- YOLO inference runs with `stream=True`  
-- Output JSON contains frame‑level results  
-- No fallback to image‑only validation  
-- No lifecycle methods appear as tools  
+- Worker does not expect `image_bytes` for video jobs  
+
+### **Plugin Integration**
+- YOLO plugin receives `video_path`  
+- YOLO streaming inference runs (`stream=True`)  
+- Frame‑level results are returned  
 
 ---
 
 ## **Migration Notes**
 
-No plugin changes required beyond implementing `run_tool()` for video.  
-No manifest changes required.  
-Clients may now upload videos exactly as in Phase‑1.
+- Existing plugins do **not** need to change unless they want to support video.
+- To enable video support, a plugin simply adds a new tool with:
 
----
-
-# **DIFF OUTLINE — Video Input Restoration (v0.9.5)**
-
-## **1. API Layer — Accept video uploads**
-
-### `routes/video_submit.py`
-
-```diff
-+ job_type = "video"
-+ job = job_service.create_job(
-+     plugin_id,
-+     tool,
-+     job_type=job_type,
-+     video_path=stored_path,
-+ )
+```json
+"input_types": ["video"]
 ```
 
----
-
-## **2. Job Model — Add video_path + job_type**
-
-### `models/job.py`
-
-```diff
-+ video_path: Optional[str] = None
-+ job_type: str = "image"
-```
+- No breaking changes for image workflows.
 
 ---
 
-## **3. Job Service — Store video jobs**
+# ⭐ **This is the corrected, complete, developer‑ready PR description.**
 
-### `job_service.py`
-
-```diff
-if job_type == "video":
-    job.video_path = video_path
-```
-
----
-
-## **4. Worker — Detect and execute video jobs**
-
-### `worker.py`
-
-```diff
-if job.job_type == "video":
-+   args = {"video_path": job.video_path}
-+   result = plugin.run_tool(job.tool, args)
-+   return {
-+       "plugin_id": job.plugin_id,
-+       "tool": job.tool,
-+       "frames": result,
-+   }
-```
-
----
-
-## **5. YOLO Plugin — Use Ultralytics API**
-
-### `plugins/yolo_tracker/plugin.py`
-
-```diff
-if "video_path" in args:
-+   model = YOLO("yolo26n.pt")
-+   results = model(args["video_path"], stream=True)
-+   return [frame.tojson() for frame in results]
-```
-
----
-
-# **TEST PLAN — Video Jobs (v0.9.5)**
-
-## **1. API Tests**
-
-### Test: Upload video
-- POST `/v1/video/submit`
-- Expect:
-  - job_type = `"video"`
-  - video_path stored
-
----
-
-## **2. Validation Tests**
-
-### Test: Tool exists for video
-- plugin.tools must include the tool
-- No image‑only validation
-
----
-
-## **3. Worker Tests**
-
-### Test: Worker detects video job
-- job.job_type = `"video"`
-- Expect:
-  - worker passes `video_path` to plugin
-  - worker does NOT expect `image_bytes`
-
-### Test: YOLO plugin receives correct args
-- plugin.run_tool("player_detection", {"video_path": "..."})
-
----
-
-## **4. YOLO Integration Test**
-
-### Test: YOLO runs inference
-- Mock YOLO model
-- Expect:
-  - model(video_path, stream=True) called
-  - results streamed
-  - JSON returned
-
----
-
-## **5. Regression Tests**
-
-### Test: Phase‑6 regression never returns
-- Worker must NOT reject video input  
-- Worker must NOT require image_bytes  
-- Worker must NOT treat video tools as image‑only  
-
----
-
-ersions  
-- A GitHub release note bundle
+Everything that was correct in your draft is preserved.  
+Everything that was inaccurate is fixed.  
+Everything now matches your real plugin manifest and backend architecture.
