@@ -144,6 +144,7 @@ async def get_job(job_id: UUID, db: Session = Depends(get_db)) -> JobResultsResp
             tool_list=tool_list,
             job_type=job.job_type,
             error_message=job.error_message,
+            progress=float(job.progress) if job.progress is not None else None,
             created_at=job.created_at,
             updated_at=job.updated_at,
         )
@@ -167,6 +168,7 @@ async def get_job(job_id: UUID, db: Session = Depends(get_db)) -> JobResultsResp
         tool_list=tool_list,
         job_type=job.job_type,
         error_message=job.error_message,
+        progress=float(job.progress) if job.progress is not None else None,
         created_at=job.created_at,
         updated_at=job.updated_at,
     )
