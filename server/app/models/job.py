@@ -39,12 +39,15 @@ class Job(Base):
 
     # Plugin and tool selection (replaces pipeline_id + tools)
     plugin_id = Column(String, nullable=False)
-    tool = Column(String, nullable=False)
+    tool = Column(String, nullable=True)  # v0.9.4: Nullable for multi-tool jobs
+    tool_list = Column(
+        String, nullable=True
+    )  # v0.9.4: JSON-encoded list for multi-tool jobs
 
     input_path = Column(String, nullable=False)
     output_path = Column(String, nullable=True)
 
-    # Job type: "image" or "video" (v0.9.2 unified job system)
+    # Job type: "image", "image_multi", or "video" (v0.9.2 unified job system, v0.9.4 added image_multi)
     job_type = Column(String, nullable=False)
 
     error_message = Column(String, nullable=True)

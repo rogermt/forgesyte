@@ -12,7 +12,7 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useVideoProcessor } from "../hooks/useVideoProcessor";
-import { drawDetections, type OverlayToggles } from "./ResultOverlay";
+import { drawDetections } from "./ResultOverlay";
 import type { Detection } from "../types/plugin";
 
 // ============================================================================
@@ -176,7 +176,7 @@ const styles = {
 // ============================================================================
 
 const FPS_OPTIONS = [5, 10, 15, 24, 30, 45, 60];
-const OVERLAY_KEYS = ["players", "tracking", "ball", "pitch", "radar"] as const;
+// REMOVED: OVERLAY_KEYS no longer used in v0.9.4 (plugin-agnostic)
 
 // ============================================================================
 // Component
@@ -197,13 +197,6 @@ export function VideoTracker({ pluginId, tools }: VideoTrackerProps) {
   const [fps, setFps] = useState(30);
   const [device, setDevice] = useState<"cpu" | "cuda">("cpu");
   const [running, setRunning] = useState(false);
-  const [overlayToggles, setOverlayToggles] = useState<OverlayToggles>({
-    players: true,
-    tracking: true,
-    ball: true,
-    pitch: true,
-    radar: true,
-  });
 
   // -------------------------------------------------------------------------
   // Video processing hook
@@ -236,7 +229,7 @@ export function VideoTracker({ pluginId, tools }: VideoTrackerProps) {
     };
   }, [videoSrc]);
 
-  // Draw overlay when latestResult changes
+  // Draw overlay when latestResult changes (generic plugin-agnostic)
   useEffect(() => {
     if (!canvasRef.current || !videoRef.current) return;
     if (!latestResult) return;
@@ -253,19 +246,9 @@ export function VideoTracker({ pluginId, tools }: VideoTrackerProps) {
 
     if (!detections || detections.length === 0) return;
 
-    // Extract pitch lines from the result if available
-    const pitchLines = (latestResult as Record<string, unknown>)?.pitch as Array<{ x1: number; y1: number; x2: number; y2: number }> | undefined;
-
-    // Call drawDetections function to draw on the canvas
-    drawDetections({
-      canvas: canvasRef.current,
-      detections,
-      width: videoRef.current.videoWidth,
-      height: videoRef.current.videoHeight,
-      overlayToggles,
-      pitchLines,
-    });
-  }, [latestResult, buffer, overlayToggles]);
+    // Draw generic bounding boxes only (plugin-agnostic for v0.9.4)
+    drawDetections(canvasRef.current, detections, 12);
+  }, [latestResult, buffer]);
 
   // -------------------------------------------------------------------------
   // Handlers
@@ -301,9 +284,7 @@ export function VideoTracker({ pluginId, tools }: VideoTrackerProps) {
     videoRef.current?.pause();
   }, []);
 
-  const handleToggle = (key: typeof OVERLAY_KEYS[number]) => {
-    setOverlayToggles((prev) => ({ ...prev, [key]: !prev[key] }));
-  };
+  // REMOVED: handleToggle - no longer used in v0.9.4
 
   // -------------------------------------------------------------------------
   // Render
@@ -422,29 +403,6 @@ export function VideoTracker({ pluginId, tools }: VideoTrackerProps) {
         </select>
       </div>
 
-      {/* Divider */}
-      <div style={styles.divider} />
-
-      {/* Overlay Toggles Row */}
-      <div style={styles.togglesRow}>
-        {OVERLAY_KEYS.map((key) => (
-          <div key={key} style={styles.toggleItem}>
-            <input
-              type="checkbox"
-              checked={overlayToggles[key]}
-              onChange={() => handleToggle(key)}
-              id={`toggle-${key}`}
-              disabled={!videoFile}
-            />
-            <label
-              htmlFor={`toggle-${key}`}
-              style={styles.toggleLabel}
-            >
-              {key.charAt(0).toUpperCase() + key.slice(1)}
-            </label>
-          </div>
-        ))}
-      </div>
     </div>
   );
 }

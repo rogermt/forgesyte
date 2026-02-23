@@ -131,12 +131,18 @@ async def get_job(job_id: UUID, db: Session = Depends(get_db)) -> JobResultsResp
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
 
+    # Parse tool_list from JSON if present
+    tool_list = json.loads(job.tool_list) if job.tool_list else None
+
     # If job is not completed, return status without results
     if job.status != JobStatus.completed:
         return JobResultsResponse(
             job_id=job.job_id,
             status=job.status.value,  # Issue #211: Include status
             results=None,
+            tool=job.tool,
+            tool_list=tool_list,
+            job_type=job.job_type,
             error_message=job.error_message,
             created_at=job.created_at,
             updated_at=job.updated_at,
@@ -157,6 +163,9 @@ async def get_job(job_id: UUID, db: Session = Depends(get_db)) -> JobResultsResp
         job_id=job.job_id,
         status=job.status.value,  # Issue #211: Include status
         results=results,
+        tool=job.tool,
+        tool_list=tool_list,
+        job_type=job.job_type,
         error_message=job.error_message,
         created_at=job.created_at,
         updated_at=job.updated_at,

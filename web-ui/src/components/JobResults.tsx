@@ -3,55 +3,41 @@ import React from "react";
 type Props = {
   results: {
     job_id: string;
-    results: {
-      text?: string;
-      detections?: Array<{
-        label: string;
-        confidence: number;
-        bbox: number[];
-      }>;
-    } | null;
+    results: Record<string, unknown> | null;
     created_at: string;
     updated_at: string;
   };
 };
 
 export const JobResults: React.FC<Props> = ({ results }) => {
-  const { detections, text } = results.results || {};
+  const resultData = results.results;
+
+  const codeBlockStyle: React.CSSProperties = {
+    backgroundColor: "var(--bg-primary)",
+    padding: "8px",
+    borderRadius: "4px",
+    overflow: "auto",
+    fontSize: "11px",
+    color: "#a8ff60",
+    fontFamily: "monospace",
+    border: "1px solid var(--border-light)",
+    lineHeight: 1.5,
+  };
 
   return (
-    <div style={{ marginTop: "20px", padding: "20px", border: "1px solid #ccc" }}>
-      <h3>Results</h3>
+    <div style={{ marginTop: "20px" }}>
+      <div style={{ fontSize: "14px", fontWeight: 600, marginBottom: "12px" }}>
+        Job Results
+      </div>
 
-      {detections && detections.length > 0 && (
-        <div style={{ marginBottom: "20px" }}>
-          <h4>Object Detections</h4>
-          {detections.map((det, idx) => (
-            <div key={idx} style={{ marginBottom: "10px", padding: "10px", border: "1px solid #eee" }}>
-              <div><strong>Label:</strong> {det.label}</div>
-              <div><strong>Confidence:</strong> {(det.confidence * 100).toFixed(1)}%</div>
-              <div><strong>Box:</strong> [{det.bbox.join(", ")}]</div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {text && text.trim() ? (
-        <div>
-          <h4>OCR Text</h4>
-          <pre style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
-            {text}
-          </pre>
-        </div>
+      {resultData ? (
+        <pre style={codeBlockStyle}>
+          {JSON.stringify(resultData, null, 2)}
+        </pre>
       ) : (
-        <div>
-          <h4>OCR Text</h4>
-          <div>No OCR text available.</div>
+        <div style={{ fontSize: "13px", color: "var(--text-muted)" }}>
+          No results available.
         </div>
-      )}
-
-      {!detections && !text && (
-        <div>No results available.</div>
       )}
     </div>
   );
