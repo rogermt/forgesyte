@@ -115,7 +115,9 @@ async def test_job_status(job_id: str) -> bool:
         progress = data.get("progress")
         if progress is not None:
             if not isinstance(progress, (int, float)):
-                print(f"[STATUS] ERROR: Progress should be number, got {type(progress)}")
+                print(
+                    f"[STATUS] ERROR: Progress should be number, got {type(progress)}"
+                )
                 return False
             if not (0 <= progress <= 100):
                 print(f"[STATUS] ERROR: Progress should be 0-100, got {progress}")
