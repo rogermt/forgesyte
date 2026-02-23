@@ -119,6 +119,7 @@ class JobWorker:
             db: Database session
         """
         if total_frames <= 0:
+            logger.warning("Progress update skipped: total_frames <= 0")
             return
 
         percent = int((current_frame / total_frames) * 100)
@@ -131,6 +132,15 @@ class JobWorker:
             if job:
                 job.progress = percent
                 db.commit()
+                logger.info(
+                    "Progress updated: job=%s frame=%d/%d percent=%d",
+                    job_id,
+                    current_frame,
+                    total_frames,
+                    percent,
+                )
+            else:
+                logger.warning("Progress update failed: job %s not found in DB", job_id)
 
     def _handle_signal(self, signum: int, frame) -> None:
         """Handle shutdown signals gracefully.
@@ -344,6 +354,11 @@ class JobWorker:
 
                 # v0.9.6: Get total frames for progress tracking
                 total_frames = self._get_total_frames(str(video_path))
+                logger.info(
+                    "Job %s: video has %d frames for progress tracking",
+                    job.job_id,
+                    total_frames,
+                )
 
                 # v0.9.6: Create progress callback for video jobs
                 def progress_callback(
