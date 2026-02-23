@@ -47,7 +47,7 @@ async def test_job_submission() -> str | None:
                 response = await client.post(
                     f"{BASE_URL}/v1/video/submit",
                     files={"file": ("test.mp4", f, "video/mp4")},
-                    params={"plugin_id": "yolo", "tool": "video_player_detection"},
+                    params={"plugin_id": "yolo-tracker", "tool": "video_player_detection"},
                     follow_redirects=True,
                 )
 
