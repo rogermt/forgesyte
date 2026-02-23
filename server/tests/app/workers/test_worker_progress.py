@@ -72,25 +72,21 @@ def test_worker_update_progress_throttled(test_engine, session):
     # Update at 1% (should update - first frame)
     worker._update_job_progress(job_id, 1, 100, session)
     session.expire_all()
-    job = session.query(Job).filter(Job.job_id == job_id).first()
     assert job.progress == 1
 
     # Update at 2% (should NOT update - not 5% boundary)
     worker._update_job_progress(job_id, 2, 100, session)
     session.expire_all()
-    job = session.query(Job).filter(Job.job_id == job_id).first()
     assert job.progress == 1  # Still 1, not updated
 
     # Update at 5% (should update - 5% boundary)
     worker._update_job_progress(job_id, 5, 100, session)
     session.expire_all()
-    job = session.query(Job).filter(Job.job_id == job_id).first()
     assert job.progress == 5
 
     # Update at 10% (should update - 5% boundary)
     worker._update_job_progress(job_id, 10, 100, session)
     session.expire_all()
-    job = session.query(Job).filter(Job.job_id == job_id).first()
     assert job.progress == 10
 
 
