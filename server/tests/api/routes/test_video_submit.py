@@ -13,7 +13,11 @@ from app.main import app
 
 @pytest.fixture
 def mock_plugin():
-    """Create a mock plugin with tools attribute."""
+    """Create a mock plugin with tools attribute.
+
+    NOTE: plugin.tools uses ToolSchema which forbids input_types (extra="forbid").
+    So we don't include input_types here - it comes from the manifest.
+    """
     plugin = MagicMock()
     plugin.name = "yolo-tracker"
     plugin.tools = {
@@ -28,10 +32,34 @@ def mock_plugin():
 
 
 @pytest.fixture
-def mock_plugin_service(mock_plugin):
+def mock_manifest():
+    """Create a mock manifest with input_types.
+
+    The manifest.json file contains input_types which plugin.tools cannot have
+    due to ToolSchema's extra="forbid" restriction.
+    """
+    return {
+        "id": "yolo-tracker",
+        "name": "YOLO Tracker",
+        "version": "1.0.0",
+        "tools": [
+            {
+                "id": "player_detection",
+                "title": "Player Detection",
+                "description": "Detect players",
+                "input_types": ["video"],  # v0.9.5: Video input support
+                "output_types": ["detections"],
+            }
+        ],
+    }
+
+
+@pytest.fixture
+def mock_plugin_service(mock_plugin, mock_manifest):
     """Create a mock plugin management service."""
     mock = MagicMock()
     mock.get_available_tools.return_value = list(mock_plugin.tools.keys())
+    mock.get_plugin_manifest.return_value = mock_manifest
     return mock
 
 
@@ -107,10 +135,11 @@ def test_submit_video_invalid_plugin(mock_plugin_service):
 
 
 @pytest.mark.unit
-def test_submit_video_invalid_tool(mock_plugin, mock_plugin_registry):
+def test_submit_video_invalid_tool(mock_plugin, mock_plugin_registry, mock_manifest):
     """Test video submission with invalid tool returns 400."""
     mock_service = MagicMock()
     mock_service.get_available_tools.return_value = ["different_tool"]
+    mock_service.get_plugin_manifest.return_value = mock_manifest
 
     def override_get_plugin_manager():
         return mock_plugin_registry

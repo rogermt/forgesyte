@@ -4,3 +4,4 @@
 |--------|------|-------------|--------------|--------------|
 | `ocr` | `analyze` | image_bytes, detections | text | text_extraction |
 | `yolo` | `detect_objects` | image_bytes | detections | object_detection |
+| `yolo` | `video_player_detection` | video | video_detections | player_detection |

@@ -1,1 +1,29 @@
-{"name": "yolo", "version": "1.0.0", "description": "YOLO object detection plugin (Phase 15)", "tools": {"detect_objects": {"description": "Detect objects in image using YOLO", "input_types": ["image_bytes"], "output_types": ["detections"], "capabilities": ["object_detection"]}}}
+{
+  "name": "yolo",
+  "version": "1.0.0",
+  "description": "YOLO object detection plugin (Phase 15)",
+  "tools": {
+    "detect_objects": {
+      "description": "Detect objects in image using YOLO",
+      "input_types": ["image_bytes"],
+      "output_types": ["detections"],
+      "capabilities": ["object_detection"]
+    },
+    "video_player_detection": {
+      "title": "Video Player Detection",
+      "description": "Run player detection on every frame of a video.",
+      "input_types": ["video"],
+      "output_types": ["video_detections"],
+      "capabilities": ["player_detection"],
+      "inputs": {
+        "video_path": {"type": "string"},
+        "device": {"type": "string", "default": "cpu"},
+        "annotated": {"type": "boolean", "default": false}
+      },
+      "outputs": {
+        "frames": {"type": "array"},
+        "summary": {"type": "object"}
+      }
+    }
+  }
+}

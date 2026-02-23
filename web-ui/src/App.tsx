@@ -517,7 +517,10 @@ function App() {
 
           {viewMode === "video-upload" && (
             <div style={{ ...styles.panel, flex: 1 }}>
-              <VideoUpload pluginId={selectedPlugin} selectedTools={selectedTools} />
+              <VideoUpload
+                pluginId={selectedPlugin}
+                manifest={manifest}
+              />
             </div>
           )}
 

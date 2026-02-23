@@ -85,6 +85,11 @@ jobs:
         working-directory: ./server
         run: uv pip install -e ../../forgesyte-plugins/plugins/ocr
 
+      - name: Install OCR plugin
+        working-directory: ./server
+        run: uv pip install -e ../../forgesyte-plugins/plugins/forgesyte-yolo-tracker
+      
+
       - name: Run job processing smoke test
         working-directory: ./server
         run: |
@@ -95,7 +100,7 @@ jobs:
           
           # Wait for server to be healthy
           echo "Waiting for server health check..."
-          MAX_RETRIES=30
+          MAX_RETRIES=200
           RETRY_COUNT=0
           until curl -s http://127.0.0.1:8000/v1/health | grep -q "healthy"; do
             RETRY_COUNT=$((RETRY_COUNT+1))
