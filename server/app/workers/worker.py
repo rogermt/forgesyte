@@ -442,7 +442,7 @@ class JobWorker:
                 _progress_logger.info(
                     "[PROGRESS] Extracted progress_callback from args: job=%s callback=%s",
                     job.job_id,
-                    "YES" if progress_callback else "NONE",
+                    "YES" if progress_callback is not None else "NONE",
                 )
 
                 # Execute tool via plugin_service (includes sandbox and error handling)
