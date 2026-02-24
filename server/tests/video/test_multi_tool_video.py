@@ -10,7 +10,7 @@ Tests for v0.9.7 multi-tool video processing feature:
 
 import json
 import uuid
-from io import BytesIO
+from typing import Optional
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -19,7 +19,6 @@ from sqlalchemy.orm import Session
 from app.models.job import Job, JobStatus
 from app.workers.worker import JobWorker
 
-
 # Use a consistent test job_id for cleanup
 TEST_JOB_ID = str(uuid.uuid4())
 
@@ -27,7 +26,7 @@ TEST_JOB_ID = str(uuid.uuid4())
 def create_video_job(
     session: Session,
     plugin_id: str = "test-plugin",
-    tools: list = None,
+    tools: Optional[list] = None,
     job_type: str = "video",
 ) -> Job:
     """Helper to create a video job in the database."""
@@ -111,7 +110,9 @@ class TestMultiToolVideoExecution:
         assert calls[0][0][1] == "tool_one"
         assert calls[1][0][1] == "tool_two"
 
-    def test_combined_results_format(self, session: Session, mock_storage, mock_plugin_service):
+    def test_combined_results_format(
+        self, session: Session, mock_storage, mock_plugin_service
+    ):
         """Test that results are combined in the expected format."""
         # Mock different results for each tool
         mock_plugin_service.run_plugin_tool.side_effect = [
@@ -129,7 +130,7 @@ class TestMultiToolVideoExecution:
         )
 
         with patch.object(worker, "_get_total_frames", return_value=10):
-            result = worker._execute_pipeline(job, session)
+            worker._execute_pipeline(job, session)
 
         # Load saved results
         saved_output = mock_storage.save_file.call_args[0][0]
@@ -202,7 +203,9 @@ class TestBackwardCompatibility:
         # Should only call plugin once
         assert mock_plugin_service.run_plugin_tool.call_count == 1
 
-    def test_single_tool_result_format(self, session: Session, mock_storage, mock_plugin_service):
+    def test_single_tool_result_format(
+        self, session: Session, mock_storage, mock_plugin_service
+    ):
         """Test that single-tool jobs return single-tool result format."""
         tools = ["tool_one"]
         job = create_video_job(session, tools=tools)
@@ -214,7 +217,7 @@ class TestBackwardCompatibility:
         )
 
         with patch.object(worker, "_get_total_frames", return_value=10):
-            result = worker._execute_pipeline(job, session)
+            worker._execute_pipeline(job, session)
 
         # Load saved results
         saved_output = mock_storage.save_file.call_args[0][0]
@@ -316,10 +319,7 @@ def cleanup_jobs(session: Session):
     yield
     try:
         session.rollback()
-        session.query(Job).filter(
-            Job.job_id == TEST_JOB_ID
-        ).delete()
+        session.query(Job).filter(Job.job_id == TEST_JOB_ID).delete()
         session.commit()
     except Exception:
         session.rollback()
-
