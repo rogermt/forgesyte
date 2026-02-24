@@ -102,11 +102,26 @@ class JobWorker:
             return 100  # Fallback heuristic
 
     def _update_job_progress(
-        self, job_id: str, current_frame: int, total_frames: int, db
+        self,
+        job_id: str,
+        current_frame: int,
+        total_frames: int,
+        db,
+        tool_index: int = 0,
+        total_tools: int = 1,
+        tool_name: str = "",
     ) -> None:
         """Update job progress in database, throttled to every 5%.
 
-        Updates progress percentage based on current frame position.
+        v0.9.7: Supports unified progress tracking for multi-tool video jobs.
+
+        For single-tool jobs:
+        - Updates progress based on current_frame / total_frames
+
+        For multi-tool jobs:
+        - Equal weighting per tool: tool_weight = 100 / total_tools
+        - Global progress = (completed_tools * tool_weight) + (frame_progress * tool_weight)
+
         Throttles updates to reduce database write volume:
         - Updates on first frame (1%)
         - Updates on every 5% boundary
@@ -117,12 +132,26 @@ class JobWorker:
             current_frame: Current frame being processed (1-indexed)
             total_frames: Total frames in video
             db: Database session
+            tool_index: v0.9.7: Current tool index (0-based)
+            total_tools: v0.9.7: Total number of tools
+            tool_name: v0.9.7: Current tool name
         """
         if total_frames <= 0:
             logger.warning("Progress update skipped: total_frames <= 0")
             return
 
-        percent = int((current_frame / total_frames) * 100)
+        # v0.9.7: Calculate unified progress for multi-tool
+        if total_tools > 1:
+            tool_weight = 100 / total_tools
+            frame_percent = (current_frame / total_frames) * 100
+            global_progress = (tool_index * tool_weight) + (
+                frame_percent * tool_weight / 100
+            )
+            percent = int(global_progress)
+        else:
+            # Single-tool: original calculation
+            percent = int((current_frame / total_frames) * 100)
+
         percent = max(0, min(100, percent))
 
         # Throttle: only update every 5% to reduce DB writes
@@ -133,8 +162,11 @@ class JobWorker:
                 job.progress = percent
                 db.commit()
                 logger.info(
-                    "Progress updated: job=%s frame=%d/%d percent=%d",
+                    "Progress updated: job=%s tool=%s tool_index=%d/%d frame=%d/%d percent=%d",
                     job_id,
+                    tool_name,
+                    tool_index + 1,
+                    total_tools,
                     current_frame,
                     total_frames,
                     percent,
@@ -233,7 +265,10 @@ class JobWorker:
                 return False
 
             # v0.9.4: Determine tools to execute based on job_type
-            is_multi_tool = job.job_type == "image_multi"
+            # v0.9.7: video jobs can also be multi-tool (check tool_list presence)
+            is_multi_tool = job.job_type == "image_multi" or (
+                job.job_type == "video" and job.tool_list is not None
+            )
 
             if is_multi_tool:
                 # Parse tool_list from JSON
@@ -353,22 +388,36 @@ class JobWorker:
                 video_path = self._storage.load_file(job.input_path)
 
                 # v0.9.6: Get total frames for progress tracking
+                # v0.9.7: For multi-tool, we need progress per tool
                 total_frames = self._get_total_frames(str(video_path))
+                total_tools = len(tools_to_run)
                 logger.info(
-                    "Job %s: video has %d frames for progress tracking",
+                    "Job %s: video has %d frames, %d tools for unified progress tracking",
                     job.job_id,
                     total_frames,
+                    total_tools,
                 )
 
-                # v0.9.6: Create progress callback for video jobs
-                def progress_callback(
-                    current_frame: int, total: int = total_frames
-                ) -> None:
-                    self._update_job_progress(str(job.job_id), current_frame, total, db)
+                # v0.9.7: Create unified progress callback for multi-tool video jobs
+                def make_progress_callback(tool_index: int, tool_name: str):
+                    def unified_progress_callback(
+                        current_frame: int, total: int = total_frames
+                    ) -> None:
+                        self._update_job_progress(
+                            str(job.job_id),
+                            current_frame,
+                            total,
+                            db,
+                            tool_index=tool_index,
+                            total_tools=total_tools,
+                            tool_name=tool_name,
+                        )
 
-                args = {
+                    return unified_progress_callback
+
+                # v0.9.7: Store base args, we'll create tool-specific callbacks in the loop
+                base_args = {
                     "video_path": str(video_path),
-                    "progress_callback": progress_callback,
                 }
                 logger.info("Job %s: loaded video file %s", job.job_id, video_path)
             else:
@@ -378,19 +427,35 @@ class JobWorker:
                 return False
 
             # v0.9.4: Execute tools
+            # v0.9.7: Updated to use unified progress for multi-tool video jobs
             results: Dict[str, Any] = {}
 
-            for tool_name in tools_to_run:
-                logger.info("Job %s: executing tool '%s'", job.job_id, tool_name)
+            for tool_index, tool_name in enumerate(tools_to_run):
+                logger.info(
+                    "Job %s: executing tool '%s' (%d/%d)",
+                    job.job_id,
+                    tool_name,
+                    tool_index + 1,
+                    len(tools_to_run),
+                )
 
-                # v0.9.6: Extract progress_callback from args (for video jobs)
-                progress_callback = args.pop("progress_callback", None)
+                # v0.9.7: Create tool-specific args and progress callback for video jobs
+                if job.job_type == "video":
+                    # Create tool-specific progress callback
+                    progress_callback = make_progress_callback(tool_index, tool_name)
+                    tool_args = {
+                        **base_args
+                    }  # Don't include progress_callback here, pass as kwarg
+                else:
+                    # Image jobs: use args as-is
+                    tool_args = args.copy() if args else {}
+                    progress_callback = None
 
                 # Execute tool via plugin_service (includes sandbox and error handling)
                 result = plugin_service.run_plugin_tool(
                     job.plugin_id,
                     tool_name,
-                    args,
+                    tool_args,
                     progress_callback=progress_callback,
                 )
 
@@ -407,6 +472,7 @@ class JobWorker:
 
             # v0.9.4: Prepare output based on job type
             # v0.9.5: Unified output format for all job types
+            # v0.9.7: video multi-tool uses same format as image_multi
             if is_multi_tool:
                 output_data = {"plugin_id": job.plugin_id, "tools": results}
             else:

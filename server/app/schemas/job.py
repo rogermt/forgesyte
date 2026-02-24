@@ -31,6 +31,7 @@ class JobResultsResponse(BaseModel):
     Issue #211: Added status field for web-UI polling.
     v0.9.4: Added tool_list and job_type for multi-tool support.
     v0.9.6: Added progress field for video job progress tracking.
+    v0.9.7: Added current_tool, tools_total, tools_completed for multi-tool video jobs.
     """
 
     job_id: UUID
@@ -41,6 +42,10 @@ class JobResultsResponse(BaseModel):
     job_type: Optional[str] = None  # v0.9.4: "image" | "image_multi" | "video"
     error_message: Optional[str] = None
     progress: Optional[float] = None  # v0.9.6: None for pre-v0.9.6 jobs
+    # v0.9.7: Multi-tool video job metadata (derived, not stored)
+    current_tool: Optional[str] = None  # Current tool being processed
+    tools_total: Optional[int] = None  # Total number of tools
+    tools_completed: Optional[int] = None  # Number of tools completed
     created_at: datetime
     updated_at: datetime
 

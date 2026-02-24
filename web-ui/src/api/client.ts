@@ -41,6 +41,10 @@ export interface Job {
     updated_at?: string;  // v0.9.2: updated_at from server
     completed_at?: string | null;  // Legacy
     progress?: number | null;
+    // v0.9.7: Multi-tool video job metadata
+    current_tool?: string | null;  // Current tool being processed
+    tools_total?: number | null;  // Total number of tools
+    tools_completed?: number | null;  // Number of tools completed
 }
 
 export class ForgeSyteAPIClient {
@@ -257,17 +261,25 @@ export class ForgeSyteAPIClient {
     }
 
     // Video job submission
+    // v0.9.7: Updated to accept array of tools for multi-tool support
     async submitVideo(
         file: File,
         pluginId: string,
-        tool: string,
+        tools: string | string[],  // v0.9.7: Accept single tool or array of tools
         onProgress?: (percent: number) => void
     ): Promise<{ job_id: string }> {
         return new Promise((resolve, reject) => {
             const xhr = new XMLHttpRequest();
             const url = new URL(`${this.baseUrl}/video/submit`, window.location.origin);
             url.searchParams.append("plugin_id", pluginId);
-            url.searchParams.append("tool", tool);
+            
+            // v0.9.7: Support multiple tools - append each as separate query param
+            if (Array.isArray(tools)) {
+                tools.forEach(t => url.searchParams.append("tool", t));
+            } else {
+                url.searchParams.append("tool", tools);
+            }
+            
             xhr.open("POST", url.toString());
 
             if (this.apiKey) {
