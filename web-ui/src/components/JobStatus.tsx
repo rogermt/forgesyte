@@ -37,6 +37,7 @@ export const JobStatus: React.FC<Props> = ({ jobId }) => {
         const job = await apiClient.getJob(jobId);
         setStatus(job.status as Status);
         setProgress(job.progress ?? null);
+        setError(null); // Clear any previous error on successful fetch
 
         if (job.status === "completed" && job.results) {
           setResults(job.results as VideoJobResults);
