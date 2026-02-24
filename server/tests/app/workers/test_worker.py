@@ -1,7 +1,7 @@
 """Tests for JobWorker."""
 
 import json
-from unittest.mock import MagicMock
+from unittest.mock import ANY, MagicMock
 from uuid import uuid4
 
 import pytest
@@ -201,10 +201,12 @@ def test_worker_run_once_executes_pipeline(test_engine, session):
 
     assert result is True
     # Verify plugin service was called with correct args
+    # Note: video jobs include progress_callback parameter
     mock_plugin_service.run_plugin_tool.assert_called_once_with(
         "test_plugin",
         "test_tool",
         {"video_path": "/data/jobs/video/input/test.mp4"},
+        progress_callback=ANY,
     )
 
 
