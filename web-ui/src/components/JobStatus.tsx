@@ -28,6 +28,10 @@ export const JobStatus: React.FC<Props> = ({ jobId }) => {
   const [progress, setProgress] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [results, setResults] = useState<VideoJobResults | null>(null);
+  // v0.9.7: Multi-tool video job metadata
+  const [currentTool, setCurrentTool] = useState<string | null>(null);
+  const [toolsTotal, setToolsTotal] = useState<number | null>(null);
+  const [toolsCompleted, setToolsCompleted] = useState<number | null>(null);
 
   useEffect(() => {
     let timer: number | undefined;
@@ -38,6 +42,11 @@ export const JobStatus: React.FC<Props> = ({ jobId }) => {
         setStatus(job.status as Status);
         setProgress(job.progress ?? null);
         setError(null); // Clear any previous error on successful fetch
+
+        // v0.9.7: Extract multi-tool metadata
+        setCurrentTool(job.current_tool ?? null);
+        setToolsTotal(job.tools_total ?? null);
+        setToolsCompleted(job.tools_completed ?? null);
 
         if (job.status === "completed" && job.results) {
           setResults(job.results as VideoJobResults);
@@ -70,6 +79,21 @@ export const JobStatus: React.FC<Props> = ({ jobId }) => {
       {status === "running" && progress !== null && (
         <div style={{ marginTop: "10px", marginBottom: "10px" }}>
           <ProgressBar progress={progress} max={100} showPercentage />
+          
+          {/* v0.9.7: Show multi-tool progress info */}
+          {toolsTotal !== null && toolsTotal > 1 && (
+            <div style={{ marginTop: "8px", fontSize: "13px", color: "var(--text-secondary, #666)" }}>
+              {currentTool && (
+                <div style={{ marginBottom: "4px" }}>
+                  Running: <strong>{currentTool}</strong>
+                </div>
+              )}
+              <div>
+                Tool {toolsCompleted !== null ? toolsCompleted + 1 : "?"} of {toolsTotal}
+                {toolsCompleted !== null && ` (${toolsCompleted} completed)`}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -85,3 +109,4 @@ export const JobStatus: React.FC<Props> = ({ jobId }) => {
     </div>
   );
 };
+
