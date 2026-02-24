@@ -1,32 +1,37 @@
 """Job status endpoint: GET /video/status/{job_id}."""
 
+from typing import Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.models.job import Job, JobStatus
+from app.models.job import Job
 from app.schemas.job import JobStatusResponse
 
 router = APIRouter()
 
 
-def _calculate_progress(status: JobStatus) -> float:
-    """Calculate progress based on job status.
+def _calculate_progress(job: Job) -> Optional[float]:
+    """Calculate progress based on job status and stored progress.
+
+    v0.9.6: Returns actual progress from database if available.
+    Returns None for jobs created before v0.9.6 (no progress data).
 
     Args:
-        status: Job status enum
+        job: Job model instance
 
     Returns:
-        Progress float: pending=0.0, running=0.5, completed/failed=1.0
+        Progress float (0.0-100.0) or None if not available
     """
-    if status == JobStatus.pending:
-        return 0.0
-    elif status == JobStatus.running:
-        return 0.5
-    else:  # completed or failed
-        return 1.0
+    # v0.9.6: Return actual progress from database if available
+    if job.progress is not None:
+        return float(job.progress)
+
+    # For jobs created before v0.9.6, return None to indicate no progress data
+    # This distinguishes "no progress data" from "0% progress"
+    return None
 
 
 @router.get(
@@ -38,6 +43,8 @@ async def get_job_status(
     """Get status of a job.
 
     DEPRECATED: Use /v1/jobs/{job_id} instead. TODO: Remove in v1.0.0
+
+    v0.9.6: Now returns actual progress from database when available.
 
     Args:
         job_id: UUID of the job
@@ -53,7 +60,7 @@ async def get_job_status(
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
 
-    progress = _calculate_progress(job.status)
+    progress = _calculate_progress(job)
 
     return JobStatusResponse(
         job_id=job.job_id,

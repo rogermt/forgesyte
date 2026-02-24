@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { apiClient } from "../api/client";
 import { JobResults } from "./JobResults";
+import { ProgressBar } from "./ProgressBar";
 
 type Props = {
   jobId: string;
@@ -24,6 +25,7 @@ type VideoJobResults = {
 
 export const JobStatus: React.FC<Props> = ({ jobId }) => {
   const [status, setStatus] = useState<Status>("pending");
+  const [progress, setProgress] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [results, setResults] = useState<VideoJobResults | null>(null);
 
@@ -34,6 +36,8 @@ export const JobStatus: React.FC<Props> = ({ jobId }) => {
       try {
         const job = await apiClient.getJob(jobId);
         setStatus(job.status as Status);
+        setProgress(job.progress ?? null);
+        setError(null); // Clear any previous error on successful fetch
 
         if (job.status === "completed" && job.results) {
           setResults(job.results as VideoJobResults);
@@ -61,6 +65,21 @@ export const JobStatus: React.FC<Props> = ({ jobId }) => {
   return (
     <div style={{ marginTop: "10px" }}>
       <div>Status: {status}</div>
+
+      {/* v0.9.6: Show progress bar when running and progress is available */}
+      {status === "running" && progress !== null && (
+        <div style={{ marginTop: "10px", marginBottom: "10px" }}>
+          <ProgressBar progress={progress} max={100} showPercentage />
+        </div>
+      )}
+
+      {/* Show indeterminate progress when running but no progress data yet */}
+      {status === "running" && progress === null && (
+        <div style={{ marginTop: "10px", marginBottom: "10px", color: "#666" }}>
+          Processing... (progress not available)
+        </div>
+      )}
+
       {error && <div style={{ color: "red" }}>{error}</div>}
       {results && <JobResults results={results} />}
     </div>

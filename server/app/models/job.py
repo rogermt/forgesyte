@@ -5,7 +5,7 @@ import uuid
 from datetime import datetime
 
 from duckdb_engine import UUID
-from sqlalchemy import Column, DateTime, Enum, String
+from sqlalchemy import Column, DateTime, Enum, Integer, String
 
 from ..core.database import Base
 
@@ -63,4 +63,11 @@ class Job(Base):
         default=datetime.utcnow,
         onupdate=datetime.utcnow,
         nullable=False,
+    )
+
+    # v0.9.6: Progress tracking for video jobs (0-100, null for pre-v0.9.6 jobs)
+    progress = Column(
+        Integer,
+        nullable=True,
+        default=None,
     )

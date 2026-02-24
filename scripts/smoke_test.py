@@ -100,7 +100,7 @@ async def test_job_status(job_id: str) -> bool:
         data = response.json()
 
         # Verify required fields
-        required_fields = ["job_id", "status"]
+        required_fields = ["job_id", "status", "progress"]  # v0.9.6: Added progress
         for field in required_fields:
             if field not in data:
                 print(f"[STATUS] ERROR: Missing field '{field}' in response: {data}")
@@ -111,7 +111,19 @@ async def test_job_status(job_id: str) -> bool:
             print(f"[STATUS] ERROR: Invalid status '{status}'")
             return False
 
-        print(f"[STATUS] SUCCESS: status={status}")
+        # v0.9.6: Verify progress field is valid if present
+        progress = data.get("progress")
+        if progress is not None:
+            if not isinstance(progress, (int, float)):
+                print(
+                    f"[STATUS] ERROR: Progress should be number, got {type(progress)}"
+                )
+                return False
+            if not (0 <= progress <= 100):
+                print(f"[STATUS] ERROR: Progress should be 0-100, got {progress}")
+                return False
+
+        print(f"[STATUS] SUCCESS: status={status}, progress={progress}")
         return True
 
 
