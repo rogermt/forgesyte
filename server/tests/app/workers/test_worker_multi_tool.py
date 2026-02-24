@@ -143,7 +143,7 @@ class TestMultiToolWorkerExecution:
         # Track call order
         call_order = []
 
-        def track_run_tool(plugin_id, tool_name, args):
+        def track_run_tool(plugin_id, tool_name, args, progress_callback=None):
             call_order.append(tool_name)
             return {"result": f"{tool_name}_output"}
 
@@ -331,7 +331,7 @@ class TestMultiToolWorkerExecution:
         # t1 succeeds, t2 fails
         call_count = [0]
 
-        def run_tool_with_failure(plugin_id, tool_name, args):
+        def run_tool_with_failure(plugin_id, tool_name, args, progress_callback=None):
             call_count[0] += 1
             if tool_name == "t1":
                 return {"result": "ok"}
