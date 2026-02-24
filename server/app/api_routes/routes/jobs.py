@@ -134,6 +134,33 @@ async def get_job(job_id: UUID, db: Session = Depends(get_db)) -> JobResultsResp
     # Parse tool_list from JSON if present
     tool_list = json.loads(job.tool_list) if job.tool_list else None
 
+    # v0.9.7: Calculate multi-tool video metadata
+    current_tool = None
+    tools_total = None
+    tools_completed = None
+
+    if job.job_type == "video" and job.tool_list:
+        # Multi-tool video job: derive metadata
+        try:
+            tools_list = json.loads(job.tool_list)
+            tools_total = len(tools_list)
+
+            if job.status == JobStatus.running and job.progress is not None:
+                # Calculate which tool is running based on progress
+                # Each tool gets equal weight (100/total_tools)
+                tool_weight = 100 / tools_total
+                tools_completed = int(job.progress / tool_weight)
+                # Clamp to valid range
+                tools_completed = max(0, min(tools_total - 1, tools_completed))
+                # Current tool is the next one after completed
+                if tools_completed < tools_total:
+                    current_tool = tools_list[tools_completed]
+            elif job.status == JobStatus.completed:
+                tools_completed = tools_total
+                current_tool = None  # All done
+        except (json.JSONDecodeError, ZeroDivisionError):
+            pass
+
     # If job is not completed, return status without results
     if job.status != JobStatus.completed:
         return JobResultsResponse(
@@ -145,6 +172,9 @@ async def get_job(job_id: UUID, db: Session = Depends(get_db)) -> JobResultsResp
             job_type=job.job_type,
             error_message=job.error_message,
             progress=float(job.progress) if job.progress is not None else None,
+            current_tool=current_tool,
+            tools_total=tools_total,
+            tools_completed=tools_completed,
             created_at=job.created_at,
             updated_at=job.updated_at,
         )
@@ -169,6 +199,9 @@ async def get_job(job_id: UUID, db: Session = Depends(get_db)) -> JobResultsResp
         job_type=job.job_type,
         error_message=job.error_message,
         progress=float(job.progress) if job.progress is not None else None,
+        current_tool=current_tool,
+        tools_total=tools_total,
+        tools_completed=tools_completed,
         created_at=job.created_at,
         updated_at=job.updated_at,
     )
