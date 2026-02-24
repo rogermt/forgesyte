@@ -8,6 +8,7 @@ export interface Tool {
   id?: string;
   title?: string;
   description?: string;
+  input_types?: string[];
   inputs: Record<string, ToolParameter>;
   outputs: Record<string, ToolParameter>;
 }
