@@ -4,6 +4,7 @@ Provides POST /v1/image/submit endpoint for submitting image files
 for processing using the new Job model with job_type="image".
 
 v0.9.4: Added multi-tool support via repeated tool query parameters.
+v0.9.7: Added logical_tool_id parameter for capability-based resolution.
 """
 
 import json
@@ -18,6 +19,7 @@ from app.models.job import Job, JobStatus
 from app.plugin_loader import PluginRegistry
 from app.services.plugin_management_service import PluginManagementService
 from app.services.storage.local_storage import LocalStorageService
+from app.services.tool_router import resolve_tool
 
 router = APIRouter()
 storage = LocalStorageService()
@@ -81,7 +83,13 @@ def validate_image_magic_bytes(data: bytes) -> None:
 async def submit_image(
     file: UploadFile,
     plugin_id: str = Query(..., description="Plugin ID from /v1/plugins"),
-    tool: List[str] = Query(..., description="Tool ID(s) from plugin manifest"),
+    tool: List[str] | None = Query(
+        None,
+        description="Tool ID(s) from plugin manifest (optional if logical_tool_id provided)",
+    ),
+    logical_tool_id: str | None = Query(
+        None, description="Logical tool ID (capability string) for dynamic resolution"
+    ),
     plugin_manager=Depends(get_plugin_manager),
     plugin_service=Depends(get_plugin_service),
 ):
@@ -94,10 +102,17 @@ async def submit_image(
     v0.9.4: Supports multiple tools via repeated query parameters.
     Example: ?tool=player_detection&tool=ball_detection
 
+    v0.9.7: Supports logical_tool_id parameter for capability-based resolution.
+    The logical tool ID (capability string) is matched against tool capabilities
+    in the manifest to find the actual plugin tool ID.
+
     Args:
         file: Image file (PNG or JPEG) to process
         plugin_id: ID of the plugin to use (from /v1/plugins)
         tool: Tool ID(s) to run (from plugin manifest). Can be repeated for multi-tool.
+            Optional if logical_tool_id is provided.
+        logical_tool_id: Logical tool ID (capability string) for dynamic resolution
+            e.g., "player_detection", "ball_detection", "pitch_detection", "radar"
         plugin_manager: PluginRegistry from app state (DI)
         plugin_service: PluginManagementService instance (DI)
 
@@ -115,11 +130,32 @@ async def submit_image(
             detail=f"Plugin '{plugin_id}' not found",
         )
 
+    # v0.9.7: Resolve tool ID using capability-based resolution if logical_tool_id provided
+    resolved_tools: List[str] = []
+    if logical_tool_id:
+        try:
+            resolved_tool = resolve_tool(
+                logical_tool_id, file.content_type or "image/png", plugin_id
+            )
+            resolved_tools = [resolved_tool]
+        except ValueError as e:
+            raise HTTPException(
+                status_code=400,
+                detail=str(e),
+            ) from e
+    elif tool:
+        resolved_tools = tool
+    else:
+        raise HTTPException(
+            status_code=400,
+            detail="Either 'tool' or 'logical_tool_id' must be provided",
+        )
+
     # Validate all tools exist using plugin.tools (canonical source, NOT manifest)
     # See: docs/releases/v0.9.3/TOOL_CHECK_FIX.md
     available_tools = plugin_service.get_available_tools(plugin_id)
 
-    for t in tool:
+    for t in resolved_tools:
         if t not in available_tools:
             raise HTTPException(
                 status_code=400,
@@ -130,7 +166,7 @@ async def submit_image(
             )
 
     # Validate all tools support image input
-    for t in tool:
+    for t in resolved_tools:
         tool_def = plugin.tools.get(t)
         if not tool_def:
             raise HTTPException(
@@ -162,7 +198,7 @@ async def submit_image(
     validate_image_magic_bytes(contents)
 
     # Determine job type based on number of tools
-    is_multi_tool = len(tool) > 1
+    is_multi_tool = len(resolved_tools) > 1
     job_type = "image_multi" if is_multi_tool else "image"
 
     # Create job record with UUID object (not string)
@@ -179,8 +215,8 @@ async def submit_image(
             job_id=job_id,  # Pass UUID object, not string
             status=JobStatus.pending,
             plugin_id=plugin_id,
-            tool=tool[0] if not is_multi_tool else None,
-            tool_list=json.dumps(tool) if is_multi_tool else None,
+            tool=resolved_tools[0] if not is_multi_tool else None,
+            tool_list=json.dumps(resolved_tools) if is_multi_tool else None,
             input_path=input_path,
             job_type=job_type,
         )
