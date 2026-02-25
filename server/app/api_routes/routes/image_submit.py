@@ -135,7 +135,10 @@ async def submit_image(
     if logical_tool_id:
         try:
             resolved_tool = resolve_tool(
-                logical_tool_id, file.content_type or "image/png", plugin_id
+                logical_tool_id,
+                file.content_type or "image/png",
+                plugin_id,
+                plugin_service,
             )
             resolved_tools = [resolved_tool]
         except ValueError as e:

@@ -237,8 +237,6 @@ def test_submit_missing_both_tool_and_logical_tool_id_returns_400():
 
 
 @pytest.mark.unit
-@pytest.mark.skip(reason="Phase 2: Requires video_submit integration with resolve_tool")
-# APPROVED: Skipped test for Phase 2 - tool router integration with video_submit
 def test_submit_with_logical_tool_id_resolves_tool(
     session: Session, mock_plugin, mock_plugin_registry
 ):
@@ -248,7 +246,6 @@ def test_submit_with_logical_tool_id_resolves_tool(
     The logical tool ID (capability string) is matched against tool capabilities
     in the manifest to find the actual plugin tool ID.
     """
-    from unittest.mock import patch
 
     # Create manifest with capabilities for capability-based resolution
     manifest_with_capabilities = {
@@ -284,18 +281,19 @@ def test_submit_with_logical_tool_id_resolves_tool(
     app.dependency_overrides[get_plugin_manager] = override_get_plugin_manager
     app.dependency_overrides[get_plugin_service] = override_get_plugin_service
 
-    client = TestClient(app)
+    try:
+        client = TestClient(app)
 
-    mp4_data = b"ftypmp42" + b"\x00" * 100
+        mp4_data = b"ftypmp42" + b"\x00" * 100
 
-    # Send logical_tool_id instead of tool
-    response = client.post(
-        "/v1/video/submit",
-        files={"file": ("test.mp4", BytesIO(mp4_data))},
-        params={"plugin_id": "ocr", "logical_tool_id": "text_extraction"},
-    )
-
-    app.dependency_overrides.clear()
+        # Send logical_tool_id instead of tool
+        response = client.post(
+            "/v1/video/submit",
+            files={"file": ("test.mp4", BytesIO(mp4_data))},
+            params={"plugin_id": "ocr", "logical_tool_id": "text_extraction"},
+        )
+    finally:
+        app.dependency_overrides.clear()
 
     # Debug output
     print(f"DEBUG: status={response.status_code}, body={response.json()}")

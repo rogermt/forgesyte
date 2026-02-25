@@ -137,7 +137,10 @@ async def submit_video(
     if logical_tool_id:
         try:
             resolved_tool = resolve_tool(
-                logical_tool_id, file.content_type or "video/mp4", plugin_id
+                logical_tool_id,
+                file.content_type or "video/mp4",
+                plugin_id,
+                plugin_service,
             )
         except ValueError as e:
             raise HTTPException(
