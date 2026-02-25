@@ -17,7 +17,7 @@ vi.mock("../api/client", () => ({
 
 import { apiClient } from "../api/client";
 
-// v0.9.5: Default manifest with video tool for most tests
+// v0.9.7: Default manifest with video tool AND capabilities for most tests
 const defaultManifest = {
     id: "yolo",
     name: "yolo",
@@ -28,6 +28,7 @@ const defaultManifest = {
             description: "Run player detection on video",
             input_types: ["video"],
             output_types: ["video_detections"],
+            capabilities: ["player_detection"],  // v0.9.7: Required for logical tool matching
         },
     },
 };
@@ -104,7 +105,18 @@ describe("VideoUpload", () => {
             () => new Promise(() => {}) // Never resolves
         );
 
-        render(<VideoUpload pluginId="yolo" manifest={defaultManifest} />);
+        // v0.9.7: Manifest with capabilities for logical tool matching
+        const manifestWithCapabilities = {
+            ...defaultManifest,
+            tools: {
+                video_player_detection: {
+                    ...defaultManifest.tools.video_player_detection,
+                    capabilities: ["player_detection"],
+                },
+            },
+        };
+
+        render(<VideoUpload pluginId="yolo" manifest={manifestWithCapabilities} />);
 
         const fileInput = screen.getByLabelText(/upload/i) as HTMLInputElement;
         const file = new File(["test"], "test.mp4", { type: "video/mp4" });
@@ -124,7 +136,14 @@ describe("VideoUpload", () => {
         let resolveUpload: ((value: { job_id: string }) => void) | null = null;
 
         (apiClient.submitVideo as ReturnType<typeof vi.fn>).mockImplementation(
-            (_file: File, _pluginId: string, _tool: string, onProgress?: (percent: number) => void) => {
+            (
+                _file: File,
+                _pluginId: string,
+                _toolOrLogicalId: string,
+                onProgress?: (percent: number) => void,
+                // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                _useLogicalId?: boolean
+            ) => {
                 progressCallback = onProgress || null;
                 return new Promise((resolve) => {
                     resolveUpload = resolve;
@@ -278,6 +297,7 @@ describe("VideoUpload", () => {
         });
 
         it("uses first video tool when video tools are available", async () => {
+            // v0.9.7: Manifest with capabilities for logical tool matching
             const manifestWithVideoTools = {
                 id: "yolo",
                 name: "yolo",
@@ -293,6 +313,7 @@ describe("VideoUpload", () => {
                         description: "Run player detection on video",
                         input_types: ["video"],
                         output_types: ["video_detections"],
+                        capabilities: ["player_detection"],  // v0.9.7: Required for logical tool matching
                     },
                 },
             };
@@ -317,16 +338,19 @@ describe("VideoUpload", () => {
             fireEvent.click(uploadButton);
 
             await waitFor(() => {
+                // v0.9.7: Now sends logical_tool_id with useLogicalId=true
                 expect(apiClient.submitVideo).toHaveBeenCalledWith(
                     file,
                     "yolo",
-                    "video_player_detection", // Should use video tool
-                    expect.any(Function)
+                    "player_detection",  // Logical tool ID (capability)
+                    expect.any(Function),
+                    true  // useLogicalId
                 );
             });
         });
 
         it("filters tools by input_types containing 'video'", () => {
+            // v0.9.7: Manifest with capabilities
             const manifest = {
                 id: "test-plugin",
                 name: "test-plugin",
@@ -337,9 +361,11 @@ describe("VideoUpload", () => {
                     },
                     video_tool_1: {
                         input_types: ["video"],
+                        capabilities: ["player_detection"],
                     },
                     video_tool_2: {
                         input_types: ["video", "video_frame"],
+                        capabilities: ["ball_detection"],
                     },
                 },
             };

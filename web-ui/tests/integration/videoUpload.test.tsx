@@ -16,7 +16,7 @@ vi.mock("../../src/api/client", () => ({
 
 import { apiClient } from "../../src/api/client";
 
-// v0.9.5: Default manifest with video tool for integration tests
+// v0.9.7: Default manifest with video tool AND capabilities for integration tests
 const videoManifest = {
     id: "yolo",
     name: "yolo",
@@ -27,6 +27,7 @@ const videoManifest = {
             description: "Run player detection on video",
             input_types: ["video"],
             output_types: ["video_detections"],
+            capabilities: ["player_detection"],  // v0.9.7: Required for logical tool matching
         },
     },
 };
