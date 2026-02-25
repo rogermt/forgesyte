@@ -469,4 +469,154 @@ describe("ToolSelector", () => {
     // Info box should show "+1 more" when 2 tools are selected
     expect(screen.getByText("+1 more")).toBeInTheDocument();
   });
+
+  // ========================================================================
+  // Phase 6: Capabilities-based Tool Selection
+  // ========================================================================
+
+  // Manifest with top-level capabilities (like yolo-tracker)
+  const mockManifestWithCapabilities = {
+    id: "yolo-tracker",
+    name: "YOLO Tracker",
+    version: "1.0.0",
+    description: "YOLO-based tracking plugin",
+    capabilities: ["player_detection", "ball_detection", "pitch_detection", "radar"],
+    tools: [
+      {
+        id: "player_detection",
+        title: "Player Detection",
+        description: "Detect players in images",
+        input_types: ["image_bytes"],
+        capabilities: ["player_detection"],
+        inputs: {},
+        outputs: { detections: { type: "array" } },
+      },
+      {
+        id: "video_player_tracking",
+        title: "Video Player Tracking",
+        description: "Track players in videos",
+        input_types: ["video"],
+        capabilities: ["player_detection"],
+        inputs: {},
+        outputs: { frames: { type: "array" } },
+      },
+      {
+        id: "ball_detection",
+        title: "Ball Detection",
+        description: "Detect ball in images",
+        input_types: ["image_bytes"],
+        capabilities: ["ball_detection"],
+        inputs: {},
+        outputs: { detections: { type: "array" } },
+      },
+      {
+        id: "video_ball_detection",
+        title: "Video Ball Detection",
+        description: "Detect ball in videos",
+        input_types: ["video"],
+        capabilities: ["ball_detection"],
+        inputs: {},
+        outputs: { frames: { type: "array" } },
+      },
+    ],
+  };
+
+  it("should show manifest.capabilities when present (not all tools)", () => {
+    mockUseManifest.mockReturnValue({
+      manifest: mockManifestWithCapabilities,
+      loading: false,
+      error: null,
+      clearCache: vi.fn(),
+    });
+
+    render(
+      <ToolSelector
+        pluginId="yolo-tracker"
+        selectedTools={["player_detection"]}
+        onToolChange={vi.fn()}
+      />
+    );
+
+    // Should show 4 capabilities, not 8 concrete tools
+    const buttons = screen.getAllByRole("button");
+    // 4 capability buttons (excluding disabled streaming button text)
+    const toolButtons = buttons.filter(b => !b.textContent?.includes("Stop streaming"));
+    expect(toolButtons).toHaveLength(4);
+
+    // Should show capabilities as titles (formatted nicely)
+    // Use getAllByText since selected tool appears in both button and info box
+    expect(screen.getAllByText("Player Detection").length).toBeGreaterThan(0);
+    expect(screen.getByText("Ball Detection")).toBeInTheDocument();
+    expect(screen.getByText("Pitch Detection")).toBeInTheDocument();
+    expect(screen.getByText("Radar")).toBeInTheDocument();
+
+    // Should NOT show video_* tools
+    expect(screen.queryByText("Video Player Tracking")).not.toBeInTheDocument();
+    expect(screen.queryByText("Video Ball Detection")).not.toBeInTheDocument();
+  });
+
+  it("should fallback to union of tool.capabilities when no top-level capabilities", () => {
+    // Manifest without top-level capabilities
+    const manifestWithoutCapabilities = {
+      id: "test-plugin",
+      name: "Test Plugin",
+      version: "1.0.0",
+      tools: [
+        {
+          id: "tool_a",
+          capabilities: ["capability_x"],
+          inputs: {},
+          outputs: {},
+        },
+        {
+          id: "tool_b",
+          capabilities: ["capability_y"],
+          inputs: {},
+          outputs: {},
+        },
+      ],
+    };
+
+    mockUseManifest.mockReturnValue({
+      manifest: manifestWithoutCapabilities,
+      loading: false,
+      error: null,
+      clearCache: vi.fn(),
+    });
+
+    render(
+      <ToolSelector
+        pluginId="test-plugin"
+        selectedTools={["capability_x"]}
+        onToolChange={vi.fn()}
+      />
+    );
+
+    // Should show union of capabilities from tools
+    expect(screen.getByText("Capability X")).toBeInTheDocument();
+    expect(screen.getByText("Capability Y")).toBeInTheDocument();
+  });
+
+  it("should format capability names as title case", () => {
+    mockUseManifest.mockReturnValue({
+      manifest: mockManifestWithCapabilities,
+      loading: false,
+      error: null,
+      clearCache: vi.fn(),
+    });
+
+    render(
+      <ToolSelector
+        pluginId="yolo-tracker"
+        selectedTools={["player_detection"]}
+        onToolChange={vi.fn()}
+      />
+    );
+
+    // player_detection -> Player Detection
+    // Use getAllByText since selected tool appears in both button and info box
+    expect(screen.getAllByText("Player Detection").length).toBeGreaterThan(0);
+    // ball_detection -> Ball Detection
+    expect(screen.getByText("Ball Detection")).toBeInTheDocument();
+  });
 });
