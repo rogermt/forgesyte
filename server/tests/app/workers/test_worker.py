@@ -63,7 +63,7 @@ def test_worker_run_once_marks_job_running(test_engine, session):
     mock_storage.load_file.return_value = "/data/jobs/video/input/test.mp4"
     mock_storage.save_file.return_value = "video/output/test.json"
     mock_plugin_service.get_plugin_manifest.return_value = {
-        "tools": [{"id": "test_tool", "inputs": ["video_path"]}]
+        "tools": [{"id": "test_tool", "input_types": ["video"]}]
     }
     mock_plugin_service.run_plugin_tool.return_value = []
 
@@ -136,7 +136,7 @@ def test_worker_multiple_run_once_calls(test_engine, session):
     mock_storage.load_file.return_value = "/data/jobs/video/input/test.mp4"
     mock_storage.save_file.return_value = "video/output/test.json"
     mock_plugin_service.get_plugin_manifest.return_value = {
-        "tools": [{"id": "test_tool", "inputs": ["video_path"]}]
+        "tools": [{"id": "test_tool", "input_types": ["video"]}]
     }
     mock_plugin_service.run_plugin_tool.return_value = []
 
@@ -189,7 +189,7 @@ def test_worker_run_once_executes_pipeline(test_engine, session):
     mock_storage.load_file.return_value = "/data/jobs/video/input/test.mp4"
     mock_storage.save_file.return_value = "video/output/test.json"
     mock_plugin_service.get_plugin_manifest.return_value = {
-        "tools": [{"id": "test_tool", "inputs": ["video_path"]}]
+        "tools": [{"id": "test_tool", "input_types": ["video"]}]
     }
     mock_plugin_service.run_plugin_tool.return_value = [
         {"frame_index": 0, "result": {"detections": []}},
@@ -244,7 +244,7 @@ def test_worker_run_once_saves_results_to_storage(test_engine, session):
     mock_storage.load_file.return_value = "/data/jobs/video/input/test.mp4"
     mock_storage.save_file.return_value = "video/output/test.json"
     mock_plugin_service.get_plugin_manifest.return_value = {
-        "tools": [{"id": "test_tool", "inputs": ["video_path"]}]
+        "tools": [{"id": "test_tool", "input_types": ["video"]}]
     }
     mock_plugin_service.run_plugin_tool.return_value = test_results
 
@@ -262,8 +262,14 @@ def test_worker_run_once_saves_results_to_storage(test_engine, session):
         saved_json = json.loads(saved_content.decode())
     else:
         saved_json = json.loads(saved_content)
+    # v0.9.8: Canonical video output format
     assert "results" in saved_json
-    assert saved_json["results"] == test_results
+    assert "job_id" in saved_json
+    assert "status" in saved_json
+    # Results is now a list of {tool, output} objects
+    assert len(saved_json["results"]) == 1
+    assert saved_json["results"][0]["tool"] == "test_tool"
+    assert saved_json["results"][0]["output"] == test_results
 
 
 @pytest.mark.unit
@@ -297,7 +303,7 @@ def test_worker_run_once_updates_job_completed(test_engine, session):
     mock_storage.load_file.return_value = "/data/jobs/video/input/test.mp4"
     mock_storage.save_file.return_value = "video/output/test.json"
     mock_plugin_service.get_plugin_manifest.return_value = {
-        "tools": [{"id": "test_tool", "inputs": ["video_path"]}]
+        "tools": [{"id": "test_tool", "input_types": ["video"]}]
     }
     mock_plugin_service.run_plugin_tool.return_value = [
         {"frame_index": 0, "result": {"detections": []}},
@@ -345,7 +351,7 @@ def test_worker_run_once_handles_pipeline_error(test_engine, session):
     # Setup mock to raise error
     mock_storage.load_file.return_value = "/data/jobs/video/input/test.mp4"
     mock_plugin_service.get_plugin_manifest.return_value = {
-        "tools": [{"id": "test_tool", "inputs": ["video_path"]}]
+        "tools": [{"id": "test_tool", "input_types": ["video"]}]
     }
     mock_plugin_service.run_plugin_tool.side_effect = ValueError("Plugin error")
 
@@ -390,7 +396,7 @@ def test_worker_run_once_handles_storage_error(test_engine, session):
     # Setup mock to raise file not found
     mock_storage.load_file.side_effect = FileNotFoundError("File not found")
     mock_plugin_service.get_plugin_manifest.return_value = {
-        "tools": [{"id": "test_tool", "inputs": ["video_path"]}]
+        "tools": [{"id": "test_tool", "input_types": ["video"]}]
     }
 
     # Execute

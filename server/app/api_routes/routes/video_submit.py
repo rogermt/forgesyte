@@ -365,9 +365,17 @@ async def submit_video(
         db.close()
 
     # v0.9.8: Canonical JSON response
-    submitted_at = (
-        job.created_at.replace(tzinfo=timezone.utc).isoformat().replace("+00:00", "Z")
-    )
+    # Handle case where created_at might be None (e.g., in mocked tests)
+    if job.created_at:
+        submitted_at = (
+            job.created_at.replace(tzinfo=timezone.utc)
+            .isoformat()
+            .replace("+00:00", "Z")
+        )
+    else:
+        from datetime import datetime
+
+        submitted_at = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
     if logicals_used and len(resolved_tools) > 1:
         # Multi-tool with logical IDs

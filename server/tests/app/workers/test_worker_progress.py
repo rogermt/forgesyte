@@ -147,7 +147,7 @@ def test_worker_sets_100_percent_on_completion(test_engine, session):
     mock_storage.load_file.return_value = "/tmp/test.mp4"
     mock_storage.save_file.return_value = "video/output/test.json"
     mock_plugin_service.get_plugin_manifest.return_value = {
-        "tools": [{"id": "detect", "inputs": ["video_path"]}]
+        "tools": [{"id": "detect", "input_types": ["video"]}]
     }
     mock_plugin_service.run_plugin_tool.return_value = {"detections": []}
 

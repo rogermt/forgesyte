@@ -16,7 +16,7 @@ FAKE_JPEG = b"\xFF\xD8\xFF" + b"\x00" * 10
 FAKE_MANIFEST = {
     "tools": {
         "analyze": {
-            "inputs": ["image_bytes"],
+            "input_types": ["image_bytes"],
         }
     }
 }
