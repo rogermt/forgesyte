@@ -113,13 +113,88 @@ patterns:
     reason: 'Distributed execution (Phase 17+ only)'
 
 
-  # Phase 16: Endpoint namespace governance
-  # Phase‑15 endpoints (/v1/*) are forbidden in Phase‑16+
-  - pattern: '/v1/video/submit'
-    reason: 'Phase‑15 synchronous endpoint — forbidden in Phase‑16+'
-  - pattern: '/v1/video/status'
-    reason: 'Phase‑15 synchronous endpoint — forbidden in Phase‑16+'
-  - pattern: '/v1/video/results'
-    reason: 'Phase‑15 synchronous endpoint — forbidden in Phase‑16+'
-  - pattern: '/v1/'
-    reason: 'Phase‑15 namespace — forbidden in Phase‑16+'
+    # Phase 16: Endpoint namespace governance
+
+
+    # Phase‑15 endpoints (/v1/*) are forbidden in Phase‑16+
+
+
+    - pattern: '/v1/video/submit'
+
+
+      reason: 'Phase‑15 synchronous endpoint — forbidden in Phase‑16+'
+
+
+    - pattern: '/v1/video/status'
+
+
+      reason: 'Phase‑15 synchronous endpoint — forbidden in Phase‑16+'
+
+
+    - pattern: '/v1/video/results'
+
+
+      reason: 'Phase‑15 synchronous endpoint — forbidden in Phase‑16+'
+
+
+    - pattern: '/v1/'
+
+
+      reason: 'Phase‑15 namespace — forbidden in Phase‑16+'
+
+
+  
+
+
+    # v0.9.7: Plugin tool resolution governance — enforce capability-based resolution
+
+
+    # These patterns prevent substring/prefix matching that couples backend to plugin naming
+
+
+    - pattern: '\bstartswith\s*\(\s*["\']player'
+
+
+      reason: 'Prefix-based tool matching is forbidden; use capabilities instead'
+
+
+    - pattern: '\bstartswith\s*\(\s*["\']ball'
+
+
+      reason: 'Prefix-based tool matching is forbidden; use capabilities instead'
+
+
+    - pattern: '\bstartswith\s*\(\s*["\']video'
+
+
+      reason: 'Prefix-based tool matching is forbidden; use capabilities instead'
+
+
+    - pattern: '\bstartswith\s*\(\s*["\']image'
+
+
+      reason: 'Prefix-based tool matching is forbidden; use capabilities instead'
+
+
+    - pattern: '\bin\s+tool\s*\[\s*["\']id["\']\s*\]'
+
+
+      reason: 'Substring-based name matching is forbidden; use capabilities instead'
+
+
+    - pattern: '\bLOGICAL_TOOLS\s*='
+
+
+      reason: 'Backend must not maintain a list of logical tools; capabilities live in manifests'
+
+
+    - pattern: '\bLOGICAL_TOOL_IDS\b'
+
+
+      reason: 'Backend must not maintain a list of logical tools; capabilities live in manifests'
+
+
+  
+
+
+  
