@@ -6,9 +6,13 @@ import type { PluginManifest, Tool } from "../types/plugin";
 interface VideoUploadProps {
   pluginId: string | null;
   manifest?: PluginManifest | null;
+  /** v0.9.8: Array of selected tools (capabilities) for multi-tool support */
+  selectedTools?: string[];
+  /** @deprecated Use selectedTools instead */
   selectedTool?: string | null;
 }
 
+<<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
 // Tool entry with id for filtering
@@ -32,6 +36,9 @@ export const VideoUpload: React.FC<VideoUploadProps> = ({ pluginId, manifest }) 
 =======
 export const VideoUpload: React.FC<VideoUploadProps> = ({ pluginId, manifest, selectedTool }) => {
 >>>>>>> f9e9d7e (refactor: Remove tool selector dropdown from VideoUpload center page)
+=======
+export const VideoUpload: React.FC<VideoUploadProps> = ({ pluginId, manifest, selectedTools, selectedTool }) => {
+>>>>>>> 862bdd7 (feat(video-upload): add multi-tool selection support)
   const [file, setFile] = useState<File | null>(null);
   const [jobId, setJobId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -42,6 +49,7 @@ export const VideoUpload: React.FC<VideoUploadProps> = ({ pluginId, manifest, se
   // v0.9.7: Track selected tools (multi-select)
   const [selectedTools, setSelectedTools] = useState<string[]>([]);
 
+<<<<<<< HEAD
   // v0.9.7: Auto-select first tool if only one available (backward compatibility)
   // This effect runs once on mount when manifest changes
   useEffect(() => {
@@ -61,6 +69,11 @@ export const VideoUpload: React.FC<VideoUploadProps> = ({ pluginId, manifest, se
 =======
 
 >>>>>>> f9e9d7e (refactor: Remove tool selector dropdown from VideoUpload center page)
+=======
+  // v0.9.8: Support both selectedTools (array) and legacy selectedTool (single)
+  const toolsToUse = selectedTools ?? (selectedTool ? [selectedTool] : []);
+
+>>>>>>> 862bdd7 (feat(video-upload): add multi-tool selection support)
 
   // v0.9.5: Filter tools that support video input
   const availableVideoTools = useMemo((): ToolEntry[] => {
@@ -150,7 +163,7 @@ export const VideoUpload: React.FC<VideoUploadProps> = ({ pluginId, manifest, se
       setError("Please select a plugin first.");
       return;
     }
-    if (!selectedTool) {
+    if (toolsToUse.length === 0) {
       setError("Please select a tool from the left sidebar.");
       return;
     }
@@ -166,6 +179,7 @@ export const VideoUpload: React.FC<VideoUploadProps> = ({ pluginId, manifest, se
     setProgress(0);
 
     try {
+<<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
       // v0.9.7: Pass selected tools array to API
@@ -184,10 +198,13 @@ export const VideoUpload: React.FC<VideoUploadProps> = ({ pluginId, manifest, se
 =======
       // v0.9.7: Use tool_id from props (passed from App.tsx selectedTools)
 >>>>>>> f9e9d7e (refactor: Remove tool selector dropdown from VideoUpload center page)
+=======
+      // v0.9.8: Pass array of tools for multi-tool support
+>>>>>>> 862bdd7 (feat(video-upload): add multi-tool selection support)
       const { job_id } = await apiClient.submitVideo(
         file,
         pluginId,
-        selectedTool,
+        toolsToUse,  // Array of tools (single or multiple)
         (p) => setProgress(p),
         true  // useLogicalId = true
 >>>>>>> fcca9c0 (feat(web-ui): add 4 logical tools to VideoUpload component)
@@ -201,15 +218,20 @@ export const VideoUpload: React.FC<VideoUploadProps> = ({ pluginId, manifest, se
   };
 
 <<<<<<< HEAD
+<<<<<<< HEAD
   const canUpload = file && pluginId && selectedTools.length > 0;
 =======
   const canUpload = file && pluginId && selectedTool;
 >>>>>>> f9e9d7e (refactor: Remove tool selector dropdown from VideoUpload center page)
+=======
+  const canUpload = file && pluginId && toolsToUse.length > 0;
+>>>>>>> 862bdd7 (feat(video-upload): add multi-tool selection support)
 
   return (
     <div style={{ padding: "20px", maxWidth: "800px", margin: "0 auto" }}>
       <h2>Video Upload</h2>
 
+<<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
       {/* v0.9.7: Multi-select tool selection */}
@@ -303,6 +325,9 @@ export const VideoUpload: React.FC<VideoUploadProps> = ({ pluginId, manifest, se
       </div>
 =======
       {!selectedTool && (
+=======
+      {toolsToUse.length === 0 && (
+>>>>>>> 862bdd7 (feat(video-upload): add multi-tool selection support)
         <div style={{ padding: "12px", marginBottom: "16px", backgroundColor: "rgba(255, 193, 7, 0.1)", border: "1px solid var(--accent-orange)", borderRadius: "4px", color: "var(--text-primary)" }}>
           ⚠️ Select a tool from the left sidebar to upload video.
         </div>

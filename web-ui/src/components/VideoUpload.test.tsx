@@ -339,11 +339,11 @@ describe("VideoUpload", () => {
             fireEvent.click(uploadButton);
 
             await waitFor(() => {
-                // v0.9.7: Now sends tool_id from props
+                // v0.9.8: Now sends tools as array
                 expect(apiClient.submitVideo).toHaveBeenCalledWith(
                     file,
                     "yolo",
-                    "video_player_detection",  // Tool ID from props
+                    ["video_player_detection"],  // Array from props
                     expect.any(Function),
                     true  // useLogicalId
                 );
@@ -386,6 +386,97 @@ describe("VideoUpload", () => {
 
             // Should show upload UI
             expect(screen.getByLabelText(/upload/i)).toBeInTheDocument();
+        });
+    });
+
+    // Phase 7: Multi-tool video upload tests
+    describe("multi-tool support", () => {
+        it("should accept selectedTools array prop", async () => {
+            const manifestWithCapabilities = {
+                id: "yolo-tracker",
+                name: "YOLO Tracker",
+                version: "1.0.0",
+                capabilities: ["player_detection", "ball_detection"],
+                tools: {
+                    video_player_tracking: {
+                        title: "Video Player Tracking",
+                        input_types: ["video"],
+                        capabilities: ["player_detection"],
+                    },
+                    video_ball_detection: {
+                        title: "Video Ball Detection",
+                        input_types: ["video"],
+                        capabilities: ["ball_detection"],
+                    },
+                },
+            };
+
+            (apiClient.submitVideo as ReturnType<typeof vi.fn>).mockResolvedValue({
+                job_id: "multi-video-job-123",
+                tools: [
+                    { logical: "player_detection", resolved: "video_player_tracking" },
+                    { logical: "ball_detection", resolved: "video_ball_detection" },
+                ],
+            });
+
+            render(
+                <VideoUpload
+                    pluginId="yolo-tracker"
+                    manifest={manifestWithCapabilities}
+                    selectedTools={["player_detection", "ball_detection"]}
+                />
+            );
+
+            const fileInput = screen.getByLabelText(/upload/i) as HTMLInputElement;
+            const file = new File(["test"], "test.mp4", { type: "video/mp4" });
+
+            fireEvent.change(fileInput, { target: { files: [file] } });
+
+            const uploadButton = screen.getByText("Upload");
+            fireEvent.click(uploadButton);
+
+            await waitFor(() => {
+                // Should call submitVideo with array of tools
+                expect(apiClient.submitVideo).toHaveBeenCalledWith(
+                    file,
+                    "yolo-tracker",
+                    ["player_detection", "ball_detection"],  // Array of tools
+                    expect.any(Function),
+                    true  // useLogicalId
+                );
+            });
+        });
+
+        it("should work with single tool in array", async () => {
+            (apiClient.submitVideo as ReturnType<typeof vi.fn>).mockResolvedValue({
+                job_id: "single-video-job-123",
+            });
+
+            render(
+                <VideoUpload
+                    pluginId="yolo"
+                    manifest={defaultManifest}
+                    selectedTools={["player_detection"]}
+                />
+            );
+
+            const fileInput = screen.getByLabelText(/upload/i) as HTMLInputElement;
+            const file = new File(["test"], "test.mp4", { type: "video/mp4" });
+
+            fireEvent.change(fileInput, { target: { files: [file] } });
+
+            const uploadButton = screen.getByText("Upload");
+            fireEvent.click(uploadButton);
+
+            await waitFor(() => {
+                expect(apiClient.submitVideo).toHaveBeenCalledWith(
+                    file,
+                    "yolo",
+                    ["player_detection"],  // Single-item array
+                    expect.any(Function),
+                    true
+                );
+            });
         });
     });
 });
