@@ -5,9 +5,12 @@ for processing using the new Job model with job_type="image".
 
 v0.9.4: Added multi-tool support via repeated tool query parameters.
 v0.9.7: Added logical_tool_id parameter for capability-based resolution.
+v0.9.8: Added mutual exclusivity check (tool vs logical_tool_id),
+        repeatable logical_tool_id, and canonical JSON response.
 """
 
 import json
+from datetime import timezone
 from io import BytesIO
 from typing import List
 from uuid import uuid4
@@ -19,7 +22,7 @@ from app.models.job import Job, JobStatus
 from app.plugin_loader import PluginRegistry
 from app.services.plugin_management_service import PluginManagementService
 from app.services.storage.local_storage import LocalStorageService
-from app.services.tool_router import resolve_tool
+from app.services.tool_router import resolve_tools
 
 router = APIRouter()
 storage = LocalStorageService()
@@ -87,8 +90,9 @@ async def submit_image(
         None,
         description="Tool ID(s) from plugin manifest (optional if logical_tool_id provided)",
     ),
-    logical_tool_id: str | None = Query(
-        None, description="Logical tool ID (capability string) for dynamic resolution"
+    logical_tool_id: List[str] | None = Query(
+        None,
+        description="Logical tool ID(s) (capability strings). Repeatable for multi-tool.",
     ),
     plugin_manager=Depends(get_plugin_manager),
     plugin_service=Depends(get_plugin_service),
@@ -106,18 +110,23 @@ async def submit_image(
     The logical tool ID (capability string) is matched against tool capabilities
     in the manifest to find the actual plugin tool ID.
 
+    v0.9.8: Mutual exclusivity - cannot provide both tool and logical_tool_id.
+    Canonical JSON response with submitted_at, tools array for multi-tool.
+
     Args:
         file: Image file (PNG or JPEG) to process
         plugin_id: ID of the plugin to use (from /v1/plugins)
         tool: Tool ID(s) to run (from plugin manifest). Can be repeated for multi-tool.
             Optional if logical_tool_id is provided.
-        logical_tool_id: Logical tool ID (capability string) for dynamic resolution
-            e.g., "player_detection", "ball_detection", "pitch_detection", "radar"
+        logical_tool_id: Logical tool ID(s) (capability strings) for dynamic resolution.
+            Repeatable for multi-tool. e.g., "player_detection", "ball_detection"
         plugin_manager: PluginRegistry from app state (DI)
         plugin_service: PluginManagementService instance (DI)
 
     Returns:
-        JSON with job_id for polling via /v1/jobs/{job_id}
+        Canonical JSON:
+        - Single tool: {"job_id": "...", "plugin": "...", "tool": "...", "status": "queued", "submitted_at": "..."}
+        - Multi tool: {"job_id": "...", "plugin": "...", "tools": [...], "status": "queued", "submitted_at": "..."}
 
     Raises:
         HTTPException: If file is invalid or processing fails
@@ -130,23 +139,32 @@ async def submit_image(
             detail=f"Plugin '{plugin_id}' not found",
         )
 
-    # v0.9.7: Resolve tool ID using capability-based resolution if logical_tool_id provided
+    # v0.9.8: STRICT ARCHITECTURE RULE - mutual exclusivity check
+    if tool and logical_tool_id:
+        raise HTTPException(
+            status_code=400,
+            detail="Mutually exclusive parameters: You cannot provide both 'tool' and 'logical_tool_id' in the same request.",
+        )
+
+    # v0.9.8: Resolve tool IDs using capability-based resolution if logical_tool_id provided
     resolved_tools: List[str] = []
-    if logical_tool_id:
+    logicals_used: List[str] = []
+
+    if logical_tool_id and len(logical_tool_id) > 0:
         try:
-            resolved_tool = resolve_tool(
+            logicals_used = logical_tool_id
+            resolved_tools = resolve_tools(
                 logical_tool_id,
                 file.content_type or "image/png",
                 plugin_id,
                 plugin_service,
             )
-            resolved_tools = [resolved_tool]
         except ValueError as e:
             raise HTTPException(
                 status_code=400,
                 detail=str(e),
             ) from e
-    elif tool:
+    elif tool and len(tool) > 0:
         resolved_tools = tool
     else:
         raise HTTPException(
@@ -225,7 +243,39 @@ async def submit_image(
         )
         db.add(job)
         db.commit()
+        db.refresh(job)
     finally:
         db.close()
 
-    return {"job_id": str(job_id)}  # Return string in response
+    # v0.9.8: Canonical JSON response
+    submitted_at = (
+        job.created_at.replace(tzinfo=timezone.utc).isoformat().replace("+00:00", "Z")
+    )
+
+    if logicals_used and len(resolved_tools) > 1:
+        # Multi-tool with logical IDs
+        return {
+            "job_id": str(job_id),
+            "plugin": plugin_id,
+            "tools": [
+                {"logical": logical_id, "resolved": resolved_id}
+                for logical_id, resolved_id in zip(
+                    logicals_used, resolved_tools, strict=False
+                )
+            ],
+            "status": "queued",
+            "submitted_at": submitted_at,
+        }
+
+    if logicals_used and len(resolved_tools) == 1:
+        # Single tool with logical ID
+        return {
+            "job_id": str(job_id),
+            "plugin": plugin_id,
+            "tool": resolved_tools[0],
+            "status": "queued",
+            "submitted_at": submitted_at,
+        }
+
+    # Legacy (tool=...) callers get basic response
+    return {"job_id": str(job_id)}

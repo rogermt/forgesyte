@@ -329,3 +329,305 @@ class TestImageSubmitDI:
             # Restore original state
             if original_plugins is not None:
                 app.state.plugins = original_plugins
+
+
+class TestImageSubmitMutualExclusivity:
+    """Tests for tool/logical_tool_id mutual exclusivity (v0.9.8)."""
+
+    def test_mutual_exclusivity_tool_and_logical_tool_id(self, mock_plugin):
+        """400 if both tool and logical_tool_id provided."""
+        mock_registry = MagicMock()
+        mock_registry.get.return_value = mock_plugin
+
+        mock_service = MagicMock()
+        mock_service.get_available_tools.return_value = list(mock_plugin.tools.keys())
+
+        def override_get_plugin_manager():
+            return mock_registry
+
+        def override_get_plugin_service():
+            return mock_service
+
+        app.dependency_overrides[get_plugin_manager] = override_get_plugin_manager
+        app.dependency_overrides[get_plugin_service] = override_get_plugin_service
+
+        client = TestClient(app)
+
+        png_data = b"\x89PNG\r\n\x1a\n" + b"\x00" * 100
+
+        response = client.post(
+            "/v1/image/submit?plugin_id=ocr&tool=analyze&logical_tool_id=analyze",
+            files={"file": ("test.png", BytesIO(png_data), "image/png")},
+        )
+
+        app.dependency_overrides.clear()
+
+        assert response.status_code == 400
+        assert "mutually exclusive" in response.json()["detail"].lower()
+
+
+class TestImageSubmitRepeatableLogicalToolId:
+    """Tests for repeatable logical_tool_id parameter (v0.9.8)."""
+
+    def test_repeatable_logical_tool_id_single(self, mock_plugin, session: Session):
+        """Single logical_tool_id resolves correctly."""
+        # Create plugin with capabilities in manifest
+        plugin = MagicMock()
+        plugin.tools = {
+            "analyze": {
+                "handler": "analyze_handler",
+                "description": "Extract text",
+                "input_schema": {"properties": {"image_bytes": {"type": "string"}}},
+                "output_schema": {},
+            }
+        }
+
+        mock_registry = MagicMock()
+        mock_registry.get.return_value = plugin
+
+        mock_service = MagicMock()
+        mock_service.get_available_tools.return_value = ["analyze"]
+        mock_service.get_plugin_manifest.return_value = {
+            "name": "ocr",
+            "tools": [
+                {
+                    "id": "analyze",
+                    "input_types": ["image_bytes"],
+                    "capabilities": ["analyze"],
+                }
+            ],
+        }
+
+        def override_get_plugin_manager():
+            return mock_registry
+
+        def override_get_plugin_service():
+            return mock_service
+
+        app.dependency_overrides[get_plugin_manager] = override_get_plugin_manager
+        app.dependency_overrides[get_plugin_service] = override_get_plugin_service
+
+        client = TestClient(app)
+
+        png_data = b"\x89PNG\r\n\x1a\n" + b"\x00" * 100
+
+        response = client.post(
+            "/v1/image/submit?plugin_id=ocr&logical_tool_id=analyze",
+            files={"file": ("test.png", BytesIO(png_data), "image/png")},
+        )
+
+        app.dependency_overrides.clear()
+
+        assert response.status_code == 200
+        data = response.json()
+        assert "job_id" in data
+        assert "submitted_at" in data
+        assert "tool" in data  # Single tool response
+
+    def test_repeatable_logical_tool_id_multiple(self, mock_plugin, session: Session):
+        """Multiple logical_tool_id params resolve correctly."""
+        plugin = MagicMock()
+        plugin.tools = {
+            "ocr_text": {
+                "handler": "ocr_handler",
+                "input_schema": {"properties": {"image_bytes": {"type": "string"}}},
+            },
+            "ocr_tables": {
+                "handler": "tables_handler",
+                "input_schema": {"properties": {"image_bytes": {"type": "string"}}},
+            },
+        }
+
+        mock_registry = MagicMock()
+        mock_registry.get.return_value = plugin
+
+        mock_service = MagicMock()
+        mock_service.get_available_tools.return_value = ["ocr_text", "ocr_tables"]
+        mock_service.get_plugin_manifest.return_value = {
+            "name": "ocr",
+            "tools": [
+                {
+                    "id": "ocr_text",
+                    "input_types": ["image_bytes"],
+                    "capabilities": ["text_extraction"],
+                },
+                {
+                    "id": "ocr_tables",
+                    "input_types": ["image_bytes"],
+                    "capabilities": ["table_extraction"],
+                },
+            ],
+        }
+
+        def override_get_plugin_manager():
+            return mock_registry
+
+        def override_get_plugin_service():
+            return mock_service
+
+        app.dependency_overrides[get_plugin_manager] = override_get_plugin_manager
+        app.dependency_overrides[get_plugin_service] = override_get_plugin_service
+
+        client = TestClient(app)
+
+        png_data = b"\x89PNG\r\n\x1a\n" + b"\x00" * 100
+
+        response = client.post(
+            "/v1/image/submit?plugin_id=ocr&logical_tool_id=text_extraction&logical_tool_id=table_extraction",
+            files={"file": ("test.png", BytesIO(png_data), "image/png")},
+        )
+
+        app.dependency_overrides.clear()
+
+        assert response.status_code == 200
+        data = response.json()
+        assert "job_id" in data
+        assert "submitted_at" in data
+        assert "tools" in data  # Multi-tool response
+        assert len(data["tools"]) == 2
+        # Verify structure: [{"logical": "...", "resolved": "..."}]
+        assert "logical" in data["tools"][0]
+        assert "resolved" in data["tools"][0]
+
+        # Verify job_type in database
+        job = session.query(Job).filter(Job.job_id == data["job_id"]).first()
+        assert job is not None
+        assert job.job_type == "image_multi"
+
+
+class TestImageSubmitCanonicalJson:
+    """Tests for canonical JSON response format (v0.9.8)."""
+
+    def test_canonical_json_single_tool(self, mock_plugin, session: Session):
+        """Single tool response includes submitted_at and tool field."""
+        plugin = MagicMock()
+        plugin.tools = {
+            "analyze": {
+                "handler": "analyze_handler",
+                "input_schema": {"properties": {"image_bytes": {"type": "string"}}},
+            }
+        }
+
+        mock_registry = MagicMock()
+        mock_registry.get.return_value = plugin
+
+        mock_service = MagicMock()
+        mock_service.get_available_tools.return_value = ["analyze"]
+        mock_service.get_plugin_manifest.return_value = {
+            "name": "ocr",
+            "tools": [
+                {
+                    "id": "analyze",
+                    "input_types": ["image_bytes"],
+                    "capabilities": ["analyze"],
+                }
+            ],
+        }
+
+        def override_get_plugin_manager():
+            return mock_registry
+
+        def override_get_plugin_service():
+            return mock_service
+
+        app.dependency_overrides[get_plugin_manager] = override_get_plugin_manager
+        app.dependency_overrides[get_plugin_service] = override_get_plugin_service
+
+        client = TestClient(app)
+
+        png_data = b"\x89PNG\r\n\x1a\n" + b"\x00" * 100
+
+        response = client.post(
+            "/v1/image/submit?plugin_id=ocr&logical_tool_id=analyze",
+            files={"file": ("test.png", BytesIO(png_data), "image/png")},
+        )
+
+        app.dependency_overrides.clear()
+
+        assert response.status_code == 200
+        data = response.json()
+
+        # Canonical JSON fields
+        assert "job_id" in data
+        assert "plugin" in data
+        assert data["plugin"] == "ocr"
+        assert "tool" in data
+        assert "status" in data
+        assert data["status"] == "queued"
+        assert "submitted_at" in data
+        # ISO 8601 format check
+        assert "T" in data["submitted_at"]
+        assert data["submitted_at"].endswith("Z")
+
+    def test_canonical_json_multi_tool(self, mock_plugin, session: Session):
+        """Multi-tool response includes tools array with logical/resolved."""
+        plugin = MagicMock()
+        plugin.tools = {
+            "ocr_text": {
+                "handler": "ocr_handler",
+                "input_schema": {"properties": {"image_bytes": {"type": "string"}}},
+            },
+            "ocr_tables": {
+                "handler": "tables_handler",
+                "input_schema": {"properties": {"image_bytes": {"type": "string"}}},
+            },
+        }
+
+        mock_registry = MagicMock()
+        mock_registry.get.return_value = plugin
+
+        mock_service = MagicMock()
+        mock_service.get_available_tools.return_value = ["ocr_text", "ocr_tables"]
+        mock_service.get_plugin_manifest.return_value = {
+            "name": "ocr",
+            "tools": [
+                {
+                    "id": "ocr_text",
+                    "input_types": ["image_bytes"],
+                    "capabilities": ["text_extraction"],
+                },
+                {
+                    "id": "ocr_tables",
+                    "input_types": ["image_bytes"],
+                    "capabilities": ["table_extraction"],
+                },
+            ],
+        }
+
+        def override_get_plugin_manager():
+            return mock_registry
+
+        def override_get_plugin_service():
+            return mock_service
+
+        app.dependency_overrides[get_plugin_manager] = override_get_plugin_manager
+        app.dependency_overrides[get_plugin_service] = override_get_plugin_service
+
+        client = TestClient(app)
+
+        png_data = b"\x89PNG\r\n\x1a\n" + b"\x00" * 100
+
+        response = client.post(
+            "/v1/image/submit?plugin_id=ocr&logical_tool_id=text_extraction&logical_tool_id=table_extraction",
+            files={"file": ("test.png", BytesIO(png_data), "image/png")},
+        )
+
+        app.dependency_overrides.clear()
+
+        assert response.status_code == 200
+        data = response.json()
+
+        # Canonical JSON fields for multi-tool
+        assert "job_id" in data
+        assert "plugin" in data
+        assert data["plugin"] == "ocr"
+        assert "tools" in data
+        assert "status" in data
+        assert data["status"] == "queued"
+        assert "submitted_at" in data
+
+        # Tools array structure
+        assert len(data["tools"]) == 2
+        for tool_entry in data["tools"]:
+            assert "logical" in tool_entry
+            assert "resolved" in tool_entry
