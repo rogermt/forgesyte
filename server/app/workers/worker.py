@@ -265,10 +265,14 @@ class JobWorker:
                 return False
 
             # v0.9.4: Determine tools to execute based on job_type
+<<<<<<< HEAD
             # v0.9.7: video jobs can also be multi-tool (check tool_list presence)
             is_multi_tool = job.job_type == "image_multi" or (
                 job.job_type == "video" and job.tool_list is not None
             )
+=======
+            is_multi_tool = job.job_type in ("image_multi", "video_multi")
+>>>>>>> 1c3d290 (feat(worker): add video_multi job type with canonical output)
 
             if is_multi_tool:
                 # Parse tool_list from JSON
@@ -314,17 +318,20 @@ class JobWorker:
                     return False
 
                 # Validate tool supports job_type
-                tool_inputs = tool_def.get("inputs", [])
-                input_type_list = []
-
-                if isinstance(tool_inputs, list):
-                    input_type_list = tool_inputs
-                elif isinstance(tool_inputs, dict):
-                    input_type_list = list(tool_inputs.keys())
+                # v0.9.8: Prefer input_types (new) over inputs (legacy)
+                input_types = tool_def.get("input_types")
+                if not isinstance(input_types, list):
+                    # Fallback to inputs keys for legacy manifests
+                    tool_inputs = tool_def.get("inputs", {})
+                    if isinstance(tool_inputs, dict):
+                        input_types = list(tool_inputs.keys())
+                    else:
+                        input_types = []
 
                 if job.job_type in ("image", "image_multi"):
-                    if not any(
-                        i in input_type_list for i in ("image_bytes", "image_base64")
+                    if (
+                        "image_bytes" not in input_types
+                        and "image_base64" not in input_types
                     ):
                         job.status = JobStatus.failed
                         job.error_message = (
@@ -332,8 +339,8 @@ class JobWorker:
                         )
                         db.commit()
                         return False
-                elif job.job_type == "video":
-                    if not any(i in input_type_list for i in ("video", "video_path")):
+                elif job.job_type in ("video", "video_multi"):
+                    if "video" not in input_types and "video_path" not in input_types:
                         job.status = JobStatus.failed
                         job.error_message = (
                             f"Tool '{tool_name}' does not support video input"
@@ -383,7 +390,7 @@ class JobWorker:
                     args = {"image_bytes": image_bytes}
                 logger.info("Job %s: loaded image file %s", job.job_id, image_path)
 
-            elif job.job_type == "video":
+            elif job.job_type in ("video", "video_multi"):
                 # Load video file from storage
                 video_path = self._storage.load_file(job.input_path)
 
@@ -398,6 +405,7 @@ class JobWorker:
                     total_tools,
                 )
 
+<<<<<<< HEAD
                 # v0.9.7: Create unified progress callback for multi-tool video jobs
                 def make_progress_callback(tool_index: int, tool_name: str):
                     def unified_progress_callback(
@@ -419,6 +427,9 @@ class JobWorker:
                 base_args = {
                     "video_path": str(video_path),
                 }
+=======
+                args = {"video_path": str(video_path)}
+>>>>>>> 1c3d290 (feat(worker): add video_multi job type with canonical output)
                 logger.info("Job %s: loaded video file %s", job.job_id, video_path)
             else:
                 job.status = JobStatus.failed
@@ -429,7 +440,9 @@ class JobWorker:
             # v0.9.4: Execute tools
             # v0.9.7: Updated to use unified progress for multi-tool video jobs
             results: Dict[str, Any] = {}
+            num_tools = len(tools_to_run)
 
+<<<<<<< HEAD
             for tool_index, tool_name in enumerate(tools_to_run):
                 logger.info(
                     "Job %s: executing tool '%s' (%d/%d)",
@@ -450,6 +463,27 @@ class JobWorker:
                     # Image jobs: use args as-is
                     tool_args = args.copy() if args else {}
                     progress_callback = None
+=======
+            for idx, tool_name in enumerate(tools_to_run):
+                logger.info("Job %s: executing tool '%s'", job.job_id, tool_name)
+
+                # v0.9.8: Create per-tool progress callback for video jobs
+                progress_callback = None
+                if job.job_type in ("video", "video_multi"):
+
+                    def make_progress_cb(tool_index: int):
+                        def cb(current_frame: int, total: int = total_frames) -> None:
+                            per_total = total if total and total > 0 else total_frames
+                            overall_total = per_total * num_tools
+                            overall_current = (tool_index * per_total) + current_frame
+                            self._update_job_progress(
+                                str(job.job_id), overall_current, overall_total, db
+                            )
+
+                        return cb
+
+                    progress_callback = make_progress_cb(idx)
+>>>>>>> 1c3d290 (feat(worker): add video_multi job type with canonical output)
 
                 # Execute tool via plugin_service (includes sandbox and error handling)
                 result = plugin_service.run_plugin_tool(
@@ -470,13 +504,29 @@ class JobWorker:
                     "Job %s: tool '%s' executed successfully", job.job_id, tool_name
                 )
 
+<<<<<<< HEAD
             # v0.9.4: Prepare output based on job type
             # v0.9.5: Unified output format for all job types
             # v0.9.7: video multi-tool uses same format as image_multi
             if is_multi_tool:
+=======
+            # v0.9.8: Prepare output based on job type
+            output_data: Dict[str, Any]
+            if job.job_type in ("video", "video_multi"):
+                # Canonical video results JSON
+                output_data = {
+                    "job_id": str(job.job_id),
+                    "status": "completed",
+                    "results": [
+                        {"tool": t, "output": results[t]} for t in tools_to_run
+                    ],
+                }
+            elif is_multi_tool:
+                # Multi-tool image format
+>>>>>>> 1c3d290 (feat(worker): add video_multi job type with canonical output)
                 output_data = {"plugin_id": job.plugin_id, "tools": results}
             else:
-                # Single-tool job (image or video)
+                # Single-tool job (image)
                 output_data = {
                     "plugin_id": job.plugin_id,
                     "tool": tools_to_run[0],
@@ -497,8 +547,8 @@ class JobWorker:
             job.status = JobStatus.completed
             job.output_path = output_path
             job.error_message = None
-            # v0.9.6: Ensure 100% progress on completion
-            if job.job_type == "video":
+            # v0.9.8: Ensure 100% progress on completion for video jobs
+            if job.job_type in ("video", "video_multi"):
                 job.progress = 100
             db.commit()
 
