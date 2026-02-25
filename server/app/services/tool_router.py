@@ -106,8 +106,7 @@ def resolve_tool(logical_tool_id: str, file_mime: str, plugin_name: str) -> str:
         required_input = "image_bytes"
     else:
         raise ValueError(
-            f"Unsupported file type: {file_mime}. "
-            f"Expected image/* or video/*"
+            f"Unsupported file type: {file_mime}. " f"Expected image/* or video/*"
         )
 
     # CAPABILITY match: logical tool ID must be in tool's capabilities array

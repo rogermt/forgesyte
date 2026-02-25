@@ -12,7 +12,7 @@ Architecture verified:
 
 import pytest
 
-from app.services.tool_router import get_plugin_manifest, resolve_tool
+from app.services.tool_router import resolve_tool
 
 
 @pytest.fixture
