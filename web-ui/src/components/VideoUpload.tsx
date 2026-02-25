@@ -6,8 +6,10 @@ import type { PluginManifest, Tool } from "../types/plugin";
 interface VideoUploadProps {
   pluginId: string | null;
   manifest?: PluginManifest | null;
+  selectedTool?: string | null;
 }
 
+<<<<<<< HEAD
 <<<<<<< HEAD
 // Tool entry with id for filtering
 interface ToolEntry extends Tool {
@@ -27,11 +29,15 @@ type LogicalToolId = typeof LOGICAL_TOOLS[number]["id"];
 >>>>>>> fcca9c0 (feat(web-ui): add 4 logical tools to VideoUpload component)
 
 export const VideoUpload: React.FC<VideoUploadProps> = ({ pluginId, manifest }) => {
+=======
+export const VideoUpload: React.FC<VideoUploadProps> = ({ pluginId, manifest, selectedTool }) => {
+>>>>>>> f9e9d7e (refactor: Remove tool selector dropdown from VideoUpload center page)
   const [file, setFile] = useState<File | null>(null);
   const [jobId, setJobId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState<number>(0);
+<<<<<<< HEAD
 <<<<<<< HEAD
   // v0.9.7: Track selected tools (multi-select)
   const [selectedTools, setSelectedTools] = useState<string[]>([]);
@@ -52,6 +58,9 @@ export const VideoUpload: React.FC<VideoUploadProps> = ({ pluginId, manifest }) 
 =======
   const [selectedLogicalTool, setSelectedLogicalTool] = useState<LogicalToolId>("player_detection");
 >>>>>>> fcca9c0 (feat(web-ui): add 4 logical tools to VideoUpload component)
+=======
+
+>>>>>>> f9e9d7e (refactor: Remove tool selector dropdown from VideoUpload center page)
 
   // v0.9.5: Filter tools that support video input
   const availableVideoTools = useMemo((): ToolEntry[] => {
@@ -65,27 +74,6 @@ export const VideoUpload: React.FC<VideoUploadProps> = ({ pluginId, manifest }) 
     );
   }, [manifest]);
 
-  // v0.9.7: Check which logical tools are available based on manifest capabilities
-  const availableLogicalTools = useMemo(() => {
-    if (!manifest?.tools) return [];
-
-    const tools = manifest.tools;
-    const toolEntries = Array.isArray(tools)
-      ? tools
-      : Object.entries(tools).map(([id, tool]) => ({ id, ...tool }));
-
-    // Collect all capabilities from tools that support video input
-    const videoCapabilities = new Set<string>();
-    toolEntries
-      .filter((tool) => tool.input_types?.includes("video"))
-      .forEach((tool) => {
-        (tool.capabilities || []).forEach((cap: string) => videoCapabilities.add(cap));
-      });
-
-    // Filter logical tools to those with matching capabilities
-    return LOGICAL_TOOLS.filter((lt) => videoCapabilities.has(lt.id));
-  }, [manifest]);
-
   // v0.9.5: Show fallback if no video tools available
   if (availableVideoTools.length === 0) {
     return (
@@ -96,6 +84,7 @@ export const VideoUpload: React.FC<VideoUploadProps> = ({ pluginId, manifest }) 
     );
   }
 
+<<<<<<< HEAD
 <<<<<<< HEAD
   // v0.9.7: Handle tool selection toggle (multi-select)
   const handleToolToggle = (toolId: string) => {
@@ -133,6 +122,8 @@ export const VideoUpload: React.FC<VideoUploadProps> = ({ pluginId, manifest }) 
   }
 >>>>>>> fcca9c0 (feat(web-ui): add 4 logical tools to VideoUpload component)
 
+=======
+>>>>>>> f9e9d7e (refactor: Remove tool selector dropdown from VideoUpload center page)
   const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0] ?? null;
     setError(null);
@@ -159,6 +150,10 @@ export const VideoUpload: React.FC<VideoUploadProps> = ({ pluginId, manifest }) 
       setError("Please select a plugin first.");
       return;
     }
+    if (!selectedTool) {
+      setError("Please select a tool from the left sidebar.");
+      return;
+    }
 
     // v0.9.7: Validate at least one tool is selected
     if (selectedTools.length === 0) {
@@ -171,6 +166,7 @@ export const VideoUpload: React.FC<VideoUploadProps> = ({ pluginId, manifest }) 
     setProgress(0);
 
     try {
+<<<<<<< HEAD
 <<<<<<< HEAD
       // v0.9.7: Pass selected tools array to API
       // If only one tool selected, still pass as array for consistency
@@ -185,10 +181,13 @@ export const VideoUpload: React.FC<VideoUploadProps> = ({ pluginId, manifest }) 
         (p) => setProgress(p)
 =======
       // v0.9.7: Use logical_tool_id for capability-based resolution
+=======
+      // v0.9.7: Use tool_id from props (passed from App.tsx selectedTools)
+>>>>>>> f9e9d7e (refactor: Remove tool selector dropdown from VideoUpload center page)
       const { job_id } = await apiClient.submitVideo(
         file,
         pluginId,
-        selectedLogicalTool,
+        selectedTool,
         (p) => setProgress(p),
         true  // useLogicalId = true
 >>>>>>> fcca9c0 (feat(web-ui): add 4 logical tools to VideoUpload component)
@@ -201,12 +200,17 @@ export const VideoUpload: React.FC<VideoUploadProps> = ({ pluginId, manifest }) 
     }
   };
 
+<<<<<<< HEAD
   const canUpload = file && pluginId && selectedTools.length > 0;
+=======
+  const canUpload = file && pluginId && selectedTool;
+>>>>>>> f9e9d7e (refactor: Remove tool selector dropdown from VideoUpload center page)
 
   return (
     <div style={{ padding: "20px", maxWidth: "800px", margin: "0 auto" }}>
       <h2>Video Upload</h2>
 
+<<<<<<< HEAD
 <<<<<<< HEAD
       {/* v0.9.7: Multi-select tool selection */}
       <div style={{ marginBottom: "16px" }}>
@@ -297,6 +301,13 @@ export const VideoUpload: React.FC<VideoUploadProps> = ({ pluginId, manifest }) 
         </p>
 >>>>>>> fcca9c0 (feat(web-ui): add 4 logical tools to VideoUpload component)
       </div>
+=======
+      {!selectedTool && (
+        <div style={{ padding: "12px", marginBottom: "16px", backgroundColor: "rgba(255, 193, 7, 0.1)", border: "1px solid var(--accent-orange)", borderRadius: "4px", color: "var(--text-primary)" }}>
+          ⚠️ Select a tool from the left sidebar to upload video.
+        </div>
+      )}
+>>>>>>> f9e9d7e (refactor: Remove tool selector dropdown from VideoUpload center page)
 
       <label htmlFor="video-upload">Upload video:</label>
       <input id="video-upload" type="file" accept="video/mp4" onChange={onFileChange} />

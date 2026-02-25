@@ -43,7 +43,7 @@ describe("VideoUpload Integration", () => {
             job_id: "test-job-123",
         });
 
-        render(<VideoUpload pluginId="yolo" manifest={videoManifest} />);
+        render(<VideoUpload pluginId="yolo" manifest={videoManifest} selectedTool="video_player_detection" />);
 
         // Simulate file selection
         const fileInput = screen.getByLabelText(/upload/i) as HTMLInputElement;
@@ -62,7 +62,7 @@ describe("VideoUpload Integration", () => {
     });
 
     it("should reject non-MP4 files", () => {
-        render(<VideoUpload pluginId="yolo" manifest={videoManifest} />);
+        render(<VideoUpload pluginId="yolo" manifest={videoManifest} selectedTool="video_player_detection" />);
 
         const fileInput = screen.getByLabelText(/upload/i) as HTMLInputElement;
         const file = new File([""], "test.jpg", { type: "image/jpeg" });
@@ -107,7 +107,7 @@ it.skip("should poll job status and display results when complete", async () => 
             }
         });
 
-        render(<VideoUpload pluginId="yolo" manifest={videoManifest} />);
+        render(<VideoUpload pluginId="yolo" manifest={videoManifest} selectedTool="video_player_detection" />);
 
         // Simulate file selection
         const fileInput = screen.getByLabelText(/upload/i) as HTMLInputElement;
@@ -150,7 +150,7 @@ it.skip("should poll job status and display results when complete", async () => 
             created_at: "2026-02-18T10:00:00Z",
         });
 
-        render(<VideoUpload pluginId="yolo" manifest={videoManifest} />);
+        render(<VideoUpload pluginId="yolo" manifest={videoManifest} selectedTool="video_player_detection" />);
 
         // Simulate file selection
         const fileInput = screen.getByLabelText(/upload/i) as HTMLInputElement;
@@ -186,7 +186,7 @@ it.skip("should poll job status and display results when complete", async () => 
             }
         );
 
-        render(<VideoUpload pluginId="yolo" manifest={videoManifest} />);
+        render(<VideoUpload pluginId="yolo" manifest={videoManifest} selectedTool="video_player_detection" />);
 
         // Simulate file selection
         const fileInput = screen.getByLabelText(/upload/i) as HTMLInputElement;

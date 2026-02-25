@@ -54,12 +54,12 @@ describe("VideoUpload", () => {
     });
 
     it("renders without errors when video tools available", () => {
-        render(<VideoUpload pluginId="yolo" manifest={defaultManifest} />);
+        render(<VideoUpload pluginId="yolo" manifest={defaultManifest} selectedTool="video_player_detection" />);
         expect(screen.getByText("Video Upload")).toBeInTheDocument();
     });
 
     it("accepts MP4 files", () => {
-        render(<VideoUpload pluginId="yolo" manifest={defaultManifest} />);
+        render(<VideoUpload pluginId="yolo" manifest={defaultManifest} selectedTool="video_player_detection" />);
 
         const fileInput = screen.getByLabelText(/upload/i) as HTMLInputElement;
         const file = new File(["test"], "test.mp4", { type: "video/mp4" });
@@ -71,7 +71,7 @@ describe("VideoUpload", () => {
     });
 
     it("rejects non-MP4 files", () => {
-        render(<VideoUpload pluginId="yolo" manifest={defaultManifest} />);
+        render(<VideoUpload pluginId="yolo" manifest={defaultManifest} selectedTool="video_player_detection" />);
 
         const fileInput = screen.getByLabelText(/upload/i) as HTMLInputElement;
         const file = new File(["test"], "test.jpg", { type: "image/jpeg" });
@@ -82,14 +82,14 @@ describe("VideoUpload", () => {
     });
 
     it("disables upload button when no file selected", () => {
-        render(<VideoUpload pluginId="yolo" manifest={defaultManifest} />);
+        render(<VideoUpload pluginId="yolo" manifest={defaultManifest} selectedTool="video_player_detection" />);
 
         const uploadButton = screen.getByText("Upload");
         expect(uploadButton).toBeDisabled();
     });
 
     it("disables upload button when no plugin selected", () => {
-        render(<VideoUpload pluginId={null} manifest={defaultManifest} />);
+        render(<VideoUpload pluginId={null} manifest={defaultManifest} selectedTool="video_player_detection" />);
 
         const fileInput = screen.getByLabelText(/upload/i) as HTMLInputElement;
         const file = new File(["test"], "test.mp4", { type: "video/mp4" });
@@ -116,7 +116,7 @@ describe("VideoUpload", () => {
             },
         };
 
-        render(<VideoUpload pluginId="yolo" manifest={manifestWithCapabilities} />);
+        render(<VideoUpload pluginId="yolo" manifest={manifestWithCapabilities} selectedTool="video_player_detection" />);
 
         const fileInput = screen.getByLabelText(/upload/i) as HTMLInputElement;
         const file = new File(["test"], "test.mp4", { type: "video/mp4" });
@@ -151,7 +151,7 @@ describe("VideoUpload", () => {
             }
         );
 
-        render(<VideoUpload pluginId="yolo" manifest={defaultManifest} />);
+        render(<VideoUpload pluginId="yolo" manifest={defaultManifest} selectedTool="video_player_detection" />);
 
         const fileInput = screen.getByLabelText(/upload/i) as HTMLInputElement;
         const file = new File(["test"], "test.mp4", { type: "video/mp4" });
@@ -181,7 +181,7 @@ describe("VideoUpload", () => {
             job_id: "test-job-123",
         });
 
-        render(<VideoUpload pluginId="yolo" manifest={defaultManifest} />);
+        render(<VideoUpload pluginId="yolo" manifest={defaultManifest} selectedTool="video_player_detection" />);
 
         const fileInput = screen.getByLabelText(/upload/i) as HTMLInputElement;
         const file = new File(["test"], "test.mp4", { type: "video/mp4" });
@@ -201,7 +201,7 @@ describe("VideoUpload", () => {
             new Error("Upload failed")
         );
 
-        render(<VideoUpload pluginId="yolo" manifest={defaultManifest} />);
+        render(<VideoUpload pluginId="yolo" manifest={defaultManifest} selectedTool="video_player_detection" />);
 
         const fileInput = screen.getByLabelText(/upload/i) as HTMLInputElement;
         const file = new File(["test"], "test.mp4", { type: "video/mp4" });
@@ -221,7 +221,7 @@ describe("VideoUpload", () => {
             new Error("Upload failed")
         );
 
-        render(<VideoUpload pluginId="yolo" manifest={defaultManifest} />);
+        render(<VideoUpload pluginId="yolo" manifest={defaultManifest} selectedTool="video_player_detection" />);
 
         const fileInput = screen.getByLabelText(/upload/i) as HTMLInputElement;
         const file1 = new File(["test1"], "test1.mp4", { type: "video/mp4" });
@@ -247,7 +247,7 @@ describe("VideoUpload", () => {
             job_id: "test-job-123",
         });
 
-        render(<VideoUpload pluginId="yolo" manifest={defaultManifest} />);
+        render(<VideoUpload pluginId="yolo" manifest={defaultManifest} selectedTool="video_player_detection" />);
 
         const fileInput = screen.getByLabelText(/upload/i) as HTMLInputElement;
         const file1 = new File(["test1"], "test1.mp4", { type: "video/mp4" });
@@ -326,6 +326,7 @@ describe("VideoUpload", () => {
                 <VideoUpload
                     pluginId="yolo"
                     manifest={manifestWithVideoTools}
+                    selectedTool="video_player_detection"
                 />
             );
 
@@ -338,11 +339,11 @@ describe("VideoUpload", () => {
             fireEvent.click(uploadButton);
 
             await waitFor(() => {
-                // v0.9.7: Now sends logical_tool_id with useLogicalId=true
+                // v0.9.7: Now sends tool_id from props
                 expect(apiClient.submitVideo).toHaveBeenCalledWith(
                     file,
                     "yolo",
-                    "player_detection",  // Logical tool ID (capability)
+                    "video_player_detection",  // Tool ID from props
                     expect.any(Function),
                     true  // useLogicalId
                 );
@@ -374,6 +375,7 @@ describe("VideoUpload", () => {
                 <VideoUpload
                     pluginId="test-plugin"
                     manifest={manifest}
+                    selectedTool="video_tool_1"
                 />
             );
 
