@@ -364,6 +364,165 @@ describe("ForgeSyteAPIClient", () => {
                 expect(progressCallback).toHaveBeenCalledWith(50);
                 expect(progressCallback).toHaveBeenCalledWith(100);
             });
+
+            // Phase 5: Multi-tool video submission tests
+            it("should submit video with multiple logical_tool_id params", async () => {
+                const mockFile = new File(["test"], "test.mp4", { type: "video/mp4" });
+                const mockResult = { job_id: "video-multi-123", tools: [{ logical: "player_detection", resolved: "video_player_tracking" }] };
+
+                const mockXHRInstances: MockXMLHttpRequest[] = [];
+
+                class MockXMLHttpRequest {
+                    open = vi.fn();
+                    send = vi.fn();
+                    setRequestHeader = vi.fn();
+                    upload = { onprogress: null as null };
+                    onload: (() => void) | null = null;
+                    onerror: (() => void) | null = null;
+                    status = 200;
+                    responseText = JSON.stringify(mockResult);
+
+                    constructor() {
+                        mockXHRInstances.push(this);
+                        setTimeout(() => { if (this.onload) this.onload(); }, 0);
+                    }
+                }
+
+                (global as unknown as { XMLHttpRequest: typeof MockXMLHttpRequest }).XMLHttpRequest = MockXMLHttpRequest;
+
+                // Submit with array of logical IDs and useLogicalId=true
+                const result = await client.submitVideo(
+                    mockFile,
+                    "yolo-tracker",
+                    ["player_detection", "ball_detection"],
+                    undefined,
+                    true
+                );
+
+                expect(result).toEqual(mockResult);
+                const calledUrl = mockXHRInstances[0]?.open.mock.calls[0][1] as string;
+                // Should have repeated logical_tool_id params
+                expect(calledUrl).toContain("logical_tool_id=player_detection");
+                expect(calledUrl).toContain("logical_tool_id=ball_detection");
+            });
+
+            it("should submit video with single logical_tool_id when useLogicalId=true", async () => {
+                const mockFile = new File(["test"], "test.mp4", { type: "video/mp4" });
+                const mockResult = { job_id: "video-single-123" };
+
+                const mockXHRInstances: MockXMLHttpRequest[] = [];
+
+                class MockXMLHttpRequest {
+                    open = vi.fn();
+                    send = vi.fn();
+                    setRequestHeader = vi.fn();
+                    upload = { onprogress: null as null };
+                    onload: (() => void) | null = null;
+                    onerror: (() => void) | null = null;
+                    status = 200;
+                    responseText = JSON.stringify(mockResult);
+
+                    constructor() {
+                        mockXHRInstances.push(this);
+                        setTimeout(() => { if (this.onload) this.onload(); }, 0);
+                    }
+                }
+
+                (global as unknown as { XMLHttpRequest: typeof MockXMLHttpRequest }).XMLHttpRequest = MockXMLHttpRequest;
+
+                const result = await client.submitVideo(
+                    mockFile,
+                    "yolo-tracker",
+                    "player_detection",
+                    undefined,
+                    true
+                );
+
+                expect(result).toEqual(mockResult);
+                const calledUrl = mockXHRInstances[0]?.open.mock.calls[0][1] as string;
+                expect(calledUrl).toContain("logical_tool_id=player_detection");
+                expect(calledUrl).not.toContain("tool=");
+            });
+        });
+    });
+
+    // Phase 5: Image submission with useLogicalId flag
+    describe("submitImage with logical_tool_id", () => {
+        it("should submit image with useLogicalId=true using logical_tool_id param", async () => {
+            const mockFile = new File(["test"], "test.png", { type: "image/png" });
+            const mockResult = { job_id: "image-logical-123" };
+
+            const mockXHRInstances: MockXMLHttpRequest[] = [];
+
+            class MockXMLHttpRequest {
+                open = vi.fn();
+                send = vi.fn();
+                setRequestHeader = vi.fn();
+                upload = { onprogress: null as null };
+                onload: (() => void) | null = null;
+                onerror: (() => void) | null = null;
+                status = 200;
+                responseText = JSON.stringify(mockResult);
+
+                constructor() {
+                    mockXHRInstances.push(this);
+                    setTimeout(() => { if (this.onload) this.onload(); }, 0);
+                }
+            }
+
+            (global as unknown as { XMLHttpRequest: typeof MockXMLHttpRequest }).XMLHttpRequest = MockXMLHttpRequest;
+
+            // Need to call with useLogicalId - currently not implemented, test will fail
+            const result = await (client as unknown as { submitImage: (file: File, pluginId: string, tools: string | string[], onProgress?: (p: number) => void, useLogicalId?: boolean) => Promise<{ job_id: string }> }).submitImage(
+                mockFile,
+                "ocr",
+                "text_extraction",
+                undefined,
+                true
+            );
+
+            expect(result).toEqual(mockResult);
+            const calledUrl = mockXHRInstances[0]?.open.mock.calls[0][1] as string;
+            expect(calledUrl).toContain("logical_tool_id=text_extraction");
+            expect(calledUrl).not.toContain("tool=");
+        });
+
+        it("should submit image with multiple logical_tool_id params", async () => {
+            const mockFile = new File(["test"], "test.png", { type: "image/png" });
+            const mockResult = { job_id: "image-multi-123", tools: [{ logical: "text_extraction", resolved: "ocr" }] };
+
+            const mockXHRInstances: MockXMLHttpRequest[] = [];
+
+            class MockXMLHttpRequest {
+                open = vi.fn();
+                send = vi.fn();
+                setRequestHeader = vi.fn();
+                upload = { onprogress: null as null };
+                onload: (() => void) | null = null;
+                onerror: (() => void) | null = null;
+                status = 200;
+                responseText = JSON.stringify(mockResult);
+
+                constructor() {
+                    mockXHRInstances.push(this);
+                    setTimeout(() => { if (this.onload) this.onload(); }, 0);
+                }
+            }
+
+            (global as unknown as { XMLHttpRequest: typeof MockXMLHttpRequest }).XMLHttpRequest = MockXMLHttpRequest;
+
+            const result = await (client as unknown as { submitImage: (file: File, pluginId: string, tools: string | string[], onProgress?: (p: number) => void, useLogicalId?: boolean) => Promise<{ job_id: string }> }).submitImage(
+                mockFile,
+                "ocr",
+                ["text_extraction", "layout_analysis"],
+                undefined,
+                true
+            );
+
+            expect(result).toEqual(mockResult);
+            const calledUrl = mockXHRInstances[0]?.open.mock.calls[0][1] as string;
+            expect(calledUrl).toContain("logical_tool_id=text_extraction");
+            expect(calledUrl).toContain("logical_tool_id=layout_analysis");
         });
     });
 });

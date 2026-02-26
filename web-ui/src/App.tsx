@@ -520,6 +520,7 @@ function App() {
               <VideoUpload
                 pluginId={selectedPlugin}
                 manifest={manifest}
+                selectedTools={selectedTools}
               />
             </div>
           )}

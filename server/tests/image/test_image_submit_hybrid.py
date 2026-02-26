@@ -15,7 +15,7 @@ FAKE_PNG = b"\x89PNG\r\n\x1a\n" + b"\x00" * 50
 FAKE_MANIFEST = {
     "tools": {
         "analyze": {
-            "inputs": ["image_bytes"],
+            "input_types": ["image_bytes"],
         }
     }
 }

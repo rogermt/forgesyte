@@ -31,7 +31,7 @@ export interface Job {
     plugin_id?: string;  // v0.9.2: plugin_id from server
     tool?: string;  // v0.9.2: tool from server (single-tool)
     tool_list?: string[];  // v0.9.4: tool_list from server (multi-tool)
-    job_type?: "image" | "image_multi" | "video";  // v0.9.4: job type
+    job_type?: "image" | "image_multi" | "video" | "video_multi";  // v0.9.8: added video_multi
     plugin?: string;  // Legacy: kept for backward compatibility
     results?: Record<string, unknown>;  // v0.9.2: results from server
     result?: Record<string, unknown>;  // Legacy: kept for backward compatibility
@@ -210,22 +210,27 @@ export class ForgeSyteAPIClient {
 
     // v0.9.2: Image job submission using unified job system
     // v0.9.4: Updated to accept array of tools for multi-tool support
+    // v0.9.8: Added useLogicalId parameter for logical_tool_id support
     async submitImage(
         file: File,
         pluginId: string,
         tools: string | string[],  // v0.9.4: Accept single tool or array of tools
-        onProgress?: (percent: number) => void
+        onProgress?: (percent: number) => void,
+        useLogicalId = false  // v0.9.8: Set true to send logical_tool_id instead of tool
     ): Promise<{ job_id: string }> {
         return new Promise((resolve, reject) => {
             const xhr = new XMLHttpRequest();
             const url = new URL(`${this.baseUrl}/image/submit`, window.location.origin);
             url.searchParams.append("plugin_id", pluginId);
             
+            // v0.9.8: Use logical_tool_id or tool based on flag
+            const paramName = useLogicalId ? "logical_tool_id" : "tool";
+            
             // v0.9.4: Support multiple tools - append each as separate query param
             if (Array.isArray(tools)) {
-                tools.forEach(t => url.searchParams.append("tool", t));
+                tools.forEach(t => url.searchParams.append(paramName, t));
             } else {
-                url.searchParams.append("tool", tools);
+                url.searchParams.append(paramName, tools);
             }
             
             xhr.open("POST", url.toString());
@@ -261,25 +266,30 @@ export class ForgeSyteAPIClient {
     }
 
     // Video job submission
-    // v0.9.7: Updated to accept array of tools for multi-tool support
+    // v0.9.7: Supports logical_tool_id for capability-based resolution
+    // v0.9.8: Supports array of tools for multi-tool video analysis
     async submitVideo(
         file: File,
         pluginId: string,
-        tools: string | string[],  // v0.9.7: Accept single tool or array of tools
-        onProgress?: (percent: number) => void
+        toolOrLogicalId: string | string[],  // v0.9.8: Accept single or array
+        onProgress?: (percent: number) => void,
+        useLogicalId = false  // v0.9.7: Set true to send logical_tool_id instead of tool
     ): Promise<{ job_id: string }> {
         return new Promise((resolve, reject) => {
             const xhr = new XMLHttpRequest();
             const url = new URL(`${this.baseUrl}/video/submit`, window.location.origin);
             url.searchParams.append("plugin_id", pluginId);
-            
-            // v0.9.7: Support multiple tools - append each as separate query param
-            if (Array.isArray(tools)) {
-                tools.forEach(t => url.searchParams.append("tool", t));
+
+            // v0.9.8: Use logical_tool_id or tool based on flag
+            const paramName = useLogicalId ? "logical_tool_id" : "tool";
+
+            // v0.9.7: Send as logical_tool_id or tool based on flag
+            if (Array.isArray(toolOrLogicalId)) {
+                // v0.9.8: Multiple tools - append each as separate query param
+                toolOrLogicalId.forEach(t => url.searchParams.append(paramName, t));
             } else {
-                url.searchParams.append("tool", tools);
+                url.searchParams.append(paramName, toolOrLogicalId);
             }
-            
             xhr.open("POST", url.toString());
 
             if (this.apiKey) {

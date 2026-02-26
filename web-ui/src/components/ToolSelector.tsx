@@ -171,13 +171,41 @@ export function ToolSelector({
   // -------------------------------------------------------------------------
   const toolList = useMemo(() => {
     if (!manifest) return [];
-    // Handle both Phase-12 array format and legacy object format
-    if (Array.isArray(manifest.tools)) {
-      // Phase-12: tools is an array
-      return manifest.tools;
+
+    // Phase 6: Prefer top-level capabilities (logical tools) over all tools
+    // This shows 4 capabilities (player_detection, ball_detection, etc.)
+    // instead of 8 concrete tools (video_player_tracking, player_detection, etc.)
+    const manifestWithCapabilities = manifest as { capabilities?: string[]; tools: unknown };
+    if (manifestWithCapabilities.capabilities && Array.isArray(manifestWithCapabilities.capabilities)) {
+      return manifestWithCapabilities.capabilities.map((cap: string) => ({
+        id: cap,
+        title: cap.replace(/_/g, " ").replace(/\b\w/g, (l: string) => l.toUpperCase()),
+      }));
+    }
+
+    // Fallback: Union of all tool.capabilities
+    const tools = manifest.tools;
+    if (Array.isArray(tools)) {
+      const allCapabilities = new Set<string>();
+      for (const tool of tools) {
+        const toolWithCapabilities = tool as { capabilities?: string[] };
+        if (toolWithCapabilities.capabilities) {
+          for (const cap of toolWithCapabilities.capabilities) {
+            allCapabilities.add(cap);
+          }
+        }
+      }
+      if (allCapabilities.size > 0) {
+        return Array.from(allCapabilities).map((cap) => ({
+          id: cap,
+          title: cap.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase()),
+        }));
+      }
+      // No capabilities, return tools as-is
+      return tools;
     } else {
       // Legacy: tools is an object, convert to array of objects
-      return Object.entries(manifest.tools).map(([name]) => ({
+      return Object.entries(tools).map(([name]) => ({
         id: name,
         title: name,
       }));

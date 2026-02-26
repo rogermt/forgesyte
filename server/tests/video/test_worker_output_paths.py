@@ -35,7 +35,7 @@ def test_worker_stores_relative_output_path_only(test_engine, session):
     mock_plugin_service.get_plugin_manifest.return_value = {
         "tools": {
             "test_tool": {
-                "inputs": ["video_path"],
+                "input_types": ["video"],
             }
         }
     }
@@ -113,7 +113,7 @@ def test_worker_does_not_store_absolute_path(test_engine, session):
     mock_plugin_service.get_plugin_manifest.return_value = {
         "tools": {
             "test_tool": {
-                "inputs": ["video_path"],
+                "input_types": ["video"],
             }
         }
     }

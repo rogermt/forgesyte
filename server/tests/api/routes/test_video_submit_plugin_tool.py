@@ -112,6 +112,10 @@ def test_submit_with_plugin_id_and_tool_returns_200(
 
     app.dependency_overrides.clear()
 
+    # Debug: print error detail if not 200
+    if response.status_code != 200:
+        print(f"Error detail: {response.json()}")
+
     assert response.status_code == 200
     assert "job_id" in response.json()
 
@@ -208,8 +212,13 @@ def test_submit_missing_plugin_id_returns_422():
 
 
 @pytest.mark.unit
-def test_submit_missing_tool_returns_422():
-    """Test POST without tool returns 422."""
+def test_submit_missing_both_tool_and_logical_tool_id_returns_400():
+    """Test POST without tool AND logical_tool_id returns 400.
+
+    v0.9.7: tool is now optional if logical_tool_id is provided.
+    If neither is provided, returns 400 (not 422) since this is a
+    business logic check, not a FastAPI validation error.
+    """
     client = TestClient(app)
 
     mp4_data = b"ftypmp42" + b"\x00" * 100
@@ -217,7 +226,82 @@ def test_submit_missing_tool_returns_422():
     response = client.post(
         "/v1/video/submit",
         files={"file": ("test.mp4", BytesIO(mp4_data))},
-        params={"plugin_id": "ocr"},  # Missing tool
+        params={"plugin_id": "ocr"},  # Missing both tool and logical_tool_id
     )
 
-    assert response.status_code == 422
+    assert response.status_code == 400
+    assert (
+        "tool" in response.json()["detail"].lower()
+        or "logical_tool_id" in response.json()["detail"].lower()
+    )
+
+
+@pytest.mark.unit
+def test_submit_with_logical_tool_id_resolves_tool(
+    session: Session, mock_plugin, mock_plugin_registry
+):
+    """Test POST with logical_tool_id resolves tool via capability matching.
+
+    v0.9.7: New parameter logical_tool_id enables capability-based resolution.
+    The logical tool ID (capability string) is matched against tool capabilities
+    in the manifest to find the actual plugin tool ID.
+    """
+
+    # Create manifest with capabilities for capability-based resolution
+    manifest_with_capabilities = {
+        "id": "ocr",
+        "name": "OCR",
+        "version": "1.0.0",
+        "tools": [
+            {
+                "id": "analyze",
+                "title": "Analyze",
+                "input_types": ["image_bytes"],
+                "capabilities": ["text_extraction"],
+            },
+            {
+                "id": "video_track",
+                "title": "Video Track",
+                "input_types": ["video"],
+                "capabilities": ["text_extraction"],  # Same capability, video input
+            },
+        ],
+    }
+
+    mock_service = MagicMock()
+    mock_service.get_available_tools.return_value = list(mock_plugin.tools.keys())
+    mock_service.get_plugin_manifest.return_value = manifest_with_capabilities
+
+    def override_get_plugin_manager():
+        return mock_plugin_registry
+
+    def override_get_plugin_service():
+        return mock_service
+
+    app.dependency_overrides[get_plugin_manager] = override_get_plugin_manager
+    app.dependency_overrides[get_plugin_service] = override_get_plugin_service
+
+    try:
+        client = TestClient(app)
+
+        mp4_data = b"ftypmp42" + b"\x00" * 100
+
+        # Send logical_tool_id instead of tool
+        response = client.post(
+            "/v1/video/submit",
+            files={"file": ("test.mp4", BytesIO(mp4_data))},
+            params={"plugin_id": "ocr", "logical_tool_id": "text_extraction"},
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+    # Debug output
+    print(f"DEBUG: status={response.status_code}, body={response.json()}")
+
+    assert response.status_code == 200
+    job_id = response.json()["job_id"]
+
+    # Verify resolved tool was stored (video_track for video input)
+    job = session.query(Job).filter(Job.job_id == job_id).first()
+    assert job is not None
+    assert job.tool == "video_track"  # Resolved from text_extraction + video

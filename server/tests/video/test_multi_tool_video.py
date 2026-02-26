@@ -27,9 +27,16 @@ def create_video_job(
     session: Session,
     plugin_id: str = "test-plugin",
     tools: Optional[list] = None,
-    job_type: str = "video",
+    job_type: Optional[str] = None,
 ) -> Job:
     """Helper to create a video job in the database."""
+    # Auto-determine job_type if not specified
+    if job_type is None:
+        if tools and len(tools) > 1:
+            job_type = "video_multi"
+        else:
+            job_type = "video"
+
     job = Job(
         job_id=TEST_JOB_ID,
         status=JobStatus.pending,
@@ -113,7 +120,7 @@ class TestMultiToolVideoExecution:
     def test_combined_results_format(
         self, session: Session, mock_storage, mock_plugin_service
     ):
-        """Test that results are combined in the expected format."""
+        """Test that results are combined in the expected canonical format."""
         # Mock different results for each tool
         mock_plugin_service.run_plugin_tool.side_effect = [
             {"tool_one_result": "data1", "frames": []},
@@ -138,12 +145,19 @@ class TestMultiToolVideoExecution:
         output_json = saved_output.read().decode("utf-8")
         output = json.loads(output_json)
 
-        # Verify combined format
-        assert "plugin_id" in output
-        assert output["plugin_id"] == "test-plugin"
-        assert "tools" in output
-        assert "tool_one" in output["tools"]
-        assert "tool_two" in output["tools"]
+        # Verify canonical video format (job_id, status, results array)
+        assert "job_id" in output
+        assert "status" in output
+        assert output["status"] == "completed"
+        assert "results" in output
+        assert isinstance(output["results"], list)
+        assert len(output["results"]) == 2
+        # First tool result
+        assert output["results"][0]["tool"] == "tool_one"
+        assert output["results"][0]["output"]["tool_one_result"] == "data1"
+        # Second tool result
+        assert output["results"][1]["tool"] == "tool_two"
+        assert output["results"][1]["output"]["tool_two_result"] == "data2"
 
     def test_progress_calculation_for_multi_tool(
         self, session: Session, mock_storage, mock_plugin_service
@@ -206,7 +220,12 @@ class TestBackwardCompatibility:
     def test_single_tool_result_format(
         self, session: Session, mock_storage, mock_plugin_service
     ):
-        """Test that single-tool jobs return single-tool result format."""
+        """Test that single-tool video jobs return canonical format."""
+        mock_plugin_service.run_plugin_tool.return_value = {
+            "frames": [],
+            "detections": [],
+        }
+
         tools = ["tool_one"]
         job = create_video_job(session, tools=tools)
 
@@ -225,11 +244,14 @@ class TestBackwardCompatibility:
         output_json = saved_output.read().decode("utf-8")
         output = json.loads(output_json)
 
-        # Single tool should use old format
-        assert "tool" in output
-        assert output["tool"] == "tool_one"
+        # Single-tool video also uses canonical format now
+        assert "job_id" in output
+        assert "status" in output
+        assert output["status"] == "completed"
         assert "results" in output
-        assert "tools" not in output  # Not combined format
+        assert isinstance(output["results"], list)
+        assert len(output["results"]) == 1
+        assert output["results"][0]["tool"] == "tool_one"
 
 
 @pytest.mark.integration
@@ -305,6 +327,7 @@ def mock_plugin_service():
             },
         ],
     }
+    plugin_service.get_available_tools.return_value = ["tool_one", "tool_two"]
     plugin_service.run_plugin_tool.return_value = {
         "frames": [{"detections": []}],
         "total_frames": 10,
