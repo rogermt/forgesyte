@@ -9,7 +9,7 @@ interface VideoUploadProps {
   selectedTools?: string[];
 }
 
-export const VideoUpload: React.FC<VideoUploadProps> = ({ pluginId, manifest }) => {
+export const VideoUpload: React.FC<VideoUploadProps> = ({ pluginId, manifest, selectedTools }) => {
   const [file, setFile] = useState<File | null>(null);
   const [jobId, setJobId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -40,7 +40,13 @@ export const VideoUpload: React.FC<VideoUploadProps> = ({ pluginId, manifest }) 
     );
   }
 
-  // v0.9.5: Use first available video tool (ignore selectedTools which may be image-only)
+  // Phase 7: Determine tools to use
+  // Priority: selectedTools prop > first available video tool
+  const toolsToUse = selectedTools && selectedTools.length > 0 
+    ? selectedTools 
+    : [availableVideoTools[0].id || Object.keys(manifest?.tools || {})[0]];
+  
+  // Display the first tool for UI purposes
   const videoTool = availableVideoTools[0];
 
   const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -75,12 +81,13 @@ export const VideoUpload: React.FC<VideoUploadProps> = ({ pluginId, manifest }) 
     setProgress(0);
 
     try {
-      // v0.9.5: Use video tool, not selectedTools[0]
+      // Phase 7: Pass tools array and useLogicalId flag
       const { job_id } = await apiClient.submitVideo(
         file,
         pluginId,
-        videoTool.id || Object.keys(manifest?.tools || {})[0],
-        (p) => setProgress(p)
+        toolsToUse,
+        (p) => setProgress(p),
+        true  // useLogicalId: resolve capability names to tool IDs
       );
       setJobId(job_id);
     } catch (e: unknown) {
