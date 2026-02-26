@@ -306,9 +306,13 @@ class ConnectionManager:
         targets: Set[str] = set()
 
         async with self._lock:
-            if topic and topic in self.subscriptions:
-                targets = self.subscriptions[topic].copy()
+            if topic is not None:
+                # Topic-specific broadcast: only send to subscribers of this topic
+                if topic in self.subscriptions:
+                    targets = self.subscriptions[topic].copy()
+                # else: no subscribers for this topic, targets remains empty
             else:
+                # No topic specified: broadcast to all connections
                 targets = set(self.active_connections.keys())
 
         # Get message type for logging
