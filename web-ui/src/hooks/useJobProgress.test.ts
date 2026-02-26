@@ -5,7 +5,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { renderHook, waitFor, act } from "@testing-library/react";
+import { renderHook, act } from "@testing-library/react";
 import { useJobProgress } from "./useJobProgress";
 
 // Mock WebSocket constants
@@ -35,7 +35,7 @@ class MockWebSocket {
     MockWebSocket.instances.push(this);
   }
 
-  send = vi.fn((data: string) => {});
+  send = vi.fn();
   close = vi.fn(() => {
     this.readyState = CLOSED;
     setTimeout(() => {

@@ -5,7 +5,7 @@
  */
 
 import { vi } from "vitest";
-import { render, screen, waitFor, act } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { JobStatus } from "./JobStatus";
 import * as client from "../api/client";
 import { useJobProgress } from "../hooks/useJobProgress";
