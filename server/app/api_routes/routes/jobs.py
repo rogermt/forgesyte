@@ -238,7 +238,7 @@ async def get_job_video(job_id: UUID, db: Session = Depends(get_db)) -> FileResp
     try:
         video_path = storage.load_file(job.input_path)
     except FileNotFoundError:
-        raise HTTPException(status_code=404, detail="Video file not found")
+        raise HTTPException(status_code=404, detail="Video file not found") from None
 
     return FileResponse(
         path=video_path,

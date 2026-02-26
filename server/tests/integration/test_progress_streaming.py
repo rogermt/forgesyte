@@ -4,16 +4,18 @@ Tests the complete flow: connect → receive progress → complete.
 """
 
 import asyncio
+
 import pytest
 from fastapi.testclient import TestClient
-from unittest.mock import patch, AsyncMock
 
 from app.main import app
-from app.workers.progress import progress_callback
 from app.websocket_manager import ws_manager
+from app.workers.progress import progress_callback
 
 
-async def broadcast_progress(job_id: str, current_frame: int, total_frames: int, **kwargs):
+async def broadcast_progress(
+    job_id: str, current_frame: int, total_frames: int, **kwargs
+):
     """Helper to broadcast progress asynchronously."""
     progress_callback(job_id, current_frame, total_frames, **kwargs)
     # Give time for the asyncio.create_task to complete
@@ -134,8 +136,11 @@ class TestProgressStreamingIntegration:
         # After disconnect, should have no active connections
         # Allow some time for cleanup
         import time
+
         time.sleep(0.1)
 
         # Verify subscriptions are cleaned up
-        assert f"job:{job_id}" not in ws_manager.subscriptions or \
-               len(ws_manager.subscriptions.get(f"job:{job_id}", set())) == 0
+        assert (
+            f"job:{job_id}" not in ws_manager.subscriptions
+            or len(ws_manager.subscriptions.get(f"job:{job_id}", set())) == 0
+        )

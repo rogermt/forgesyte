@@ -159,6 +159,7 @@ class JobWorker:
 
         # v0.10.0: Always broadcast via WebSocket for real-time updates
         from .progress import progress_callback
+
         progress_callback(
             job_id=job_id,
             current_frame=current_frame,
@@ -468,16 +469,41 @@ class JobWorker:
                 )
 
             # v0.9.8: Prepare output based on job type
+            # v0.10.0: Flatten video results for VideoResultsViewer compatibility
             output_data: Dict[str, Any]
             if job.job_type in ("video", "video_multi"):
-                # Canonical video results JSON
-                output_data = {
-                    "job_id": str(job.job_id),
-                    "status": "completed",
-                    "results": [
-                        {"tool": t, "output": results[t]} for t in tools_to_run
-                    ],
-                }
+                # v0.10.0: Flatten video results for UI
+                # Frontend expects { total_frames, frames } at top level
+                first_tool_output = results[tools_to_run[0]]
+
+                # Handle both dict and list output formats
+                if isinstance(first_tool_output, dict):
+                    # Output is {frames: [...], total_frames: N, ...}
+                    output_data = {
+                        "job_id": str(job.job_id),
+                        "status": "completed",
+                        "total_frames": first_tool_output.get("total_frames"),
+                        "frames": first_tool_output.get("frames", []),
+                    }
+                    # Include any additional fields from the output
+                    for key in first_tool_output:
+                        if key not in ("total_frames", "frames"):
+                            output_data[key] = first_tool_output[key]
+                elif isinstance(first_tool_output, list):
+                    # Output is already a list of frames
+                    output_data = {
+                        "job_id": str(job.job_id),
+                        "status": "completed",
+                        "total_frames": len(first_tool_output),
+                        "frames": first_tool_output,
+                    }
+                else:
+                    # Fallback for unknown format
+                    output_data = {
+                        "job_id": str(job.job_id),
+                        "status": "completed",
+                        "results": first_tool_output,
+                    }
             elif is_multi_tool:
                 # Multi-tool image format
                 output_data = {"plugin_id": job.plugin_id, "tools": results}

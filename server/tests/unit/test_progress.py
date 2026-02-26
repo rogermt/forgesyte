@@ -3,8 +3,7 @@
 Tests for ProgressEvent dataclass and progress_callback function.
 """
 
-import pytest
-from unittest.mock import AsyncMock, patch, MagicMock
+from unittest.mock import AsyncMock, patch
 
 
 class TestProgressEvent:
@@ -111,9 +110,9 @@ class TestProgressCallback:
 
     def test_progress_callback_returns_event(self) -> None:
         """Test progress_callback returns ProgressEvent."""
-        from app.workers.progress import progress_callback, ProgressEvent
+        from app.workers.progress import ProgressEvent, progress_callback
 
-        with patch('app.workers.progress.ws_manager') as mock_ws:
+        with patch("app.workers.progress.ws_manager") as mock_ws:
             mock_ws.broadcast = AsyncMock()
 
             result = progress_callback(
@@ -130,10 +129,10 @@ class TestProgressCallback:
 
     def test_progress_callback_broadcasts_to_websocket(self) -> None:
         """Test progress_callback broadcasts via WebSocket."""
-        from app.workers.progress import progress_callback
-        import asyncio
 
-        with patch('app.workers.progress.ws_manager') as mock_ws:
+        from app.workers.progress import progress_callback
+
+        with patch("app.workers.progress.ws_manager") as mock_ws:
             mock_ws.broadcast = AsyncMock()
 
             progress_callback(

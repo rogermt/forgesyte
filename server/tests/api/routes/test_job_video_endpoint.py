@@ -8,7 +8,6 @@ Tests that:
 3. GET /v1/jobs/{job_id}/video returns 404 when video file is missing
 """
 
-from pathlib import Path
 from uuid import uuid4
 
 import pytest

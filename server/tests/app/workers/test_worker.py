@@ -262,14 +262,15 @@ def test_worker_run_once_saves_results_to_storage(test_engine, session):
         saved_json = json.loads(saved_content.decode())
     else:
         saved_json = json.loads(saved_content)
-    # v0.9.8: Canonical video output format
-    assert "results" in saved_json
+    # v0.10.0: Flattened video output format for VideoResultsViewer
     assert "job_id" in saved_json
     assert "status" in saved_json
-    # Results is now a list of {tool, output} objects
-    assert len(saved_json["results"]) == 1
-    assert saved_json["results"][0]["tool"] == "test_tool"
-    assert saved_json["results"][0]["output"] == test_results
+    assert saved_json["status"] == "completed"
+    # Frontend expects total_frames and frames at top level
+    assert "total_frames" in saved_json
+    assert "frames" in saved_json
+    assert isinstance(saved_json["frames"], list)
+    assert len(saved_json["frames"]) == 1
 
 
 @pytest.mark.unit
@@ -408,3 +409,79 @@ def test_worker_run_once_handles_storage_error(test_engine, session):
     updated_job = session.query(Job).filter(Job.job_id == job_id).first()
     assert updated_job.status == JobStatus.failed
     assert "File not found" in updated_job.error_message
+
+
+@pytest.mark.unit
+def test_worker_flattens_video_results_for_ui(test_engine, session):
+    """Test v0.10.0: Video results are flattened for VideoResultsViewer.
+
+    Frontend expects { total_frames, frames } at top level,
+    not wrapped in { results: [{ tool, output }] }.
+    """
+    Session = sessionmaker(bind=test_engine)
+
+    mock_storage = MagicMock()
+    mock_plugin_service = MagicMock()
+
+    worker = JobWorker(
+        session_factory=Session,
+        storage=mock_storage,
+        plugin_service=mock_plugin_service,
+    )
+
+    # Create pending video job
+    job_id = str(uuid4())
+    job = Job(
+        job_id=job_id,
+        status=JobStatus.pending,
+        plugin_id="yolo",
+        tool="video_player_tracking",
+        input_path="video/input/test.mp4",
+        job_type="video",
+    )
+    session.add(job)
+    session.commit()
+
+    # Mock returns dict with frames and total_frames (like YOLO plugin)
+    mock_storage.load_file.return_value = "/data/jobs/video/input/test.mp4"
+    mock_storage.save_file.return_value = "video/output/test.json"
+    mock_plugin_service.get_plugin_manifest.return_value = {
+        "tools": [{"id": "video_player_tracking", "input_types": ["video"]}]
+    }
+    mock_plugin_service.run_plugin_tool.return_value = {
+        "total_frames": 100,
+        "frames": [
+            {"frame_index": 0, "detections": {"tracked_objects": []}},
+            {"frame_index": 1, "detections": {"tracked_objects": []}},
+        ],
+    }
+
+    # Execute
+    result = worker.run_once()
+
+    assert result is True
+
+    # Verify saved JSON is flattened for UI
+    saved_content = mock_storage.save_file.call_args[0][0]
+    # saved_content is a BytesIO object
+    if hasattr(saved_content, "read"):
+        saved_content.seek(0)
+        saved_json = json.loads(saved_content.read().decode())
+    elif isinstance(saved_content, bytes):
+        saved_json = json.loads(saved_content.decode())
+    else:
+        saved_json = json.loads(saved_content)
+
+    # v0.10.0: Flattened format for VideoResultsViewer
+    assert saved_json["job_id"] == job_id
+    assert saved_json["status"] == "completed"
+    assert "total_frames" in saved_json
+    assert saved_json["total_frames"] == 100
+    assert "frames" in saved_json
+    assert isinstance(saved_json["frames"], list)
+    assert len(saved_json["frames"]) == 2
+
+    # Should NOT have wrapped results array
+    assert "results" not in saved_json or not isinstance(
+        saved_json.get("results"), list
+    )
