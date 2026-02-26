@@ -3,6 +3,7 @@ import { apiClient } from "../api/client";
 import { JobResults } from "./JobResults";
 import { ProgressBar } from "./ProgressBar";
 import { useJobProgress } from "../hooks/useJobProgress";
+import { VideoResultsViewer, VideoResults } from "./VideoResultsViewer";
 
 type Props = {
   jobId: string;
@@ -19,10 +20,32 @@ type VideoJobResults = {
       confidence: number;
       bbox: number[];
     }>;
+    // Video results fields
+    total_frames?: number;
+    frames?: Array<{
+      frame_index: number;
+      detections: {
+        tracked_objects: Array<{
+          track_id: number;
+          class_id: number;
+          xyxy: [number, number, number, number];
+          center: [number, number];
+        }>;
+      };
+    }>;
   } | null;
   created_at: string;
   updated_at: string;
 };
+
+/** Check if results contain video analysis data */
+function isVideoResults(results: VideoJobResults["results"]): results is VideoResults {
+  return (
+    results !== null &&
+    typeof results.total_frames === "number" &&
+    Array.isArray(results.frames)
+  );
+}
 
 export const JobStatus: React.FC<Props> = ({ jobId }) => {
   // WebSocket progress (primary source)
@@ -139,7 +162,13 @@ export const JobStatus: React.FC<Props> = ({ jobId }) => {
       {currentError && <div style={{ color: "red" }}>{currentError}</div>}
       
       {/* Results display */}
-      {currentStatus === "completed" && results && <JobResults results={results} />}
+      {currentStatus === "completed" && results && (
+        isVideoResults(results.results) ? (
+          <VideoResultsViewer jobId={jobId} results={results.results} />
+        ) : (
+          <JobResults results={results} />
+        )
+      )}
     </div>
   );
 };
