@@ -5,6 +5,7 @@ for both image and video jobs, replacing the separate /v1/video/status and
 /v1/video/results endpoints.
 
 v0.9.3: Added GET /v1/jobs list endpoint for job listing with pagination.
+v0.10.0: Added GET /v1/jobs/{job_id}/video endpoint for video file serving.
 """
 
 import json
@@ -12,6 +13,7 @@ from typing import List
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -204,4 +206,42 @@ async def get_job(job_id: UUID, db: Session = Depends(get_db)) -> JobResultsResp
         tools_completed=tools_completed,
         created_at=job.created_at,
         updated_at=job.updated_at,
+    )
+
+
+@router.get("/v1/jobs/{job_id}/video")
+async def get_job_video(job_id: UUID, db: Session = Depends(get_db)) -> FileResponse:
+    """Get the uploaded video file for playback in VideoResultsViewer.
+
+    Serves the original uploaded video file stored at video/input/{job_id}.mp4.
+    This is used by the frontend VideoResultsViewer component for video playback
+    with overlay rendering.
+
+    Args:
+        job_id: UUID of the job
+        db: Database session
+
+    Returns:
+        FileResponse with video/mp4 content type
+
+    Raises:
+        HTTPException: 404 if job not found or video file not found
+    """
+    job = db.query(Job).filter(Job.job_id == job_id).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    # Get the input video path from job record
+    if not job.input_path:
+        raise HTTPException(status_code=404, detail="Video file not found")
+
+    try:
+        video_path = storage.load_file(job.input_path)
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="Video file not found")
+
+    return FileResponse(
+        path=video_path,
+        media_type="video/mp4",
+        filename=f"{job_id}.mp4",
     )
