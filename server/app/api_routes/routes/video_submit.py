@@ -1,6 +1,4 @@
 """Video submission endpoint for Phase 16 job processing.
-<<<<<<< HEAD
-=======
 
 v0.9.7: Added logical_tool_id parameter for capability-based tool resolution.
 The UI can now send a logical tool ID (capability string) instead of the exact
@@ -9,18 +7,9 @@ plugin tool ID, and the backend resolves it dynamically using the plugin manifes
 v0.9.8: Added multi-tool support with video_multi job type, mutual exclusivity
 check (tool vs logical_tool_id), and canonical JSON response.
 """
->>>>>>> 7931b05 (feat(video): add logical_tool_id parameter for capability-based resolution)
 
-<<<<<<< HEAD
-v0.9.7: Added multi-tool support via repeated tool query parameters.
-Example: ?tool=player_detection_video&tool=ball_detection_video
-"""
-
-import json
-=======
 import json
 from datetime import timezone
->>>>>>> 33d2cc7 (feat(video-submit): add multi-tool support with video_multi job type)
 from io import BytesIO
 from typing import List
 from uuid import uuid4
@@ -71,41 +60,19 @@ def validate_mp4_magic_bytes(data: bytes) -> None:
 async def submit_video(
     file: UploadFile,
     plugin_id: str = Query(..., description="Plugin ID from /v1/plugins"),
-<<<<<<< HEAD
-<<<<<<< HEAD
-    tool: List[str] = Query(
-        ...,
-        description="Tool ID(s) from plugin manifest. Can be repeated for multi-tool.",
-=======
-    tool: str | None = Query(
-=======
     tool: List[str] | None = Query(
->>>>>>> 33d2cc7 (feat(video-submit): add multi-tool support with video_multi job type)
         None,
         description="Tool ID(s) from plugin manifest. Repeatable for multi (optional if logical_tool_id provided)",
     ),
-<<<<<<< HEAD
-    logical_tool_id: str | None = Query(
-        None, description="Logical tool ID (capability string) for dynamic resolution"
->>>>>>> 7931b05 (feat(video): add logical_tool_id parameter for capability-based resolution)
-=======
     logical_tool_id: List[str] | None = Query(
         None,
         description="Logical tool ID(s) (capability strings). Repeatable for multi-tool.",
->>>>>>> 33d2cc7 (feat(video-submit): add multi-tool support with video_multi job type)
     ),
     plugin_manager=Depends(get_plugin_manager),
     plugin_service=Depends(get_plugin_service),
 ):
     """Submit a video file for processing.
 
-<<<<<<< HEAD
-    This endpoint creates a new job with job_type="video" and supports
-    both single-tool and multi-tool video processing.
-
-    v0.9.7: Supports multiple tools via repeated query parameters.
-    Example: ?tool=player_detection_video&tool=ball_detection_video
-=======
     This endpoint creates a new job with job_type="video" (single tool) or
     job_type="video_multi" (multiple tools) and enqueues it for processing
     by the worker.
@@ -116,25 +83,14 @@ async def submit_video(
 
     v0.9.8: Mutual exclusivity - cannot provide both tool and logical_tool_id.
     Canonical JSON response with submitted_at, tools array for multi-tool.
->>>>>>> 33d2cc7 (feat(video-submit): add multi-tool support with video_multi job type)
 
     Args:
         file: MP4 video file to process
         plugin_id: ID of the plugin to use (from /v1/plugins)
-<<<<<<< HEAD
-<<<<<<< HEAD
-        tool: Tool ID(s) to run (from plugin manifest). Can be repeated for multi-tool.
-=======
-        tool: ID of the tool to run (from plugin manifest) - optional if logical_tool_id provided
-        logical_tool_id: Logical tool ID (capability string) for dynamic resolution
-            e.g., "player_detection", "ball_detection", "pitch_detection", "radar"
->>>>>>> 7931b05 (feat(video): add logical_tool_id parameter for capability-based resolution)
-=======
         tool: Tool ID(s) to run (from plugin manifest). Can be repeated for multi-tool.
             Optional if logical_tool_id is provided.
         logical_tool_id: Logical tool ID(s) (capability strings) for dynamic resolution.
             Repeatable for multi-tool. e.g., "player_detection", "ball_detection"
->>>>>>> 33d2cc7 (feat(video-submit): add multi-tool support with video_multi job type)
         plugin_manager: PluginRegistry from app state (DI)
         plugin_service: PluginManagementService instance (DI)
 
@@ -154,25 +110,6 @@ async def submit_video(
             detail=f"Plugin '{plugin_id}' not found",
         )
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-    # Validate all tools exist using plugin.tools (canonical source, NOT manifest)
-    # See: docs/releases/v0.9.3/TOOL_CHECK_FIX.md
-    available_tools = plugin_service.get_available_tools(plugin_id)
-
-    for t in tool:
-        if t not in available_tools:
-            raise HTTPException(
-                status_code=400,
-                detail=(
-                    f"Tool '{t}' not found in plugin '{plugin_id}'. "
-                    f"Available: {available_tools}"
-                ),
-            )
-=======
-    # v0.9.7: Resolve tool ID using capability-based resolution if logical_tool_id provided
-    if logical_tool_id:
-=======
     # v0.9.8: STRICT ARCHITECTURE RULE - mutual exclusivity check
     if tool and logical_tool_id:
         raise HTTPException(
@@ -185,7 +122,6 @@ async def submit_video(
     logicals_used: List[str] = []
 
     if logical_tool_id and len(logical_tool_id) > 0:
->>>>>>> 33d2cc7 (feat(video-submit): add multi-tool support with video_multi job type)
         try:
             logicals_used = logical_tool_id
             resolved_tools = resolve_tools(
@@ -210,17 +146,6 @@ async def submit_video(
     # Validate all tools exist using plugin.tools (canonical source, NOT manifest)
     # See: docs/releases/v0.9.3/TOOL_CHECK_FIX.md
     available_tools = plugin_service.get_available_tools(plugin_id)
-<<<<<<< HEAD
-    if resolved_tool not in available_tools:
-        raise HTTPException(
-            status_code=400,
-            detail=(
-                f"Tool '{resolved_tool}' not found in plugin '{plugin_id}'. "
-                f"Available: {available_tools}"
-            ),
-        )
->>>>>>> 7931b05 (feat(video): add logical_tool_id parameter for capability-based resolution)
-=======
 
     for resolved_tool in resolved_tools:
         if resolved_tool not in available_tools:
@@ -231,7 +156,6 @@ async def submit_video(
                     f"Available: {available_tools}"
                 ),
             )
->>>>>>> 33d2cc7 (feat(video-submit): add multi-tool support with video_multi job type)
 
     # v0.9.5: Validate tool supports video input using input_types from MANIFEST
     # NOTE: plugin.tools uses ToolSchema which forbids input_types (extra="forbid")
@@ -243,42 +167,6 @@ async def submit_video(
             detail=f"Manifest not found for plugin '{plugin_id}'",
         )
 
-<<<<<<< HEAD
-    # v0.9.7: Validate all tools support video input
-    manifest_tools = manifest.get("tools", [])
-<<<<<<< HEAD
-
-    for t in tool:
-        # Find tool in manifest tools array
-        tool_def = None
-        for mt in manifest_tools:
-            if mt.get("id") == t:
-                tool_def = mt
-                break
-
-        if not tool_def:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Tool '{t}' definition not found in manifest for '{plugin_id}'",
-            )
-
-        # Check input_types from manifest
-        input_types = tool_def.get("input_types", [])
-        if "video" not in input_types:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Tool '{t}' does not support video input (input_types: {input_types})",
-            )
-
-    # v0.9.7: Determine if multi-tool
-    is_multi_tool = len(tool) > 1
-=======
-    tool_def = None
-    for t in manifest_tools:
-        if t.get("id") == resolved_tool:
-            tool_def = t
-            break
-=======
     # Build tool map from manifest
     manifest_tools = manifest.get("tools", [])
     if isinstance(manifest_tools, list):
@@ -287,7 +175,6 @@ async def submit_video(
         tool_map = {k: {"id": k, **v} for k, v in manifest_tools.items()}
     else:
         tool_map = {}
->>>>>>> 33d2cc7 (feat(video-submit): add multi-tool support with video_multi job type)
 
     # Validate each tool supports video input
     for resolved_tool in resolved_tools:
@@ -298,23 +185,12 @@ async def submit_video(
                 detail=f"Tool '{resolved_tool}' definition not found in manifest for '{plugin_id}'",
             )
 
-<<<<<<< HEAD
-    # Check input_types from manifest
-    input_types = tool_def.get("input_types", [])
-    if "video" not in input_types:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Tool '{resolved_tool}' does not support video input (input_types: {input_types})",
-        )
->>>>>>> 7931b05 (feat(video): add logical_tool_id parameter for capability-based resolution)
-=======
         input_types = tool_def.get("input_types", [])
         if "video" not in input_types:
             raise HTTPException(
                 status_code=400,
                 detail=f"Tool '{resolved_tool}' does not support video input (input_types: {input_types})",
             )
->>>>>>> 33d2cc7 (feat(video-submit): add multi-tool support with video_multi job type)
 
     # Read and validate file
     contents = await file.read()
@@ -338,25 +214,10 @@ async def submit_video(
             job_id=job_id,  # Pass UUID object, not string
             status=JobStatus.pending,
             plugin_id=plugin_id,
-<<<<<<< HEAD
-<<<<<<< HEAD
-            tool=(
-                tool[0] if not is_multi_tool else None
-            ),  # Single tool for backward compat
-            tool_list=(
-                json.dumps(tool) if is_multi_tool else None
-            ),  # v0.9.7: Store tools as JSON
-=======
-            tool=resolved_tool,
->>>>>>> 7931b05 (feat(video): add logical_tool_id parameter for capability-based resolution)
-            input_path=input_path,
-            job_type="video",  # v0.9.7: Always "video" (not "video_multi")
-=======
             tool=resolved_tools[0] if not is_multi_tool else None,
             tool_list=json.dumps(resolved_tools) if is_multi_tool else None,
             input_path=input_path,
             job_type=job_type,
->>>>>>> 33d2cc7 (feat(video-submit): add multi-tool support with video_multi job type)
         )
         db.add(job)
         db.commit()

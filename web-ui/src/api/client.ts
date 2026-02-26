@@ -266,14 +266,6 @@ export class ForgeSyteAPIClient {
     }
 
     // Video job submission
-<<<<<<< HEAD
-    // v0.9.7: Updated to accept array of tools for multi-tool support
-    async submitVideo(
-        file: File,
-        pluginId: string,
-        tools: string | string[],  // v0.9.7: Accept single tool or array of tools
-        onProgress?: (percent: number) => void
-=======
     // v0.9.7: Supports logical_tool_id for capability-based resolution
     // v0.9.8: Supports array of tools for multi-tool video analysis
     async submitVideo(
@@ -282,22 +274,11 @@ export class ForgeSyteAPIClient {
         toolOrLogicalId: string | string[],  // v0.9.8: Accept single or array
         onProgress?: (percent: number) => void,
         useLogicalId = false  // v0.9.7: Set true to send logical_tool_id instead of tool
->>>>>>> fcca9c0 (feat(web-ui): add 4 logical tools to VideoUpload component)
     ): Promise<{ job_id: string }> {
         return new Promise((resolve, reject) => {
             const xhr = new XMLHttpRequest();
             const url = new URL(`${this.baseUrl}/video/submit`, window.location.origin);
             url.searchParams.append("plugin_id", pluginId);
-<<<<<<< HEAD
-            
-            // v0.9.7: Support multiple tools - append each as separate query param
-            if (Array.isArray(tools)) {
-                tools.forEach(t => url.searchParams.append("tool", t));
-            } else {
-                url.searchParams.append("tool", tools);
-            }
-            
-=======
 
             // v0.9.8: Use logical_tool_id or tool based on flag
             const paramName = useLogicalId ? "logical_tool_id" : "tool";
@@ -309,8 +290,6 @@ export class ForgeSyteAPIClient {
             } else {
                 url.searchParams.append(paramName, toolOrLogicalId);
             }
-
->>>>>>> fcca9c0 (feat(web-ui): add 4 logical tools to VideoUpload component)
             xhr.open("POST", url.toString());
 
             if (this.apiKey) {

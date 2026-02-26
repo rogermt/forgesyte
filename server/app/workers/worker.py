@@ -265,14 +265,8 @@ class JobWorker:
                 return False
 
             # v0.9.4: Determine tools to execute based on job_type
-<<<<<<< HEAD
-            # v0.9.7: video jobs can also be multi-tool (check tool_list presence)
-            is_multi_tool = job.job_type == "image_multi" or (
-                job.job_type == "video" and job.tool_list is not None
-            )
-=======
+            # v0.9.8: video_multi job type support
             is_multi_tool = job.job_type in ("image_multi", "video_multi")
->>>>>>> 1c3d290 (feat(worker): add video_multi job type with canonical output)
 
             if is_multi_tool:
                 # Parse tool_list from JSON
@@ -405,31 +399,7 @@ class JobWorker:
                     total_tools,
                 )
 
-<<<<<<< HEAD
-                # v0.9.7: Create unified progress callback for multi-tool video jobs
-                def make_progress_callback(tool_index: int, tool_name: str):
-                    def unified_progress_callback(
-                        current_frame: int, total: int = total_frames
-                    ) -> None:
-                        self._update_job_progress(
-                            str(job.job_id),
-                            current_frame,
-                            total,
-                            db,
-                            tool_index=tool_index,
-                            total_tools=total_tools,
-                            tool_name=tool_name,
-                        )
-
-                    return unified_progress_callback
-
-                # v0.9.7: Store base args, we'll create tool-specific callbacks in the loop
-                base_args = {
-                    "video_path": str(video_path),
-                }
-=======
                 args = {"video_path": str(video_path)}
->>>>>>> 1c3d290 (feat(worker): add video_multi job type with canonical output)
                 logger.info("Job %s: loaded video file %s", job.job_id, video_path)
             else:
                 job.status = JobStatus.failed
@@ -442,28 +412,6 @@ class JobWorker:
             results: Dict[str, Any] = {}
             num_tools = len(tools_to_run)
 
-<<<<<<< HEAD
-            for tool_index, tool_name in enumerate(tools_to_run):
-                logger.info(
-                    "Job %s: executing tool '%s' (%d/%d)",
-                    job.job_id,
-                    tool_name,
-                    tool_index + 1,
-                    len(tools_to_run),
-                )
-
-                # v0.9.7: Create tool-specific args and progress callback for video jobs
-                if job.job_type == "video":
-                    # Create tool-specific progress callback
-                    progress_callback = make_progress_callback(tool_index, tool_name)
-                    tool_args = {
-                        **base_args
-                    }  # Don't include progress_callback here, pass as kwarg
-                else:
-                    # Image jobs: use args as-is
-                    tool_args = args.copy() if args else {}
-                    progress_callback = None
-=======
             for idx, tool_name in enumerate(tools_to_run):
                 logger.info("Job %s: executing tool '%s'", job.job_id, tool_name)
 
@@ -483,7 +431,8 @@ class JobWorker:
                         return cb
 
                     progress_callback = make_progress_cb(idx)
->>>>>>> 1c3d290 (feat(worker): add video_multi job type with canonical output)
+
+                tool_args = args.copy() if args else {}
 
                 # Execute tool via plugin_service (includes sandbox and error handling)
                 result = plugin_service.run_plugin_tool(
@@ -504,12 +453,6 @@ class JobWorker:
                     "Job %s: tool '%s' executed successfully", job.job_id, tool_name
                 )
 
-<<<<<<< HEAD
-            # v0.9.4: Prepare output based on job type
-            # v0.9.5: Unified output format for all job types
-            # v0.9.7: video multi-tool uses same format as image_multi
-            if is_multi_tool:
-=======
             # v0.9.8: Prepare output based on job type
             output_data: Dict[str, Any]
             if job.job_type in ("video", "video_multi"):
@@ -523,7 +466,6 @@ class JobWorker:
                 }
             elif is_multi_tool:
                 # Multi-tool image format
->>>>>>> 1c3d290 (feat(worker): add video_multi job type with canonical output)
                 output_data = {"plugin_id": job.plugin_id, "tools": results}
             else:
                 # Single-tool job (image)
