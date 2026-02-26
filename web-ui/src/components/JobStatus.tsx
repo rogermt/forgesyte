@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { apiClient } from "../api/client";
 import { JobResults } from "./JobResults";
 import { ProgressBar } from "./ProgressBar";
+import { useJobProgress } from "../hooks/useJobProgress";
 
 type Props = {
   jobId: string;
@@ -24,29 +25,38 @@ type VideoJobResults = {
 };
 
 export const JobStatus: React.FC<Props> = ({ jobId }) => {
-  const [status, setStatus] = useState<Status>("pending");
-  const [progress, setProgress] = useState<number | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [results, setResults] = useState<VideoJobResults | null>(null);
-  // v0.9.7: Multi-tool video job metadata
-  const [currentTool, setCurrentTool] = useState<string | null>(null);
-  const [toolsTotal, setToolsTotal] = useState<number | null>(null);
-  const [toolsCompleted, setToolsCompleted] = useState<number | null>(null);
+  // WebSocket progress (primary source)
+  const {
+    progress: wsProgress,
+    status: wsStatus,
+    error: wsError,
+    isConnected,
+  } = useJobProgress(jobId);
 
+  // HTTP polling fallback
+  const [pollProgress, setPollProgress] = useState<number | null>(null);
+  const [pollStatus, setPollStatus] = useState<Status>("pending");
+  const [results, setResults] = useState<VideoJobResults | null>(null);
+  const [pollError, setPollError] = useState<string | null>(null);
+
+  // Determine which source to use
+  const useWebSocket = isConnected && wsStatus !== "pending";
+  const currentProgress = useWebSocket ? wsProgress?.percent ?? null : pollProgress;
+  const currentStatus = useWebSocket ? wsStatus : pollStatus;
+  const currentError = wsError || pollError;
+
+  // HTTP polling fallback (when WebSocket not connected)
   useEffect(() => {
+    if (isConnected || !jobId) return;
+
     let timer: number | undefined;
 
     const poll = async () => {
       try {
         const job = await apiClient.getJob(jobId);
-        setStatus(job.status as Status);
-        setProgress(job.progress ?? null);
-        setError(null); // Clear any previous error on successful fetch
-
-        // v0.9.7: Extract multi-tool metadata
-        setCurrentTool(job.current_tool ?? null);
-        setToolsTotal(job.tools_total ?? null);
-        setToolsCompleted(job.tools_completed ?? null);
+        setPollStatus(job.status as Status);
+        setPollProgress(job.progress ?? null);
+        setPollError(null);
 
         if (job.status === "completed" && job.results) {
           setResults(job.results as VideoJobResults);
@@ -54,13 +64,13 @@ export const JobStatus: React.FC<Props> = ({ jobId }) => {
         }
 
         if (job.status === "failed") {
-          setError(job.error_message || job.error || "Job failed.");
+          setPollError(job.error_message || job.error || "Job failed.");
           return;
         }
 
         timer = window.setTimeout(poll, 2000);
       } catch (e: unknown) {
-        setError(e instanceof Error ? e.message : "Status polling failed.");
+        setPollError(e instanceof Error ? e.message : "Status polling failed.");
       }
     };
 
@@ -69,44 +79,67 @@ export const JobStatus: React.FC<Props> = ({ jobId }) => {
     return () => {
       if (timer) window.clearTimeout(timer);
     };
-  }, [jobId]);
+  }, [jobId, isConnected]);
+
+  // Render progress info from WebSocket
+  const renderProgressInfo = () => {
+    if (!wsProgress) return null;
+
+    return (
+      <div style={{ marginTop: "8px", fontSize: "13px", color: "var(--text-secondary, #666)" }}>
+        <span>Frame: {wsProgress.current_frame} / {wsProgress.total_frames}</span>
+        {wsProgress.current_tool && (
+          <span style={{ marginLeft: "12px" }}>
+            Tool: <strong>{wsProgress.current_tool}</strong>
+          </span>
+        )}
+        {wsProgress.tools_total && wsProgress.tools_total > 1 && (
+          <span style={{ marginLeft: "12px" }}>
+            Tool: {wsProgress.tools_completed !== undefined ? wsProgress.tools_completed + 1 : "?"} of {wsProgress.tools_total}
+          </span>
+        )}
+      </div>
+    );
+  };
 
   return (
     <div style={{ marginTop: "10px" }}>
-      <div>Status: {status}</div>
+      {/* Connection indicator */}
+      <div style={{ marginBottom: "8px", fontSize: "12px" }}>
+        {isConnected ? (
+          <span title="WebSocket connected" style={{ color: "#22c55e" }}>
+            ● Live
+          </span>
+        ) : (
+          <span title="Using HTTP polling" style={{ color: "#f59e0b" }}>
+            ○ Polling
+          </span>
+        )}
+      </div>
 
-      {/* v0.9.6: Show progress bar when running and progress is available */}
-      {status === "running" && progress !== null && (
+      {/* Status display */}
+      <div>Status: {currentStatus}</div>
+
+      {/* Progress bar */}
+      {currentStatus === "running" && currentProgress !== null && (
         <div style={{ marginTop: "10px", marginBottom: "10px" }}>
-          <ProgressBar progress={progress} max={100} showPercentage />
-          
-          {/* v0.9.7: Show multi-tool progress info */}
-          {toolsTotal !== null && toolsTotal > 1 && (
-            <div style={{ marginTop: "8px", fontSize: "13px", color: "var(--text-secondary, #666)" }}>
-              {currentTool && (
-                <div style={{ marginBottom: "4px" }}>
-                  Running: <strong>{currentTool}</strong>
-                </div>
-              )}
-              <div>
-                Tool {toolsCompleted !== null ? toolsCompleted + 1 : "?"} of {toolsTotal}
-                {toolsCompleted !== null && ` (${toolsCompleted} completed)`}
-              </div>
-            </div>
-          )}
+          <ProgressBar progress={currentProgress} max={100} showPercentage />
+          {useWebSocket && renderProgressInfo()}
         </div>
       )}
 
-      {/* Show indeterminate progress when running but no progress data yet */}
-      {status === "running" && progress === null && (
+      {/* Indeterminate progress */}
+      {currentStatus === "running" && currentProgress === null && (
         <div style={{ marginTop: "10px", marginBottom: "10px", color: "#666" }}>
           Processing... (progress not available)
         </div>
       )}
 
-      {error && <div style={{ color: "red" }}>{error}</div>}
-      {results && <JobResults results={results} />}
+      {/* Error display */}
+      {currentError && <div style={{ color: "red" }}>{currentError}</div>}
+      
+      {/* Results display */}
+      {currentStatus === "completed" && results && <JobResults results={results} />}
     </div>
   );
 };
-
