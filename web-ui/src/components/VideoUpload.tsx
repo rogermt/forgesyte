@@ -6,6 +6,7 @@ import type { PluginManifest } from "../types/plugin";
 interface VideoUploadProps {
   pluginId: string | null;
   manifest?: PluginManifest | null;
+  selectedTools?: string[];
 }
 
 export const VideoUpload: React.FC<VideoUploadProps> = ({ pluginId, manifest }) => {
