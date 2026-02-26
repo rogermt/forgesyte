@@ -36,7 +36,7 @@ def create_video_job(
             job_type = "video_multi"
         else:
             job_type = "video"
-    
+
     job = Job(
         job_id=TEST_JOB_ID,
         status=JobStatus.pending,
@@ -225,7 +225,7 @@ class TestBackwardCompatibility:
             "frames": [],
             "detections": [],
         }
-        
+
         tools = ["tool_one"]
         job = create_video_job(session, tools=tools)
 
