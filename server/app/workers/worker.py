@@ -114,6 +114,7 @@ class JobWorker:
         """Update job progress in database, throttled to every 5%.
 
         v0.9.7: Supports unified progress tracking for multi-tool video jobs.
+        v0.10.0: Also broadcasts progress via WebSocket for real-time updates.
 
         For single-tool jobs:
         - Updates progress based on current_frame / total_frames
@@ -122,10 +123,12 @@ class JobWorker:
         - Equal weighting per tool: tool_weight = 100 / total_tools
         - Global progress = (completed_tools * tool_weight) + (frame_progress * tool_weight)
 
-        Throttles updates to reduce database write volume:
+        Throttles DB updates to reduce database write volume:
         - Updates on first frame (1%)
         - Updates on every 5% boundary
         - Always updates on last frame (100%)
+
+        WebSocket broadcasts happen on every call for real-time updates.
 
         Args:
             job_id: Job UUID string
@@ -153,6 +156,17 @@ class JobWorker:
             percent = int((current_frame / total_frames) * 100)
 
         percent = max(0, min(100, percent))
+
+        # v0.10.0: Always broadcast via WebSocket for real-time updates
+        from .progress import progress_callback
+        progress_callback(
+            job_id=job_id,
+            current_frame=current_frame,
+            total_frames=total_frames,
+            current_tool=tool_name if tool_name else None,
+            tools_total=total_tools if total_tools > 1 else None,
+            tools_completed=tool_index if total_tools > 1 else None,
+        )
 
         # Throttle: only update every 5% to reduce DB writes
         # Also update on first frame (1) and last frame (total_frames)
