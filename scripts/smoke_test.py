@@ -49,7 +49,7 @@ async def test_job_submission() -> str | None:
                     files={"file": ("test.mp4", f, "video/mp4")},
                     params={
                         "plugin_id": "yolo-tracker",
-                        "tool": "video_player_detection",
+                        "tool": "player_detection",
                     },
                     follow_redirects=True,
                 )
