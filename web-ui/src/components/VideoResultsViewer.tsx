@@ -98,12 +98,12 @@ export function VideoResultsViewer({ jobId, results }: Props) {
 
   return (
     <div className="video-results-viewer">
-      <div className="video-wrapper" style={{ position: 'relative' }}>
+      <div className="video-wrapper" style={{ position: 'relative', minHeight: '300px', background: '#000' }}>
         <video
           ref={videoRef}
           src={videoUrl}
           controls
-          style={{ width: '100%' }}
+          style={{ width: '100%', display: 'block' }}
           data-testid="video-player"
         />
         <canvas
