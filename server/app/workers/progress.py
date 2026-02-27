@@ -108,3 +108,28 @@ def progress_callback(
         pass
 
     return event
+
+
+def send_job_completed(job_id: str) -> None:
+    """Broadcast a job completed event to WebSocket subscribers.
+
+    v0.10.0: Notifies frontend that job finished successfully so it can
+    close the WebSocket cleanly without showing an error.
+
+    Args:
+        job_id: Job UUID string
+    """
+    import asyncio
+
+    try:
+        loop = asyncio.get_running_loop()
+        loop.create_task(
+            ws_manager.broadcast(
+                {"job_id": job_id, "status": "completed"},
+                topic=f"job:{job_id}",
+            )
+        )
+    except RuntimeError:
+        # No running event loop - completion event not broadcast
+        # Frontend will poll and still see completed status
+        pass

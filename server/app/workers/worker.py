@@ -20,6 +20,7 @@ from typing import Any, Dict, List, Optional, Protocol
 from ..core.database import SessionLocal
 from ..models.job import Job, JobStatus
 from ..services.queue.memory_queue import InMemoryQueueService
+from .progress import send_job_completed
 from .worker_state import worker_last_heartbeat
 
 logger = logging.getLogger(__name__)
@@ -533,6 +534,9 @@ class JobWorker:
             if job.job_type in ("video", "video_multi"):
                 job.progress = 100
             db.commit()
+
+            # Notify WebSocket subscribers
+            send_job_completed(str(job.job_id))
 
             logger.info("Job %s marked COMPLETED", job.job_id)
             return True
