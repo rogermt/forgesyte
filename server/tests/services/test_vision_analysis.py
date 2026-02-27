@@ -63,8 +63,9 @@ class TestVisionAnalysisService:
         assert args[0] == "client1"
         assert args[1] == "frame1"
         assert args[2] == "plugin1"
-        # Should receive the final output
-        assert args[3] == {"objects": []}
+        # v0.10.1: Should receive multi-tool output format
+        # Single tool: {"tools": {"tool1": {...}}, "tool_order": ["tool1"]}
+        assert args[3] == {"tools": {"tool1": {"objects": []}}, "tool_order": ["tool1"]}
 
     @pytest.mark.asyncio
     async def test_handle_frame_plugin_not_found(
@@ -175,3 +176,62 @@ class TestVisionAnalysisService:
 
         # Should return empty list on exception (not empty dict)
         assert result == []
+
+    @pytest.mark.asyncio
+    async def test_handle_frame_multi_tool_returns_all_results(
+        self, service, plugin_service, mock_ws_manager
+    ):
+        """Test that multi-tool streaming returns ALL tool results (v0.10.1).
+
+        Previously, streaming only returned the last tool's result:
+            final_output = results[-1]  # BUG: last tool wins
+
+        This test verifies the fix that returns all tool results in a dict:
+            final_output = {"tools": {"tool1": {...}, "tool2": {...}}, "tool_order": [...]}
+        """
+
+        # Mock different results for different tools
+        def mock_run_tool(plugin_id, tool_name, args):
+            if tool_name == "ocr":
+                return {"text": "hello world"}
+            elif tool_name == "yolo":
+                return {"objects": [{"label": "person", "confidence": 0.95}]}
+            else:
+                return {}
+
+        plugin_service.run_plugin_tool.side_effect = mock_run_tool
+
+        frame_data = {
+            "data": base64.b64encode(b"image").decode("utf-8"),
+            "frame_id": "frame1",
+            "options": {},
+            "tools": ["ocr", "yolo"],  # Multiple tools
+        }
+
+        await service.handle_frame("client1", "plugin1", frame_data)
+
+        # Verify both tools were called
+        assert plugin_service.run_plugin_tool.call_count == 2
+
+        # Verify send_frame_result was called with ALL tool results
+        mock_ws_manager.send_frame_result.assert_called_once()
+        args = mock_ws_manager.send_frame_result.call_args[0]
+
+        client_id, frame_id, plugin, result, processing_time = args
+        assert client_id == "client1"
+        assert frame_id == "frame1"
+        assert plugin == "plugin1"
+
+        # CRITICAL: Verify result contains ALL tool results, not just the last one
+        # This assertion will FAIL until the bug is fixed
+        assert (
+            "tools" in result
+        ), "Result should contain 'tools' key with all tool results"
+        assert "ocr" in result["tools"], "Result should contain 'ocr' tool result"
+        assert "yolo" in result["tools"], "Result should contain 'yolo' tool result"
+        assert result["tools"]["ocr"] == {"text": "hello world"}
+        assert result["tools"]["yolo"] == {
+            "objects": [{"label": "person", "confidence": 0.95}]
+        }
+        assert "tool_order" in result, "Result should contain 'tool_order' key"
+        assert result["tool_order"] == ["ocr", "yolo"]

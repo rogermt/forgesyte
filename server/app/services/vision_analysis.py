@@ -104,9 +104,9 @@ class VisionAnalysisService:
             if not tools:
                 raise ValueError("WebSocket frame missing 'tools' field")
 
-            # Execute each tool sequentially and collect results
-            # For streaming, we typically run one tool per frame
-            results = []
+            # Execute each tool sequentially and collect results per tool
+            # v0.10.1: True multi-tool streaming – one frame, many tools, merged result
+            merged_results: Dict[str, Any] = {}
             for tool_name in tools:
                 tool_result = self.plugin_service.run_plugin_tool(
                     plugin_id=plugin_name,
@@ -116,10 +116,14 @@ class VisionAnalysisService:
                         "options": data.get("options", {}),
                     },
                 )
-                results.append(tool_result)
+                merged_results[tool_name] = tool_result
 
-            # Use the last result as the final output
-            final_output = results[-1] if results else {}
+            # Build a canonical multi-tool payload
+            # Frontend can read per-tool results from output["tools"][tool_name]
+            final_output: Dict[str, Any] = {
+                "tools": merged_results,
+                "tool_order": tools,
+            }
 
             processing_time = (time.time() - start_time) * 1000
 
