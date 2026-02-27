@@ -33,7 +33,7 @@ async def job_progress_websocket(websocket: WebSocket, job_id: str):
         "current_frame": 189,
         "total_frames": 450,
         "percent": 42,
-        "current_tool": "yolo-tracker",  // optional
+        "current_tool": "example-tool",  // optional
         "tools_total": 2,                 // optional
         "tools_completed": 1              // optional
     }

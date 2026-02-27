@@ -360,4 +360,86 @@ describe("useJobProgress", () => {
       expect(mockInstances.length).toBe(2);
     });
   });
+
+  describe("completion handling", () => {
+    it("should NOT show error when WebSocket closes after completed status", () => {
+      const { result } = renderHook(() => useJobProgress("job-123"));
+
+      const mockWs = getLatestMock();
+      
+      act(() => {
+        mockWs!.simulateOpen();
+      });
+
+      // Simulate completion message
+      act(() => {
+        mockWs!.simulateMessage({ status: "completed", job_id: "job-123" });
+      });
+
+      expect(result.current.status).toBe("completed");
+
+      // Simulate WebSocket close after completion
+      act(() => {
+        mockWs!.simulateClose(1000, true);
+      });
+
+      // Should NOT show error - this is the bug we're fixing
+      expect(result.current.error).toBeNull();
+    });
+
+    it("should NOT show error when WebSocket errors after completed status", () => {
+      const { result } = renderHook(() => useJobProgress("job-123"));
+
+      const mockWs = getLatestMock();
+      
+      act(() => {
+        mockWs!.simulateOpen();
+      });
+
+      // Simulate completion message
+      act(() => {
+        mockWs!.simulateMessage({ status: "completed", job_id: "job-123" });
+      });
+
+      expect(result.current.status).toBe("completed");
+
+      // Simulate WebSocket error after completion
+      act(() => {
+        mockWs!.simulateError();
+      });
+
+      // Should NOT show error - job already completed
+      expect(result.current.error).toBeNull();
+    });
+
+    it("should show disconnected error when WebSocket closes during running", () => {
+      const { result } = renderHook(() => useJobProgress("job-123"));
+
+      const mockWs = getLatestMock();
+      
+      act(() => {
+        mockWs!.simulateOpen();
+      });
+
+      // Simulate running state
+      act(() => {
+        mockWs!.simulateMessage({
+          job_id: "job-123",
+          current_frame: 50,
+          total_frames: 100,
+          percent: 50,
+        });
+      });
+
+      expect(result.current.status).toBe("running");
+
+      // Simulate unexpected close during running
+      act(() => {
+        mockWs!.simulateClose(1006, false);
+      });
+
+      // Should show disconnected error - job was NOT completed
+      expect(result.current.error).toBe("WebSocket disconnected");
+    });
+  });
 });

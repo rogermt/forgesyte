@@ -48,6 +48,7 @@ export function useJobProgress(jobId: string | null): UseJobProgressResult {
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const manualCloseRef = useRef(false);
+  const jobCompletedRef = useRef(false);
 
   const clearTimers = useCallback(() => {
     if (reconnectTimeoutRef.current) {
@@ -65,6 +66,7 @@ export function useJobProgress(jobId: string | null): UseJobProgressResult {
 
     clearTimers();
     manualCloseRef.current = false;
+    jobCompletedRef.current = false;
 
     // Build WebSocket URL - use env variable if available, otherwise derive from window.location
     // Note: WebSocket path is /v1/ws/jobs/{job_id} (under /v1 prefix like other endpoints)
@@ -100,7 +102,9 @@ export function useJobProgress(jobId: string | null): UseJobProgressResult {
 
         // Handle completion
         if (data.status === "completed") {
+          jobCompletedRef.current = true;
           setStatus("completed");
+          ws.close(); // clean close, not an error
           return;
         }
 
@@ -135,8 +139,14 @@ export function useJobProgress(jobId: string | null): UseJobProgressResult {
         pingIntervalRef.current = null;
       }
 
+      // Don't show error or reconnect if job completed
+      if (jobCompletedRef.current) return;
+
       // Don't reconnect if manually closed
       if (manualCloseRef.current) return;
+
+      // Show disconnected error for unexpected close during running
+      setError("WebSocket disconnected");
 
       // Attempt reconnect after delay
       reconnectTimeoutRef.current = setTimeout(() => {
@@ -145,7 +155,9 @@ export function useJobProgress(jobId: string | null): UseJobProgressResult {
     };
 
     ws.onerror = () => {
-      setError("WebSocket connection error");
+      if (!jobCompletedRef.current) {
+        setError("WebSocket connection error");
+      }
     };
   }, [jobId, clearTimers]);
 
@@ -157,6 +169,7 @@ export function useJobProgress(jobId: string | null): UseJobProgressResult {
       setStatus("pending");
       setError(null);
       setIsConnected(false);
+      jobCompletedRef.current = false;
       return;
     }
 
@@ -164,6 +177,7 @@ export function useJobProgress(jobId: string | null): UseJobProgressResult {
     setProgress(null);
     setStatus("pending");
     setError(null);
+    jobCompletedRef.current = false;
 
     connect();
 
