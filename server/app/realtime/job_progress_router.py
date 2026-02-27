@@ -15,7 +15,7 @@ from app.websocket_manager import ws_manager
 router = APIRouter(tags=["websocket"])
 
 
-@router.websocket("/ws/jobs/{job_id}")
+@router.websocket("/v1/ws/jobs/{job_id}")
 async def job_progress_websocket(websocket: WebSocket, job_id: str):
     """
     WebSocket endpoint for real-time job progress updates.

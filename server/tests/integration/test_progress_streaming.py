@@ -40,7 +40,7 @@ class TestProgressStreamingIntegration:
         client = TestClient(app)
         job_id = "integration-test-job"
 
-        with client.websocket_connect(f"/ws/jobs/{job_id}") as ws:
+        with client.websocket_connect(f"/v1/ws/jobs/{job_id}") as ws:
             # 1. Connection established - verify with ping/pong
             ws.send_json({"type": "ping"})
             response = ws.receive_json()
@@ -65,8 +65,8 @@ class TestProgressStreamingIntegration:
         client = TestClient(app)
         job_id = "multi-client-job"
 
-        with client.websocket_connect(f"/ws/jobs/{job_id}") as ws1:
-            with client.websocket_connect(f"/ws/jobs/{job_id}") as ws2:
+        with client.websocket_connect(f"/v1/ws/jobs/{job_id}") as ws1:
+            with client.websocket_connect(f"/v1/ws/jobs/{job_id}") as ws2:
                 # Both should receive progress
                 await broadcast_progress(job_id, 50, 100)
 
@@ -81,8 +81,8 @@ class TestProgressStreamingIntegration:
         """Test clients only receive their own job events."""
         client = TestClient(app)
 
-        with client.websocket_connect("/ws/jobs/job-A") as wsA:
-            with client.websocket_connect("/ws/jobs/job-B") as wsB:
+        with client.websocket_connect("/v1/ws/jobs/job-A") as wsA:
+            with client.websocket_connect("/v1/ws/jobs/job-B") as wsB:
                 # Send progress for job-A
                 await broadcast_progress("job-A", 50, 100)
 
@@ -102,7 +102,7 @@ class TestProgressStreamingIntegration:
         client = TestClient(app)
         job_id = "tool-info-job"
 
-        with client.websocket_connect(f"/ws/jobs/{job_id}") as ws:
+        with client.websocket_connect(f"/v1/ws/jobs/{job_id}") as ws:
             # Send progress with tool info
             await broadcast_progress(
                 job_id,
@@ -127,7 +127,7 @@ class TestProgressStreamingIntegration:
         client = TestClient(app)
         job_id = "cleanup-test-job"
 
-        with client.websocket_connect(f"/ws/jobs/{job_id}") as ws:
+        with client.websocket_connect(f"/v1/ws/jobs/{job_id}") as ws:
             # Verify connection
             ws.send_json({"type": "ping"})
             response = ws.receive_json()

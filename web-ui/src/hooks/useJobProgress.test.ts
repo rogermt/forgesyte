@@ -131,7 +131,7 @@ describe("useJobProgress", () => {
 
       const mockWs = getLatestMock();
       expect(mockWs).toBeDefined();
-      expect(mockWs!.url).toContain("/ws/jobs/job-123");
+      expect(mockWs!.url).toContain("/v1/ws/jobs/job-123");
     });
 
     it("sets isConnected to true when WebSocket opens", async () => {

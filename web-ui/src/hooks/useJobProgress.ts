@@ -67,12 +67,13 @@ export function useJobProgress(jobId: string | null): UseJobProgressResult {
     manualCloseRef.current = false;
 
     // Build WebSocket URL - use env variable if available, otherwise derive from window.location
+    // Note: WebSocket path is /v1/ws/jobs/{job_id} (under /v1 prefix like other endpoints)
     let wsUrl: string;
     if (import.meta.env.VITE_WS_BACKEND_URL) {
-      wsUrl = `${import.meta.env.VITE_WS_BACKEND_URL}/ws/jobs/${jobId}`;
+      wsUrl = `${import.meta.env.VITE_WS_BACKEND_URL}/v1/ws/jobs/${jobId}`;
     } else {
       const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-      wsUrl = `${protocol}//${window.location.host}/ws/jobs/${jobId}`;
+      wsUrl = `${protocol}//${window.location.host}/v1/ws/jobs/${jobId}`;
     }
 
     const ws = new WebSocket(wsUrl);

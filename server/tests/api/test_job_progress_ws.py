@@ -1,4 +1,4 @@
-"""Tests for /ws/jobs/{job_id} WebSocket endpoint (TDD - Phase 5).
+"""Tests for /v1/ws/jobs/{job_id} WebSocket endpoint (TDD - Phase 5).
 
 Tests for real-time job progress streaming via WebSocket.
 """
@@ -25,7 +25,7 @@ def reset_ws_manager():
 
 
 class TestJobProgressWebSocket:
-    """Tests for /ws/jobs/{job_id} WebSocket endpoint."""
+    """Tests for /v1/ws/jobs/{job_id} WebSocket endpoint."""
 
     def test_websocket_connect(self) -> None:
         """Test WebSocket connection is accepted."""
@@ -34,7 +34,7 @@ class TestJobProgressWebSocket:
         from app.main import app
 
         client = TestClient(app)
-        with client.websocket_connect("/ws/jobs/test-job-123") as websocket:
+        with client.websocket_connect("/v1/ws/jobs/test-job-123") as websocket:
             # Connection should be accepted
             assert websocket is not None
 
@@ -45,7 +45,7 @@ class TestJobProgressWebSocket:
         from app.main import app
 
         client = TestClient(app)
-        with client.websocket_connect("/ws/jobs/test-job-123") as websocket:
+        with client.websocket_connect("/v1/ws/jobs/test-job-123") as websocket:
             websocket.send_json({"type": "ping"})
             response = websocket.receive_json()
             assert response["type"] == "pong"
@@ -60,7 +60,7 @@ class TestJobProgressWebSocket:
 
         client = TestClient(app)
 
-        with client.websocket_connect("/ws/jobs/test-job-456") as websocket:
+        with client.websocket_connect("/v1/ws/jobs/test-job-456") as websocket:
             # Give connection time to subscribe
             await asyncio.sleep(0.1)
 
@@ -87,7 +87,7 @@ class TestJobProgressWebSocket:
 
         client = TestClient(app)
 
-        with client.websocket_connect("/ws/jobs/job-A") as websocket:
+        with client.websocket_connect("/v1/ws/jobs/job-A") as websocket:
             # Give connection time to subscribe
             await asyncio.sleep(0.1)
 
