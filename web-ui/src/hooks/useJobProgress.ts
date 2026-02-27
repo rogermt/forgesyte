@@ -66,9 +66,14 @@ export function useJobProgress(jobId: string | null): UseJobProgressResult {
     clearTimers();
     manualCloseRef.current = false;
 
-    // Build WebSocket URL
-    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    const wsUrl = `${protocol}//${window.location.host}/ws/jobs/${jobId}`;
+    // Build WebSocket URL - use env variable if available, otherwise derive from window.location
+    let wsUrl: string;
+    if (import.meta.env.VITE_WS_BACKEND_URL) {
+      wsUrl = `${import.meta.env.VITE_WS_BACKEND_URL}/ws/jobs/${jobId}`;
+    } else {
+      const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+      wsUrl = `${protocol}//${window.location.host}/ws/jobs/${jobId}`;
+    }
 
     const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
