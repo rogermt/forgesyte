@@ -1,8 +1,13 @@
 import { render, screen } from '@testing-library/react';
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { VideoResultsViewer } from './VideoResultsViewer';
 
 describe('VideoResultsViewer', () => {
+  beforeEach(() => {
+    // Stub env variable for tests
+    vi.stubEnv('VITE_API_URL', '/v1');
+  });
+
   const mockResults = {
     total_frames: 3,
     frames: [

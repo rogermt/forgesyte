@@ -93,8 +93,9 @@ export function VideoResultsViewer({ jobId, results }: Props) {
     }
   };
 
-  // Video URL - use provided URL or construct from job ID
-  const videoUrl = results.video_url ?? `/v1/jobs/${jobId}/video`;
+  // Video URL - use provided URL or construct from job ID and API base
+  const apiBase = import.meta.env.VITE_API_URL || '/v1';
+  const videoUrl = results.video_url ?? `${apiBase}/jobs/${jobId}/video`;
 
   return (
     <div className="video-results-viewer">
