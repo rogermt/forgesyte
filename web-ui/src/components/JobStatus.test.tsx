@@ -209,4 +209,64 @@ describe("JobStatus", () => {
       expect(screen.getByText(/Processing failed/)).toBeInTheDocument();
     });
   });
+
+  describe("video results display", () => {
+    it("handles flattened video results (total_frames at top level)", async () => {
+      // v0.10.0: Backend now returns {total_frames, frames} at top level
+      // not wrapped in {results: {total_frames, frames}}
+      mockUseJobProgress.mockReturnValue({
+        progress: null,
+        status: "completed",
+        error: null,
+        isConnected: true,
+      });
+      mockGetJob.mockResolvedValue({
+        status: "completed",
+        results: {
+          job_id: "job-123",
+          total_frames: 100,
+          frames: [
+            { frame_index: 0, detections: { tracked_objects: [] } },
+          ],
+        },
+      });
+
+      render(<JobStatus jobId="job-123" />);
+      
+      await waitFor(() => {
+        expect(screen.getByText(/completed/i)).toBeInTheDocument();
+      });
+      
+      // Should not throw "Cannot read properties of undefined (reading 'total_frames')"
+      // VideoResultsViewer should render for video results
+      await waitFor(() => {
+        // Video elements don't have an implicit role, query by tag name
+        const video = document.querySelector('video');
+        expect(video).toBeInTheDocument();
+      });
+    });
+
+    it("handles video results with undefined results.results gracefully", async () => {
+      // Edge case: results.results is undefined but results has total_frames
+      mockUseJobProgress.mockReturnValue({
+        progress: null,
+        status: "completed",
+        error: null,
+        isConnected: true,
+      });
+      mockGetJob.mockResolvedValue({
+        status: "completed",
+        results: {
+          job_id: "job-123",
+          total_frames: 100,
+          frames: [],
+        },
+      });
+
+      // This should NOT throw
+      expect(() => {
+        render(<JobStatus jobId="job-123" />);
+      }).not.toThrow();
+    });
+  });
 });

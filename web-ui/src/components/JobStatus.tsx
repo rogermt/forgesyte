@@ -13,35 +13,37 @@ type Status = "pending" | "running" | "completed" | "failed";
 
 type VideoJobResults = {
   job_id: string;
-  results: {
+  // v0.10.0: Flattened video results (total_frames, frames at top level)
+  total_frames?: number;
+  frames?: Array<{
+    frame_index: number;
+    detections: {
+      tracked_objects: Array<{
+        track_id: number;
+        class_id: number;
+        xyxy: [number, number, number, number];
+        center: [number, number];
+      }>;
+    };
+  }>;
+  // Legacy nested results format (for non-video jobs)
+  results?: {
     text?: string;
     detections?: Array<{
       label: string;
       confidence: number;
       bbox: number[];
     }>;
-    // Video results fields
-    total_frames?: number;
-    frames?: Array<{
-      frame_index: number;
-      detections: {
-        tracked_objects: Array<{
-          track_id: number;
-          class_id: number;
-          xyxy: [number, number, number, number];
-          center: [number, number];
-        }>;
-      };
-    }>;
   } | null;
-  created_at: string;
-  updated_at: string;
+  created_at?: string;
+  updated_at?: string;
 };
 
 /** Check if results contain video analysis data */
-function isVideoResults(results: VideoJobResults["results"]): results is VideoResults {
+function isVideoResults(results: VideoJobResults | null): results is VideoJobResults & VideoResults {
   return (
     results !== null &&
+    results !== undefined &&
     typeof results.total_frames === "number" &&
     Array.isArray(results.frames)
   );
@@ -69,8 +71,12 @@ export const JobStatus: React.FC<Props> = ({ jobId }) => {
   const currentError = wsError || pollError;
 
   // HTTP polling fallback (when WebSocket not connected)
+  // OR fetch results when WebSocket reports completed
   useEffect(() => {
-    if (isConnected || !jobId) return;
+    if (!jobId) return;
+
+    // Skip polling if WebSocket is connected AND not completed
+    if (isConnected && wsStatus !== "completed") return;
 
     let timer: number | undefined;
 
@@ -91,7 +97,10 @@ export const JobStatus: React.FC<Props> = ({ jobId }) => {
           return;
         }
 
-        timer = window.setTimeout(poll, 2000);
+        // Only continue polling if WebSocket not connected
+        if (!isConnected) {
+          timer = window.setTimeout(poll, 2000);
+        }
       } catch (e: unknown) {
         setPollError(e instanceof Error ? e.message : "Status polling failed.");
       }
@@ -102,7 +111,7 @@ export const JobStatus: React.FC<Props> = ({ jobId }) => {
     return () => {
       if (timer) window.clearTimeout(timer);
     };
-  }, [jobId, isConnected]);
+  }, [jobId, isConnected, wsStatus]);
 
   // Render progress info from WebSocket
   const renderProgressInfo = () => {
@@ -163,8 +172,8 @@ export const JobStatus: React.FC<Props> = ({ jobId }) => {
       
       {/* Results display */}
       {currentStatus === "completed" && results && (
-        isVideoResults(results.results) ? (
-          <VideoResultsViewer jobId={jobId} results={results.results} />
+        isVideoResults(results) ? (
+          <VideoResultsViewer jobId={jobId} results={results as VideoResults} />
         ) : (
           <JobResults results={results} />
         )

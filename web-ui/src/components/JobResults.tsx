@@ -3,14 +3,17 @@ import React from "react";
 type Props = {
   results: {
     job_id: string;
-    results: Record<string, unknown> | null;
-    created_at: string;
-    updated_at: string;
+    results?: Record<string, unknown> | null;
+    total_frames?: number;
+    frames?: unknown[];
+    created_at?: string;
+    updated_at?: string;
   };
 };
 
 export const JobResults: React.FC<Props> = ({ results }) => {
-  const resultData = results.results;
+  // For flattened video results, show the whole object; otherwise show nested results
+  const resultData = results.results ?? (results.total_frames || results.frames ? results : null);
 
   const codeBlockStyle: React.CSSProperties = {
     backgroundColor: "var(--bg-primary)",
