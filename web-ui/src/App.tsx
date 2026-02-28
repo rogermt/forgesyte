@@ -523,7 +523,11 @@ function App() {
           {viewMode === "upload" && manifest && selectedTools.length > 0 && (
             <>
               {detectToolType(manifest, selectedTools[0]) === "frame" ? (
-                <VideoTracker pluginId={selectedPlugin} tools={selectedTools} />
+                <VideoTracker
+                  pluginId={selectedPlugin}
+                  tools={selectedTools}
+                  videoPath={videoPath}
+                />
               ) : (
                 <div style={styles.panel}>
                   <p>Upload image for analysis</p>
@@ -589,7 +593,11 @@ function App() {
 
           {viewMode === "video-stream" && videoPath && lockedTools && (
             <div style={{ ...styles.panel, flex: 1 }}>
-              <VideoTracker pluginId={selectedPlugin} tools={lockedTools} />
+              <VideoTracker
+                pluginId={selectedPlugin}
+                tools={lockedTools}
+                videoPath={videoPath}
+              />
             </div>
           )}
 
