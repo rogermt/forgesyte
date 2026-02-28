@@ -380,7 +380,8 @@ describe("ToolSelector", () => {
     buttons.forEach((button) => {
       expect(button).toBeDisabled();
     });
-    expect(screen.getByText("Stop streaming to change tools")).toBeInTheDocument();
+    // v0.10.1: Message updated to reflect locked state
+    expect(screen.getByText("Tools are locked for this session")).toBeInTheDocument();
   });
 
   it("hides details in compact mode", () => {

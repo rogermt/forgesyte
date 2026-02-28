@@ -39,6 +39,9 @@ function App() {
 
   const [streamEnabled, setStreamEnabled] = useState(false);
 
+  // v0.10.1: Tools become locked after upload to prevent mid-session changes
+  const [lockedTools, setLockedTools] = useState<string[] | null>(null);
+
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
   const [uploadResult, setUploadResult] = useState<Job | null>(null);
   const [isUploading, setIsUploading] = useState(false);
@@ -78,7 +81,7 @@ function App() {
   } = useWebSocket({
     url: `${WS_BACKEND_URL}/v1/stream`,
     plugin: selectedPlugin,
-    tools: selectedTools,
+    tools: lockedTools ?? selectedTools,  // v0.10.1: Use locked tools if available
     onResult: (result: FrameResult) => {
       console.log("Frame result:", result);
     },
@@ -150,11 +153,13 @@ function App() {
   // FIX: Reset tool selection when plugin changes
   //
   // Prevents: plugin=ocr&tool=radar (radar was from yolo-tracker)
+  // v0.10.1: Also reset lockedTools to allow new tool selection
   // -------------------------------------------------------------------------
   useEffect(() => {
     setSelectedTools([]);
     setUploadResult(null);
     setSelectedJob(null);
+    setLockedTools(null);  // v0.10.1: Reset lock when plugin changes
   }, [selectedPlugin]);
 
   // -------------------------------------------------------------------------
@@ -247,6 +252,12 @@ function App() {
       if (!selectedPlugin) return;
       if (selectedTools.length === 0) return;
 
+      // v0.10.1: Lock tools for this session
+      setLockedTools(selectedTools);
+
+      // v0.10.1: Pause streaming if active
+      if (streamEnabled) setStreamEnabled(false);
+
       setIsUploading(true);
       try {
         // v0.9.4: Pass all selected tools (not just first) for multi-tool support
@@ -264,7 +275,7 @@ function App() {
         setIsUploading(false);
       }
     },
-    [selectedPlugin, selectedTools]
+    [selectedPlugin, selectedTools, streamEnabled]
   );
 
   // -------------------------------------------------------------------------
@@ -406,9 +417,9 @@ function App() {
           <div style={styles.panel}>
             <ToolSelector
               pluginId={selectedPlugin}
-              selectedTools={selectedTools}
+              selectedTools={lockedTools ?? selectedTools}
               onToolChange={handleToolChange}
-              disabled={streamEnabled}
+              disabled={lockedTools !== null}  // v0.10.1: Disable after upload
             />
           </div>
 

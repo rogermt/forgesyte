@@ -231,6 +231,9 @@ export function ToolSelector({
   // -------------------------------------------------------------------------
   const handleToggleTool = useCallback(
     (toolId: string) => {
+      // v0.10.1: Guard against changes when disabled (locked after upload)
+      if (disabled) return;
+
       if (selectedTools.includes(toolId)) {
         // Remove tool if already selected (but keep at least one)
         if (selectedTools.length > 1) {
@@ -241,7 +244,7 @@ export function ToolSelector({
         onToolChange([...selectedTools, toolId]);
       }
     },
-    [selectedTools, onToolChange]
+    [selectedTools, onToolChange, disabled]
   );
 
   // -------------------------------------------------------------------------
@@ -425,7 +428,7 @@ export function ToolSelector({
             fontStyle: "italic",
           }}
         >
-          Stop streaming to change tools
+          Tools are locked for this session
         </p>
       )}
     </div>
