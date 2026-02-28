@@ -27,7 +27,7 @@ import type { PluginManifest } from "./types/plugin";
 const WS_BACKEND_URL =
   import.meta.env.VITE_WS_BACKEND_URL || "ws://localhost:8000";
 
-type ViewMode = "stream" | "upload" | "jobs" | "video-upload";
+type ViewMode = "stream" | "upload" | "jobs" | "video-upload" | "video-stream";
 
 function App() {
   // -------------------------------------------------------------------------
@@ -303,7 +303,7 @@ function App() {
 
     // User explicitly chooses streaming ON
     setStreamEnabled(true);
-    setViewMode("stream");
+    setViewMode("video-stream");
   }, [lockedTools, videoPath, selectedPlugin]);
 
   const handleRunVideoJob = useCallback(async () => {
@@ -584,6 +584,12 @@ function App() {
                 onStartStreaming={handleStartStreaming}
                 onRunJob={handleRunVideoJob}
               />
+            </div>
+          )}
+
+          {viewMode === "video-stream" && videoPath && lockedTools && (
+            <div style={{ ...styles.panel, flex: 1 }}>
+              <VideoTracker pluginId={selectedPlugin} tools={lockedTools} />
             </div>
           )}
 
