@@ -20,8 +20,9 @@ import type { Detection } from "../types/plugin";
 // ============================================================================
 
 export interface VideoTrackerProps {
-  pluginId: string;   // routing only
-  tools: string[];   // routing only
+  pluginId: string;
+  tools: string[];
+  jobId?: string | null;  // v0.10.1: job whose video is served at /v1/jobs/{jobId}/video
 }
 
 // ============================================================================
@@ -182,7 +183,7 @@ const FPS_OPTIONS = [5, 10, 15, 24, 30, 45, 60];
 // Component
 // ============================================================================
 
-export function VideoTracker({ pluginId, tools }: VideoTrackerProps) {
+export function VideoTracker({ pluginId, tools, jobId }: VideoTrackerProps) {
   // -------------------------------------------------------------------------
   // Refs
   // -------------------------------------------------------------------------
@@ -192,7 +193,6 @@ export function VideoTracker({ pluginId, tools }: VideoTrackerProps) {
   // -------------------------------------------------------------------------
   // State
   // -------------------------------------------------------------------------
-  const [videoFile, setVideoFile] = useState<File | null>(null);
   const [videoSrc, setVideoSrc] = useState<string | null>(null);
   const [fps, setFps] = useState(30);
   const [device, setDevice] = useState<"cpu" | "cuda">("cpu");
@@ -220,14 +220,13 @@ export function VideoTracker({ pluginId, tools }: VideoTrackerProps) {
   // Effects
   // -------------------------------------------------------------------------
 
-  // Revoke blob URL on cleanup
+  // v0.10.1: load job-scoped video instead of local file
+  // Backend serves video at: /v1/jobs/{job_id}/video
   useEffect(() => {
-    return () => {
-      if (videoSrc) {
-        URL.revokeObjectURL(videoSrc);
-      }
-    };
-  }, [videoSrc]);
+    if (!jobId) return;
+    setVideoSrc(`/v1/jobs/${jobId}/video`);
+    setRunning(false);
+  }, [jobId]);
 
   // Draw overlay when latestResult changes (generic plugin-agnostic)
   useEffect(() => {
@@ -254,25 +253,7 @@ export function VideoTracker({ pluginId, tools }: VideoTrackerProps) {
   // Handlers
   // -------------------------------------------------------------------------
 
-  const handleVideoUpload = useCallback(() => {
-    const input = document.createElement("input");
-    input.type = "file";
-    input.accept = "video/*";
-    input.onchange = (e) => {
-      const file = (e.target as HTMLInputElement).files?.[0];
-      if (file && file.type.startsWith("video/")) {
-        // Revoke previous URL if exists
-        if (videoSrc) {
-          URL.revokeObjectURL(videoSrc);
-        }
-        const newSrc = URL.createObjectURL(file);
-        setVideoFile(file);
-        setVideoSrc(newSrc);
-        setRunning(false); // Stop processing on new video
-      }
-    };
-    input.click();
-  }, [videoSrc]);
+  // REMOVED: handleVideoUpload - now driven by jobId + server video
 
   const handlePlay = useCallback(() => {
     setRunning(true);
@@ -300,23 +281,17 @@ export function VideoTracker({ pluginId, tools }: VideoTrackerProps) {
         </div>
       </div>
 
-      {/* Upload Row */}
-      <div style={styles.uploadRow}>
-        <button
-          style={styles.button}
-          onClick={handleVideoUpload}
-        >
-          Upload Video
-        </button>
-        {videoFile && (
+      {/* Video info row (server-driven) */}
+      {jobId && (
+        <div style={styles.uploadRow}>
           <span style={styles.fileNameLabel}>
-            {videoFile.name}
+            Job video: {jobId}
           </span>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Status Row */}
-      {videoFile && (
+      {videoSrc && (
         <div style={styles.statusRow}>
           <div style={styles.statusItem}>
             <div
@@ -343,7 +318,7 @@ export function VideoTracker({ pluginId, tools }: VideoTrackerProps) {
       {/* Video + Canvas Section */}
       <div style={styles.videoSection}>
         <div style={styles.videoContainer}>
-          {videoFile && videoSrc ? (
+          {videoSrc ? (
             <>
               <video
                 ref={videoRef}
@@ -382,7 +357,7 @@ export function VideoTracker({ pluginId, tools }: VideoTrackerProps) {
           value={fps}
           onChange={(e) => setFps(Number(e.target.value))}
           style={styles.dropdown}
-          disabled={!videoFile}
+          disabled={!videoSrc}
         >
           {FPS_OPTIONS.map((val) => (
             <option key={val} value={val}>
@@ -396,7 +371,7 @@ export function VideoTracker({ pluginId, tools }: VideoTrackerProps) {
           value={device}
           onChange={(e) => setDevice(e.target.value as "cpu" | "cuda")}
           style={styles.dropdown}
-          disabled={!videoFile}
+          disabled={!videoSrc}
         >
           <option value="cpu">CPU</option>
           <option value="cuda">GPU</option>
