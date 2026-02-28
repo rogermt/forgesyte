@@ -464,9 +464,9 @@ function App() {
           <div style={styles.panel}>
             <ToolSelector
               pluginId={selectedPlugin}
-              selectedTools={lockedTools ?? selectedTools}
+              selectedTools={selectedTools}
               onToolChange={handleToolChange}
-              disabled={lockedTools !== null}  // v0.10.1: Disable after upload
+              disabled={false}
             />
           </div>
 
