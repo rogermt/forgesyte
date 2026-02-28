@@ -1,17 +1,29 @@
 import React, { useState, useMemo } from "react";
 import { apiClient } from "../api/client";
-import { JobStatus } from "./JobStatus";
 import type { PluginManifest } from "../types/plugin";
 
 interface VideoUploadProps {
   pluginId: string | null;
   manifest?: PluginManifest | null;
   selectedTools?: string[];
+  // v0.10.1: deterministic tool locking
+  lockedTools?: string[] | null;
+  // Called when video has been uploaded and server returns a path
+  onVideoUploaded?: (videoPath: string) => void;
+  // User choices after upload
+  onStartStreaming?: () => void;
+  onRunJob?: () => void;
 }
 
-export const VideoUpload: React.FC<VideoUploadProps> = ({ pluginId, manifest, selectedTools }) => {
+export const VideoUpload: React.FC<VideoUploadProps> = ({
+  pluginId,
+  manifest,
+  lockedTools,
+  onVideoUploaded,
+  onStartStreaming,
+  onRunJob,
+}) => {
   const [file, setFile] = useState<File | null>(null);
-  const [jobId, setJobId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState<number>(0);
@@ -40,19 +52,12 @@ export const VideoUpload: React.FC<VideoUploadProps> = ({ pluginId, manifest, se
     );
   }
 
-  // Phase 7: Determine tools to use
-  // Priority: selectedTools prop > first available video tool
-  const toolsToUse = selectedTools && selectedTools.length > 0 
-    ? selectedTools 
-    : [availableVideoTools[0].id || Object.keys(manifest?.tools || {})[0]];
-  
   // Display the first tool for UI purposes
   const videoTool = availableVideoTools[0];
 
   const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0] ?? null;
     setError(null);
-    setJobId(null);
     setProgress(0);
 
     if (!f) {
@@ -81,15 +86,16 @@ export const VideoUpload: React.FC<VideoUploadProps> = ({ pluginId, manifest, se
     setProgress(0);
 
     try {
-      // Phase 7: Pass tools array and useLogicalId flag
-      const { job_id } = await apiClient.submitVideo(
+      // v0.10.1: Upload-only, no job submission here
+      const { video_path } = await apiClient.submitVideoUpload(
         file,
         pluginId,
-        toolsToUse,
-        (p) => setProgress(p),
-        true  // useLogicalId: resolve capability names to tool IDs
+        (p) => setProgress(p)
       );
-      setJobId(job_id);
+
+      if (onVideoUploaded) {
+        onVideoUploaded(video_path);
+      }
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Upload failed.");
     } finally {
@@ -127,13 +133,26 @@ export const VideoUpload: React.FC<VideoUploadProps> = ({ pluginId, manifest, se
           cursor: canUpload && !uploading ? "pointer" : "not-allowed",
         }}
       >
-        Upload
+        Upload Video
       </button>
 
-      {jobId && (
-        <div style={{ marginTop: "20px" }}>
-          <div>Job ID: {jobId}</div>
-          <JobStatus jobId={jobId} />
+      {/* v0.10.1: After upload → tools locked in App → user chooses streaming or job */}
+      {lockedTools && !uploading && (
+        <div style={{ marginTop: "20px", display: "flex", gap: "10px" }}>
+          <button
+            onClick={onStartStreaming}
+            disabled={!onStartStreaming}
+            style={{ padding: "8px 16px" }}
+          >
+            Start Streaming
+          </button>
+          <button
+            onClick={onRunJob}
+            disabled={!onRunJob}
+            style={{ padding: "8px 16px" }}
+          >
+            Run Job
+          </button>
         </div>
       )}
     </div>

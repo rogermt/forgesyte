@@ -42,6 +42,9 @@ function App() {
   // v0.10.1: Tools become locked after upload to prevent mid-session changes
   const [lockedTools, setLockedTools] = useState<string[] | null>(null);
 
+  // v0.10.1: Uploaded video path for job submission
+  const [videoPath, setVideoPath] = useState<string | null>(null);
+
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
   const [uploadResult, setUploadResult] = useState<Job | null>(null);
   const [isUploading, setIsUploading] = useState(false);
@@ -277,6 +280,50 @@ function App() {
     },
     [selectedPlugin, selectedTools, streamEnabled]
   );
+
+  // -------------------------------------------------------------------------
+  // v0.10.1: Video upload → lock tools → user chooses streaming or job
+  // -------------------------------------------------------------------------
+  const handleVideoUploaded = useCallback(
+    (path: string) => {
+      if (!selectedPlugin || selectedTools.length === 0) return;
+
+      // Lock tools at upload time
+      setLockedTools(selectedTools);
+      setVideoPath(path);
+
+      // Ensure streaming is OFF by default after upload
+      setStreamEnabled(false);
+    },
+    [selectedPlugin, selectedTools]
+  );
+
+  const handleStartStreaming = useCallback(() => {
+    if (!lockedTools || !videoPath || !selectedPlugin) return;
+
+    // User explicitly chooses streaming ON
+    setStreamEnabled(true);
+    setViewMode("stream");
+  }, [lockedTools, videoPath, selectedPlugin]);
+
+  const handleRunVideoJob = useCallback(async () => {
+    if (!lockedTools || !videoPath || !selectedPlugin) return;
+
+    try {
+      // Ensure streaming is OFF while job runs
+      setStreamEnabled(false);
+
+      const { job_id } = await apiClient.submitVideoJob(
+        selectedPlugin,
+        videoPath,
+        lockedTools
+      );
+      const job = await apiClient.pollJob(job_id);
+      setSelectedJob(job);
+    } catch (err) {
+      console.error("Video job failed:", err);
+    }
+  }, [lockedTools, videoPath, selectedPlugin]);
 
   // -------------------------------------------------------------------------
   // Styles
@@ -532,6 +579,10 @@ function App() {
                 pluginId={selectedPlugin}
                 manifest={manifest}
                 selectedTools={selectedTools}
+                lockedTools={lockedTools}
+                onVideoUploaded={handleVideoUploaded}
+                onStartStreaming={handleStartStreaming}
+                onRunJob={handleRunVideoJob}
               />
             </div>
           )}
