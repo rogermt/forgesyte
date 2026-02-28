@@ -6,6 +6,10 @@ plugin tool ID, and the backend resolves it dynamically using the plugin manifes
 
 v0.9.8: Added multi-tool support with video_multi job type, mutual exclusivity
 check (tool vs logical_tool_id), and canonical JSON response.
+
+v0.10.1: Split video upload and job submission for deterministic tool-locking.
+- POST /v1/video/upload: Upload-only, returns {video_path}
+- POST /v1/video/submit: Accepts JSON body {plugin_id, video_path, lockedTools}
 """
 
 import json
@@ -14,11 +18,12 @@ from io import BytesIO
 from typing import List
 from uuid import uuid4
 
-from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile
+from fastapi import APIRouter, Body, Depends, HTTPException, Query, UploadFile
 
 from app.core.database import SessionLocal
 from app.models.job import Job, JobStatus
 from app.plugin_loader import PluginRegistry
+from app.schemas.job import VideoSubmitRequest
 from app.services.plugin_management_service import PluginManagementService
 from app.services.storage.local_storage import LocalStorageService
 from app.services.tool_router import resolve_tools
@@ -54,6 +59,165 @@ def validate_mp4_magic_bytes(data: bytes) -> None:
     """
     if b"ftyp" not in data[:64]:
         raise HTTPException(status_code=400, detail="Invalid MP4 file")
+
+
+@router.post("/v1/video/upload")
+async def upload_video(
+    file: UploadFile,
+    plugin_id: str = Query(..., description="Plugin ID from /v1/plugins"),
+    plugin_manager=Depends(get_plugin_manager),
+):
+    """Upload a video file without starting a job.
+
+    v0.10.1: Upload-only endpoint for deterministic tool-locking flow.
+    Returns video_path that can be used later with /v1/video/submit.
+
+    Args:
+        file: MP4 video file to upload
+        plugin_id: ID of the plugin to use (from /v1/plugins)
+        plugin_manager: PluginRegistry from app state (DI)
+
+    Returns:
+        {"video_path": "video/input/<uuid>.mp4"}
+
+    Raises:
+        HTTPException: If file is invalid or plugin not found
+    """
+    # Validate plugin exists
+    plugin = plugin_manager.get(plugin_id)
+    if not plugin:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Plugin '{plugin_id}' not found",
+        )
+
+    # Read and validate file
+    contents = await file.read()
+    validate_mp4_magic_bytes(contents)
+
+    # Generate video path (no job created yet)
+    video_id = uuid4()
+    video_path = f"video/input/{video_id}.mp4"
+
+    # Save file to storage
+    storage.save_file(src=BytesIO(contents), dest_path=video_path)
+
+    return {"video_path": video_path}
+
+
+@router.post("/v1/video/job")
+async def submit_video_job(
+    request: VideoSubmitRequest = Body(...),
+    plugin_manager=Depends(get_plugin_manager),
+    plugin_service=Depends(get_plugin_service),
+):
+    """Submit a job for an already-uploaded video.
+
+    v0.10.1: JSON body endpoint for deterministic tool-locking flow.
+    Used after /v1/video/upload when user clicks "Run Job".
+
+    Args:
+        request: JSON body with plugin_id, video_path, and lockedTools
+        plugin_manager: PluginRegistry from app state (DI)
+        plugin_service: PluginManagementService instance (DI)
+
+    Returns:
+        {"job_id": "..."}
+
+    Raises:
+        HTTPException: If plugin not found, tools invalid, or video_path not found
+    """
+    plugin_id = request.plugin_id
+    video_path = request.video_path
+    locked_tools = request.lockedTools
+
+    # Validate plugin exists
+    plugin = plugin_manager.get(plugin_id)
+    if not plugin:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Plugin '{plugin_id}' not found",
+        )
+
+    # Validate all tools exist using plugin.tools (canonical source)
+    available_tools = plugin_service.get_available_tools(plugin_id)
+
+    for tool_id in locked_tools:
+        if tool_id not in available_tools:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"Tool '{tool_id}' not found in plugin '{plugin_id}'. "
+                    f"Available: {available_tools}"
+                ),
+            )
+
+    # Validate tool supports video input using input_types from MANIFEST
+    manifest = plugin_service.get_plugin_manifest(plugin_id)
+    if not manifest:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Manifest not found for plugin '{plugin_id}'",
+        )
+
+    # Build tool map from manifest
+    manifest_tools = manifest.get("tools", [])
+    if isinstance(manifest_tools, list):
+        tool_map = {t.get("id"): t for t in manifest_tools if isinstance(t, dict)}
+    elif isinstance(manifest_tools, dict):
+        tool_map = {k: {"id": k, **v} for k, v in manifest_tools.items()}
+    else:
+        tool_map = {}
+
+    # Validate each tool supports video input
+    for tool_id in locked_tools:
+        tool_def = tool_map.get(tool_id)
+        if not tool_def:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Tool '{tool_id}' definition not found in manifest for '{plugin_id}'",
+            )
+
+        input_types = tool_def.get("input_types", [])
+        if "video" not in input_types:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Tool '{tool_id}' does not support video input (input_types: {input_types})",
+            )
+
+    # Validate video file exists
+    if not storage.file_exists(video_path):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Video file not found: {video_path}",
+        )
+
+    # Determine job type based on number of tools
+    is_multi_tool = len(locked_tools) > 1
+    job_type = "video_multi" if is_multi_tool else "video"
+
+    # Create job record
+    job_id = uuid4()
+
+    # Create database record
+    db = SessionLocal()
+    try:
+        job = Job(
+            job_id=job_id,
+            status=JobStatus.pending,
+            plugin_id=plugin_id,
+            tool=locked_tools[0] if not is_multi_tool else None,
+            tool_list=json.dumps(locked_tools) if is_multi_tool else None,
+            input_path=video_path,
+            job_type=job_type,
+        )
+        db.add(job)
+        db.commit()
+        db.refresh(job)
+    finally:
+        db.close()
+
+    return {"job_id": str(job_id)}
 
 
 @router.post("/v1/video/submit")
