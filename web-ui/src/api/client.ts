@@ -321,6 +321,68 @@ export class ForgeSyteAPIClient {
             xhr.send(formData);
         });
     }
+
+    // v0.10.1: Video upload-only endpoint for deterministic tool-locking flow
+    // Uploads video and returns {video_path} - no job submission
+    async submitVideoUpload(
+        file: File,
+        pluginId: string,
+        onProgress?: (percent: number) => void
+    ): Promise<{ video_path: string }> {
+        return new Promise((resolve, reject) => {
+            const xhr = new XMLHttpRequest();
+            const url = new URL(`${this.baseUrl}/video/upload`, window.location.origin);
+            url.searchParams.append("plugin_id", pluginId);
+
+            xhr.open("POST", url.toString());
+
+            if (this.apiKey) {
+                xhr.setRequestHeader("X-API-Key", this.apiKey);
+            }
+
+            xhr.upload.onprogress = (event) => {
+                if (!onProgress || !event.lengthComputable) return;
+                const percent = (event.loaded / event.total) * 100;
+                onProgress(percent);
+            };
+
+            xhr.onload = () => {
+                if (xhr.status >= 200 && xhr.status < 300) {
+                    try {
+                        resolve(JSON.parse(xhr.responseText));
+                    } catch (e) {
+                        reject(new Error("Invalid server response."));
+                    }
+                } else {
+                    reject(new Error(`Upload failed with status ${xhr.status}.`));
+                }
+            };
+
+            xhr.onerror = () => reject(new Error("Network error during upload."));
+
+            const formData = new FormData();
+            formData.append("file", file);
+            xhr.send(formData);
+        });
+    }
+
+    // v0.10.1: Submit job for already-uploaded video using lockedTools
+    // Called after user clicks "Run Job" button
+    async submitVideoJob(
+        pluginId: string,
+        videoPath: string,
+        lockedTools: string[]
+    ): Promise<{ job_id: string }> {
+        const result = await this.fetch("/video/job", {
+            method: "POST",
+            body: JSON.stringify({
+                plugin_id: pluginId,
+                video_path: videoPath,
+                lockedTools,
+            }),
+        });
+        return result as unknown as { job_id: string };
+    }
 }
 
 export const apiClient = new ForgeSyteAPIClient();

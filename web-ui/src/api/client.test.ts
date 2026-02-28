@@ -444,6 +444,117 @@ describe("ForgeSyteAPIClient", () => {
                 expect(calledUrl).not.toContain("tool=");
             });
         });
+
+        // v0.10.1: Video upload-only endpoint tests
+        describe("submitVideo (v0.10.1 upload-only)", () => {
+            it("should upload video and return video_path", async () => {
+                const mockFile = new File(["test"], "test.mp4", { type: "video/mp4" });
+                const mockResult = { video_path: "video/input/abc-123.mp4" };
+
+                const mockXHRInstances: MockXMLHttpRequest[] = [];
+
+                class MockXMLHttpRequest {
+                    open = vi.fn();
+                    send = vi.fn();
+                    setRequestHeader = vi.fn();
+                    upload = { onprogress: null as null };
+                    onload: (() => void) | null = null;
+                    onerror: (() => void) | null = null;
+                    status = 200;
+                    responseText = JSON.stringify(mockResult);
+
+                    constructor() {
+                        mockXHRInstances.push(this);
+                        setTimeout(() => { if (this.onload) this.onload(); }, 0);
+                    }
+                }
+
+                (global as unknown as { XMLHttpRequest: typeof MockXMLHttpRequest }).XMLHttpRequest = MockXMLHttpRequest;
+
+                // v0.10.1: New signature - upload only, returns video_path
+                const result = await (client as unknown as { submitVideoUpload: (file: File, pluginId: string, onProgress?: (p: number) => void) => Promise<{ video_path: string }> }).submitVideoUpload(
+                    mockFile,
+                    "yolo-tracker"
+                );
+
+                expect(result).toEqual(mockResult);
+                expect(mockXHRInstances[0]?.open).toHaveBeenCalledWith(
+                    "POST",
+                    expect.stringContaining("/video/upload?plugin_id=yolo-tracker")
+                );
+            });
+
+            it("should NOT return job_id from upload-only endpoint", async () => {
+                const mockFile = new File(["test"], "test.mp4", { type: "video/mp4" });
+                const mockResult = { video_path: "video/input/abc-123.mp4" };
+
+                class MockXMLHttpRequest {
+                    open = vi.fn();
+                    send = vi.fn();
+                    setRequestHeader = vi.fn();
+                    upload = { onprogress: null as null };
+                    onload: (() => void) | null = null;
+                    onerror: (() => void) | null = null;
+                    status = 200;
+                    responseText = JSON.stringify(mockResult);
+
+                    constructor() {
+                        setTimeout(() => { if (this.onload) this.onload(); }, 0);
+                    }
+                }
+
+                (global as unknown as { XMLHttpRequest: typeof MockXMLHttpRequest }).XMLHttpRequest = MockXMLHttpRequest;
+
+                const result = await (client as unknown as { submitVideoUpload: (file: File, pluginId: string, onProgress?: (p: number) => void) => Promise<{ video_path: string }> }).submitVideoUpload(
+                    mockFile,
+                    "yolo-tracker"
+                );
+
+                expect(result).toHaveProperty("video_path");
+                expect(result).not.toHaveProperty("job_id");
+            });
+        });
+
+        // v0.10.1: Video job submission with video_path and lockedTools
+        describe("submitVideoJob (v0.10.1 JSON body)", () => {
+            it("should submit job with video_path and lockedTools", async () => {
+                const mockResult = { job_id: "video-job-456" };
+
+                fetchMock.mockResolvedValueOnce(createMockResponse(mockResult));
+
+                const result = await (client as unknown as { submitVideoJob: (pluginId: string, videoPath: string, lockedTools: string[]) => Promise<{ job_id: string }> }).submitVideoJob(
+                    "yolo-tracker",
+                    "video/input/abc-123.mp4",
+                    ["video_player_tracking"]
+                );
+
+                expect(result).toEqual(mockResult);
+                expect(fetchMock).toHaveBeenCalledWith(
+                    expect.stringContaining("/video/job"),
+                    expect.objectContaining({
+                        method: "POST",
+                        body: expect.stringContaining("video/input/abc-123.mp4"),
+                    })
+                );
+            });
+
+            it("should send lockedTools as JSON array", async () => {
+                const mockResult = { job_id: "video-job-789" };
+
+                fetchMock.mockResolvedValueOnce(createMockResponse(mockResult));
+
+                await (client as unknown as { submitVideoJob: (pluginId: string, videoPath: string, lockedTools: string[]) => Promise<{ job_id: string }> }).submitVideoJob(
+                    "yolo-tracker",
+                    "video/input/test.mp4",
+                    ["video_player_tracking", "video_ball_detection"]
+                );
+
+                const callArgs = fetchMock.mock.calls[0][1] as RequestInit;
+                const body = JSON.parse(callArgs.body as string);
+
+                expect(body.lockedTools).toEqual(["video_player_tracking", "video_ball_detection"]);
+            });
+        });
     });
 
     // Phase 5: Image submission with useLogicalId flag
