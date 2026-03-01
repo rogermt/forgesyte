@@ -643,6 +643,9 @@ function App() {
                 onStartStreaming={handleStartStreaming}
                 onRunJob={handleRunVideoJob}
               />
+              {uploadResult?.job_id && (
+                <JobStatus jobId={uploadResult.job_id} />
+              )}
             </div>
           )}
 
@@ -686,7 +689,7 @@ function App() {
           <ResultsPanel
             mode={viewMode === "stream" ? "stream" : "job"}
             streamResult={latestResult}
-            job={(viewMode === "upload" || viewMode === "video-upload") ? (uploadResult || selectedJob) : selectedJob}
+            job={selectedJob}
           />
         </aside>
       </main>
