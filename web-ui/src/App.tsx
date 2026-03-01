@@ -17,6 +17,7 @@ import { PluginSelector } from "./components/PluginSelector";
 import { ToolSelector } from "./components/ToolSelector";
 import { JobList } from "./components/JobList";
 import { ResultsPanel } from "./components/ResultsPanel";
+import { ProgressDisplay } from "./components/ProgressDisplay";
 import { JobStatus } from "./components/JobStatus";
 import { VideoTracker } from "./components/VideoTracker";
 import { VideoUpload } from "./components/VideoUpload";
@@ -643,8 +644,15 @@ function App() {
                 onStartStreaming={handleStartStreaming}
                 onRunJob={handleRunVideoJob}
               />
-              {uploadResult?.job_id && (
-                <JobStatus jobId={uploadResult.job_id} />
+              {uploadResult?.job_id && videoFile && lockedTools && (
+                <>
+                  <VideoTracker
+                    pluginId={selectedPlugin}
+                    tools={lockedTools}
+                    file={videoFile}
+                  />
+                  <ProgressDisplay jobId={uploadResult.job_id} />
+                </>
               )}
             </div>
           )}
