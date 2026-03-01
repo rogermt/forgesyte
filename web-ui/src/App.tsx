@@ -653,7 +653,7 @@ function App() {
           <ResultsPanel
             mode={viewMode === "stream" ? "stream" : "job"}
             streamResult={latestResult}
-            job={viewMode === "upload" ? uploadResult : selectedJob}
+            job={(viewMode === "upload" || viewMode === "video-upload") ? (uploadResult || selectedJob) : selectedJob}
           />
         </aside>
       </main>
