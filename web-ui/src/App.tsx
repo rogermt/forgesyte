@@ -170,6 +170,24 @@ function App() {
   }, [selectedPlugin]);
 
   // -------------------------------------------------------------------------
+  // v0.10.1: Job Polling - Poll selectedJob for progress updates
+  // -------------------------------------------------------------------------
+  useEffect(() => {
+    if (!selectedJob?.job_id) return;
+
+    const interval = setInterval(async () => {
+      try {
+        const job = await apiClient.getJob(selectedJob.job_id);
+        setSelectedJob(job);
+      } catch (err) {
+        console.error("Job polling failed:", err);
+      }
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [selectedJob?.job_id]);
+
+  // -------------------------------------------------------------------------
   // Ensure we always have a valid tool for the current manifest
   // - If none selected, select first
   // - If selected tool doesn't exist in this plugin, select first
