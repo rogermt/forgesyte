@@ -188,6 +188,15 @@ function App() {
   }, [selectedJob?.job_id]);
 
   // -------------------------------------------------------------------------
+  // v0.10.1: Unlock tools when job completes or fails
+  // -------------------------------------------------------------------------
+  useEffect(() => {
+    if (selectedJob?.status === "completed" || selectedJob?.status === "failed") {
+      setLockedTools(null);
+    }
+  }, [selectedJob?.status]);
+
+  // -------------------------------------------------------------------------
   // Ensure we always have a valid tool for the current manifest
   // - If none selected, select first
   // - If selected tool doesn't exist in this plugin, select first
