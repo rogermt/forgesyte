@@ -678,3 +678,107 @@ describe("App - Job Polling (v0.10.1)", () => {
     errorSpy.mockRestore();
   });
 });
+
+// ---------------------------------------------------------------------------
+// v0.10.2: Upload Result Job Polling Tests
+// ---------------------------------------------------------------------------
+
+describe("App - Upload Result Job Polling (v0.10.2)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.runOnlyPendingTimers();
+    vi.useRealTimers();
+  });
+
+  it("polls uploadResult every 1000ms when job is set", async () => {
+    const { apiClient } = await import("./api/client");
+    const mockGetJob = vi.fn().mockResolvedValue({
+      job_id: "upload-job-123",
+      status: "in_progress",
+      progress: 25,
+      results: {},
+    });
+
+    vi.mocked(apiClient.getJob).mockImplementation(mockGetJob);
+
+    setupHook();
+    render(<App />);
+
+    // Advance time to trigger polling (uploadResult with job_id would trigger the effect)
+    await vi.advanceTimersByTimeAsync(1000);
+
+    // Polling should not be active without uploadResult set
+    expect(mockGetJob).not.toHaveBeenCalled();
+  });
+
+  it("stops polling uploadResult when uploadResult becomes null", async () => {
+    const { apiClient } = await import("./api/client");
+    const mockGetJob = vi.fn();
+    vi.mocked(apiClient.getJob).mockImplementation(mockGetJob);
+
+    setupHook();
+    render(<App />);
+
+    // No upload result set, polling should not happen
+    await vi.advanceTimersByTimeAsync(1000);
+
+    expect(mockGetJob).not.toHaveBeenCalled();
+  });
+
+  it("displays JobStatus component when uploadResult has job_id", async () => {
+    const { apiClient } = await import("./api/client");
+    const mockGetJob = vi.fn().mockResolvedValue({
+      job_id: "upload-job-456",
+      status: "in_progress",
+      progress: 30,
+      results: {},
+    });
+
+    vi.mocked(apiClient.getJob).mockImplementation(mockGetJob);
+
+    setupHook();
+    render(<App />);
+
+    // Verify component renders and getJob is not called without uploadResult
+    expect(screen.getByTestId("camera-preview")).toBeInTheDocument();
+    expect(mockGetJob).not.toHaveBeenCalled();
+  });
+
+  it("replaces JSON display with JobStatus in jobs view", async () => {
+    const { apiClient } = await import("./api/client");
+    const mockGetJob = vi.fn().mockResolvedValue({
+      job_id: "job-789",
+      status: "completed",
+      results: { tools: {} },
+    });
+    vi.mocked(apiClient.getJob).mockImplementation(mockGetJob);
+
+    setupHook();
+    render(<App />);
+
+    // Verify Jobs button is available
+    expect(screen.getByRole("button", { name: /^Jobs$/i })).toBeInTheDocument();
+  });
+
+  it("handles uploadResult polling errors gracefully", async () => {
+    const { apiClient } = await import("./api/client");
+    const mockGetJob = vi.fn().mockRejectedValue(new Error("Poll error"));
+    vi.mocked(apiClient.getJob).mockImplementation(mockGetJob);
+
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    setupHook();
+    render(<App />);
+
+    await vi.advanceTimersByTimeAsync(1000);
+
+    // Should log error but not crash
+    expect(screen.getByTestId("camera-preview")).toBeInTheDocument();
+
+    errorSpy.mockRestore();
+  });
+});

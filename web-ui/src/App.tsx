@@ -17,6 +17,7 @@ import { PluginSelector } from "./components/PluginSelector";
 import { ToolSelector } from "./components/ToolSelector";
 import { JobList } from "./components/JobList";
 import { ResultsPanel } from "./components/ResultsPanel";
+import { JobStatus } from "./components/JobStatus";
 import { VideoTracker } from "./components/VideoTracker";
 import { VideoUpload } from "./components/VideoUpload";
 import { useWebSocket, FrameResult } from "./hooks/useWebSocket";
@@ -186,6 +187,24 @@ function App() {
 
     return () => clearInterval(interval);
   }, [selectedJob?.job_id]);
+
+  // -------------------------------------------------------------------------
+  // v0.10.2: Poll uploadResult for progress updates (Upload / Video Upload)
+  // -------------------------------------------------------------------------
+  useEffect(() => {
+    if (!uploadResult?.job_id) return;
+
+    const interval = setInterval(async () => {
+      try {
+        const job = await apiClient.getJob(uploadResult.job_id);
+        setUploadResult(job);
+      } catch (err) {
+        console.error("Upload job polling failed:", err);
+      }
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [uploadResult?.job_id]);
 
   // -------------------------------------------------------------------------
   // v0.10.1: Unlock tools when job completes or fails
@@ -569,6 +588,9 @@ function App() {
                     disabled={isUploading || !selectedPlugin || selectedTools.length === 0}
                   />
                   {isUploading && <p>Analyzing...</p>}
+                  {uploadResult?.job_id && (
+                    <JobStatus jobId={uploadResult.job_id} />
+                  )}
                 </div>
               )}
             </>
@@ -601,7 +623,9 @@ function App() {
             <div style={{ ...styles.panel, flex: 1 }}>
               <h3>Job Details</h3>
               {selectedJob ? (
-                <pre>{JSON.stringify(selectedJob, null, 2)}</pre>
+                <>
+                  <JobStatus jobId={selectedJob.job_id} />
+                </>
               ) : (
                 <p>Select a job</p>
               )}
