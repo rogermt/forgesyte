@@ -9,7 +9,7 @@ interface VideoUploadProps {
   // v0.10.1: deterministic tool locking
   lockedTools?: string[] | null;
   // Called when video has been uploaded and server returns a path
-  onVideoUploaded?: (videoPath: string) => void;
+  onVideoUploaded?: (videoPath: string, file: File) => void;
   // User choices after upload
   onStartStreaming?: () => void;
   onRunJob?: () => void;
@@ -94,7 +94,7 @@ export const VideoUpload: React.FC<VideoUploadProps> = ({
       );
 
       if (onVideoUploaded) {
-        onVideoUploaded(video_path);
+        onVideoUploaded(video_path, file);
       }
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Upload failed.");

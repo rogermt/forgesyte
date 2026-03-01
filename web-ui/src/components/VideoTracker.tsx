@@ -22,7 +22,7 @@ import type { Detection } from "../types/plugin";
 export interface VideoTrackerProps {
   pluginId: string;
   tools: string[];
-  jobId?: string | null;  // v0.10.1: job whose video is served at /v1/jobs/{jobId}/video
+  file: File | null;   // LOCAL uploaded file
 }
 
 // ============================================================================
@@ -183,7 +183,7 @@ const FPS_OPTIONS = [5, 10, 15, 24, 30, 45, 60];
 // Component
 // ============================================================================
 
-export function VideoTracker({ pluginId, tools, jobId }: VideoTrackerProps) {
+export function VideoTracker({ pluginId, tools, file }: VideoTrackerProps) {
   // -------------------------------------------------------------------------
   // Refs
   // -------------------------------------------------------------------------
@@ -220,13 +220,14 @@ export function VideoTracker({ pluginId, tools, jobId }: VideoTrackerProps) {
   // Effects
   // -------------------------------------------------------------------------
 
-  // v0.10.1: load job-scoped video instead of local file
-  // Backend serves video at: /v1/jobs/{job_id}/video
+  // Restore local file streaming
   useEffect(() => {
-    if (!jobId) return;
-    setVideoSrc(`/v1/jobs/${jobId}/video`);
+    if (!file) return;
+    const url = URL.createObjectURL(file);
+    setVideoSrc(url);
     setRunning(false);
-  }, [jobId]);
+    return () => URL.revokeObjectURL(url);
+  }, [file]);
 
   // Draw overlay when latestResult changes (generic plugin-agnostic)
   useEffect(() => {
@@ -281,11 +282,11 @@ export function VideoTracker({ pluginId, tools, jobId }: VideoTrackerProps) {
         </div>
       </div>
 
-      {/* Video info row (server-driven) */}
-      {jobId && (
+      {/* Video info row */}
+      {file && (
         <div style={styles.uploadRow}>
           <span style={styles.fileNameLabel}>
-            Job video: {jobId}
+            Video: {file.name}
           </span>
         </div>
       )}

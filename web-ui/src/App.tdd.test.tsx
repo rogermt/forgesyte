@@ -107,11 +107,11 @@ vi.mock("./components/ResultsPanel", () => ({
 }));
 
 vi.mock("./components/VideoTracker", () => ({
-  VideoTracker: (props: { pluginId: string; tools: string[]; jobId?: string | null }) => (
+  VideoTracker: (props: { pluginId: string; tools: string[]; file: File | null }) => (
     <div data-testid="video-tracker">
       <span data-testid="video-tracker-plugin">{props.pluginId}</span>
       <span data-testid="video-tracker-tools">{props.tools.join(",")}</span>
-      {props.jobId && <span data-testid="video-tracker-job-id">{props.jobId}</span>}
+      {props.file && <span data-testid="video-tracker-file">{props.file.name}</span>}
     </div>
   ),
 }));

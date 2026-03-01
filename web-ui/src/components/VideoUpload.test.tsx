@@ -196,7 +196,7 @@ describe("VideoUpload", () => {
         fireEvent.click(uploadButton);
 
         await waitFor(() => {
-            expect(onVideoUploaded).toHaveBeenCalledWith("video/input/test-123.mp4");
+            expect(onVideoUploaded).toHaveBeenCalledWith("video/input/test-123.mp4", file);
         });
     });
 

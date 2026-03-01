@@ -46,8 +46,8 @@ function App() {
   // v0.10.1: Uploaded video path for job submission
   const [videoPath, setVideoPath] = useState<string | null>(null);
 
-  // v0.10.1: job used for video playback (VideoTracker loads /v1/jobs/{job_id}/video)
-  const [videoJob, setVideoJob] = useState<Job | null>(null);
+  // Local uploaded file for VideoTracker streaming
+  const [videoFile, setVideoFile] = useState<File | null>(null);
 
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
   const [uploadResult, setUploadResult] = useState<Job | null>(null);
@@ -289,14 +289,14 @@ function App() {
   // v0.10.1: Video upload → lock tools → user chooses streaming or job
   // -------------------------------------------------------------------------
   const handleVideoUploaded = useCallback(
-    (path: string) => {
+    (path: string, file: File) => {
       if (!selectedPlugin || selectedTools.length === 0) return;
 
       // v0.10.1: lock *video* tools, not logical tools
       const videoTools = resolveVideoTools(selectedTools, manifest);
       setLockedTools(videoTools);
       setVideoPath(path);
-      setVideoJob(null); // no job yet, only upload done
+      setVideoFile(file);
 
       // Ensure streaming is OFF by default after upload
       setStreamEnabled(false);
@@ -304,28 +304,11 @@ function App() {
     [selectedPlugin, selectedTools, manifest]
   );
 
-  const handleStartStreaming = useCallback(async () => {
-    if (!lockedTools || !videoPath || !selectedPlugin) return;
-
-    try {
-      // If we don't yet have a job for this video, create one now
-      if (!videoJob) {
-        const { job_id } = await apiClient.submitVideoJob(
-          selectedPlugin,
-          videoPath,
-          lockedTools
-        );
-        const job = await apiClient.pollJob(job_id);
-        setVideoJob(job);
-      }
-
-      // User explicitly chooses streaming ON
-      setStreamEnabled(true);
-      setViewMode("video-stream");
-    } catch (err) {
-      console.error("Video streaming job failed:", err);
-    }
-  }, [lockedTools, videoPath, selectedPlugin, videoJob]);
+  const handleStartStreaming = useCallback(() => {
+    if (!lockedTools || !videoFile) return;
+    setStreamEnabled(true);
+    setViewMode("video-stream");
+  }, [lockedTools, videoFile]);
 
   const handleRunVideoJob = useCallback(async () => {
     if (!lockedTools || !videoPath || !selectedPlugin) return;
@@ -341,7 +324,6 @@ function App() {
       );
       const job = await apiClient.pollJob(job_id);
       setSelectedJob(job);
-      setVideoJob(job); // this job's video will be used by VideoTracker
     } catch (err) {
       console.error("Video job failed:", err);
     }
@@ -548,7 +530,7 @@ function App() {
                 <VideoTracker
                   pluginId={selectedPlugin}
                   tools={selectedTools}
-                  jobId={videoJob?.job_id}
+                  file={videoFile}
                 />
               ) : (
                 <div style={styles.panel}>
@@ -613,12 +595,12 @@ function App() {
             </div>
           )}
 
-          {viewMode === "video-stream" && videoJob && lockedTools && (
+          {viewMode === "video-stream" && videoFile && lockedTools && (
             <div style={{ ...styles.panel, flex: 1 }}>
               <VideoTracker
                 pluginId={selectedPlugin}
                 tools={lockedTools}
-                jobId={videoJob.job_id}
+                file={videoFile}
               />
             </div>
           )}
