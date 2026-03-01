@@ -301,7 +301,6 @@ function App() {
           selectedTools  // CHANGED: was selectedTools[0]
         );
         const job = await apiClient.pollJob(response.job_id);
-        setUploadResult(job);
         setSelectedJob(job);
       } catch (err) {
         console.error("Upload failed:", err);
@@ -350,6 +349,7 @@ function App() {
         lockedTools
       );
       const job = await apiClient.pollJob(job_id);
+      setUploadResult(job);
       setSelectedJob(job);
     } catch (err) {
       console.error("Video job failed:", err);
