@@ -163,6 +163,39 @@ describe("ForgeSyteAPIClient", () => {
             expect(job.job_id).toBe("job-123");
             expect(job.status).toBe("pending");
         });
+
+        // Issue #231: Cache-busting tests
+        it("should include cache-busting timestamp query param", async () => {
+            const mockJob = {
+                job_id: "job-456",
+                status: "completed" as const,
+                created_at: "2026-01-09T21:00:00Z",
+            };
+
+            fetchMock.mockResolvedValueOnce(createMockResponse(mockJob));
+
+            await client.getJob("job-456");
+
+            const callUrl = fetchMock.mock.calls[0][0] as string;
+            // Should contain ?_t= followed by a timestamp
+            expect(callUrl).toMatch(/\/jobs\/job-456\?_t=\d+$/);
+        });
+
+        it("should use cache: no-store option to bypass browser cache", async () => {
+            const mockJob = {
+                job_id: "job-789",
+                status: "running" as const,
+                created_at: "2026-01-09T21:00:00Z",
+            };
+
+            fetchMock.mockResolvedValueOnce(createMockResponse(mockJob));
+
+            await client.getJob("job-789");
+
+            const callOptions = fetchMock.mock.calls[0][1] as RequestInit;
+            // Should include cache: "no-store" to prevent browser caching
+            expect(callOptions.cache).toBe("no-store");
+        });
     });
 
     describe("cancelJob", () => {

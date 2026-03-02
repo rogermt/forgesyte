@@ -116,10 +116,10 @@ export class ForgeSyteAPIClient {
 
     async getJob(jobId: string): Promise<Job> {
         // v0.9.2: Use unified /v1/jobs/{id} endpoint for both image and video jobs
-        const result = (await this.fetch(`/jobs/${jobId}`)) as Record<
-            string,
-            unknown
-        >;
+        // v0.10.1: Issue #231 - Add cache-busting to prevent stale responses through proxies
+        const result = (await this.fetch(`/jobs/${jobId}?_t=${Date.now()}`, {
+            cache: "no-store"
+        })) as Record<string, unknown>;
         return result.job ? (result.job as unknown as Job) : (result as unknown as Job);
     }
 

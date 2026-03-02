@@ -65,15 +65,25 @@ export const JobStatus: React.FC<Props> = ({ jobId }) => {
   const [pollError, setPollError] = useState<string | null>(null);
 
   // Determine which source to use
-  const useWebSocket = isConnected && wsStatus !== "pending";
-  const currentProgress = useWebSocket ? wsProgress?.percent ?? null : pollProgress;
-  const currentStatus = useWebSocket ? wsStatus : pollStatus;
-  const currentError = wsError || pollError;
+  // v0.10.1 Issue #231: If polling confirms job is done, lock the state
+  // so a late-reconnecting WebSocket can't revert it to "pending"
+  const isDone = pollStatus === "completed" || pollStatus === "failed";
+  const useWebSocket = !isDone && isConnected && wsStatus !== "pending";
+
+  const currentProgress = isDone
+    ? (pollStatus === "completed" ? 100 : pollProgress)
+    : (useWebSocket ? wsProgress?.percent ?? null : pollProgress);
+
+  const currentStatus = isDone ? pollStatus : (useWebSocket ? wsStatus : pollStatus);
+  const currentError = isDone ? pollError : (wsError || pollError);
 
   // HTTP polling fallback (when WebSocket not connected)
   // OR fetch results when WebSocket reports completed
   useEffect(() => {
     if (!jobId) return;
+
+    // v0.10.1 Issue #231: Stop polling forever once we reach a terminal state
+    if (pollStatus === "completed" || pollStatus === "failed") return;
 
     // Skip polling if WebSocket is connected AND not completed
     if (isConnected && wsStatus !== "completed") return;
@@ -111,7 +121,7 @@ export const JobStatus: React.FC<Props> = ({ jobId }) => {
     return () => {
       if (timer) window.clearTimeout(timer);
     };
-  }, [jobId, isConnected, wsStatus]);
+  }, [jobId, isConnected, wsStatus, pollStatus]); // v0.10.1 Issue #231: added pollStatus
 
   // Render progress info from WebSocket
   const renderProgressInfo = () => {

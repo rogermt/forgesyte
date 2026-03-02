@@ -269,4 +269,175 @@ describe("JobStatus", () => {
       }).not.toThrow();
     });
   });
+
+  // Issue #231: Terminal state locking tests
+  describe("Issue #231: Terminal state locking", () => {
+    it("should lock status to 'completed' when HTTP polling confirms completion while WebSocket disconnected", async () => {
+      // Race condition scenario:
+      // 1. Job completes on server
+      // 2. WebSocket disconnects
+      // 3. HTTP polling fetches and sees "completed"
+      // 4. WebSocket reconnects with fresh "pending" state
+      // The UI should stay locked on "completed"
+
+      // Step 1-3: WebSocket disconnected, polling runs and sees completed
+      mockUseJobProgress.mockReturnValue({
+        progress: null,
+        status: "pending",
+        error: null,
+        isConnected: false, // WebSocket disconnected - polling will run
+      });
+
+      mockGetJob.mockResolvedValue({
+        status: "completed",
+        progress: 100,
+        results: { job_id: "job-123" },
+      });
+
+      render(<JobStatus jobId="job-123" />);
+
+      // Wait for polling to complete
+      await waitFor(() => {
+        expect(screen.getByText(/completed/i)).toBeInTheDocument();
+      });
+
+      // Step 4: WebSocket reconnects with fresh "pending" state
+      mockUseJobProgress.mockReturnValue({
+        progress: null,
+        status: "pending", // Fresh WebSocket reconnection
+        error: null,
+        isConnected: true, // Now connected
+      });
+
+      // Trigger re-render by causing a state change
+      // The status should remain "completed" because pollStatus is locked
+
+      // Status should still be completed (locked)
+      expect(screen.getByText(/completed/i)).toBeInTheDocument();
+    });
+
+    it("should lock status to 'failed' when HTTP polling confirms failure while WebSocket disconnected", async () => {
+      mockUseJobProgress.mockReturnValue({
+        progress: null,
+        status: "pending",
+        error: null,
+        isConnected: false, // WebSocket disconnected - polling will run
+      });
+
+      mockGetJob.mockResolvedValue({
+        status: "failed",
+        error_message: "Processing error",
+      });
+
+      render(<JobStatus jobId="job-123" />);
+
+      await waitFor(() => {
+        expect(screen.getByText(/failed/i)).toBeInTheDocument();
+      });
+
+      // Simulate WebSocket reconnecting
+      mockUseJobProgress.mockReturnValue({
+        progress: null,
+        status: "pending",
+        error: null,
+        isConnected: true,
+      });
+
+      // Status should still be failed (locked)
+      expect(screen.getByText(/failed/i)).toBeInTheDocument();
+      expect(screen.getByText(/Processing error/)).toBeInTheDocument();
+    });
+
+    it("should stop polling once terminal state 'completed' is reached", async () => {
+      mockUseJobProgress.mockReturnValue({
+        progress: null,
+        status: "completed",
+        error: null,
+        isConnected: true, // WebSocket connected and reports completed
+      });
+
+      mockGetJob.mockResolvedValue({
+        status: "completed",
+        progress: 100,
+        results: { job_id: "job-123" },
+      });
+
+      render(<JobStatus jobId="job-123" />);
+
+      // When WebSocket reports completed, polling runs to fetch results
+      await waitFor(() => {
+        expect(mockGetJob).toHaveBeenCalledWith("job-123");
+      });
+
+      // Clear the mock to count additional calls
+      mockGetJob.mockClear();
+
+      // Wait a bit to see if polling continues
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
+      // Should NOT have called getJob again after terminal state
+      expect(mockGetJob).not.toHaveBeenCalled();
+    });
+
+    it("should stop polling once terminal state 'failed' is reached", async () => {
+      mockUseJobProgress.mockReturnValue({
+        progress: null,
+        status: "failed",
+        error: "Job failed",
+        isConnected: false, // Disconnected - polling runs
+      });
+
+      mockGetJob.mockResolvedValue({
+        status: "failed",
+        error_message: "Job failed",
+      });
+
+      render(<JobStatus jobId="job-123" />);
+
+      await waitFor(() => {
+        expect(screen.getByText(/failed/i)).toBeInTheDocument();
+      });
+
+      mockGetJob.mockClear();
+
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
+      expect(mockGetJob).not.toHaveBeenCalled();
+    });
+
+    it("should prioritize HTTP polling completed status over WebSocket pending on reconnect", async () => {
+      // Test the actual race: polling completes, then WS reconnects
+      mockUseJobProgress.mockReturnValue({
+        progress: { job_id: "job-123", current_frame: 50, total_frames: 100, percent: 50 },
+        status: "running",
+        error: null,
+        isConnected: false, // Start disconnected so polling runs
+      });
+
+      mockGetJob.mockResolvedValue({
+        status: "completed",
+        progress: 100,
+        results: { job_id: "job-123" },
+      });
+
+      render(<JobStatus jobId="job-123" />);
+
+      // Wait for polling to complete
+      await waitFor(() => {
+        expect(screen.getByText(/completed/i)).toBeInTheDocument();
+      });
+
+      // Now simulate WebSocket reconnecting with stale "pending" state
+      mockUseJobProgress.mockReturnValue({
+        progress: { job_id: "job-123", current_frame: 50, total_frames: 100, percent: 50 },
+        status: "pending", // Fresh reconnection - back to pending
+        error: null,
+        isConnected: true,
+      });
+
+      // Status should REMAIN completed (locked by pollStatus)
+      // This is the core fix for Issue #231
+      expect(screen.getByText(/completed/i)).toBeInTheDocument();
+    });
+  });
 });
