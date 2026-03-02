@@ -357,19 +357,26 @@ function App() {
 
   const handleRunVideoJob = useCallback(async () => {
     if (!lockedTools || !videoPath || !selectedPlugin) return;
-
+  
     try {
       // Ensure streaming is OFF while job runs
       setStreamEnabled(false);
-
+  
       const { job_id } = await apiClient.submitVideoJob(
         selectedPlugin,
         videoPath,
         lockedTools
       );
-      const job = await apiClient.pollJob(job_id);
-      setUploadResult(job);
-      setSelectedJob(job);
+      
+      // FIX: Set the job immediately so the UI mounts <JobStatus>.
+      // DO NOT use await apiClient.pollJob() here, because it blocks 
+      // the UI from updating until the job is 100% finished!
+      
+      const initialJobState = { job_id, status: "pending", created_at: new Date().toISOString() } as Job;
+      
+      setUploadResult(initialJobState);
+      setSelectedJob(initialJobState);
+      
     } catch (err) {
       console.error("Video job failed:", err);
     }
