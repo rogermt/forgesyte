@@ -210,10 +210,10 @@ describe("JobStatus", () => {
     });
   });
 
-  describe("video results display", () => {
+  describe("results display", () => {
     it("handles flattened video results (total_frames at top level)", async () => {
       // v0.10.0: Backend now returns {total_frames, frames} at top level
-      // not wrapped in {results: {total_frames, frames}}
+      // JobResults displays all result data as JSON
       mockUseJobProgress.mockReturnValue({
         progress: null,
         status: "completed",
@@ -237,13 +237,13 @@ describe("JobStatus", () => {
         expect(screen.getByText(/completed/i)).toBeInTheDocument();
       });
       
-      // Should not throw "Cannot read properties of undefined (reading 'total_frames')"
-      // VideoResultsViewer should render for video results
+      // Should display results in JobResults (JSON format)
       await waitFor(() => {
-        // Video elements don't have an implicit role, query by tag name
-        const video = document.querySelector('video');
-        expect(video).toBeInTheDocument();
+        expect(screen.getByText(/Job Results/i)).toBeInTheDocument();
       });
+
+      // Should display the total_frames in the JSON output
+      expect(screen.getByText(/total_frames/i)).toBeInTheDocument();
     });
 
     it("handles video results with undefined results.results gracefully", async () => {

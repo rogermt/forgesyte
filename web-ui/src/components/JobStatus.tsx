@@ -3,7 +3,6 @@ import { apiClient } from "../api/client";
 import { JobResults } from "./JobResults";
 import { ProgressBar } from "./ProgressBar";
 import { useJobProgress } from "../hooks/useJobProgress";
-import { VideoResultsViewer, VideoResults } from "./VideoResultsViewer";
 
 type Props = {
   jobId: string;
@@ -11,43 +10,14 @@ type Props = {
 
 type Status = "pending" | "running" | "completed" | "failed";
 
-type VideoJobResults = {
+type JobResultsData = {
   job_id: string;
-  // v0.10.0: Flattened video results (total_frames, frames at top level)
+  results?: Record<string, unknown> | null;
   total_frames?: number;
-  frames?: Array<{
-    frame_index: number;
-    detections: {
-      tracked_objects: Array<{
-        track_id: number;
-        class_id: number;
-        xyxy: [number, number, number, number];
-        center: [number, number];
-      }>;
-    };
-  }>;
-  // Legacy nested results format (for non-video jobs)
-  results?: {
-    text?: string;
-    detections?: Array<{
-      label: string;
-      confidence: number;
-      bbox: number[];
-    }>;
-  } | null;
+  frames?: unknown[];
   created_at?: string;
   updated_at?: string;
 };
-
-/** Check if results contain video analysis data */
-function isVideoResults(results: VideoJobResults | null): results is VideoJobResults & VideoResults {
-  return (
-    results !== null &&
-    results !== undefined &&
-    typeof results.total_frames === "number" &&
-    Array.isArray(results.frames)
-  );
-}
 
 export const JobStatus: React.FC<Props> = ({ jobId }) => {
   // WebSocket progress (primary source)
@@ -61,7 +31,7 @@ export const JobStatus: React.FC<Props> = ({ jobId }) => {
   // HTTP polling fallback
   const [pollProgress, setPollProgress] = useState<number | null>(null);
   const [pollStatus, setPollStatus] = useState<Status>("pending");
-  const [results, setResults] = useState<VideoJobResults | null>(null);
+  const [results, setResults] = useState<JobResultsData | null>(null);
   const [pollError, setPollError] = useState<string | null>(null);
 
   // Determine which source to use
@@ -98,7 +68,7 @@ export const JobStatus: React.FC<Props> = ({ jobId }) => {
         setPollError(null);
 
         if (job.status === "completed" && job.results) {
-          setResults(job.results as VideoJobResults);
+          setResults(job.results as JobResultsData);
           return;
         }
 
@@ -182,11 +152,7 @@ export const JobStatus: React.FC<Props> = ({ jobId }) => {
       
       {/* Results display */}
       {currentStatus === "completed" && results && (
-        isVideoResults(results) ? (
-          <VideoResultsViewer jobId={jobId} results={results as VideoResults} />
-        ) : (
-          <JobResults results={results} />
-        )
+        <JobResults results={results} />
       )}
     </div>
   );
