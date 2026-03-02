@@ -172,9 +172,13 @@ function App() {
 
   // -------------------------------------------------------------------------
   // v0.10.1: Job Polling - Poll selectedJob for progress updates
+  // Discussion #234: Stop polling when job reaches completed/failed status
   // -------------------------------------------------------------------------
   useEffect(() => {
     if (!selectedJob?.job_id) return;
+    
+    // Stop polling if job already reached terminal state
+    if (selectedJob?.status === "completed" || selectedJob?.status === "failed") return;
 
     const interval = setInterval(async () => {
       try {
@@ -186,13 +190,17 @@ function App() {
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [selectedJob?.job_id]);
+  }, [selectedJob?.job_id, selectedJob?.status]);
 
   // -------------------------------------------------------------------------
   // v0.10.2: Poll uploadResult for progress updates (Upload / Video Upload)
+  // Discussion #234: Stop polling when job reaches completed/failed status
   // -------------------------------------------------------------------------
   useEffect(() => {
     if (!uploadResult?.job_id) return;
+    
+    // Stop polling if job already reached terminal state
+    if (uploadResult?.status === "completed" || uploadResult?.status === "failed") return;
 
     const interval = setInterval(async () => {
       try {
@@ -204,7 +212,7 @@ function App() {
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [uploadResult?.job_id]);
+  }, [uploadResult?.job_id, uploadResult?.status]);
 
   // -------------------------------------------------------------------------
   // v0.10.1: Unlock tools when job completes or fails

@@ -858,3 +858,86 @@ describe("App - Video Upload Flow (Path A)", () => {
     expect(mockSubmitVideoJob).toBeDefined();
   });
 });
+
+// ---------------------------------------------------------------------------
+// Discussion #234: Polling MUST stop when job reaches completed/failed status
+// ---------------------------------------------------------------------------
+
+describe("App - Polling stops on job completion (Discussion #234)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.runOnlyPendingTimers();
+    vi.useRealTimers();
+  });
+
+  it("FAILING TEST: polling effect MUST include status in dependencies", async () => {
+    // Read App.tsx and check if the polling effect has the correct dependencies
+    const fs = await import("fs");
+    const path = await import("path");
+    
+    // process.cwd() is web-ui when running tests from web-ui directory
+    const appPath = path.join(process.cwd(), "src/App.tsx");
+    const appSource = fs.readFileSync(appPath, "utf-8");
+
+    // Find the selectedJob polling effect
+    // It should have [selectedJob?.job_id, selectedJob?.status] as dependencies
+    const pollingEffectMatch = appSource.match(
+      /useEffect\(\s*\(\)\s*=>\s*\{[\s\S]*?if\s*\(\s*!selectedJob\?\.job_id\s*\)[\s\S]*?setInterval[\s\S]*?\},\s*\[([^\]]+)\]\s*\);/
+    );
+
+    expect(pollingEffectMatch).not.toBeNull();
+    
+    const dependencies = pollingEffectMatch![1];
+    
+    // THIS ASSERTION WILL FAIL with the buggy code
+    // The buggy code only has [selectedJob?.job_id]
+    // The fix requires [selectedJob?.job_id, selectedJob?.status]
+    expect(dependencies).toContain("selectedJob?.status");
+  });
+
+  it("FAILING TEST: polling effect MUST return early for completed/failed status", async () => {
+    const fs = await import("fs");
+    const path = await import("path");
+    
+    const appPath = path.join(process.cwd(), "src/App.tsx");
+    const appSource = fs.readFileSync(appPath, "utf-8");
+
+    // Find the selectedJob polling effect
+    const pollingEffectMatch = appSource.match(
+      /useEffect\(\s*\(\)\s*=>\s*\{([\s\S]*?)const interval = setInterval/
+    );
+
+    expect(pollingEffectMatch).not.toBeNull();
+    
+    const effectBody = pollingEffectMatch![1];
+    
+    // THIS ASSERTION WILL FAIL with the buggy code
+    // The buggy code doesn't check for completed/failed status
+    expect(effectBody).toMatch(/status\s*===\s*["']completed["']/);
+    expect(effectBody).toMatch(/status\s*===\s*["']failed["']/);
+  });
+
+  it("FAILING TEST: uploadResult polling effect MUST include status in dependencies", async () => {
+    const fs = await import("fs");
+    const path = await import("path");
+    
+    const appPath = path.join(process.cwd(), "src/App.tsx");
+    const appSource = fs.readFileSync(appPath, "utf-8");
+
+    // Find the uploadResult polling effect
+    const pollingEffectMatch = appSource.match(
+      /useEffect\(\s*\(\)\s*=>\s*\{[\s\S]*?if\s*\(\s*!uploadResult\?\.job_id\s*\)[\s\S]*?setInterval[\s\S]*?\},\s*\[([^\]]+)\]\s*\);/
+    );
+
+    expect(pollingEffectMatch).not.toBeNull();
+    
+    const dependencies = pollingEffectMatch![1];
+    
+    // THIS ASSERTION WILL FAIL with the buggy code
+    expect(dependencies).toContain("uploadResult?.status");
+  });
+});
