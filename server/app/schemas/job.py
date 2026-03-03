@@ -73,3 +73,15 @@ class JobListResponse(BaseModel):
 
     jobs: List[JobListItem]
     count: int
+
+
+class VideoSubmitRequest(BaseModel):
+    """Request body for POST /v1/video/submit (v0.10.1).
+
+    v0.10.1: Deterministic tool-locking flow.
+    After video upload, tools are locked and passed here.
+    """
+
+    plugin_id: str
+    video_path: str
+    lockedTools: List[str]

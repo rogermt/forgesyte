@@ -53,6 +53,7 @@ from .mcp import router as mcp_router
 from .plugin_loader import PluginRegistry
 from .plugins.health.health_router import router as health_router
 from .realtime import websocket_router as realtime_router
+from .realtime.job_progress_router import router as job_progress_router
 from .routes.routes_pipelines import router as pipelines_router
 from .routes_pipeline import init_pipeline_routes
 from .services import (
@@ -312,6 +313,7 @@ def create_app() -> FastAPI:
     app.include_router(jobs_router, prefix="")
     app.include_router(job_status_router, prefix="")
     app.include_router(job_results_router, prefix="")
+    app.include_router(job_progress_router)
 
     return app
 

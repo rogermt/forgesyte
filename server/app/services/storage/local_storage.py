@@ -62,3 +62,15 @@ class LocalStorageService(StorageService):
         full_path = BASE_DIR / path
         if full_path.exists():
             full_path.unlink()
+
+    def file_exists(self, path: str) -> bool:
+        """Check if a file exists in storage.
+
+        Args:
+            path: Path relative to storage root
+
+        Returns:
+            True if file exists, False otherwise
+        """
+        full_path = BASE_DIR / path
+        return full_path.exists()

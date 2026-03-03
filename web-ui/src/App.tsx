@@ -17,17 +17,19 @@ import { PluginSelector } from "./components/PluginSelector";
 import { ToolSelector } from "./components/ToolSelector";
 import { JobList } from "./components/JobList";
 import { ResultsPanel } from "./components/ResultsPanel";
+import { JobStatus } from "./components/JobStatus";
 import { VideoTracker } from "./components/VideoTracker";
 import { VideoUpload } from "./components/VideoUpload";
 import { useWebSocket, FrameResult } from "./hooks/useWebSocket";
 import { apiClient, Job } from "./api/client";
 import { detectToolType } from "./utils/detectToolType";
+import { resolveVideoTools } from "./utils/resolveVideoTools";
 import type { PluginManifest } from "./types/plugin";
 
 const WS_BACKEND_URL =
   import.meta.env.VITE_WS_BACKEND_URL || "ws://localhost:8000";
 
-type ViewMode = "stream" | "upload" | "jobs" | "video-upload";
+type ViewMode = "stream" | "upload" | "jobs" | "video-upload" | "video-stream";
 
 function App() {
   // -------------------------------------------------------------------------
@@ -38,6 +40,15 @@ function App() {
   const [selectedTools, setSelectedTools] = useState<string[]>([]);
 
   const [streamEnabled, setStreamEnabled] = useState(false);
+
+  // v0.10.1: Tools become locked after upload to prevent mid-session changes
+  const [lockedTools, setLockedTools] = useState<string[] | null>(null);
+
+  // v0.10.1: Uploaded video path for job submission
+  const [videoPath, setVideoPath] = useState<string | null>(null);
+
+  // Local uploaded file for VideoTracker streaming
+  const [videoFile, setVideoFile] = useState<File | null>(null);
 
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
   const [uploadResult, setUploadResult] = useState<Job | null>(null);
@@ -78,7 +89,7 @@ function App() {
   } = useWebSocket({
     url: `${WS_BACKEND_URL}/v1/stream`,
     plugin: selectedPlugin,
-    tools: selectedTools,
+    tools: lockedTools ?? selectedTools,  // v0.10.1: Use locked tools if available
     onResult: (result: FrameResult) => {
       console.log("Frame result:", result);
     },
@@ -150,12 +161,67 @@ function App() {
   // FIX: Reset tool selection when plugin changes
   //
   // Prevents: plugin=ocr&tool=radar (radar was from yolo-tracker)
+  // v0.10.1: Also reset lockedTools to allow new tool selection
   // -------------------------------------------------------------------------
   useEffect(() => {
     setSelectedTools([]);
     setUploadResult(null);
     setSelectedJob(null);
+    setLockedTools(null);  // v0.10.1: Reset lock when plugin changes
   }, [selectedPlugin]);
+
+  // -------------------------------------------------------------------------
+  // v0.10.1: Job Polling - Poll selectedJob for progress updates
+  // Discussion #234: Stop polling when job reaches completed/failed status
+  // -------------------------------------------------------------------------
+  useEffect(() => {
+    if (!selectedJob?.job_id) return;
+    
+    // Stop polling if job already reached terminal state
+    if (selectedJob?.status === "completed" || selectedJob?.status === "failed") return;
+
+    const interval = setInterval(async () => {
+      try {
+        const job = await apiClient.getJob(selectedJob.job_id);
+        setSelectedJob(job);
+      } catch (err) {
+        console.error("Job polling failed:", err);
+      }
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [selectedJob?.job_id, selectedJob?.status]);
+
+  // -------------------------------------------------------------------------
+  // v0.10.2: Poll uploadResult for progress updates (Upload / Video Upload)
+  // Discussion #234: Stop polling when job reaches completed/failed status
+  // -------------------------------------------------------------------------
+  useEffect(() => {
+    if (!uploadResult?.job_id) return;
+    
+    // Stop polling if job already reached terminal state
+    if (uploadResult?.status === "completed" || uploadResult?.status === "failed") return;
+
+    const interval = setInterval(async () => {
+      try {
+        const job = await apiClient.getJob(uploadResult.job_id);
+        setUploadResult(job);
+      } catch (err) {
+        console.error("Upload job polling failed:", err);
+      }
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [uploadResult?.job_id, uploadResult?.status]);
+
+  // -------------------------------------------------------------------------
+  // v0.10.1: Unlock tools when job completes or fails
+  // -------------------------------------------------------------------------
+  useEffect(() => {
+    if (selectedJob?.status === "completed" || selectedJob?.status === "failed") {
+      setLockedTools(null);
+    }
+  }, [selectedJob?.status]);
 
   // -------------------------------------------------------------------------
   // Ensure we always have a valid tool for the current manifest
@@ -247,6 +313,12 @@ function App() {
       if (!selectedPlugin) return;
       if (selectedTools.length === 0) return;
 
+      // v0.10.1: Lock tools for this session
+      setLockedTools(selectedTools);
+
+      // v0.10.1: Pause streaming if active
+      if (streamEnabled) setStreamEnabled(false);
+
       setIsUploading(true);
       try {
         // v0.9.4: Pass all selected tools (not just first) for multi-tool support
@@ -256,7 +328,6 @@ function App() {
           selectedTools  // CHANGED: was selectedTools[0]
         );
         const job = await apiClient.pollJob(response.job_id);
-        setUploadResult(job);
         setSelectedJob(job);
       } catch (err) {
         console.error("Upload failed:", err);
@@ -264,8 +335,60 @@ function App() {
         setIsUploading(false);
       }
     },
-    [selectedPlugin, selectedTools]
+    [selectedPlugin, selectedTools, streamEnabled]
   );
+
+  // -------------------------------------------------------------------------
+  // v0.10.1: Video upload → lock tools → user chooses streaming or job
+  // -------------------------------------------------------------------------
+  const handleVideoUploaded = useCallback(
+    (path: string, file: File) => {
+      if (!selectedPlugin || selectedTools.length === 0) return;
+
+      // v0.10.1: lock *video* tools, not logical tools
+      const videoTools = resolveVideoTools(selectedTools, manifest);
+      setLockedTools(videoTools);
+      setVideoPath(path);
+      setVideoFile(file);
+
+      // Ensure streaming is OFF by default after upload
+      setStreamEnabled(false);
+    },
+    [selectedPlugin, selectedTools, manifest]
+  );
+
+  const handleStartStreaming = useCallback(() => {
+    if (!lockedTools || !videoFile) return;
+    setStreamEnabled(true);
+    setViewMode("video-stream");
+  }, [lockedTools, videoFile]);
+
+  const handleRunVideoJob = useCallback(async () => {
+    if (!lockedTools || !videoPath || !selectedPlugin) return;
+  
+    try {
+      // Ensure streaming is OFF while job runs
+      setStreamEnabled(false);
+  
+      const { job_id } = await apiClient.submitVideoJob(
+        selectedPlugin,
+        videoPath,
+        lockedTools
+      );
+      
+      // FIX: Set the job immediately so the UI mounts <JobStatus>.
+      // DO NOT use await apiClient.pollJob() here, because it blocks 
+      // the UI from updating until the job is 100% finished!
+      
+      const initialJobState = { job_id, status: "pending", created_at: new Date().toISOString() } as Job;
+      
+      setUploadResult(initialJobState);
+      setSelectedJob(initialJobState);
+      
+    } catch (err) {
+      console.error("Video job failed:", err);
+    }
+  }, [lockedTools, videoPath, selectedPlugin]);
 
   // -------------------------------------------------------------------------
   // Styles
@@ -408,7 +531,7 @@ function App() {
               pluginId={selectedPlugin}
               selectedTools={selectedTools}
               onToolChange={handleToolChange}
-              disabled={streamEnabled}
+              disabled={false}
             />
           </div>
 
@@ -465,7 +588,11 @@ function App() {
           {viewMode === "upload" && manifest && selectedTools.length > 0 && (
             <>
               {detectToolType(manifest, selectedTools[0]) === "frame" ? (
-                <VideoTracker pluginId={selectedPlugin} tools={selectedTools} />
+                <VideoTracker
+                  pluginId={selectedPlugin}
+                  tools={selectedTools}
+                  file={videoFile}
+                />
               ) : (
                 <div style={styles.panel}>
                   <p>Upload image for analysis</p>
@@ -476,6 +603,9 @@ function App() {
                     disabled={isUploading || !selectedPlugin || selectedTools.length === 0}
                   />
                   {isUploading && <p>Analyzing...</p>}
+                  {uploadResult?.job_id && (
+                    <JobStatus jobId={uploadResult.job_id} />
+                  )}
                 </div>
               )}
             </>
@@ -508,7 +638,9 @@ function App() {
             <div style={{ ...styles.panel, flex: 1 }}>
               <h3>Job Details</h3>
               {selectedJob ? (
-                <pre>{JSON.stringify(selectedJob, null, 2)}</pre>
+                <>
+                  <JobStatus jobId={selectedJob.job_id} />
+                </>
               ) : (
                 <p>Select a job</p>
               )}
@@ -521,6 +653,26 @@ function App() {
                 pluginId={selectedPlugin}
                 manifest={manifest}
                 selectedTools={selectedTools}
+                lockedTools={lockedTools}
+                onVideoUploaded={handleVideoUploaded}
+                onStartStreaming={handleStartStreaming}
+                onRunJob={handleRunVideoJob}
+              />
+              {uploadResult?.job_id && lockedTools && (
+                <div style={{ marginTop: "20px", borderTop: "1px solid var(--border-light)", paddingTop: "20px" }}>
+                  <h3>Job Processing</h3>
+                  <JobStatus jobId={uploadResult.job_id} />
+                </div>
+              )}
+            </div>
+          )}
+
+          {viewMode === "video-stream" && videoFile && lockedTools && (
+            <div style={{ ...styles.panel, flex: 1 }}>
+              <VideoTracker
+                pluginId={selectedPlugin}
+                tools={lockedTools}
+                file={videoFile}
               />
             </div>
           )}
@@ -555,7 +707,7 @@ function App() {
           <ResultsPanel
             mode={viewMode === "stream" ? "stream" : "job"}
             streamResult={latestResult}
-            job={viewMode === "upload" ? uploadResult : selectedJob}
+            job={selectedJob}
           />
         </aside>
       </main>

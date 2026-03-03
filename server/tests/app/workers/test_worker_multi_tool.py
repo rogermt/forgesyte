@@ -508,16 +508,15 @@ class TestVideoMultiWorkerExecution:
         assert saved_output is not None
         output_data = json.loads(saved_output)
 
-        # Canonical video_multi format:
-        # {"job_id": "...", "status": "completed", "results": [...]}
+        # v0.10.0: Canonical video format (flattened for VideoResultsViewer):
+        # {"job_id": "...", "status": "completed", "frames": [...], "total_frames": N}
         assert "job_id" in output_data
         assert output_data["job_id"] == job_id
         assert "status" in output_data
         assert output_data["status"] == "completed"
-        assert "results" in output_data
-        assert len(output_data["results"]) == 2
-        assert output_data["results"][0]["tool"] == "video_player_tracking"
-        assert output_data["results"][1]["tool"] == "video_ball_detection"
+        assert "frames" in output_data
+        assert "total_frames" in output_data
+        assert output_data["total_frames"] == 100
 
     @pytest.mark.unit
     def test_video_single_canonical_output(self, test_engine, session):
@@ -583,12 +582,12 @@ class TestVideoMultiWorkerExecution:
         assert saved_output is not None
         output_data = json.loads(saved_output)
 
-        # Canonical video format:
-        # {"job_id": "...", "status": "completed", "results": [...]}
+        # v0.10.0: Canonical video format (flattened for VideoResultsViewer):
+        # {"job_id": "...", "status": "completed", "frames": [...], "total_frames": N}
         assert "job_id" in output_data
         assert output_data["job_id"] == job_id
         assert "status" in output_data
         assert output_data["status"] == "completed"
-        assert "results" in output_data
-        assert len(output_data["results"]) == 1
-        assert output_data["results"][0]["tool"] == "video_player_tracking"
+        assert "frames" in output_data
+        assert "total_frames" in output_data
+        assert output_data["total_frames"] == 100

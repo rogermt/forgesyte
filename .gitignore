@@ -227,6 +227,7 @@ server/data/jobs/deeply/nested/path/*.mp4
 server/data/jobs/image/input/*
 server/data/jobs/jobs/*
 server/data/jobs/image/output/*
+server/data/jobs/image_multi/output/*
 
 # DuckDB runtime database
 server/data/*.duckdb*

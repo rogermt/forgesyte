@@ -145,19 +145,14 @@ class TestMultiToolVideoExecution:
         output_json = saved_output.read().decode("utf-8")
         output = json.loads(output_json)
 
-        # Verify canonical video format (job_id, status, results array)
+        # v0.10.0: Verify canonical video format (flattened for VideoResultsViewer)
+        # Output is {job_id, status, frames, total_frames, ...additional_fields}
         assert "job_id" in output
         assert "status" in output
         assert output["status"] == "completed"
-        assert "results" in output
-        assert isinstance(output["results"], list)
-        assert len(output["results"]) == 2
-        # First tool result
-        assert output["results"][0]["tool"] == "tool_one"
-        assert output["results"][0]["output"]["tool_one_result"] == "data1"
-        # Second tool result
-        assert output["results"][1]["tool"] == "tool_two"
-        assert output["results"][1]["output"]["tool_two_result"] == "data2"
+        assert "frames" in output
+        # First tool's additional fields are included at top level
+        assert output["tool_one_result"] == "data1"
 
     def test_progress_calculation_for_multi_tool(
         self, session: Session, mock_storage, mock_plugin_service
@@ -244,14 +239,13 @@ class TestBackwardCompatibility:
         output_json = saved_output.read().decode("utf-8")
         output = json.loads(output_json)
 
-        # Single-tool video also uses canonical format now
+        # v0.10.0: Single-tool video uses flattened format for VideoResultsViewer
+        # Output is {job_id, status, frames, detections, total_frames}
         assert "job_id" in output
         assert "status" in output
         assert output["status"] == "completed"
-        assert "results" in output
-        assert isinstance(output["results"], list)
-        assert len(output["results"]) == 1
-        assert output["results"][0]["tool"] == "tool_one"
+        assert "frames" in output
+        assert "detections" in output
 
 
 @pytest.mark.integration
