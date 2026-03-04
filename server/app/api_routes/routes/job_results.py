@@ -9,10 +9,10 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.models.job import Job, JobStatus
 from app.schemas.job import JobResultsResponse
-from app.services.storage.local_storage import LocalStorageService
+from app.services.storage.factory import get_storage_service
 
 router = APIRouter()
-storage = LocalStorageService()
+storage = get_storage_service()
 
 
 @router.get(

@@ -21,11 +21,11 @@ from app.core.database import SessionLocal
 from app.models.job import Job, JobStatus
 from app.plugin_loader import PluginRegistry
 from app.services.plugin_management_service import PluginManagementService
-from app.services.storage.local_storage import LocalStorageService
+from app.services.storage.factory import get_storage_service
 from app.services.tool_router import resolve_tools
 
 router = APIRouter()
-storage = LocalStorageService()
+storage = get_storage_service()
 
 
 def get_plugin_manager():
