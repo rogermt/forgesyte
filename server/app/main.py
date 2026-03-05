@@ -34,63 +34,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-# Routers
-from .api import router as api_router
-from .api_plugins import router as plugins_router
-from .api_routes.routes.execution import router as execution_router
-from .api_routes.routes.image_submit import router as image_submit_router
-from .api_routes.routes.job_results import router as job_results_router
-from .api_routes.routes.job_status import router as job_status_router
-from .api_routes.routes.jobs import router as jobs_router
-from .api_routes.routes.video_file_processing import router as video_router
-from .api_routes.routes.video_submit import router as video_submit_router
-from .api_routes.routes.worker_health import router as worker_health_router
-
-# Services
-from .auth import init_auth_service
-from .core.database import init_db
-from .mcp import router as mcp_router
-from .plugin_loader import PluginRegistry
-from .plugins.health.health_router import router as health_router
-from .realtime import websocket_router as realtime_router
-from .realtime.job_progress_router import router as job_progress_router
-from .routes.routes_pipelines import router as pipelines_router
-from .routes_pipeline import init_pipeline_routes
-from .services import (
-    PluginManagementService,
-    VisionAnalysisService,
-)
-
-# Phase 14 Settings
-from .settings import get_settings
-
-# v0.9.2: TaskProcessor replaced by JobWorker
-# v0.9.3: Legacy AnalysisService and JobManagementService removed
-from .websocket_manager import ws_manager
-
-# ---------------------------------------------------------------------------
-# Configuration Layer
-# ---------------------------------------------------------------------------
-
-
-class AppSettings(BaseSettings):
-    """Application configuration loaded from environment variables and .env."""
-
-    title: str = "ForgeSyte"
-    description: str = (
-        "ForgeSyte: A modular AI-vision MCP server engineered for developers"
-    )
-    version: str = "0.1.0"
-    api_prefix: str = "/v1"
-
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
-
-
-# Phase 14 Settings
-phase14_settings = get_settings()
-settings = AppSettings()
-
-
 # ---------------------------------------------------------------------------
 # Logging Setup
 # ---------------------------------------------------------------------------
@@ -140,6 +83,67 @@ def setup_logging() -> None:
 setup_logging()
 logger = logging.getLogger(__name__)
 logger.info("🚀 ForgeSyte server starting...")
+
+
+# Routers
+from .api import router as api_router  # noqa: E402
+from .api_plugins import router as plugins_router  # noqa: E402
+from .api_routes.routes.execution import router as execution_router  # noqa: E402
+from .api_routes.routes.image_submit import router as image_submit_router  # noqa: E402
+from .api_routes.routes.job_results import router as job_results_router  # noqa: E402
+from .api_routes.routes.job_status import router as job_status_router  # noqa: E402
+from .api_routes.routes.jobs import router as jobs_router  # noqa: E402
+from .api_routes.routes.video_file_processing import (  # noqa: E402
+    router as video_router,
+)
+from .api_routes.routes.video_submit import router as video_submit_router  # noqa: E402
+from .api_routes.routes.worker_health import (  # noqa: E402
+    router as worker_health_router,
+)
+
+# Services
+from .auth import init_auth_service  # noqa: E402
+from .core.database import init_db  # noqa: E402
+from .mcp import router as mcp_router  # noqa: E402
+from .plugin_loader import PluginRegistry  # noqa: E402
+from .plugins.health.health_router import router as health_router  # noqa: E402
+from .realtime import websocket_router as realtime_router  # noqa: E402
+from .realtime.job_progress_router import router as job_progress_router  # noqa: E402
+from .routes.routes_pipelines import router as pipelines_router  # noqa: E402
+from .routes_pipeline import init_pipeline_routes  # noqa: E402
+from .services import (  # noqa: E402
+    PluginManagementService,
+    VisionAnalysisService,
+)
+
+# Phase 14 Settings
+from .settings import get_settings  # noqa: E402
+
+# v0.9.2: TaskProcessor replaced by JobWorker
+# v0.9.3: Legacy AnalysisService and JobManagementService removed
+from .websocket_manager import ws_manager  # noqa: E402
+
+# ---------------------------------------------------------------------------
+# Configuration Layer
+# ---------------------------------------------------------------------------
+
+
+class AppSettings(BaseSettings):
+    """Application configuration loaded from environment variables and .env."""
+
+    title: str = "ForgeSyte"
+    description: str = (
+        "ForgeSyte: A modular AI-vision MCP server engineered for developers"
+    )
+    version: str = "0.1.0"
+    api_prefix: str = "/v1"
+
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+
+
+# Phase 14 Settings
+phase14_settings = get_settings()
+settings = AppSettings()
 
 
 # ---------------------------------------------------------------------------
