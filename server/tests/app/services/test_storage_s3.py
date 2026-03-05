@@ -24,13 +24,16 @@ from app.services.storage.s3_storage import S3StorageService
 @pytest.fixture
 def s3_env():
     """Set up environment variables for S3 storage."""
-    with patch.dict(os.environ, {
-        "FORGESYTE_STORAGE_BACKEND": "s3",
-        "S3_BUCKET_NAME": "test-bucket",
-        "S3_ENDPOINT_URL": "",  # Empty for moto
-        "S3_ACCESS_KEY": "testing",
-        "S3_SECRET_KEY": "testing",
-    }):
+    with patch.dict(
+        os.environ,
+        {
+            "FORGESYTE_STORAGE_BACKEND": "s3",
+            "S3_BUCKET_NAME": "test-bucket",
+            "S3_ENDPOINT_URL": "",  # Empty for moto
+            "S3_ACCESS_KEY": "testing",
+            "S3_SECRET_KEY": "testing",
+        },
+    ):
         # Clear lru_cache for get_storage_service
         get_storage_service.cache_clear()
         yield
@@ -53,10 +56,10 @@ def s3_storage():
         # Create bucket first so S3StorageService doesn't fail on head_bucket
         s3 = boto3.client("s3", region_name="us-east-1")
         s3.create_bucket(Bucket="test-bucket")
-        
+
         storage = S3StorageService(
             bucket_name="test-bucket",
-            endpoint_url=None, # None for moto to use default
+            endpoint_url=None,  # None for moto to use default
             access_key="testing",
             secret_key="testing",
         )
@@ -88,7 +91,7 @@ class TestS3StorageService:
         assert local_path.exists()
         assert local_path.suffix == ".mp4"
         assert local_path.read_bytes() == contents
-        
+
         # Cleanup temp file
         if local_path.exists():
             local_path.unlink()
@@ -97,6 +100,33 @@ class TestS3StorageService:
         """Test loading a nonexistent file raises FileNotFoundError."""
         with pytest.raises(FileNotFoundError):
             s3_storage.load_file("nonexistent.mp4")
+
+    def test_load_file_nosuchkey_error(self, s3_storage):
+        """Test that NoSuchKey also raises FileNotFoundError (for MinIO compatibility)."""
+        from botocore.exceptions import ClientError
+
+        # Mock download_fileobj to raise NoSuchKey
+        error_response = {
+            "Error": {
+                "Code": "NoSuchKey",
+                "Message": "The specified key does not exist.",
+            }
+        }
+        with patch.object(
+            s3_storage.client,
+            "download_fileobj",
+            side_effect=ClientError(error_response, "GetObject"),
+        ):
+            with pytest.raises(FileNotFoundError) as excinfo:
+                s3_storage.load_file("missing.mp4")
+            assert "File not found in S3" in str(excinfo.value)
+
+    def test_s3_client_config(self, s3_storage):
+        """Test that S3 client is configured with path-style addressing and s3v4."""
+        # This test is expected to fail initially as these are not yet set
+        config = s3_storage.client.meta.config
+        assert config.s3.get("addressing_style") == "path"
+        assert config.signature_version == "s3v4"
 
     def test_delete_file(self, s3_storage):
         """Test deleting a file from S3."""
@@ -115,11 +145,11 @@ class TestS3StorageService:
         contents = b"test data"
         src = BytesIO(contents)
         dest_path = "exists.txt"
-        
+
         assert not s3_storage.file_exists(dest_path)
-        
+
         s3_storage.save_file(src, dest_path)
-        
+
         assert s3_storage.file_exists(dest_path)
 
 
@@ -135,7 +165,7 @@ class TestStorageFactory:
         # Moto needs bucket to exist
         s3 = boto3.client("s3", region_name="us-east-1")
         s3.create_bucket(Bucket="test-bucket")
-        
+
         storage = get_storage_service()
         assert isinstance(storage, S3StorageService)
         assert storage.bucket == "test-bucket"

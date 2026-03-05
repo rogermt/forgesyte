@@ -1,11 +1,11 @@
 """S3/MinIO storage implementation for Phase 11 (v0.11.0)."""
 
-import os
 import tempfile
 from pathlib import Path
 from typing import BinaryIO
 
 import boto3
+from botocore.config import Config
 from botocore.exceptions import ClientError
 
 from app.services.storage.base import StorageService
@@ -23,34 +23,32 @@ class S3StorageService(StorageService):
         region_name: str = "us-east-1",
     ) -> None:
         self.bucket = bucket_name
-        
+
+        # FIX: Force Path Style addressing for IP-based MinIO URLs (Tailscale)
+        # FIX: Force s3v4 signature for modern MinIO compatibility
+        s3_config = Config(s3={"addressing_style": "path"}, signature_version="s3v4")
+
         # Build client arguments
         client_kwargs = {
             "service_name": "s3",
             "aws_access_key_id": access_key,
             "aws_secret_access_key": secret_key,
             "region_name": region_name,
+            "config": s3_config,
         }
         if endpoint_url:
             client_kwargs["endpoint_url"] = endpoint_url
-            
+
         self.client = boto3.client(**client_kwargs)
 
         # Ensure bucket exists on startup
         try:
             self.client.head_bucket(Bucket=self.bucket)
         except ClientError as e:
-            # 404: bucket doesn't exist. 
-            # 403: Forbidden, but often means bucket exists or we don't have head permission.
-            # In moto, if bucket doesn't exist, it might throw 404.
-            error_code = e.response.get("Error", {}).get("Code")
-            if error_code in ("404", 404):
+            # Check for 404 (Not Found)
+            error_code = str(e.response.get("Error", {}).get("Code", ""))
+            if error_code == "404":
                 self.client.create_bucket(Bucket=self.bucket)
-            elif error_code in ("403", 403):
-                # If 403, we might not have permission to head but maybe can use it?
-                # For this implementation, we assume we want to create it if it doesn't exist.
-                # But head_bucket returning 403 usually means it exists but we can't head it.
-                pass
             else:
                 raise
 
@@ -68,13 +66,15 @@ class S3StorageService(StorageService):
             suffix = Path(path).suffix
             # Use delete=False so we can return the Path object to the file after closing.
             tmp = tempfile.NamedTemporaryFile(delete=False, suffix=suffix)
-            
+
             self.client.download_fileobj(self.bucket, path, tmp)
             tmp.close()
-            
+
             return Path(tmp.name)
         except ClientError as e:
-            if e.response.get("Error", {}).get("Code") in ("404", 404):
+            error_code = str(e.response.get("Error", {}).get("Code", ""))
+            # S3 returns '404' for HeadObject, 'NoSuchKey' for GetObject
+            if error_code in ("404", "NoSuchKey"):
                 raise FileNotFoundError(f"File not found in S3: {path}") from e
             raise
 
