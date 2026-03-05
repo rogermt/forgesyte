@@ -25,11 +25,12 @@ from app.models.job import Job, JobStatus
 from app.plugin_loader import PluginRegistry
 from app.schemas.job import VideoSubmitRequest
 from app.services.plugin_management_service import PluginManagementService
-from app.services.storage.local_storage import LocalStorageService
+from app.services.storage.factory import get_storage_service
 from app.services.tool_router import resolve_tools
+from app.settings import settings
 
 router = APIRouter()
-storage = LocalStorageService()
+storage = get_storage_service(settings)
 
 
 def get_plugin_manager():

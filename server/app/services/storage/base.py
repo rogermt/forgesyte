@@ -44,3 +44,15 @@ class StorageService(ABC):
             path: Path relative to storage root
         """
         raise NotImplementedError
+
+    @abstractmethod
+    def file_exists(self, path: str) -> bool:
+        """Check if a file exists in storage.
+
+        Args:
+            path: Path relative to storage root
+
+        Returns:
+            True if file exists, False otherwise
+        """
+        raise NotImplementedError

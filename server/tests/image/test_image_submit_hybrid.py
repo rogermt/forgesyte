@@ -60,11 +60,9 @@ def client(tmp_storage):
     app.dependency_overrides[image_submit.get_plugin_service] = (
         lambda pm=None: mock_plugin_service
     )
+    app.dependency_overrides[image_submit.get_storage] = lambda: svc
 
-    with (
-        patch(f"{ROUTE}.storage", svc),
-        patch(f"{ROUTE}.SessionLocal", return_value=mock_db),
-    ):
+    with patch(f"{ROUTE}.SessionLocal", return_value=mock_db):
         yield TestClient(app)
 
     app.dependency_overrides.clear()
