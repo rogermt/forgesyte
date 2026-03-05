@@ -28,9 +28,11 @@ class AppSettings(BaseSettings):
     s3_secret_key: str = Field(default="", alias="S3_SECRET_KEY")
     s3_bucket_name: str = Field(default="forgesyte-jobs", alias="S3_BUCKET_NAME")
 
-    # CORS configuration
-    cors_origins: List[str] = ["*"]
-    cors_origins_raw: str = "*"
+    # CORS configuration - empty by default for security (Issue #253)
+    # Set explicit origins via environment variable:
+    # CORS_ORIGINS=["http://localhost:5173", "http://localhost:3000"]
+    cors_origins: List[str] = []
+    cors_origins_raw: str = ""
 
     model_config = SettingsConfigDict(
         env_file=".env", extra="ignore", populate_by_name=True
