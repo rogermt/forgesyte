@@ -27,9 +27,10 @@ from app.schemas.job import VideoSubmitRequest
 from app.services.plugin_management_service import PluginManagementService
 from app.services.storage.factory import get_storage_service
 from app.services.tool_router import resolve_tools
+from app.settings import settings
 
 router = APIRouter()
-storage = get_storage_service()
+storage = get_storage_service(settings)
 
 
 def get_plugin_manager():

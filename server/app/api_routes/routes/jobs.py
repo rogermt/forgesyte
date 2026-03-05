@@ -20,9 +20,10 @@ from app.core.database import get_db
 from app.models.job import Job, JobStatus
 from app.schemas.job import JobListItem, JobListResponse, JobResultsResponse
 from app.services.storage.factory import get_storage_service
+from app.settings import settings
 
 router = APIRouter()
-storage = get_storage_service()
+storage = get_storage_service(settings)
 
 
 def _calculate_progress(status: JobStatus) -> float:

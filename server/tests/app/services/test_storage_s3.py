@@ -19,6 +19,7 @@ os.environ["AWS_DEFAULT_REGION"] = "us-east-1"
 from app.services.storage.factory import get_storage_service
 from app.services.storage.local_storage import LocalStorageService
 from app.services.storage.s3_storage import S3StorageService
+from app.settings import AppSettings
 
 
 @pytest.fixture
@@ -34,19 +35,16 @@ def s3_env():
             "S3_SECRET_KEY": "testing",
         },
     ):
-        # Clear lru_cache for get_storage_service
-        get_storage_service.cache_clear()
-        yield
-        get_storage_service.cache_clear()
+        # Create fresh AppSettings instance to pick up env vars
+        yield AppSettings()
 
 
 @pytest.fixture
 def local_env():
     """Set up environment variables for local storage."""
     with patch.dict(os.environ, {"FORGESYTE_STORAGE_BACKEND": "local"}):
-        get_storage_service.cache_clear()
-        yield
-        get_storage_service.cache_clear()
+        # Create fresh AppSettings instance to pick up env vars
+        yield AppSettings()
 
 
 @pytest.fixture
@@ -156,7 +154,7 @@ class TestS3StorageService:
 class TestStorageFactory:
     def test_get_storage_service_local(self, local_env):
         """Test factory returns LocalStorageService by default or when configured."""
-        storage = get_storage_service()
+        storage = get_storage_service(local_env)
         assert isinstance(storage, LocalStorageService)
 
     @mock_aws
@@ -166,6 +164,6 @@ class TestStorageFactory:
         s3 = boto3.client("s3", region_name="us-east-1")
         s3.create_bucket(Bucket="test-bucket")
 
-        storage = get_storage_service()
+        storage = get_storage_service(s3_env)
         assert isinstance(storage, S3StorageService)
         assert storage.bucket == "test-bucket"

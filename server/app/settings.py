@@ -1,60 +1,39 @@
-"""Phase 14 Settings - Configuration layer for ForgeSyte server."""
+"""Application configuration and settings management.
 
-import os
-from functools import lru_cache
+This module defines the AppSettings class for loading configuration from
+environment variables and .env files. It's kept separate from main.py
+to avoid circular imports.
+"""
+
 from typing import List
 
+from pydantic import Field
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
-class Settings:
-    """Configuration settings for the ForgeSyte server.
 
-    This class provides a centralized configuration system that reads from
-    environment variables and provides safe defaults for local development.
-    """
+class AppSettings(BaseSettings):
+    """Application configuration loaded from environment variables and .env."""
 
-    # -----------------------------
-    # Core API configuration
-    # -----------------------------
+    title: str = "ForgeSyte"
+    description: str = (
+        "ForgeSyte: A modular AI-vision MCP server engineered for developers"
+    )
+    version: str = "0.1.0"
     api_prefix: str = "/v1"
 
-    # -----------------------------
+    # Storage backend configuration
+    storage_backend: str = Field(default="local", alias="FORGESYTE_STORAGE_BACKEND")
+    s3_endpoint_url: str = Field(default="", alias="S3_ENDPOINT_URL")
+    s3_access_key: str = Field(default="", alias="S3_ACCESS_KEY")
+    s3_secret_key: str = Field(default="", alias="S3_SECRET_KEY")
+    s3_bucket_name: str = Field(default="forgesyte-jobs", alias="S3_BUCKET_NAME")
+
     # CORS configuration
-    # -----------------------------
-    cors_origins_raw: str = os.getenv("FORGESYTE_CORS_ORIGINS", "")
-    cors_origins: List[str] = []
+    cors_origins: List[str] = ["*"]
+    cors_origins_raw: str = "*"
 
-    # -----------------------------
-    # Logging configuration
-    # -----------------------------
-    log_level: str = os.getenv("FORGESYTE_LOG_LEVEL", "INFO")
-    log_file: str = os.getenv("FORGESYTE_LOG_FILE", "forgesyte.log")
-
-    # -----------------------------
-    # WebSocket configuration
-    # -----------------------------
-    ws_enabled: bool = os.getenv("FORGESYTE_WS_ENABLED", "true").lower() == "true"
-
-    def __init__(self):
-        """Initialize settings and parse CORS origins."""
-        if self.cors_origins_raw:
-            self.cors_origins = [
-                origin.strip()
-                for origin in self.cors_origins_raw.split(",")
-                if origin.strip()
-            ]
-        else:
-            # Safe defaults for local dev
-            self.cors_origins = [
-                "http://localhost:3000",
-                "http://127.0.0.1:3000",
-            ]
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore", populate_by_name=True)
 
 
-@lru_cache()
-def get_settings() -> Settings:
-    """Get cached Settings instance.
-
-    Returns:
-        Settings: Cached settings instance
-    """
-    return Settings()
+# Global settings instance
+settings = AppSettings()

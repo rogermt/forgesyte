@@ -54,12 +54,12 @@ def test_storage_factory_logs_with_captured_logging():
     importlib.reload(app.main)
     
     from app.services.storage.factory import get_storage_service
+    from app.settings import AppSettings
     
-    # Clear cache to force logging
-    get_storage_service.cache_clear()
-    
+    # Create a settings instance to force logging
     with patch.dict(os.environ, {"FORGESYTE_STORAGE_BACKEND": "local"}):
-        get_storage_service()
+        settings = AppSettings()
+        get_storage_service(settings)
         
     log_file = "forgesyte.log"
     with open(log_file, "r") as f:

@@ -49,6 +49,9 @@ os.environ["FORGESYTE_ENABLE_WORKERS"] = "0"
 # Use in-memory DuckDB for tests (isolated, fast, no lock contention)
 os.environ["FORGESYTE_DATABASE_URL"] = "duckdb:///:memory:"
 
+# Use local storage for tests to avoid S3 dependencies
+os.environ["FORGESYTE_STORAGE_BACKEND"] = "local"
+
 # Configure authentication BEFORE importing app or pytest
 # This ensures that when app.main initializes during TestClient creation,
 # it will have API keys configured and enforce authentication

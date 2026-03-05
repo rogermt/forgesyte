@@ -32,7 +32,6 @@ from fastapi import (
 )
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
-from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # ---------------------------------------------------------------------------
 # Logging Setup
@@ -82,8 +81,11 @@ def setup_logging() -> None:
 
 setup_logging()
 logger = logging.getLogger(__name__)
-logger.info("🚀 ForgeSyte server starting...")
+logger.info("ForgeSyte server starting...")
 
+
+# Settings (before routers to avoid circular imports)
+from .settings import AppSettings, settings  # noqa: E402
 
 # Routers
 from .api import router as api_router  # noqa: E402
@@ -116,9 +118,6 @@ from .services import (  # noqa: E402
     VisionAnalysisService,
 )
 
-# Phase 14 Settings
-from .settings import get_settings  # noqa: E402
-
 # v0.9.2: TaskProcessor replaced by JobWorker
 # v0.9.3: Legacy AnalysisService and JobManagementService removed
 from .websocket_manager import ws_manager  # noqa: E402
@@ -127,23 +126,8 @@ from .websocket_manager import ws_manager  # noqa: E402
 # Configuration Layer
 # ---------------------------------------------------------------------------
 
-
-class AppSettings(BaseSettings):
-    """Application configuration loaded from environment variables and .env."""
-
-    title: str = "ForgeSyte"
-    description: str = (
-        "ForgeSyte: A modular AI-vision MCP server engineered for developers"
-    )
-    version: str = "0.1.0"
-    api_prefix: str = "/v1"
-
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
-
-
-# Phase 14 Settings
-phase14_settings = get_settings()
-settings = AppSettings()
+# Use settings for CORS and other configuration
+phase14_settings = settings
 
 
 # ---------------------------------------------------------------------------
