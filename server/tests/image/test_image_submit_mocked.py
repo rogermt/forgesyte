@@ -32,7 +32,7 @@ def mock_deps():
     """Patch dependency injections using FastAPI dependency_overrides.
 
     Uses dependency_overrides for proper FastAPI dependency injection mocking,
-    combined with patch() for module-level objects like storage and SessionLocal.
+    combined with patch() for module-level objects like SessionLocal.
     """
     # Create mock plugin with tools attribute
     mock_plugin = MagicMock()
@@ -59,11 +59,9 @@ def mock_deps():
     app.dependency_overrides[image_submit.get_plugin_service] = (
         lambda plugin_manager=None: mock_plugin_service
     )
+    app.dependency_overrides[image_submit.get_storage] = lambda: mock_storage
 
-    with (
-        patch(f"{ROUTE}.storage", mock_storage),
-        patch(f"{ROUTE}.SessionLocal", return_value=mock_db),
-    ):
+    with patch(f"{ROUTE}.SessionLocal", return_value=mock_db):
         yield {
             "plugin_manager": mock_plugin_manager,
             "plugin_service": mock_plugin_service,
@@ -183,12 +181,10 @@ class TestImageSubmitValidation:
         app.dependency_overrides[image_submit.get_plugin_service] = (
             lambda plugin_manager=None: mock_plugin_service
         )
+        app.dependency_overrides[image_submit.get_storage] = lambda: MagicMock()
 
         try:
-            with (
-                patch(f"{ROUTE}.storage"),
-                patch(f"{ROUTE}.SessionLocal"),
-            ):
+            with patch(f"{ROUTE}.SessionLocal"):
                 response = client.post(
                     "/v1/image/submit?plugin_id=ocr&tool=some_tool",
                     files={"file": ("test.png", BytesIO(FAKE_PNG), "image/png")},

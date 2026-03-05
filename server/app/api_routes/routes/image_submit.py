@@ -26,7 +26,15 @@ from app.services.tool_router import resolve_tools
 from app.settings import settings
 
 router = APIRouter()
-storage = get_storage_service(settings)
+
+
+def get_storage():
+    """Get storage service via lazy initialization.
+
+    This avoids import-time S3 connection attempts and allows
+    dependency injection for testing. See issue #243.
+    """
+    return get_storage_service(settings)
 
 
 def get_plugin_manager():
@@ -97,6 +105,7 @@ async def submit_image(
     ),
     plugin_manager=Depends(get_plugin_manager),
     plugin_service=Depends(get_plugin_service),
+    storage=Depends(get_storage),
 ):
     """Submit an image file for processing.
 
