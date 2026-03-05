@@ -63,8 +63,12 @@ def test_storage_factory_logs_with_captured_logging():
 
     importlib.reload(app.main)
 
-    from app.services.storage.factory import get_storage_service
+    from app.services.storage.factory import _logged_backends, get_storage_service
     from app.settings import AppSettings
+
+    # Reset the logged backends cache to ensure the log message is written
+    # (the factory module is not reloaded by importlib.reload(app.main))
+    _logged_backends.clear()
 
     # Create a settings instance to force logging
     with patch.dict(os.environ, {"FORGESYTE_STORAGE_BACKEND": "local"}):
