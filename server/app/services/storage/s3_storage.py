@@ -105,7 +105,14 @@ class S3StorageService(StorageService):
         self.client.delete_object(Bucket=self.bucket, Key=path)
 
     def file_exists(self, path: str) -> bool:
-        """Check if a file exists in storage."""
+        """Check if a file exists in storage.
+
+        Args:
+            path: Path relative to storage root
+
+        Returns:
+            True if file exists, False otherwise
+        """
         self._ensure_bucket()  # Lazy bucket verification (Issue #247)
         try:
             self.client.head_object(Bucket=self.bucket, Key=path)

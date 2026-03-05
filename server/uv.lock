@@ -1038,7 +1038,6 @@ dependencies = [
     { name = "fastapi", extra = ["standard"] },
     { name = "gunicorn" },
     { name = "httpx" },
-    { name = "moto" },
     { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
     { name = "numpy", version = "2.4.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
     { name = "opencv-python-headless" },
@@ -1067,6 +1066,7 @@ types = [
 dev = [
     { name = "black" },
     { name = "isort" },
+    { name = "moto" },
     { name = "mypy" },
     { name = "pytest" },
     { name = "pytest-asyncio" },
@@ -1086,7 +1086,6 @@ requires-dist = [
     { name = "fastapi", extras = ["standard"], specifier = ">=0.100.0" },
     { name = "gunicorn", specifier = ">=21.0.0" },
     { name = "httpx", specifier = ">=0.24.0" },
-    { name = "moto", specifier = ">=5.1.21" },
     { name = "numpy", specifier = ">=1.24.0" },
     { name = "opencv-python-headless", specifier = ">=4.8.0" },
     { name = "pillow", specifier = ">=10.0.0" },
@@ -1111,6 +1110,7 @@ provides-extras = ["types"]
 dev = [
     { name = "black", specifier = "==24.1.1" },
     { name = "isort", specifier = ">=5.0.0" },
+    { name = "moto", specifier = ">=5.1.21" },
     { name = "mypy", specifier = "==1.14.0" },
     { name = "pytest", specifier = ">=7.0" },
     { name = "pytest-asyncio", specifier = ">=0.20.0" },
