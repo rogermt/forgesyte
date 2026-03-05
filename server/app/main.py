@@ -84,9 +84,6 @@ logger = logging.getLogger(__name__)
 logger.info("ForgeSyte server starting...")
 
 
-# Settings (before routers to avoid circular imports)
-from .settings import AppSettings, settings  # noqa: E402
-
 # Routers
 from .api import router as api_router  # noqa: E402
 from .api_plugins import router as plugins_router  # noqa: E402
@@ -117,6 +114,7 @@ from .services import (  # noqa: E402
     PluginManagementService,
     VisionAnalysisService,
 )
+from .settings import settings  # noqa: E402
 
 # v0.9.2: TaskProcessor replaced by JobWorker
 # v0.9.3: Legacy AnalysisService and JobManagementService removed

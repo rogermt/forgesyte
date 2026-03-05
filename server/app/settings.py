@@ -32,7 +32,9 @@ class AppSettings(BaseSettings):
     cors_origins: List[str] = ["*"]
     cors_origins_raw: str = "*"
 
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore", populate_by_name=True)
+    model_config = SettingsConfigDict(
+        env_file=".env", extra="ignore", populate_by_name=True
+    )
 
 
 # Global settings instance

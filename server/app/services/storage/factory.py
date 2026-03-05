@@ -1,7 +1,6 @@
 """Storage service factory for dependency injection."""
 
 import logging
-from functools import lru_cache
 from typing import TYPE_CHECKING
 
 from app.services.storage.base import StorageService
@@ -25,16 +24,16 @@ def get_storage_service(settings: "AppSettings") -> StorageService:
 
     Returns:
         StorageService instance (S3 or Local)
-    
+
     Note:
         Logs the backend selection only on first call to avoid log spam.
     """
     backend = settings.storage_backend.lower()
-    
+
     # Log only once per backend type
     if backend not in _logged_backends:
         _logged_backends.add(backend)
-        
+
         if backend == "s3":
             endpoint = settings.s3_endpoint_url or None
             logger.info(f"Storage Backend: S3 (MinIO) enabled at {endpoint}")
