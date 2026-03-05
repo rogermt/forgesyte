@@ -9,17 +9,30 @@ import boto3
 import pytest
 from moto import mock_aws
 
-# Set dummy AWS credentials for all tests in this module before any boto3 client is created
-os.environ["AWS_ACCESS_KEY_ID"] = "testing"
-os.environ["AWS_SECRET_ACCESS_KEY"] = "testing"
-os.environ["AWS_SECURITY_TOKEN"] = "testing"
-os.environ["AWS_SESSION_TOKEN"] = "testing"
-os.environ["AWS_DEFAULT_REGION"] = "us-east-1"
-
 from app.services.storage.factory import get_storage_service
 from app.services.storage.local_storage import LocalStorageService
 from app.services.storage.s3_storage import S3StorageService
 from app.settings import AppSettings
+
+
+@pytest.fixture(autouse=True)
+def aws_dummy_credentials():
+    """Set dummy AWS credentials for all tests in this module (Issue #249).
+
+    Uses patch.dict to ensure cleanup after each test, preventing
+    environment leakage to other test modules.
+    """
+    with patch.dict(
+        os.environ,
+        {
+            "AWS_ACCESS_KEY_ID": "testing",
+            "AWS_SECRET_ACCESS_KEY": "testing",
+            "AWS_SECURITY_TOKEN": "testing",
+            "AWS_SESSION_TOKEN": "testing",
+            "AWS_DEFAULT_REGION": "us-east-1",
+        },
+    ):
+        yield
 
 
 @pytest.fixture
