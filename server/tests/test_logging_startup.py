@@ -3,7 +3,14 @@ import json
 import logging
 import os
 import sys
+from pathlib import Path
 from unittest.mock import patch
+
+
+def _get_log_file_path() -> Path:
+    """Get the log file path matching setup_logging logic."""
+    working_dir = os.environ.get("KAGGLE_WORKING", os.getcwd())
+    return Path(working_dir) / "forgesyte.log"
 
 
 def test_startup_logging_captured():
@@ -27,9 +34,9 @@ def test_startup_logging_captured():
     # Verify setup_logging() did its job
     assert root_logger.level == logging.DEBUG
 
-    # Check if forgesyte.log was created
-    log_file = "forgesyte.log"
-    assert os.path.exists(log_file)
+    # Check if forgesyte.log was created (use same path logic as setup_logging)
+    log_file = _get_log_file_path()
+    assert log_file.exists(), f"Log file not found at {log_file}"
 
     with open(log_file, "r") as f:
         lines = f.readlines()
@@ -64,7 +71,7 @@ def test_storage_factory_logs_with_captured_logging():
         settings = AppSettings()
         get_storage_service(settings)
 
-    log_file = "forgesyte.log"
+    log_file = _get_log_file_path()
     with open(log_file, "r") as f:
         lines = f.readlines()
         found = False

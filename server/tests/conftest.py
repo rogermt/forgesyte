@@ -4,6 +4,9 @@ This module provides pytest fixtures for testing ForgeSyte components with
 Protocol-based mocks. The fixtures enable easy testing of services without
 heavy dependencies or external resources.
 
+IMPORTANT: FORGESYTE_STORAGE_BACKEND is set to 'local' early in this module
+to prevent S3 connection attempts during module load.
+
 Fixtures:
     - event_loop_policy: Asyncio event loop configuration
     - app_with_plugins: FastAPI app with real plugins (integration tests)
@@ -20,14 +23,14 @@ API Contract Guarantees:
        Reference: tests/integration/test_api_contracts.py:TestJobsEndpointContract
 
     ✅ GET /v1/jobs/{id} - Returns single JobResponse with same schema
-       Reference: tests/integration/test_api_contracts.py:TestSingleJobEndpointContract
+       Reference: tests/integration/test_api_contracts.py::TestSingleJobEndpointContract
 
     ✅ GET /v1/plugins - Returns PluginMetadata list with fields: name, description,
        version, inputs, outputs, permissions (opt), config_schema (opt)
-       Reference: tests/integration/test_api_contracts.py:TestPluginsEndpointContract
+       Reference: tests/integration/test_api_contracts.py::TestPluginsEndpointContract
 
     ✅ GET /v1/health - Returns health with status, version, plugins_loaded
-       Reference: tests/integration/test_api_contracts.py:TestFixtureConsistency
+       Reference: tests/integration/test_api_contracts.py::TestFixtureConsistency
 
     Golden Fixtures Reference:
     - fixtures/api-responses.json contains real API response examples

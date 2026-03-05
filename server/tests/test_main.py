@@ -100,22 +100,29 @@ def test_app_creation():
 
 def test_get_analysis_service():
     """Test dependency injection of VisionAnalysisService."""
+    from fastapi import HTTPException
+
+    # Get fresh references from app.main module (handles reload by other tests)
+    import app.main as main_module
+
+    current_app = main_module.app
+    current_get_analysis_service = main_module.get_analysis_service
+
     mock_service = MagicMock()
-    app.state.analysis_service = mock_service
+    current_app.state.analysis_service = mock_service
 
     try:
-        service = get_analysis_service()
+        service = current_get_analysis_service()
         assert service == mock_service
-
-        # Test missing service raises HTTPException
-        delattr(app.state, "analysis_service")
-        from fastapi import HTTPException
-
-        with pytest.raises(HTTPException):
-            get_analysis_service()
     finally:
-        if hasattr(app.state, "analysis_service"):
-            delattr(app.state, "analysis_service")
+        # Clean up first test
+        if hasattr(current_app.state, "analysis_service"):
+            delattr(current_app.state, "analysis_service")
+
+    # Test missing service raises HTTPException (separate from try/finally above)
+    with pytest.raises(HTTPException) as exc_info:
+        current_get_analysis_service()
+    assert exc_info.value.status_code == 503
 
 
 def test_root_endpoint():
@@ -139,14 +146,14 @@ def test_mcp_manifest_redirect():
 
 def test_websocket_stream_connection(mock_vision_service):
     """Test WebSocket connection establishment and initial message."""
-    client = TestClient(app)
     mock_vision_service.plugins = {"motion_detector": MagicMock()}
     mock_vision_service.handle_frame = AsyncMock(return_value=None)
 
-    # Set up app state for dependency injection
-    app.state.analysis_service = mock_vision_service
+    # Use dependency_overrides for proper FastAPI dependency injection
+    app.dependency_overrides[get_analysis_service] = lambda: mock_vision_service
 
     try:
+        client = TestClient(app)
         with client.websocket_connect("/v1/stream?plugin=motion_detector") as websocket:
             # Receive initial connection confirmation
             data = websocket.receive_json()
@@ -154,20 +161,19 @@ def test_websocket_stream_connection(mock_vision_service):
             assert "client_id" in data["payload"]
             assert data["payload"]["plugin"] == "motion_detector"
     finally:
-        # Clean up app state
-        if hasattr(app.state, "analysis_service"):
-            delattr(app.state, "analysis_service")
+        app.dependency_overrides.clear()
 
 
 def test_websocket_stream_frame_handling(mock_vision_service):
     """Test frame message delegation to service layer."""
-    client = TestClient(app)
     mock_vision_service.plugins = {"motion_detector": MagicMock()}
     mock_vision_service.handle_frame = AsyncMock(return_value=None)
 
-    app.state.analysis_service = mock_vision_service
+    # Use dependency_overrides for proper FastAPI dependency injection
+    app.dependency_overrides[get_analysis_service] = lambda: mock_vision_service
 
     try:
+        client = TestClient(app)
         with client.websocket_connect("/v1/stream?plugin=motion_detector") as websocket:
             # Skip initial connection message
             websocket.receive_json()
@@ -188,19 +194,19 @@ def test_websocket_stream_frame_handling(mock_vision_service):
                 }
             )
     finally:
-        if hasattr(app.state, "analysis_service"):
-            delattr(app.state, "analysis_service")
+        app.dependency_overrides.clear()
 
 
 def test_websocket_stream_ping_pong(mock_vision_service):
     """Test ping/pong message exchange."""
-    client = TestClient(app)
     mock_vision_service.plugins = {"motion_detector": MagicMock()}
     mock_vision_service.handle_frame = AsyncMock(return_value=None)
 
-    app.state.analysis_service = mock_vision_service
+    # Use dependency_overrides for proper FastAPI dependency injection
+    app.dependency_overrides[get_analysis_service] = lambda: mock_vision_service
 
     try:
+        client = TestClient(app)
         with client.websocket_connect("/v1/stream?plugin=motion_detector") as websocket:
             # Skip connected message
             websocket.receive_json()
@@ -212,22 +218,22 @@ def test_websocket_stream_ping_pong(mock_vision_service):
             response = websocket.receive_json()
             assert response["type"] == "pong"
     finally:
-        if hasattr(app.state, "analysis_service"):
-            delattr(app.state, "analysis_service")
+        app.dependency_overrides.clear()
 
 
 def test_websocket_stream_plugin_switch_valid(mock_vision_service):
     """Test plugin switching with valid plugin."""
-    client = TestClient(app)
     mock_vision_service.plugins = {
         "motion_detector": MagicMock(),
         "ocr": MagicMock(),
     }
     mock_vision_service.handle_frame = AsyncMock(return_value=None)
 
-    app.state.analysis_service = mock_vision_service
+    # Use dependency_overrides for proper FastAPI dependency injection
+    app.dependency_overrides[get_analysis_service] = lambda: mock_vision_service
 
     try:
+        client = TestClient(app)
         with client.websocket_connect("/v1/stream?plugin=motion_detector") as websocket:
             # Skip connected message
             websocket.receive_json()
@@ -240,19 +246,19 @@ def test_websocket_stream_plugin_switch_valid(mock_vision_service):
             assert response["type"] == "plugin_switched"
             assert response["payload"]["plugin"] == "ocr"
     finally:
-        if hasattr(app.state, "analysis_service"):
-            delattr(app.state, "analysis_service")
+        app.dependency_overrides.clear()
 
 
 def test_websocket_stream_plugin_switch_invalid(mock_vision_service):
     """Test plugin switching with invalid plugin name."""
-    client = TestClient(app)
     mock_vision_service.plugins = {"motion_detector": MagicMock()}
     mock_vision_service.handle_frame = AsyncMock(return_value=None)
 
-    app.state.analysis_service = mock_vision_service
+    # Use dependency_overrides for proper FastAPI dependency injection
+    app.dependency_overrides[get_analysis_service] = lambda: mock_vision_service
 
     try:
+        client = TestClient(app)
         with client.websocket_connect("/v1/stream?plugin=motion_detector") as websocket:
             # Skip connected message
             websocket.receive_json()
@@ -265,8 +271,7 @@ def test_websocket_stream_plugin_switch_invalid(mock_vision_service):
             assert response["type"] == "error"
             assert "not found" in response["message"]
     finally:
-        if hasattr(app.state, "analysis_service"):
-            delattr(app.state, "analysis_service")
+        app.dependency_overrides.clear()
 
 
 @pytest.mark.asyncio
@@ -316,13 +321,14 @@ async def test_websocket_stream_plugin_switch_registry_protocol(mock_vision_serv
 
 def test_websocket_stream_subscribe_topic(mock_vision_service):
     """Test topic subscription message."""
-    client = TestClient(app)
     mock_vision_service.plugins = {"motion_detector": MagicMock()}
     mock_vision_service.handle_frame = AsyncMock(return_value=None)
 
-    app.state.analysis_service = mock_vision_service
+    # Use dependency_overrides for proper FastAPI dependency injection
+    app.dependency_overrides[get_analysis_service] = lambda: mock_vision_service
 
     try:
+        client = TestClient(app)
         with client.websocket_connect("/v1/stream?plugin=motion_detector") as websocket:
             # Skip connected message
             websocket.receive_json()
@@ -336,5 +342,4 @@ def test_websocket_stream_subscribe_topic(mock_vision_service):
             response = websocket.receive_json()
             assert response["type"] == "pong"
     finally:
-        if hasattr(app.state, "analysis_service"):
-            delattr(app.state, "analysis_service")
+        app.dependency_overrides.clear()
