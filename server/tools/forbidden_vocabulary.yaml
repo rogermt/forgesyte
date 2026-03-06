@@ -109,8 +109,7 @@ patterns:
     reason: 'GPU scheduling (Phase 17+ only)'
   - pattern: '\bgpu_worker\b'
     reason: 'GPU worker (Phase 17+ only)'
-  - pattern: '\bdistributed\b'
-    reason: 'Distributed execution (Phase 17+ only)'
+  # NOTE: distributed, worker, cluster, ray unlocked in v0.12.0 for Ray integration
 
 
     # Phase 16: Endpoint namespace governance
