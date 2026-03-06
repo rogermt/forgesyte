@@ -7,7 +7,6 @@ plugin tools in a Ray distributed environment.
 import base64
 import tempfile
 from pathlib import Path
-from typing import Any, Dict
 from unittest.mock import MagicMock
 
 import pytest
@@ -248,7 +247,7 @@ class TestRayTaskDecorator:
         # Check that it's a Ray remote function
         # Ray remote functions have a 'remote' attribute
         assert hasattr(execute_pipeline_remote, "remote")
-        assert callable(getattr(execute_pipeline_remote, "remote"))
+        assert callable(execute_pipeline_remote.remote)
 
 
 class TestStorageIntegration:
@@ -287,9 +286,9 @@ class TestPydanticModelHandling:
 
     def test_converts_pydantic_model_to_dict(self, mock_plugin_service, mock_storage):
         """Test that Pydantic models are converted to dicts."""
-        from app.ray_tasks import _execute_pipeline_impl
-
         from pydantic import BaseModel
+
+        from app.ray_tasks import _execute_pipeline_impl
 
         class ToolResult(BaseModel):
             status: str

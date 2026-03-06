@@ -25,7 +25,6 @@ Usage:
 
 import base64
 import logging
-from io import BytesIO
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Protocol
 
@@ -106,7 +105,12 @@ def execute_pipeline_remote(
         RuntimeError: If plugin or tool execution fails
     """
     return _execute_pipeline_impl(
-        plugin_id, tools_to_run, input_path, job_type, _get_plugin_service, _get_storage_service
+        plugin_id,
+        tools_to_run,
+        input_path,
+        job_type,
+        _get_plugin_service,
+        _get_storage_service,
     )
 
 
@@ -164,9 +168,7 @@ def _execute_pipeline_impl(
             first_tool_def = next(
                 (t for t in manifest_tools if t.get("id") == tools_to_run[0]), None
             )
-            input_type_list = (
-                first_tool_def.get("inputs", []) if first_tool_def else []
-            )
+            input_type_list = first_tool_def.get("inputs", []) if first_tool_def else []
 
             if "image_base64" in input_type_list:
                 args = {"image_base64": base64.b64encode(image_bytes).decode("utf-8")}

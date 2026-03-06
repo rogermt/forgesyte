@@ -52,7 +52,13 @@ class PipelineService(Protocol):
 
 
 class JobWorker:
-    """Processes jobs from the queue."""
+    """Processes jobs from the queue using Ray for GPU-accelerated execution.
+
+    v0.12.0: Added Ray integration for GPU-accelerated job processing.
+    - Dispatches jobs to Ray cluster via execute_pipeline_remote.remote()
+    - Polls active Ray futures for completion
+    - Limits concurrent jobs to avoid OOM
+    """
 
     def __init__(
         self,
@@ -60,6 +66,7 @@ class JobWorker:
         session_factory=None,
         storage: Optional[StorageService] = None,
         plugin_service=None,
+        use_ray: bool = False,
     ) -> None:
         """Initialize worker.
 
@@ -68,11 +75,18 @@ class JobWorker:
             session_factory: Session factory (defaults to SessionLocal from database.py)
             storage: StorageService instance for file I/O
             plugin_service: PluginManagementService instance for plugin execution
+            use_ray: If True, use Ray for GPU-accelerated execution. If False (default),
+                     use synchronous execution for backward compatibility.
         """
         self._session_factory = session_factory or SessionLocal
         self._storage = storage
         self._plugin_service = plugin_service
         self._running = True
+        self._use_ray = use_ray
+
+        # v0.12.0: Ray state tracking for async job processing
+        self.active_futures: Dict[Any, str] = {}  # { ray_ref: str(job_id) }
+        self.job_metadata: Dict[str, Dict[str, Any]] = {}  # { str(job_id): dict }
 
         # Register signal handlers only if running in main thread
         if threading.current_thread() is threading.main_thread():
@@ -201,7 +215,94 @@ class JobWorker:
         self._running = False
 
     def run_once(self) -> bool:
-        """Process one job from the database.
+        """Process jobs using Ray for GPU-accelerated execution.
+
+        v0.12.0: Refactored to use Ray for job execution.
+        - Polls active Ray futures (non-blocking)
+        - Dispatches new jobs to Ray cluster
+        - Limits concurrency to avoid OOM
+
+        Falls back to synchronous execution if use_ray is False (for backward compatibility).
+
+        Returns:
+            True if any work was done, False otherwise
+        """
+        # Backward compatibility: use synchronous execution if Ray is disabled
+        if not self._use_ray:
+            return self._run_once_sync()
+
+        import ray
+
+        from ..ray_tasks import execute_pipeline_remote
+
+        processed_something = False
+
+        # 1. Poll active Ray futures (non-blocking)
+        if self.active_futures:
+            ready_refs, _ = ray.wait(
+                list(self.active_futures.keys()),
+                num_returns=len(self.active_futures),
+                timeout=0,
+            )
+            for ref in ready_refs:
+                job_id = self.active_futures.pop(ref)
+                meta = self.job_metadata.pop(job_id, {})
+                try:
+                    results = ray.get(ref)
+                    self._finalize_job(job_id, meta, results)
+                except Exception as e:
+                    logger.error(
+                        f"Ray task failed for job {job_id}: {e}", exc_info=True
+                    )
+                    self._fail_job(job_id, str(e))
+                processed_something = True
+
+        # 2. Dispatch new jobs (Limit concurrency to avoid OOM)
+        if len(self.active_futures) < 2:
+            db = self._session_factory()
+            try:
+                job = (
+                    db.query(Job)
+                    .filter(Job.status == JobStatus.pending)
+                    .order_by(Job.created_at.asc())
+                    .first()
+                )
+                if job:
+                    job.status = JobStatus.running
+                    db.commit()
+                    db.refresh(job)
+
+                    is_multi = job.job_type in ("image_multi", "video_multi")
+                    tools_to_run = json.loads(job.tool_list) if is_multi else [job.tool]
+                    self.job_metadata[str(job.job_id)] = {
+                        "plugin_id": job.plugin_id,
+                        "job_type": job.job_type,
+                        "tools_to_run": tools_to_run,
+                        "is_multi": is_multi,
+                    }
+
+                    # Dispatch to Ray Cluster
+                    future = execute_pipeline_remote.remote(
+                        plugin_id=job.plugin_id,
+                        tools_to_run=tools_to_run,
+                        input_path=job.input_path,
+                        job_type=job.job_type,
+                    )
+                    self.active_futures[future] = str(job.job_id)
+                    logger.info(f"Job {job.job_id} dispatched to Ray cluster")
+                    processed_something = True
+            except Exception as e:
+                logger.error(f"Error dispatching job: {e}")
+            finally:
+                db.close()
+
+        return processed_something
+
+    def _run_once_sync(self) -> bool:
+        """Process one job synchronously (backward compatibility mode).
+
+        This is the original run_once implementation before Ray integration.
+        Used for unit tests and when Ray is not available.
 
         Returns:
             True if a job was processed, False if no pending jobs
@@ -233,8 +334,95 @@ class JobWorker:
 
             logger.info("Job %s marked RUNNING", job.job_id)
 
-            # COMMIT 6: Execute pipeline on input file
+            # Execute pipeline on input file
             return self._execute_pipeline(job, db)
+        finally:
+            db.close()
+
+    def _finalize_job(self, job_id: str, meta: dict, results: dict) -> None:
+        """Finalize a completed Ray job.
+
+        Args:
+            job_id: Job UUID string
+            meta: Job metadata dict
+            results: Results from Ray task
+        """
+        db = self._session_factory()
+        try:
+            job = db.query(Job).filter(Job.job_id == job_id).first()
+            if not job:
+                logger.warning(f"Job {job_id} not found in database")
+                return
+
+            tools_to_run = meta.get("tools_to_run", [])
+            output_data: Dict[str, Any]
+
+            if job.job_type in ("video", "video_multi"):
+                first_tool_output = results.get(tools_to_run[0], {})
+                if isinstance(first_tool_output, dict):
+                    output_data = {
+                        "job_id": str(job.job_id),
+                        "status": "completed",
+                        "total_frames": first_tool_output.get("total_frames"),
+                        "frames": first_tool_output.get("frames", []),
+                    }
+                    for key in first_tool_output:
+                        if key not in ("total_frames", "frames"):
+                            output_data[key] = first_tool_output[key]
+                elif isinstance(first_tool_output, list):
+                    output_data = {
+                        "job_id": str(job.job_id),
+                        "status": "completed",
+                        "total_frames": len(first_tool_output),
+                        "frames": first_tool_output,
+                    }
+                else:
+                    output_data = {
+                        "job_id": str(job.job_id),
+                        "status": "completed",
+                        "results": first_tool_output,
+                    }
+            elif meta.get("is_multi"):
+                output_data = {"plugin_id": job.plugin_id, "tools": results}
+            else:
+                output_data = {
+                    "plugin_id": job.plugin_id,
+                    "tool": tools_to_run[0],
+                    "results": results.get(tools_to_run[0]),
+                }
+
+            output_json = json.dumps(output_data)
+            if not self._storage:
+                logger.error(f"No storage service for job {job_id}")
+                return
+            output_path = self._storage.save_file(
+                BytesIO(output_json.encode()),
+                f"{job.job_type}/output/{job.job_id}.json",
+            )
+            job.status = JobStatus.completed
+            job.output_path = output_path
+            if job.job_type in ("video", "video_multi"):
+                job.progress = 100
+            db.commit()
+            send_job_completed(str(job.job_id))
+            logger.info(f"Job {job.job_id} completed successfully via Ray")
+        finally:
+            db.close()
+
+    def _fail_job(self, job_id: str, error_msg: str) -> None:
+        """Mark a job as failed.
+
+        Args:
+            job_id: Job UUID string
+            error_msg: Error message
+        """
+        db = self._session_factory()
+        try:
+            job = db.query(Job).filter(Job.job_id == job_id).first()
+            if job:
+                job.status = JobStatus.failed
+                job.error_message = error_msg
+                db.commit()
         finally:
             db.close()
 
