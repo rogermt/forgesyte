@@ -4,12 +4,7 @@ These tests verify the JobWorker's ability to dispatch jobs to Ray
 and poll for completion.
 """
 
-import json
-import tempfile
-from io import BytesIO
-from pathlib import Path
-from typing import Any, Dict
-from unittest.mock import MagicMock, patch, PropertyMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -41,8 +36,9 @@ class TestJobWorkerRayDispatch:
     @pytest.fixture
     def mock_job(self):
         """Create a mock Job model."""
-        from app.models.job import Job, JobStatus
         import uuid
+
+        from app.models.job import Job, JobStatus
 
         job = MagicMock(spec=Job)
         job.job_id = uuid.uuid4()
@@ -78,7 +74,6 @@ class TestJobWorkerRayDispatch:
     def test_dispatches_job_to_ray(self, mock_job, mock_storage):
         """Test that worker dispatches jobs to Ray when use_ray=True."""
         from app.workers.worker import JobWorker
-        from app.models.job import JobStatus
 
         # Create worker with Ray enabled
         worker = JobWorker(
@@ -102,9 +97,7 @@ class TestJobWorkerRayDispatch:
         with patch("ray.wait", return_value=([], [])):
             with patch("ray.ObjectRef", MockRayObjectRef):
                 # Patch execute_pipeline_remote at the module level
-                with patch(
-                    "app.ray_tasks.execute_pipeline_remote"
-                ) as mock_execute:
+                with patch("app.ray_tasks.execute_pipeline_remote") as mock_execute:
                     mock_execute.remote.return_value = mock_ref
 
                     # Run once
@@ -118,7 +111,6 @@ class TestJobWorkerRayDispatch:
     def test_polls_ray_futures(self, mock_job, mock_storage):
         """Test that worker polls active Ray futures."""
         from app.workers.worker import JobWorker
-        from app.models.job import JobStatus
 
         # Create worker with Ray enabled
         worker = JobWorker(
@@ -161,13 +153,8 @@ class TestJobWorkerRayDispatch:
         mock_execute = MagicMock()
 
         # Patch the imports inside run_once
-        with patch.dict(
-            "sys.modules",
-            {"ray": mock_ray}
-        ):
-            with patch(
-                "app.ray_tasks.execute_pipeline_remote", mock_execute
-            ):
+        with patch.dict("sys.modules", {"ray": mock_ray}):
+            with patch("app.ray_tasks.execute_pipeline_remote", mock_execute):
                 # Run once - should poll ref1 and finalize it
                 worker.run_once()
 
@@ -178,8 +165,8 @@ class TestJobWorkerRayDispatch:
 
     def test_finalize_job_saves_results(self, mock_job, mock_storage):
         """Test that _finalize_job saves results correctly."""
-        from app.workers.worker import JobWorker
         from app.models.job import JobStatus
+        from app.workers.worker import JobWorker
 
         worker = JobWorker(storage=mock_storage, plugin_service=MagicMock())
 
@@ -210,9 +197,10 @@ class TestJobWorkerRayDispatch:
 
     def test_finalize_video_job_flattens_results(self, mock_storage):
         """Test that _finalize_job flattens video results correctly."""
-        from app.workers.worker import JobWorker
-        from app.models.job import Job, JobStatus
         import uuid
+
+        from app.models.job import Job, JobStatus
+        from app.workers.worker import JobWorker
 
         worker = JobWorker(storage=mock_storage, plugin_service=MagicMock())
 
@@ -247,8 +235,8 @@ class TestJobWorkerRayDispatch:
 
     def test_fail_job_marks_failed(self, mock_job):
         """Test that _fail_job marks job as failed."""
-        from app.workers.worker import JobWorker
         from app.models.job import JobStatus
+        from app.workers.worker import JobWorker
 
         worker = JobWorker(storage=MagicMock(), plugin_service=MagicMock())
 
@@ -289,8 +277,8 @@ class TestJobWorkerRayDispatch:
 
     def test_handles_ray_task_exception(self, mock_job, mock_storage):
         """Test that Ray task exceptions are handled properly."""
-        from app.workers.worker import JobWorker
         from app.models.job import JobStatus
+        from app.workers.worker import JobWorker
 
         # Create worker with Ray enabled
         worker = JobWorker(

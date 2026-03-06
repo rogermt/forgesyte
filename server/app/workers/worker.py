@@ -26,6 +26,34 @@ from .worker_state import worker_last_heartbeat
 logger = logging.getLogger(__name__)
 
 
+def init_ray() -> bool:
+    """Initialize Ray with configurable mode.
+
+    v0.12.0: Supports both local and remote Ray initialization.
+    - If RAY_ADDRESS env var is set, connects to existing cluster
+    - Otherwise, starts local Ray instance
+
+    Returns:
+        True if initialization succeeded, False otherwise
+    """
+    import os
+
+    import ray
+
+    try:
+        ray_address = os.environ.get("RAY_ADDRESS")
+        if ray_address:
+            ray.init(address=ray_address, ignore_reinit_error=True)
+            logger.info(f"Ray connected to cluster at {ray_address}")
+        else:
+            ray.init(ignore_reinit_error=True)
+            logger.info("Ray initialized locally")
+        return True
+    except Exception as e:
+        logger.error(f"Failed to initialize Ray: {e}")
+        return False
+
+
 class StorageService(Protocol):
     """Protocol for storage service (allows dependency injection)."""
 
