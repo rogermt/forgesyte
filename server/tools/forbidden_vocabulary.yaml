@@ -63,8 +63,7 @@ patterns:
     reason: 'Phase 16 concept (job tracking)'
   - pattern: '\bqueue\b'
     reason: 'Phase 16 concept (job queuing)'
-  - pattern: '\bworker\b'
-    reason: 'Phase 16 concept (distributed workers)'
+  # Note: 'worker' pattern removed in Phase B (v0.12.0) - Ray workers are now allowed
 
   # Job queue libraries
   - pattern: '\bcelery\b'
@@ -110,8 +109,8 @@ patterns:
   - pattern: '\bstreaming\b'
     reason: 'Streaming (Phase 17 real-time only)'
 
-  # Phase 17+: Distributed execution concepts
-  # Note: 'distributed' pattern removed in Phase B (v0.12.0) - Ray is now allowed
+  # Phase 17+: GPU scheduling concepts (still restricted)
+  # Note: Ray patterns (distributed, worker, cluster, ray) are unlocked in Phase B (v0.12.0)
   - pattern: '\bgpu_schedule\b'
     reason: 'GPU scheduling (Phase 17+ only)'
   - pattern: '\bgpu_worker\b'
