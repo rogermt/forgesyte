@@ -32,6 +32,12 @@
 #   - No jobs, no persistence, no /video/* endpoints
 #   - Purely ephemeral, per-connection session model
 #
+# Phase B (v0.12.0): Ray Distributed Execution
+#   - Introduced Ray for GPU-accelerated job processing
+#   - Laptop acts as Ray head, Lightning AI as GPU worker
+#   - All jobs (image, video, batch) go through Ray
+#   - WebSockets remain unchanged
+#
 # Phase 18: Stabilization + Pre‑Release Hardening
 #   - Final cleanup of Phase‑16/17 systems
 #   - CI hardening, governance tightening, documentation consolidation
@@ -105,11 +111,12 @@ patterns:
     reason: 'Streaming (Phase 17 real-time only)'
 
   # Phase 17+: Distributed execution concepts
+  # Note: 'distributed' pattern removed in Phase B (v0.12.0) - Ray is now allowed
   - pattern: '\bgpu_schedule\b'
     reason: 'GPU scheduling (Phase 17+ only)'
   - pattern: '\bgpu_worker\b'
-    reason: 'GPU worker (Phase 17+ only)'
-  # NOTE: distributed, worker, cluster, ray unlocked in v0.12.0 for Ray integration
+     reason: 'GPU worker (Phase 17+ only)'
+   # Note: 'worker' pattern removed in Phase B (v0.12.0) - Ray workers are now allowed
 
 
     # Phase 16: Endpoint namespace governance
