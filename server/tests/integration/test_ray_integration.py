@@ -3,14 +3,11 @@
 These tests verify the full Ray job flow with mocked Ray components.
 """
 
-import json
-from io import BytesIO
 from unittest.mock import MagicMock, patch
-from uuid import uuid4
 
 import pytest
 
-from app.models.job import Job, JobStatus
+from app.models.job import JobStatus
 
 
 class MockRayObjectRef:
@@ -94,7 +91,9 @@ class TestRayJobDispatch:
         mock_job.input_path = "image/input/test.jpg"
 
         mock_db = MagicMock()
-        mock_db.query.return_value.filter.return_value.order_by.return_value.first.return_value = mock_job
+        mock_db.query.return_value.filter.return_value.order_by.return_value.first.return_value = (
+            mock_job
+        )
 
         worker._session_factory = lambda: mock_db
 

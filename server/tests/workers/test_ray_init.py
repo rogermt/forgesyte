@@ -3,8 +3,6 @@
 import os
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 
 class TestRayInitialization:
     """Tests for configurable Ray initialization."""
