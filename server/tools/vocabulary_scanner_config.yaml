@@ -4,7 +4,6 @@
 forbidden_terms:
   - gpu_schedule
   - gpu_worker
-  - distributed
 
 allowed_contexts:
   - websocket
