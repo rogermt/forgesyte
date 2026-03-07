@@ -54,6 +54,9 @@ types = [
     "types-requests==2.31.0.10",
 ]
 
+[tool.setuptools]
+packages = ["app"]
+
 [tool.hatch.build.targets.wheel]
 packages = ["app"]
 
