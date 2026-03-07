@@ -125,7 +125,7 @@ from .websocket_manager import ws_manager  # noqa: E402
 # ---------------------------------------------------------------------------
 
 # Use settings for CORS and other configuration
-phase14_settings = settings
+cors_settings = settings
 
 
 # ---------------------------------------------------------------------------
@@ -277,7 +277,7 @@ def create_app() -> FastAPI:
     # CORS
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=phase14_settings.cors_origins,
+        allow_origins=cors_settings.cors_origins,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
@@ -363,8 +363,8 @@ async def debug_cors() -> Dict[str, Any]:
     which is invaluable for debugging tunnels and cross-origin issues.
     """
     return {
-        "allowed_origins": phase14_settings.cors_origins,
-        "raw_env": phase14_settings.cors_origins_raw,
+        "allowed_origins": cors_settings.cors_origins,
+        "raw_env": cors_settings.cors_origins_raw,
     }
 
 
