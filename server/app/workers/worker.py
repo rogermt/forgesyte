@@ -512,7 +512,9 @@ class JobWorker:
             output_json = json.dumps(output_data)
             if not self._storage:
                 logger.error(f"No storage service for job {job_id}")
-                self._fail_job(job_id, "Storage service unavailable during finalization")
+                self._fail_job(
+                    job_id, "Storage service unavailable during finalization"
+                )
                 return
             output_path = self._storage.save_file(
                 BytesIO(output_json.encode()),

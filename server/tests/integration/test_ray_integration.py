@@ -252,6 +252,8 @@ class TestSynchronousFallback:
         assert worker._use_ray is False
 
         # Exercise run_once() and verify it delegates to _run_once_sync()
-        with patch.object(worker, "_run_once_sync", return_value=True) as mock_run_once_sync:
+        with patch.object(
+            worker, "_run_once_sync", return_value=True
+        ) as mock_run_once_sync:
             assert worker.run_once() is True
             mock_run_once_sync.assert_called_once()
