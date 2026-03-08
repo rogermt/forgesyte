@@ -121,10 +121,16 @@ class TestMultiToolVideoExecution:
         self, session: Session, mock_storage, mock_plugin_service
     ):
         """Test that results are combined in the expected canonical format."""
-        # Mock different results for each tool
+        # Mock different results for each tool with frame_idx for proper merging
         mock_plugin_service.run_plugin_tool.side_effect = [
-            {"tool_one_result": "data1", "frames": []},
-            {"tool_two_result": "data2", "frames": []},
+            {
+                "frames": [{"frame_idx": 0, "tool_one_result": "data1"}],
+                "total_frames": 1,
+            },
+            {
+                "frames": [{"frame_idx": 0, "tool_two_result": "data2"}],
+                "total_frames": 1,
+            },
         ]
 
         tools = ["tool_one", "tool_two"]
@@ -136,7 +142,7 @@ class TestMultiToolVideoExecution:
             plugin_service=mock_plugin_service,
         )
 
-        with patch.object(worker, "_get_total_frames", return_value=10):
+        with patch.object(worker, "_get_total_frames", return_value=1):
             worker._execute_pipeline(job, session)
 
         # Load saved results
@@ -145,14 +151,24 @@ class TestMultiToolVideoExecution:
         output_json = saved_output.read().decode("utf-8")
         output = json.loads(output_json)
 
-        # v0.10.0: Verify canonical video format (flattened for VideoResultsViewer)
-        # Output is {job_id, status, frames, total_frames, ...additional_fields}
+        # v0.12.0: Verify video_multi merged format
+        # Output is {job_id, status, frames: [{frame_idx, tool_one: {...}, tool_two: {...}}]}
         assert "job_id" in output
         assert "status" in output
         assert output["status"] == "completed"
         assert "frames" in output
-        # First tool's additional fields are included at top level
-        assert output["tool_one_result"] == "data1"
+        assert "total_frames" in output
+        assert output["total_frames"] == 1
+
+        # Verify frames are merged - each frame contains data from both tools
+        frames = output["frames"]
+        assert len(frames) == 1
+        frame = frames[0]
+        assert frame["frame_idx"] == 0
+        assert "tool_one" in frame
+        assert "tool_two" in frame
+        assert frame["tool_one"]["tool_one_result"] == "data1"
+        assert frame["tool_two"]["tool_two_result"] == "data2"
 
     def test_progress_calculation_for_multi_tool(
         self, session: Session, mock_storage, mock_plugin_service
