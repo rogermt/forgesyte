@@ -98,8 +98,9 @@ def _merge_video_frames(
     # Sort frames by index
     merged_frames = [frames_by_idx[idx] for idx in sorted(frames_by_idx.keys())]
 
-    # Use actual frame count if we have frames
-    if merged_frames:
+    # Only fall back to merged-frame count when tools did not report source video length
+    # This preserves the actual video length for sparse outputs (e.g., detector only emits frames with hits)
+    if total_frames == 0 and merged_frames:
         total_frames = len(merged_frames)
 
     return {
