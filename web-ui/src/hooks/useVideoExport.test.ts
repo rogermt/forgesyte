@@ -15,6 +15,7 @@ const OriginalMediaRecorder = global.MediaRecorder;
 
 // Track calls for assertions
 let constructorCallCount = 0;
+let lastRecorderOptions: MediaRecorderOptions | undefined;
 
 // Mock MediaRecorder - use proper class methods
 class MockMediaRecorder {
@@ -24,9 +25,11 @@ class MockMediaRecorder {
   onerror: ((event: Event) => void) | null = null;
   onstop: (() => void) | null = null;
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars
-  constructor(...args: any[]) {
+  constructor(stream: MediaStream, options?: MediaRecorderOptions) {
+    void stream; // Intentionally unused in mock
     constructorCallCount++;
+    lastRecorderOptions = options;
+    this.mimeType = options?.mimeType ?? "video/webm";
   }
 
   start(): void {
@@ -48,6 +51,7 @@ MockMediaRecorder.isTypeSupported = function(type: string): boolean {
 
 beforeEach(() => {
   constructorCallCount = 0;
+  lastRecorderOptions = undefined;
   (global as Record<string, unknown>).MediaRecorder = MockMediaRecorder;
 });
 
@@ -56,8 +60,7 @@ afterEach(() => {
 });
 
 // Mock HTMLCanvasElement.captureStream
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-HTMLCanvasElement.prototype.captureStream = function(frameRate?: number): MediaStream {
+HTMLCanvasElement.prototype.captureStream = function(): MediaStream {
   return {
     getTracks: () => [],
   } as MediaStream;
@@ -65,10 +68,6 @@ HTMLCanvasElement.prototype.captureStream = function(frameRate?: number): MediaS
 
 // Spy on captureStream for assertions
 vi.spyOn(HTMLCanvasElement.prototype, "captureStream");
-
-// Mock URL methods
-global.URL.createObjectURL = vi.fn(() => "blob:mock-url");
-global.URL.revokeObjectURL = vi.fn();
 
 // ============================================================================
 // Tests
@@ -181,8 +180,8 @@ describe("useVideoExport", () => {
       result.current.startRecording(mockCanvas);
     });
 
-    // Should attempt to create MediaRecorder
-    expect(constructorCallCount).toBeGreaterThan(0);
+    // Verify the MIME type was actually passed to MediaRecorder
+    expect(lastRecorderOptions?.mimeType).toBe("video/webm;codecs=vp8");
   });
 
   it("supports default FPS of 30", () => {
