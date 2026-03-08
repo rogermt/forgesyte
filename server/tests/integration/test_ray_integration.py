@@ -238,6 +238,8 @@ class TestSynchronousFallback:
 
     def test_synchronous_mode_uses_run_once_sync(self):
         """Test that synchronous mode uses _run_once_sync method."""
+        from unittest.mock import patch
+
         from app.workers.worker import JobWorker
 
         worker = JobWorker(
@@ -246,9 +248,10 @@ class TestSynchronousFallback:
             use_ray=False,
         )
 
-        # Verify the method exists and is callable
-        assert hasattr(worker, "_run_once_sync")
-        assert callable(worker._run_once_sync)
-
         # Verify use_ray is False
         assert worker._use_ray is False
+
+        # Exercise run_once() and verify it delegates to _run_once_sync()
+        with patch.object(worker, "_run_once_sync", return_value=True) as mock_run_once_sync:
+            assert worker.run_once() is True
+            mock_run_once_sync.assert_called_once()
