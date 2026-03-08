@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor, fireEvent } from "@testing-library/react";
+import { render, screen, waitFor, fireEvent, act } from "@testing-library/react";
 import { VideoUpload } from "../../src/components/VideoUpload";
 
 // Mock API client
@@ -62,13 +62,18 @@ describe("VideoUpload Integration", () => {
         });
     });
 
-    it("should reject non-MP4 files", () => {
-        render(<VideoUpload pluginId="yolo" manifest={videoManifest} selectedTool="video_player_detection" />);
+    it("should reject non-MP4 files", async () => {
+        await act(async () => {
+            render(<VideoUpload pluginId="yolo" manifest={videoManifest} selectedTool="video_player_detection" />);
+        });
 
         const fileInput = screen.getByLabelText(/upload/i) as HTMLInputElement;
         const file = new File([""], "test.jpg", { type: "image/jpeg" });
         Object.defineProperty(fileInput, "files", { value: [file] });
-        fileInput.dispatchEvent(new Event("change", { bubbles: true }));
+
+        await act(async () => {
+            fileInput.dispatchEvent(new Event("change", { bubbles: true }));
+        });
 
         expect(screen.getByText(/Only MP4 videos are supported/i)).toBeInTheDocument();
     });

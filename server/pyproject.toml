@@ -6,7 +6,7 @@ authors = [
     {name = "ForgeSyte Team", email = "team@forgesyte.ai"}
 ]
 readme = "README.md"
-requires-python = ">=3.10,<3.12"
+requires-python = ">=3.10"
 dependencies = [
     "ray[default]>=2.54,<3.0",
     "fastapi[standard]>=0.100.0",
@@ -53,6 +53,9 @@ types = [
     "types-Pillow==10.0.0.2",
     "types-requests==2.31.0.10",
 ]
+
+[tool.setuptools]
+packages = ["app"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["app"]

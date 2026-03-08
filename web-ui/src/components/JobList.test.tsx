@@ -15,6 +15,7 @@ import {
     createMockJobRunning,
     createMockJobError,
     createMockJobList,
+    resetMockJobCounter,
 } from "../test-utils/factories";
 
 // Mock the API client
@@ -27,6 +28,7 @@ vi.mock("../api/client", () => ({
 describe("JobList", () => {
     beforeEach(() => {
         vi.clearAllMocks();
+        resetMockJobCounter(); // Ensure unique job IDs for each test
     });
 
     describe("loading state", () => {

@@ -3,7 +3,7 @@
  * Ensures factories produce objects matching API schemas
  */
 
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeEach } from "vitest";
 import {
     createMockJob,
     createMockJobDone,
@@ -14,7 +14,13 @@ import {
     createMockPluginList,
     createMockFrameResult,
     createMockFrameResultList,
+    resetMockJobCounter,
 } from "./factories";
+
+// Reset counter before each test for isolation (Issue #271)
+beforeEach(() => {
+    resetMockJobCounter();
+});
 
 describe("Mock Factories", () => {
     describe("createMockJob", () => {

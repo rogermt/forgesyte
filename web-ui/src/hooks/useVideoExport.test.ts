@@ -2,7 +2,7 @@
  * Tests for useVideoExport hook
  */
 
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { renderHook, act } from "@testing-library/react";
 import { useVideoExport } from "./useVideoExport";
 
@@ -10,33 +10,64 @@ import { useVideoExport } from "./useVideoExport";
 // Mocks
 // ============================================================================
 
-// Mock MediaRecorder
-global.MediaRecorder = vi.fn(() => ({
-  start: vi.fn(),
-  stop: vi.fn(),
-  state: "recording",
-  mimeType: "video/webm",
-  ondataavailable: null,
-  onerror: null,
-  onstop: null,
-})) as unknown as typeof MediaRecorder;
+// Store the original MediaRecorder
+const OriginalMediaRecorder = global.MediaRecorder;
 
-vi.mocked(global.MediaRecorder).isTypeSupported = vi.fn((type: string) => {
+// Track calls for assertions
+let constructorCallCount = 0;
+let lastRecorderOptions: MediaRecorderOptions | undefined;
+
+// Mock MediaRecorder - use proper class methods
+class MockMediaRecorder {
+  state = "recording";
+  mimeType = "video/webm";
+  ondataavailable: ((event: BlobEvent) => void) | null = null;
+  onerror: ((event: Event) => void) | null = null;
+  onstop: (() => void) | null = null;
+
+  constructor(stream: MediaStream, options?: MediaRecorderOptions) {
+    void stream; // Intentionally unused in mock
+    constructorCallCount++;
+    lastRecorderOptions = options;
+    this.mimeType = options?.mimeType ?? "video/webm";
+  }
+
+  start(): void {
+    // Intentionally empty for mock
+  }
+
+  stop(): void {
+    // Intentionally empty for mock
+  }
+}
+
+MockMediaRecorder.isTypeSupported = function(type: string): boolean {
   return (
-    type === "video/webm" || 
-    type === "video/webm;codecs=vp9" || 
+    type === "video/webm" ||
+    type === "video/webm;codecs=vp9" ||
     type === "video/webm;codecs=vp8"
   );
+};
+
+beforeEach(() => {
+  constructorCallCount = 0;
+  lastRecorderOptions = undefined;
+  (global as Record<string, unknown>).MediaRecorder = MockMediaRecorder;
+});
+
+afterEach(() => {
+  global.MediaRecorder = OriginalMediaRecorder;
 });
 
 // Mock HTMLCanvasElement.captureStream
-HTMLCanvasElement.prototype.captureStream = vi.fn(() => ({
-  getTracks: vi.fn(() => []),
-})) as unknown as typeof HTMLCanvasElement.prototype.captureStream;
+HTMLCanvasElement.prototype.captureStream = function(): MediaStream {
+  return {
+    getTracks: () => [],
+  } as MediaStream;
+};
 
-// Mock URL methods
-global.URL.createObjectURL = vi.fn(() => "blob:mock-url");
-global.URL.revokeObjectURL = vi.fn();
+// Spy on captureStream for assertions
+vi.spyOn(HTMLCanvasElement.prototype, "captureStream");
 
 // ============================================================================
 // Tests
@@ -99,7 +130,10 @@ describe("useVideoExport", () => {
       result.current.startRecording(mockCanvas);
     });
 
-    expect(global.MediaRecorder).toHaveBeenCalled();
+    // Verify MediaRecorder was constructed exactly once
+    expect(constructorCallCount).toBe(1);
+    // Verify recording state was set
+    expect(result.current.state.isRecording).toBe(true);
   });
 
   it("updates progress correctly", () => {
@@ -129,10 +163,15 @@ describe("useVideoExport", () => {
       result.current.startRecording(mockCanvas);
     });
 
+    // Verify recording started
+    expect(result.current.state.isRecording).toBe(true);
+    expect(constructorCallCount).toBe(1);
+
     act(() => {
       result.current.cancelRecording();
     });
 
+    // Verify recording was cancelled
     expect(result.current.state.isRecording).toBe(false);
     expect(result.current.state.progress).toBe(0);
   });
@@ -149,8 +188,8 @@ describe("useVideoExport", () => {
       result.current.startRecording(mockCanvas);
     });
 
-    // Should attempt to create MediaRecorder
-    expect(global.MediaRecorder).toHaveBeenCalled();
+    // Verify the MIME type was actually passed to MediaRecorder
+    expect(lastRecorderOptions?.mimeType).toBe("video/webm;codecs=vp8");
   });
 
   it("supports default FPS of 30", () => {
@@ -195,6 +234,6 @@ describe("useVideoExport", () => {
     });
 
     // Verify recording started (state was set)
-    expect(global.MediaRecorder).toHaveBeenCalled();
+    expect(constructorCallCount).toBeGreaterThan(0);
   });
 });

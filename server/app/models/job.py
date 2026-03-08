@@ -71,3 +71,10 @@ class Job(Base):
         nullable=True,
         default=None,
     )
+
+    # v0.12.0: Ray future ID for job recovery after worker restart (Issue #270)
+    ray_future_id = Column(
+        String,
+        nullable=True,
+        default=None,
+    )

@@ -32,6 +32,12 @@
 #   - No jobs, no persistence, no /video/* endpoints
 #   - Purely ephemeral, per-connection session model
 #
+# Phase B (v0.12.0): Ray Distributed Execution
+#   - Introduced Ray for GPU-accelerated job processing
+#   - Laptop acts as Ray head, Lightning AI as GPU worker
+#   - All jobs (image, video, batch) go through Ray
+#   - WebSockets remain unchanged
+#
 # Phase 18: Stabilization + Pre‑Release Hardening
 #   - Final cleanup of Phase‑16/17 systems
 #   - CI hardening, governance tightening, documentation consolidation
@@ -57,8 +63,7 @@ patterns:
     reason: 'Phase 16 concept (job tracking)'
   - pattern: '\bqueue\b'
     reason: 'Phase 16 concept (job queuing)'
-  - pattern: '\bworker\b'
-    reason: 'Phase 16 concept (distributed workers)'
+  # Note: 'worker' pattern removed in Phase B (v0.12.0) - Ray workers are now allowed
 
   # Job queue libraries
   - pattern: '\bcelery\b'
@@ -104,96 +109,37 @@ patterns:
   - pattern: '\bstreaming\b'
     reason: 'Streaming (Phase 17 real-time only)'
 
-  # Phase 17+: Distributed execution concepts
+  # Phase 17+: GPU scheduling concepts (still restricted)
+  # Note: Ray patterns (distributed, worker, cluster, ray) are unlocked in Phase B (v0.12.0)
   - pattern: '\bgpu_schedule\b'
     reason: 'GPU scheduling (Phase 17+ only)'
   - pattern: '\bgpu_worker\b'
     reason: 'GPU worker (Phase 17+ only)'
-  # NOTE: distributed, worker, cluster, ray unlocked in v0.12.0 for Ray integration
 
+  # Phase 16: Endpoint namespace governance
+  # Phase‑15 endpoints (/v1/*) are forbidden in Phase‑16+
+  - pattern: '/v1/video/submit'
+    reason: 'Phase‑15 synchronous endpoint — forbidden in Phase‑16+'
+  - pattern: '/v1/video/status'
+    reason: 'Phase‑15 synchronous endpoint — forbidden in Phase‑16+'
+  - pattern: '/v1/video/results'
+    reason: 'Phase‑15 synchronous endpoint — forbidden in Phase‑16+'
+  - pattern: '/v1/'
+    reason: 'Phase‑15 namespace — forbidden in Phase‑16+'
 
-    # Phase 16: Endpoint namespace governance
-
-
-    # Phase‑15 endpoints (/v1/*) are forbidden in Phase‑16+
-
-
-    - pattern: '/v1/video/submit'
-
-
-      reason: 'Phase‑15 synchronous endpoint — forbidden in Phase‑16+'
-
-
-    - pattern: '/v1/video/status'
-
-
-      reason: 'Phase‑15 synchronous endpoint — forbidden in Phase‑16+'
-
-
-    - pattern: '/v1/video/results'
-
-
-      reason: 'Phase‑15 synchronous endpoint — forbidden in Phase‑16+'
-
-
-    - pattern: '/v1/'
-
-
-      reason: 'Phase‑15 namespace — forbidden in Phase‑16+'
-
-
-  
-
-
-    # v0.9.7: Plugin tool resolution governance — enforce capability-based resolution
-
-
-    # These patterns prevent substring/prefix matching that couples backend to plugin naming
-
-
-    - pattern: '\bstartswith\s*\(\s*["\']player'
-
-
-      reason: 'Prefix-based tool matching is forbidden; use capabilities instead'
-
-
-    - pattern: '\bstartswith\s*\(\s*["\']ball'
-
-
-      reason: 'Prefix-based tool matching is forbidden; use capabilities instead'
-
-
-    - pattern: '\bstartswith\s*\(\s*["\']video'
-
-
-      reason: 'Prefix-based tool matching is forbidden; use capabilities instead'
-
-
-    - pattern: '\bstartswith\s*\(\s*["\']image'
-
-
-      reason: 'Prefix-based tool matching is forbidden; use capabilities instead'
-
-
-    - pattern: '\bin\s+tool\s*\[\s*["\']id["\']\s*\]'
-
-
-      reason: 'Substring-based name matching is forbidden; use capabilities instead'
-
-
-    - pattern: '\bLOGICAL_TOOLS\s*='
-
-
-      reason: 'Backend must not maintain a list of logical tools; capabilities live in manifests'
-
-
-    - pattern: '\bLOGICAL_TOOL_IDS\b'
-
-
-      reason: 'Backend must not maintain a list of logical tools; capabilities live in manifests'
-
-
-  
-
-
-  
+  # v0.9.7: Plugin tool resolution governance — enforce capability-based resolution
+  # These patterns prevent substring/prefix matching that couples backend to plugin naming
+  - pattern: "\\bstartswith\\s*\\(\\s*[\"']player"
+    reason: 'Prefix-based tool matching is forbidden; use capabilities instead'
+  - pattern: "\\bstartswith\\s*\\(\\s*[\"']ball"
+    reason: 'Prefix-based tool matching is forbidden; use capabilities instead'
+  - pattern: "\\bstartswith\\s*\\(\\s*[\"']video"
+    reason: 'Prefix-based tool matching is forbidden; use capabilities instead'
+  - pattern: "\\bstartswith\\s*\\(\\s*[\"']image"
+    reason: 'Prefix-based tool matching is forbidden; use capabilities instead'
+  - pattern: "\\bin\\s+tool\\s*\\[\\s*[\"']id[\"']\\s*\\]"
+    reason: 'Substring-based name matching is forbidden; use capabilities instead'
+  - pattern: '\bLOGICAL_TOOLS\s*='
+    reason: 'Backend must not maintain a list of logical tools; capabilities live in manifests'
+  - pattern: '\bLOGICAL_TOOL_IDS\b'
+    reason: 'Backend must not maintain a list of logical tools; capabilities live in manifests'

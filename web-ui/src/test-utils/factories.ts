@@ -13,19 +13,37 @@
 import { Job, Plugin } from "../api/client";
 import { FrameResult } from "../hooks/useWebSocket";
 
+// Counter for generating unique job IDs in tests
+let jobCounter = 0;
+
+/**
+ * Generate a unique job ID for testing
+ */
+function generateUniqueId(): string {
+    jobCounter += 1;
+    return `test-job-${String(jobCounter).padStart(4, "0")}-${Date.now()}`;
+}
+
+/**
+ * Reset the job counter (useful for test isolation)
+ */
+export function resetMockJobCounter(): void {
+    jobCounter = 0;
+}
+
 /**
  * Create a mock Job object matching JobResponse schema
  *
  * Usage:
  * ```typescript
- * const job = createMockJob(); // All defaults
+ * const job = createMockJob(); // All defaults with unique ID
  * const doneJob = createMockJob({ status: "done" });
  * const customJob = createMockJob({ job_id: "custom-123" });
  * ```
  */
 export function createMockJob(overrides?: Partial<Job>): Job {
     const defaults: Job = {
-        job_id: "550e8400-e29b-41d4-a716-446655440000",
+        job_id: generateUniqueId(),
         status: "pending",
         plugin_id: "ocr",
         tool: "analyze",

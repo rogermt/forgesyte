@@ -5,7 +5,8 @@ from pathlib import Path
 
 class TestPhase16Governance:
     def test_no_forbidden_vocabulary_in_functional_code(self):
-        forbidden_terms = ["gpu_schedule", "gpu_worker", "distributed"]
+        # v0.12.0: "distributed" removed - Ray is now allowed for Phase B
+        forbidden_terms = ["gpu_schedule", "gpu_worker"]
         test_file = Path(__file__)
         server_root = test_file.parent.parent.parent
 
@@ -57,6 +58,7 @@ class TestPhase16Governance:
         assert config_path.exists(), f"Governance config not found at {config_path}"
         assert config_path.stat().st_size > 0, "Config file is empty"
         content = config_path.read_text()
-        required_terms = ["gpu_schedule", "gpu_worker", "distributed"]
+        # v0.12.0: "distributed" removed - Ray is now allowed for Phase B
+        required_terms = ["gpu_schedule", "gpu_worker"]
         for term in required_terms:
             assert term in content, f"Required term '{term}' not in config"

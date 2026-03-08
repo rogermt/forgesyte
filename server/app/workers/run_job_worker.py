@@ -17,7 +17,7 @@ from app.plugin_loader import PluginRegistry  # noqa: E402
 from app.services.plugin_management_service import PluginManagementService  # noqa: E402
 from app.services.storage.factory import get_storage_service  # noqa: E402
 from app.settings import settings  # noqa: E402
-from app.workers.worker import JobWorker  # noqa: E402
+from app.workers.worker import JobWorker, init_ray  # noqa: E402
 
 logging.basicConfig(
     level=logging.INFO,
@@ -38,9 +38,17 @@ def run_worker_forever(plugin_manager: PluginRegistry):
     storage = get_storage_service(settings)
     plugin_service = PluginManagementService(plugin_manager)
 
+    # v0.12.0: Initialize Ray if available (Issue #269)
+    use_ray = init_ray()
+    if use_ray:
+        logger.info("Ray initialized successfully, enabling GPU-accelerated execution")
+    else:
+        logger.info("Ray not available, using synchronous execution")
+
     worker = JobWorker(
         storage=storage,
         plugin_service=plugin_service,
+        use_ray=use_ray,
     )
 
     logger.info("JobWorker thread initialized")
@@ -60,9 +68,19 @@ def main():
         storage = get_storage_service(settings)
         plugin_service = PluginManagementService(plugin_manager)
 
+        # v0.12.0: Initialize Ray if available (Issue #269)
+        use_ray = init_ray()
+        if use_ray:
+            logger.info(
+                "Ray initialized successfully, enabling GPU-accelerated execution"
+            )
+        else:
+            logger.info("Ray not available, using synchronous execution")
+
         worker = JobWorker(
             storage=storage,
             plugin_service=plugin_service,
+            use_ray=use_ray,
         )
 
         logger.info("JobWorker initialized")

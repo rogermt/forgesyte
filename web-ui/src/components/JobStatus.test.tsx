@@ -5,7 +5,7 @@
  */
 
 import { vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, act } from "@testing-library/react";
 import { JobStatus } from "./JobStatus";
 import * as client from "../api/client";
 import { useJobProgress } from "../hooks/useJobProgress";
@@ -192,7 +192,7 @@ describe("JobStatus", () => {
   });
 
   describe("error handling", () => {
-    it("shows error state from WebSocket", () => {
+    it("shows error state from WebSocket", async () => {
       mockUseJobProgress.mockReturnValue({
         progress: null,
         status: "failed",
@@ -204,8 +204,10 @@ describe("JobStatus", () => {
         error_message: "Processing failed",
       });
 
-      render(<JobStatus jobId="job-123" />);
-      
+      await act(async () => {
+        render(<JobStatus jobId="job-123" />);
+      });
+
       expect(screen.getByText(/Processing failed/)).toBeInTheDocument();
     });
   });
@@ -263,10 +265,10 @@ describe("JobStatus", () => {
         },
       });
 
-      // This should NOT throw
-      expect(() => {
+      // This should NOT throw - wrap in act() to handle async state updates
+      await act(async () => {
         render(<JobStatus jobId="job-123" />);
-      }).not.toThrow();
+      });
     });
   });
 

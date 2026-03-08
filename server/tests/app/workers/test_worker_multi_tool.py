@@ -436,7 +436,7 @@ class TestVideoMultiWorkerExecution:
 
     @pytest.mark.unit
     def test_video_multi_canonical_output(self, test_engine, session):
-        """Test that video_multi produces canonical output JSON format."""
+        """Test that video_multi produces merged frames from all tools."""
         Session = sessionmaker(bind=test_engine)
 
         mock_storage = MagicMock()
@@ -479,14 +479,20 @@ class TestVideoMultiWorkerExecution:
             ]
         }
 
-        # Mock results using simpler format
+        # Mock results with frame_idx for proper merging
         result1 = {
-            "frames": [{"frame": 1, "boxes": [[0, 0, 10, 10]]}],
-            "total_frames": 100,
+            "frames": [
+                {"frame_idx": 0, "detections": ["player1", "player2"]},
+                {"frame_idx": 1, "detections": ["player3"]},
+            ],
+            "total_frames": 2,
         }
         result2 = {
-            "frames": [{"frame": 1, "boxes": [[5, 5, 15, 15]]}],
-            "total_frames": 100,
+            "frames": [
+                {"frame_idx": 0, "balls": [{"x": 10, "y": 20}]},
+                {"frame_idx": 1, "balls": [{"x": 30, "y": 40}]},
+            ],
+            "total_frames": 2,
         }
         mock_plugin_service.run_plugin_tool.side_effect = [result1, result2]
 
@@ -508,15 +514,35 @@ class TestVideoMultiWorkerExecution:
         assert saved_output is not None
         output_data = json.loads(saved_output)
 
-        # v0.10.0: Canonical video format (flattened for VideoResultsViewer):
-        # {"job_id": "...", "status": "completed", "frames": [...], "total_frames": N}
+        # v0.12.0: video_multi merges frames from all tools by frame_idx:
+        # {"job_id": "...", "status": "completed", "frames": [{"frame_idx": 0, "tool1": {...}, "tool2": {...}}, ...]}
         assert "job_id" in output_data
         assert output_data["job_id"] == job_id
         assert "status" in output_data
         assert output_data["status"] == "completed"
         assert "frames" in output_data
         assert "total_frames" in output_data
-        assert output_data["total_frames"] == 100
+        assert output_data["total_frames"] == 2
+
+        # Verify frame merging: each frame should have data from both tools
+        frames = output_data["frames"]
+        assert len(frames) == 2
+
+        # Frame 0 should have both player_tracking and ball_detection data
+        frame0 = frames[0]
+        assert frame0["frame_idx"] == 0
+        assert "video_player_tracking" in frame0
+        assert "video_ball_detection" in frame0
+        assert frame0["video_player_tracking"]["detections"] == ["player1", "player2"]
+        assert frame0["video_ball_detection"]["balls"] == [{"x": 10, "y": 20}]
+
+        # Frame 1 should have both tools' data
+        frame1 = frames[1]
+        assert frame1["frame_idx"] == 1
+        assert "video_player_tracking" in frame1
+        assert "video_ball_detection" in frame1
+        assert frame1["video_player_tracking"]["detections"] == ["player3"]
+        assert frame1["video_ball_detection"]["balls"] == [{"x": 30, "y": 40}]
 
     @pytest.mark.unit
     def test_video_single_canonical_output(self, test_engine, session):
@@ -591,3 +617,127 @@ class TestVideoMultiWorkerExecution:
         assert "frames" in output_data
         assert "total_frames" in output_data
         assert output_data["total_frames"] == 100
+
+
+# =============================================================================
+# v0.12.0: _merge_video_frames helper tests
+# =============================================================================
+
+
+class TestMergeVideoFrames:
+    """Tests for _merge_video_frames helper function."""
+
+    @pytest.mark.unit
+    def test_merges_two_tools_by_frame_idx(self):
+        """Test that frames from two tools are merged by frame_idx."""
+        from app.workers.worker import _merge_video_frames
+
+        results = {
+            "player_tracker": {
+                "frames": [
+                    {"frame_idx": 0, "detections": ["p1", "p2"]},
+                    {"frame_idx": 1, "detections": ["p3"]},
+                ],
+                "total_frames": 2,
+            },
+            "ball_detector": {
+                "frames": [
+                    {"frame_idx": 0, "balls": [{"x": 10}]},
+                    {"frame_idx": 1, "balls": [{"x": 20}]},
+                ],
+                "total_frames": 2,
+            },
+        }
+
+        output = _merge_video_frames(
+            results, ["player_tracker", "ball_detector"], "test-job-id"
+        )
+
+        assert output["job_id"] == "test-job-id"
+        assert output["status"] == "completed"
+        assert output["total_frames"] == 2
+        assert len(output["frames"]) == 2
+
+        # Frame 0: both tools merged
+        assert output["frames"][0]["frame_idx"] == 0
+        assert output["frames"][0]["player_tracker"]["detections"] == ["p1", "p2"]
+        assert output["frames"][0]["ball_detector"]["balls"] == [{"x": 10}]
+
+        # Frame 1: both tools merged
+        assert output["frames"][1]["frame_idx"] == 1
+        assert output["frames"][1]["player_tracker"]["detections"] == ["p3"]
+        assert output["frames"][1]["ball_detector"]["balls"] == [{"x": 20}]
+
+    @pytest.mark.unit
+    def test_handles_missing_frames_in_one_tool(self):
+        """Test merging when one tool has fewer frames."""
+        from app.workers.worker import _merge_video_frames
+
+        results = {
+            "player_tracker": {
+                "frames": [
+                    {"frame_idx": 0, "detections": ["p1"]},
+                    {"frame_idx": 1, "detections": ["p2"]},
+                    {"frame_idx": 2, "detections": ["p3"]},
+                ],
+                "total_frames": 3,
+            },
+            "ball_detector": {
+                "frames": [
+                    {"frame_idx": 0, "balls": [{"x": 10}]},
+                    # Missing frame 1
+                    {"frame_idx": 2, "balls": [{"x": 30}]},
+                ],
+                "total_frames": 3,
+            },
+        }
+
+        output = _merge_video_frames(
+            results, ["player_tracker", "ball_detector"], "test-job-id"
+        )
+
+        assert len(output["frames"]) == 3
+
+        # Frame 0: both tools
+        assert "player_tracker" in output["frames"][0]
+        assert "ball_detector" in output["frames"][0]
+
+        # Frame 1: only player_tracker
+        assert "player_tracker" in output["frames"][1]
+        assert "ball_detector" not in output["frames"][1]
+
+        # Frame 2: both tools
+        assert "player_tracker" in output["frames"][2]
+        assert "ball_detector" in output["frames"][2]
+
+    @pytest.mark.unit
+    def test_handles_list_format_frames(self):
+        """Test merging when frames are a list (uses index-based frame_idx)."""
+        from app.workers.worker import _merge_video_frames
+
+        # List format: each tool uses index as frame_idx
+        # This means frames won't merge across tools - each tool gets its own frames
+        results = {
+            "tool1": [["frame0_data"], ["frame1_data"]],
+            "tool2": [["other_frame0"], ["other_frame1"]],
+        }
+
+        output = _merge_video_frames(results, ["tool1", "tool2"], "test-job-id")
+
+        # List format assigns frame_idx by position, so each tool gets separate frames
+        # This is expected behavior - frame_idx must be explicit for merging
+        assert len(output["frames"]) == 4  # 2 frames per tool, not merged
+        assert output["frames"][0]["tool1"]["value"] == ["frame0_data"]
+        assert output["frames"][2]["tool2"]["value"] == ["other_frame0"]
+
+    @pytest.mark.unit
+    def test_empty_results(self):
+        """Test handling of empty results."""
+        from app.workers.worker import _merge_video_frames
+
+        output = _merge_video_frames({}, [], "test-job-id")
+
+        assert output["job_id"] == "test-job-id"
+        assert output["status"] == "completed"
+        assert output["total_frames"] == 0
+        assert output["frames"] == []
