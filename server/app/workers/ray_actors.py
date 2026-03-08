@@ -78,9 +78,7 @@ class StreamingToolActor:
         if plugin and hasattr(plugin, "validate"):
             try:
                 plugin.validate()
-                logger.info(
-                    f"Plugin {plugin_id} validated, models preloaded into VRAM"
-                )
+                logger.info(f"Plugin {plugin_id} validated, models preloaded into VRAM")
             except Exception as e:
                 logger.warning(f"Plugin {plugin_id} validation failed: {e}")
 
