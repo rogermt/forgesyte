@@ -71,7 +71,9 @@ def main():
         # v0.12.0: Initialize Ray if available (Issue #269)
         use_ray = init_ray()
         if use_ray:
-            logger.info("Ray initialized successfully, enabling GPU-accelerated execution")
+            logger.info(
+                "Ray initialized successfully, enabling GPU-accelerated execution"
+            )
         else:
             logger.info("Ray not available, using synchronous execution")
 

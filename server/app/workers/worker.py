@@ -232,7 +232,9 @@ class JobWorker:
                 logger.info("No orphaned Ray jobs to recover")
                 return
 
-            logger.info(f"Found {len(orphaned_jobs)} orphaned Ray jobs, attempting recovery")
+            logger.info(
+                f"Found {len(orphaned_jobs)} orphaned Ray jobs, attempting recovery"
+            )
 
             for job in orphaned_jobs:
                 try:
@@ -260,7 +262,9 @@ class JobWorker:
                     job.ray_future_id = None
 
             db.commit()
-            logger.info(f"Recovery complete: {len(orphaned_jobs)} jobs marked as failed")
+            logger.info(
+                f"Recovery complete: {len(orphaned_jobs)} jobs marked as failed"
+            )
 
         except Exception as e:
             logger.error(f"Error during Ray job recovery: {e}")
