@@ -25,6 +25,7 @@ Usage:
 
 import base64
 import logging
+import tempfile
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Protocol
 
@@ -170,10 +171,25 @@ def _execute_pipeline_impl(
                 image_bytes = f.read()
 
             # Get first tool's input types
+            # v0.9.8: Prefer input_types (new) over inputs (legacy)
             first_tool_def = next(
                 (t for t in manifest_tools if t.get("id") == tools_to_run[0]), None
             )
-            input_type_list = first_tool_def.get("inputs", []) if first_tool_def else []
+            if not first_tool_def:
+                raise RuntimeError(
+                    f"Tool '{tools_to_run[0]}' not found in plugin '{plugin_id}'"
+                )
+
+            input_type_list = first_tool_def.get("input_types")
+            if not isinstance(input_type_list, list):
+                # Fallback to inputs for legacy manifests
+                tool_inputs = first_tool_def.get("inputs", {})
+                if isinstance(tool_inputs, dict):
+                    input_type_list = list(tool_inputs.keys())
+                elif isinstance(tool_inputs, list):
+                    input_type_list = tool_inputs
+                else:
+                    input_type_list = []
 
             if "image_base64" in input_type_list:
                 args = {"image_base64": base64.b64encode(image_bytes).decode("utf-8")}
@@ -205,6 +221,16 @@ def _execute_pipeline_impl(
         return results
 
     finally:
-        # Clean up the worker's local temp file
+        # Clean up the worker's local temp file (only if it's actually a temp file)
+        # S3StorageService.load_file() returns a tempfile.NamedTemporaryFile path
+        # LocalStorageService.load_file() returns the actual stored file path
+        # Only delete files that are in the system temp directory
         if local_file_path.exists():
-            local_file_path.unlink()
+            temp_dir = Path(tempfile.gettempdir()).resolve()
+            try:
+                # Check if file is in temp directory
+                local_file_path.resolve().relative_to(temp_dir)
+                local_file_path.unlink()
+            except ValueError:
+                # File is not in temp directory (e.g., local storage) - don't delete
+                pass
