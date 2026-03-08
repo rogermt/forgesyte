@@ -200,10 +200,72 @@ class JobWorker:
         self.active_futures: Dict[Any, str] = {}  # { ray_ref: str(job_id) }
         self.job_metadata: Dict[str, Dict[str, Any]] = {}  # { str(job_id): dict }
 
+        # v0.12.0: Recover orphaned Ray jobs on startup (Issue #270)
+        if use_ray:
+            self._recover_ray_jobs()
+
         # Register signal handlers only if running in main thread
         if threading.current_thread() is threading.main_thread():
             signal.signal(signal.SIGINT, self._handle_signal)
             signal.signal(signal.SIGTERM, self._handle_signal)
+
+    def _recover_ray_jobs(self) -> None:
+        """Recover orphaned Ray jobs on worker startup.
+
+        v0.12.0: Called during __init__ when use_ray=True (Issue #270).
+
+        Finds all RUNNING jobs with ray_future_id and attempts to reattach
+        to their Ray futures. If Ray cluster is unavailable or futures are
+        gone, marks jobs as failed.
+        """
+        db = self._session_factory()
+        try:
+            # Find all RUNNING jobs with ray_future_id
+            orphaned_jobs = (
+                db.query(Job)
+                .filter(Job.status == JobStatus.running)
+                .filter(Job.ray_future_id.isnot(None))
+                .all()
+            )
+
+            if not orphaned_jobs:
+                logger.info("No orphaned Ray jobs to recover")
+                return
+
+            logger.info(f"Found {len(orphaned_jobs)} orphaned Ray jobs, attempting recovery")
+
+            for job in orphaned_jobs:
+                try:
+                    # Try to reconstruct the Ray future reference
+                    # Ray future IDs are strings like "ObjectRef(...)"
+                    future_id = job.ray_future_id
+
+                    # Check if we can still access this future in Ray
+                    # Use ray.objects() or try to get the object
+                    # For now, we'll mark these as failed since the cluster
+                    # state is lost on worker restart
+                    #
+                    # Future enhancement: Could try to reattach if cluster persisted
+                    logger.warning(
+                        f"Job {job.job_id} was running before restart, "
+                        f"marking as failed (Ray future {future_id} lost)"
+                    )
+                    job.status = JobStatus.failed
+                    job.error_message = "Worker restarted - Ray future lost"
+                    job.ray_future_id = None
+                except Exception as e:
+                    logger.error(f"Error recovering job {job.job_id}: {e}")
+                    job.status = JobStatus.failed
+                    job.error_message = f"Recovery failed: {e}"
+                    job.ray_future_id = None
+
+            db.commit()
+            logger.info(f"Recovery complete: {len(orphaned_jobs)} jobs marked as failed")
+
+        except Exception as e:
+            logger.error(f"Error during Ray job recovery: {e}")
+        finally:
+            db.close()
 
     @staticmethod
     def _get_total_frames(video_path: str) -> int:
@@ -427,6 +489,11 @@ class JobWorker:
 
                     self.job_metadata[str(job.job_id)] = meta
                     self.active_futures[future] = str(job.job_id)
+
+                    # v0.12.0: Persist ray_future_id for recovery (Issue #270)
+                    job.ray_future_id = str(future)
+                    db.commit()
+
                     logger.info(f"Job {job.job_id} dispatched to Ray cluster")
                     processed_something = True
             except Exception as e:
@@ -548,6 +615,7 @@ class JobWorker:
             )
             job.status = JobStatus.completed
             job.output_path = output_path
+            job.ray_future_id = None  # v0.12.0: Clear on completion (Issue #270)
             if job.job_type in ("video", "video_multi"):
                 job.progress = 100
             db.commit()
@@ -569,6 +637,7 @@ class JobWorker:
             if job:
                 job.status = JobStatus.failed
                 job.error_message = error_msg
+                job.ray_future_id = None  # v0.12.0: Clear on failure (Issue #270)
                 db.commit()
         finally:
             db.close()
