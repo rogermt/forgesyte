@@ -254,7 +254,11 @@ class TestJobWorkerRayDispatch:
         """Test that worker limits concurrent Ray jobs to avoid OOM."""
         from app.workers.worker import JobWorker
 
-        worker = JobWorker(storage=mock_storage, plugin_service=MagicMock())
+        worker = JobWorker(
+            storage=mock_storage,
+            plugin_service=MagicMock(),
+            use_ray=True,  # Enable Ray mode to test concurrency limit
+        )
 
         # Simulate 2 active futures (at limit)
         for i in range(2):
