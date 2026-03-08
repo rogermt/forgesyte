@@ -2,7 +2,7 @@
  * Tests for useVideoExport hook
  */
 
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { renderHook, act } from "@testing-library/react";
 import { useVideoExport } from "./useVideoExport";
 
@@ -10,29 +10,63 @@ import { useVideoExport } from "./useVideoExport";
 // Mocks
 // ============================================================================
 
-// Mock MediaRecorder
-global.MediaRecorder = vi.fn(() => ({
-  start: vi.fn(),
-  stop: vi.fn(),
-  state: "recording",
-  mimeType: "video/webm",
-  ondataavailable: null,
-  onerror: null,
-  onstop: null,
-})) as unknown as typeof MediaRecorder;
+// Store the original MediaRecorder
+const OriginalMediaRecorder = global.MediaRecorder;
 
-vi.mocked(global.MediaRecorder).isTypeSupported = vi.fn((type: string) => {
+// Track calls for assertions
+let constructorCallCount = 0;
+let startCallCount = 0;
+let stopCallCount = 0;
+
+// Mock MediaRecorder - use proper class methods
+class MockMediaRecorder {
+  state = "recording";
+  mimeType = "video/webm";
+  ondataavailable: ((event: BlobEvent) => void) | null = null;
+  onerror: ((event: Event) => void) | null = null;
+  onstop: (() => void) | null = null;
+
+  constructor(_stream: MediaStream, _options?: MediaRecorderOptions) {
+    constructorCallCount++;
+  }
+
+  start(): void {
+    startCallCount++;
+  }
+
+  stop(): void {
+    stopCallCount++;
+  }
+}
+
+MockMediaRecorder.isTypeSupported = function(type: string): boolean {
   return (
-    type === "video/webm" || 
-    type === "video/webm;codecs=vp9" || 
+    type === "video/webm" ||
+    type === "video/webm;codecs=vp9" ||
     type === "video/webm;codecs=vp8"
   );
+};
+
+beforeEach(() => {
+  constructorCallCount = 0;
+  startCallCount = 0;
+  stopCallCount = 0;
+  (global as Record<string, unknown>).MediaRecorder = MockMediaRecorder;
+});
+
+afterEach(() => {
+  global.MediaRecorder = OriginalMediaRecorder;
 });
 
 // Mock HTMLCanvasElement.captureStream
-HTMLCanvasElement.prototype.captureStream = vi.fn(() => ({
-  getTracks: vi.fn(() => []),
-})) as unknown as typeof HTMLCanvasElement.prototype.captureStream;
+HTMLCanvasElement.prototype.captureStream = function(_frameRate?: number): MediaStream {
+  return {
+    getTracks: () => [],
+  } as MediaStream;
+};
+
+// Spy on captureStream for assertions
+vi.spyOn(HTMLCanvasElement.prototype, "captureStream");
 
 // Mock URL methods
 global.URL.createObjectURL = vi.fn(() => "blob:mock-url");
@@ -99,7 +133,7 @@ describe("useVideoExport", () => {
       result.current.startRecording(mockCanvas);
     });
 
-    expect(global.MediaRecorder).toHaveBeenCalled();
+    expect(constructorCallCount).toBeGreaterThan(0);
   });
 
   it("updates progress correctly", () => {
@@ -150,7 +184,7 @@ describe("useVideoExport", () => {
     });
 
     // Should attempt to create MediaRecorder
-    expect(global.MediaRecorder).toHaveBeenCalled();
+    expect(constructorCallCount).toBeGreaterThan(0);
   });
 
   it("supports default FPS of 30", () => {
@@ -195,6 +229,6 @@ describe("useVideoExport", () => {
     });
 
     // Verify recording started (state was set)
-    expect(global.MediaRecorder).toHaveBeenCalled();
+    expect(constructorCallCount).toBeGreaterThan(0);
   });
 });
