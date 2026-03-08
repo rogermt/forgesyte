@@ -26,6 +26,90 @@ from .worker_state import worker_last_heartbeat
 logger = logging.getLogger(__name__)
 
 
+def _merge_video_frames(
+    results: Dict[str, Any], tools_to_run: List[str], job_id: str
+) -> Dict[str, Any]:
+    """Merge frames from multiple video tools by frame_idx.
+
+    For video_multi jobs, each tool produces its own frames array.
+    This function merges them into a unified frames array where each
+    frame contains data from all tools that processed that frame.
+
+    Args:
+        results: Dict mapping tool_name -> tool_output
+        tools_to_run: List of tool names in execution order
+        job_id: Job UUID string for output
+
+    Returns:
+        Dict with merged frames: {job_id, status, total_frames, frames}
+        where frames[i] = {frame_idx, tool1: {...}, tool2: {...}, ...}
+
+    Example:
+        Input:
+            results = {
+                "player_tracker": {"frames": [{"frame_idx": 0, "detections": [...]}]},
+                "ball_detector": {"frames": [{"frame_idx": 0, "balls": [...]}]}
+            }
+        Output:
+            {
+                "job_id": "...",
+                "status": "completed",
+                "total_frames": 1,
+                "frames": [{"frame_idx": 0, "player_tracker": {...}, "ball_detector": {...}}]
+            }
+    """
+    # Collect all frames indexed by frame_idx
+    frames_by_idx: Dict[int, Dict[str, Any]] = {}
+    total_frames = 0
+
+    for tool_name in tools_to_run:
+        tool_output = results.get(tool_name, {})
+
+        if isinstance(tool_output, dict):
+            tool_frames = tool_output.get("frames", [])
+            if tool_output.get("total_frames", 0) > total_frames:
+                total_frames = tool_output.get("total_frames", 0)
+        elif isinstance(tool_output, list):
+            tool_frames = tool_output
+            if len(tool_output) > total_frames:
+                total_frames = len(tool_output)
+        else:
+            # Unknown format - skip this tool
+            logger.warning(
+                f"Tool {tool_name} output has unexpected format: {type(tool_output)}"
+            )
+            continue
+
+        for frame in tool_frames:
+            if isinstance(frame, dict):
+                frame_idx = frame.get("frame_idx", len(frames_by_idx))
+            else:
+                # Frame is not a dict - use index
+                frame_idx = len(frames_by_idx)
+                frame = {"value": frame}
+
+            if frame_idx not in frames_by_idx:
+                frames_by_idx[frame_idx] = {"frame_idx": frame_idx}
+
+            # Add tool-specific data (exclude frame_idx to avoid duplication)
+            frame_data = {k: v for k, v in frame.items() if k != "frame_idx"}
+            frames_by_idx[frame_idx][tool_name] = frame_data
+
+    # Sort frames by index
+    merged_frames = [frames_by_idx[idx] for idx in sorted(frames_by_idx.keys())]
+
+    # Use actual frame count if we have frames
+    if merged_frames:
+        total_frames = len(merged_frames)
+
+    return {
+        "job_id": job_id,
+        "status": "completed",
+        "total_frames": total_frames,
+        "frames": merged_frames,
+    }
+
+
 def init_ray() -> bool:
     """Initialize Ray with configurable mode.
 
@@ -385,7 +469,13 @@ class JobWorker:
             tools_to_run = meta.get("tools_to_run", [])
             output_data: Dict[str, Any]
 
-            if job.job_type in ("video", "video_multi"):
+            if job.job_type == "video_multi":
+                # Multi-tool video: merge frames from all tools by frame_idx
+                output_data = _merge_video_frames(
+                    results, tools_to_run, str(job.job_id)
+                )
+            elif job.job_type == "video":
+                # Single-tool video: flatten first tool's output for UI compatibility
                 first_tool_output = results.get(tools_to_run[0], {})
                 if isinstance(first_tool_output, dict):
                     output_data = {
@@ -688,8 +778,14 @@ class JobWorker:
 
             # v0.9.8: Prepare output based on job type
             # v0.10.0: Flatten video results for VideoResultsViewer compatibility
+            # v0.12.0: video_multi merges frames from all tools
             output_data: Dict[str, Any]
-            if job.job_type in ("video", "video_multi"):
+            if job.job_type == "video_multi":
+                # Multi-tool video: merge frames from all tools by frame_idx
+                output_data = _merge_video_frames(
+                    results, tools_to_run, str(job.job_id)
+                )
+            elif job.job_type == "video":
                 # v0.10.0: Flatten video results for UI
                 # Frontend expects { total_frames, frames } at top level
                 first_tool_output = results[tools_to_run[0]]
