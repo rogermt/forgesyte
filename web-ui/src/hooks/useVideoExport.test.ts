@@ -15,8 +15,6 @@ const OriginalMediaRecorder = global.MediaRecorder;
 
 // Track calls for assertions
 let constructorCallCount = 0;
-let startCallCount = 0;
-let stopCallCount = 0;
 
 // Mock MediaRecorder - use proper class methods
 class MockMediaRecorder {
@@ -26,16 +24,17 @@ class MockMediaRecorder {
   onerror: ((event: Event) => void) | null = null;
   onstop: (() => void) | null = null;
 
-  constructor(_stream: MediaStream, _options?: MediaRecorderOptions) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars
+  constructor(...args: any[]) {
     constructorCallCount++;
   }
 
   start(): void {
-    startCallCount++;
+    // Intentionally empty for mock
   }
 
   stop(): void {
-    stopCallCount++;
+    // Intentionally empty for mock
   }
 }
 
@@ -49,8 +48,6 @@ MockMediaRecorder.isTypeSupported = function(type: string): boolean {
 
 beforeEach(() => {
   constructorCallCount = 0;
-  startCallCount = 0;
-  stopCallCount = 0;
   (global as Record<string, unknown>).MediaRecorder = MockMediaRecorder;
 });
 
@@ -59,7 +56,8 @@ afterEach(() => {
 });
 
 // Mock HTMLCanvasElement.captureStream
-HTMLCanvasElement.prototype.captureStream = function(_frameRate?: number): MediaStream {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+HTMLCanvasElement.prototype.captureStream = function(frameRate?: number): MediaStream {
   return {
     getTracks: () => [],
   } as MediaStream;
