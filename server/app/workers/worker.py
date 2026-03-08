@@ -380,26 +380,52 @@ class JobWorker:
                     .first()
                 )
                 if job:
-                    job.status = JobStatus.running
+                    # Atomic claim: only update if still pending
+                    rows_updated = (
+                        db.query(Job)
+                        .filter(Job.job_id == job.job_id)
+                        .filter(Job.status == JobStatus.pending)
+                        .update({"status": JobStatus.running})
+                    )
                     db.commit()
+
+                    if rows_updated == 0:
+                        # Already claimed by another worker
+                        logger.debug(
+                            f"Job {job.job_id} already claimed by another worker"
+                        )
+                        return processed_something
+
                     db.refresh(job)
 
                     is_multi = job.job_type in ("image_multi", "video_multi")
                     tools_to_run = json.loads(job.tool_list) if is_multi else [job.tool]
-                    self.job_metadata[str(job.job_id)] = {
+                    meta = {
                         "plugin_id": job.plugin_id,
                         "job_type": job.job_type,
                         "tools_to_run": tools_to_run,
                         "is_multi": is_multi,
                     }
 
-                    # Dispatch to Ray Cluster
-                    future = execute_pipeline_remote.remote(
-                        plugin_id=job.plugin_id,
-                        tools_to_run=tools_to_run,
-                        input_path=job.input_path,
-                        job_type=job.job_type,
-                    )
+                    # Dispatch to Ray Cluster (with failure handling)
+                    try:
+                        future = execute_pipeline_remote.remote(
+                            plugin_id=job.plugin_id,
+                            tools_to_run=tools_to_run,
+                            input_path=job.input_path,
+                            job_type=job.job_type,
+                        )
+                    except Exception as dispatch_exc:
+                        # Dispatch failed - mark job as failed
+                        logger.error(
+                            f"Ray dispatch failed for job {job.job_id}: {dispatch_exc}"
+                        )
+                        job.status = JobStatus.failed
+                        job.error_message = f"Ray dispatch failed: {dispatch_exc}"
+                        db.commit()
+                        raise
+
+                    self.job_metadata[str(job.job_id)] = meta
                     self.active_futures[future] = str(job.job_id)
                     logger.info(f"Job {job.job_id} dispatched to Ray cluster")
                     processed_something = True
