@@ -130,7 +130,10 @@ describe("useVideoExport", () => {
       result.current.startRecording(mockCanvas);
     });
 
-    expect(constructorCallCount).toBeGreaterThan(0);
+    // Verify MediaRecorder was constructed exactly once
+    expect(constructorCallCount).toBe(1);
+    // Verify recording state was set
+    expect(result.current.state.isRecording).toBe(true);
   });
 
   it("updates progress correctly", () => {
@@ -160,10 +163,15 @@ describe("useVideoExport", () => {
       result.current.startRecording(mockCanvas);
     });
 
+    // Verify recording started
+    expect(result.current.state.isRecording).toBe(true);
+    expect(constructorCallCount).toBe(1);
+
     act(() => {
       result.current.cancelRecording();
     });
 
+    // Verify recording was cancelled
     expect(result.current.state.isRecording).toBe(false);
     expect(result.current.state.progress).toBe(0);
   });
