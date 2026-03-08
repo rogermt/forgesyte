@@ -145,6 +145,10 @@ def _execute_pipeline_impl(
     plugin_service = get_plugin_service_fn()
     storage = get_storage_service_fn()
 
+    # Validate tools_to_run is not empty
+    if not tools_to_run:
+        raise ValueError("tools_to_run cannot be empty")
+
     # Download from remote S3 directly to the GPU Worker's temp disk
     local_file_path = storage.load_file(input_path)
 
