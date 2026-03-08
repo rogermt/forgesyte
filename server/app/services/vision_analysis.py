@@ -1,9 +1,17 @@
 """Vision analysis service for WebSocket streaming.
 
-v0.9.3 — Rewritten to use the unified plugin system.
+v0.13.0 — Upgraded to use Ray Actors for real-time streaming.
 This service is used ONLY for the /v1/stream WebSocket endpoint.
-It performs real-time per-frame analysis by calling plugin.run_tool()
-directly on each incoming frame.
+It performs real-time per-frame analysis using long-lived Ray Actors
+that hold plugin models in GPU memory across frames.
+
+Architecture:
+    WebSocket Frame → VisionAnalysisService → StreamingToolActor (GPU)
+                                                          ↓
+                                                  process_frame.remote()
+                                                          ↓
+                                                  Plugin executed with
+                                                  cached model in VRAM
 
 The service depends on Protocols (PluginRegistry, WebSocketProvider) rather than
 concrete implementations, making it easily testable and extensible.
@@ -22,6 +30,8 @@ import time
 import uuid
 from typing import Any, Dict, List
 
+import ray
+
 from ..protocols import WebSocketProvider
 from .plugin_management_service import PluginManagementService
 
@@ -34,9 +44,17 @@ class VisionAnalysisService:
     Handles the core loop: receiving frames, decoding, timing execution,
     dispatching to plugins, and sending results back to clients.
 
+    v0.13.0: Now uses Ray Actors to cache plugin models in GPU memory
+    across frames, enabling near-zero latency for real-time streaming.
+
     Depends on Protocols for flexibility and testability:
     - PluginManagementService: Abstracts plugin execution
     - WebSocketProvider: Abstracts message delivery mechanism
+
+    Attributes:
+        plugin_service: Plugin management service for executing tools
+        ws_manager: WebSocket manager for client communication
+        active_actors: Dict mapping client_id -> {tool_name: actor_handle}
     """
 
     def __init__(
@@ -53,8 +71,58 @@ class VisionAnalysisService:
         """
         self.plugin_service = plugin_service
         self.ws_manager = ws_manager
+        # Track active Ray actors: client_id -> {tool_name: actor_handle}
+        self.active_actors: Dict[str, Dict[str, Any]] = {}
 
         logger.debug("VisionAnalysisService initialized")
+
+    def _get_or_create_actor(
+        self, client_id: str, plugin_name: str, tool_name: str
+    ) -> Any:
+        """Get or create a Ray Actor for a specific client/tool combination.
+
+        This method implements lazy initialization with caching:
+        - First call creates a new actor
+        - Subsequent calls return the cached actor
+
+        Args:
+            client_id: Unique client identifier
+            plugin_name: Plugin identifier
+            tool_name: Tool name within the plugin
+
+        Returns:
+            Ray Actor handle for the StreamingToolActor
+        """
+        from ..workers.ray_actors import StreamingToolActor
+
+        if client_id not in self.active_actors:
+            self.active_actors[client_id] = {}
+
+        if tool_name not in self.active_actors[client_id]:
+            logger.info(f"Spawning Ray Actor for client {client_id}, tool {tool_name}")
+            # StreamingToolActor.remote is dynamically created by @ray.remote
+            actor = StreamingToolActor.remote(plugin_name, tool_name)  # type: ignore[attr-defined]
+            self.active_actors[client_id][tool_name] = actor
+
+        return self.active_actors[client_id][tool_name]
+
+    async def cleanup_client(self, client_id: str) -> None:
+        """Kill all Ray actors associated with a disconnected client.
+
+        This method MUST be called when a WebSocket disconnects to
+        free GPU VRAM. Otherwise, actors will leak and exhaust GPU memory.
+
+        Args:
+            client_id: Unique client identifier
+        """
+        if client_id in self.active_actors:
+            if ray.is_initialized():
+                for tool_name, actor in self.active_actors[client_id].items():
+                    logger.info(
+                        f"Killing Ray Actor for client {client_id}, tool {tool_name}"
+                    )
+                    ray.kill(actor)
+            del self.active_actors[client_id]
 
     async def handle_frame(
         self, client_id: str, plugin_name: str, data: Dict[str, Any]
@@ -64,9 +132,12 @@ class VisionAnalysisService:
         Orchestrates the complete analysis pipeline:
         1. Decode base64 image data
         2. Time the analysis execution
-        3. Execute plugin analysis
+        3. Execute plugin analysis (via Ray Actor if available)
         4. Send results back to client
         5. Handle errors gracefully
+
+        v0.13.0: Uses Ray Actors for GPU-accelerated streaming when
+        Ray is initialized. Falls back to local execution otherwise.
 
         Args:
             client_id: Unique client identifier
@@ -104,18 +175,31 @@ class VisionAnalysisService:
             if not tools:
                 raise ValueError("WebSocket frame missing 'tools' field")
 
-            # Execute each tool sequentially and collect results per tool
+            # Check if Ray is available for GPU-accelerated streaming
+            use_ray = ray.is_initialized()
+
+            # Execute each tool and collect results
             # v0.10.1: True multi-tool streaming – one frame, many tools, merged result
+            # v0.13.0: Use Ray Actors when available for GPU caching
             merged_results: Dict[str, Any] = {}
             for tool_name in tools:
-                tool_result = self.plugin_service.run_plugin_tool(
-                    plugin_id=plugin_name,
-                    tool_name=tool_name,
-                    args={
-                        "image_bytes": image_bytes,
-                        "options": data.get("options", {}),
-                    },
-                )
+                args = {
+                    "image_bytes": image_bytes,
+                    "options": data.get("options", {}),
+                }
+
+                if use_ray:
+                    # Use cached Ray Actor for GPU-accelerated processing
+                    actor = self._get_or_create_actor(client_id, plugin_name, tool_name)
+                    future = actor.process_frame.remote(args)
+                    tool_result = ray.get(future)
+                else:
+                    # Fallback to local synchronous execution
+                    tool_result = self.plugin_service.run_plugin_tool(
+                        plugin_id=plugin_name,
+                        tool_name=tool_name,
+                        args=args,
+                    )
                 merged_results[tool_name] = tool_result
 
             # Build a canonical multi-tool payload
