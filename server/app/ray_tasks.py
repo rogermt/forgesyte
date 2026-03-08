@@ -75,8 +75,9 @@ def _get_plugin_service() -> PluginServiceProtocol:
 def _get_storage_service() -> StorageServiceProtocol:
     """Get storage service instance (lazy import)."""
     from .services.storage.factory import get_storage_service
+    from .settings import settings
 
-    return get_storage_service()
+    return get_storage_service(settings)
 
 
 @ray.remote(num_gpus=1)
