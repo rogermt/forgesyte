@@ -225,6 +225,26 @@ async def lifespan(app: FastAPI):
     # Disabled in pytest via FORGESYTE_ENABLE_WORKERS=0 to prevent DB lock errors
     if os.getenv("FORGESYTE_ENABLE_WORKERS", "1") == "1":
         try:
+            # v0.13.0: Initialize Ray in main process for WebSocket Actors
+            import ray
+
+            try:
+                if not ray.is_initialized():
+                    ray_address = os.environ.get("RAY_ADDRESS")
+                    if ray_address:
+                        ray.init(address=ray_address, ignore_reinit_error=True)
+                        logger.info(
+                            f"Main process connected to Ray cluster at {ray_address}"
+                        )
+                    else:
+                        ray.init(ignore_reinit_error=True)
+                        logger.info("Main process initialized Ray locally")
+            except Exception as e:
+                logger.warning(
+                    f"Ray not available for WebSocket streaming: {e}. "
+                    "Falling back to local execution."
+                )
+
             from .workers.run_job_worker import run_worker_forever
 
             worker_thread = threading.Thread(
@@ -434,6 +454,8 @@ async def websocket_stream(
     except WebSocketDisconnect:
         pass
     finally:
+        # v0.13.0: Clean up GPU actors when WebSocket disconnects
+        await service.cleanup_client(client_id)
         await ws_manager.disconnect(client_id)
 
 
