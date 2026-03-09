@@ -70,19 +70,19 @@ def init_db():
             # Get alembic config using absolute path (Issue #297)
             # This file is at server/app/core/database.py, alembic.ini is at server/
             alembic_path = Path(__file__).parent.parent.parent / "alembic.ini"
-            alembic_cfg = Config(str(alembic_path))
 
-            # Run all pending migrations
-            logger.info("Running Alembic migrations...")
-            command.upgrade(alembic_cfg, "head")
-            logger.info("Database migrations completed successfully")
-            return
-        except FileNotFoundError:
-            logger.warning("alembic.ini not found, falling back to create_all()")
-        except Exception as e:
-            logger.warning(
-                f"Alembic migrations failed: {e}, falling back to create_all()"
-            )
+            if not alembic_path.exists():
+                logger.warning("alembic.ini not found, falling back to create_all()")
+            else:
+                alembic_cfg = Config(str(alembic_path))
+                # Run all pending migrations
+                logger.info("Running Alembic migrations...")
+                command.upgrade(alembic_cfg, "head")
+                logger.info("Database migrations completed successfully")
+                return
+        except Exception:
+            # Suppress traceback, log clean message only
+            logger.warning("Alembic migrations failed, falling back to create_all()")
 
     # Fallback: create all tables from model definitions
     # This is used for tests and when Alembic is not configured
