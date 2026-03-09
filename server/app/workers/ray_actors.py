@@ -24,13 +24,11 @@ import ray
 
 logger = logging.getLogger(__name__)
 
-# Note: We omit num_gpus=1 here because a single WebSocket might request
-# multiple tools. Ray scheduling would deadlock if they all demanded a full GPU.
-# Instead, we let Ray's resource scheduler handle GPU allocation based on
-# the actual plugin requirements.
 
-
-@ray.remote
+# Fractional GPU allocation: 0.25 allows up to 4 concurrent actors per GPU.
+# This prevents CPU-only scheduling while avoiding deadlock from full GPU
+# reservation when multiple tools are requested per WebSocket.
+@ray.remote(num_gpus=0.25)
 class StreamingToolActor:
     """Ray Actor for holding plugin state in memory across frames.
 
@@ -82,7 +80,7 @@ class StreamingToolActor:
             except Exception as e:
                 logger.warning(f"Plugin {plugin_id} validation failed: {e}")
 
-    def process_frame(self, args: Dict[str, Any]) -> Dict[str, Any]:
+    def process_frame(self, args: Dict[str, Any]) -> Any:
         """Process a single frame synchronously within the long-lived actor.
 
         This method is called for each incoming frame from the WebSocket.
@@ -94,7 +92,7 @@ class StreamingToolActor:
                 - options: Optional plugin-specific options
 
         Returns:
-            Dict containing the tool execution result
+            Raw result from plugin tool execution (dict, list, str, etc.)
 
         Raises:
             RuntimeError: If tool execution fails
@@ -103,15 +101,7 @@ class StreamingToolActor:
             result = self.plugin_service.run_plugin_tool(
                 self.plugin_id, self.tool_name, args, progress_callback=None
             )
-
-            # Handle Pydantic models
-            if hasattr(result, "model_dump"):
-                return result.model_dump()
-            elif hasattr(result, "dict"):
-                return result.dict()
-
-            return dict(result) if result else {}
-
+            return result
         except Exception as e:
             logger.error(
                 f"StreamingToolActor.process_frame failed for "
