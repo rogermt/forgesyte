@@ -59,26 +59,29 @@ class StreamingToolActor:
         Raises:
             RuntimeError: If plugin or tool cannot be loaded
         """
-        from app.plugin_loader import PluginRegistry
+        from app.plugins.loader.plugin_registry import get_registry
         from app.services.plugin_management_service import PluginManagementService
 
         logger.info(f"Initializing StreamingToolActor for {plugin_id}.{tool_name}")
         self.plugin_id = plugin_id
         self.tool_name = tool_name
 
-        # Initialize plugin registry and service
-        self.registry = PluginRegistry()
-        self.registry.load_plugins()
-        self.plugin_service = PluginManagementService(self.registry)
+        # Use singleton registry for consistent state with run_plugin_tool()
+        self.registry = get_registry()
+        self.plugin_service = PluginManagementService(self.registry)  # type: ignore[arg-type]
 
-        # Instantiate plugin and run optional validation to preload models
+        # Instantiate plugin and run validation to preload models into VRAM
+        # Fail fast if validation fails - don't leave a broken actor alive
         plugin = self.plugin_service.get_plugin_instance(self.plugin_id)
         if plugin and hasattr(plugin, "validate"):
             try:
                 plugin.validate()
                 logger.info(f"Plugin {plugin_id} validated, models preloaded into VRAM")
             except Exception as e:
-                logger.warning(f"Plugin {plugin_id} validation failed: {e}")
+                raise RuntimeError(
+                    f"Actor initialization failed for {plugin_id}.{tool_name}: "
+                    f"plugin validation error: {e}"
+                ) from e
 
     def process_frame(self, args: Dict[str, Any]) -> Any:
         """Process a single frame synchronously within the long-lived actor.
