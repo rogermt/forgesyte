@@ -67,8 +67,10 @@ def init_db():
             # DuckDB is PostgreSQL-compatible, so we use PostgresqlImpl
             impl._impls["duckdb"] = PostgresqlImpl
 
-            # Get alembic config (relative to server directory)
-            alembic_cfg = Config("alembic.ini")
+            # Get alembic config using absolute path (Issue #297)
+            # This file is at server/app/core/database.py, alembic.ini is at server/
+            alembic_path = Path(__file__).parent.parent.parent / "alembic.ini"
+            alembic_cfg = Config(str(alembic_path))
 
             # Run all pending migrations
             logger.info("Running Alembic migrations...")
