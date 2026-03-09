@@ -69,7 +69,12 @@ class StreamingToolActor:
         # Ray workers run in separate processes - must load plugins locally.
         # Wrap entire setup in try to ensure all failures yield RuntimeError.
         try:
-            # PluginRegistry from app.plugin_loader has load_plugins() method.
+            # Use PluginRegistry from app.plugin_loader (NOT the singleton from
+            # app.plugins.loader.plugin_registry). This class has load_plugins()
+            # and implements the PluginRegistry Protocol at runtime.
+            # Mypy type ignore: Protocol.get() returns Optional[VisionPlugin],
+            # but concrete class returns Optional[BasePlugin]. At runtime,
+            # BasePlugin satisfies VisionPlugin Protocol.
             self.registry = PluginRegistry()
             self.registry.load_plugins()
             self.plugin_service = PluginManagementService(self.registry)  # type: ignore[arg-type]
