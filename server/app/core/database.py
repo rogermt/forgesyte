@@ -80,11 +80,9 @@ def init_db():
                 command.upgrade(alembic_cfg, "head")
                 logger.info("Database migrations completed successfully")
                 return
-        except Exception as e:
-            # Log exception message without traceback for clean output
-            logger.warning(
-                f"Alembic migrations failed: {e}, falling back to create_all()"
-            )
+        except Exception:
+            # Log full traceback for debugging (Issue #300)
+            logger.exception("Alembic migrations failed, falling back to create_all()")
 
     # Fallback: create all tables from model definitions
     # This is used for tests and when Alembic is not configured
