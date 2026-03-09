@@ -22,6 +22,7 @@ def test_job_results_response_includes_tool_list():
     response = JobResultsResponse(
         job_id=uuid4(),
         status="completed",
+        plugin_id="yolo-tracker",  # Issue #296: Now required
         results={"plugin_id": "yolo-tracker", "tools": {"t1": {}, "t2": {}}},
         tool_list=["player_detection", "ball_detection"],
         job_type="image_multi",
@@ -39,6 +40,7 @@ def test_job_results_response_single_tool_backward_compatible():
     response = JobResultsResponse(
         job_id=uuid4(),
         status="completed",
+        plugin_id="ocr-plugin",  # Issue #296: Now required
         results={"text": "extracted text"},
         tool="analyze",
         tool_list=None,
@@ -74,6 +76,7 @@ def test_job_results_response_from_attributes(session):
     response = JobResultsResponse(
         job_id=job.job_id,
         status=job.status.value,
+        plugin_id=job.plugin_id,  # Issue #296: Now required
         results={"tools": {}},
         tool=job.tool,
         tool_list=json.loads(job.tool_list) if job.tool_list else None,
@@ -93,6 +96,7 @@ def test_job_results_response_serialization():
     response = JobResultsResponse(
         job_id=uuid4(),
         status="completed",
+        plugin_id="test-plugin",  # Issue #296: Now required
         results={"plugin_id": "test", "tools": {"t1": {"data": 1}}},
         tool_list=["t1"],
         job_type="image_multi",
@@ -105,6 +109,7 @@ def test_job_results_response_serialization():
     assert "tool_list" in data
     assert "job_type" in data
     assert "tool" in data
+    assert "plugin_id" in data  # Issue #296
     assert data["tool_list"] == ["t1"]
     assert data["job_type"] == "image_multi"
     assert data["tool"] is None
@@ -116,6 +121,7 @@ def test_job_results_response_all_optional_fields():
     response = JobResultsResponse(
         job_id=uuid4(),
         status="pending",
+        plugin_id="test-plugin",  # Issue #296: Now required (was missing)
         results=None,
         tool=None,
         tool_list=None,

@@ -99,9 +99,9 @@ def test_list_jobs_basic(client, session):
     statuses = {j["status"] for j in data["jobs"]}
     assert statuses == {"pending", "running", "completed", "failed"}
 
-    # Verify progress values (0.0, 0.5, 1.0)
+    # Verify progress values (Issue #296: changed from float to int 0-100)
     progress_values = {j["progress"] for j in data["jobs"]}
-    assert progress_values == {0.0, 0.5, 1.0}
+    assert progress_values == {0, 50, 100}
 
 
 def test_list_jobs_pagination(client, session):

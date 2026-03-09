@@ -26,21 +26,22 @@ router = APIRouter()
 storage = get_storage_service(settings)
 
 
-def _calculate_progress(status: JobStatus) -> float:
+def _calculate_progress(status: JobStatus) -> int:
     """Calculate progress based on job status.
 
     Args:
         status: Job status enum
 
     Returns:
-        Progress float: pending=0.0, running=0.5, completed/failed=1.0
+        Progress int (0-100): pending=0, running=50, completed/failed=100
+        Issue #296: Changed from float to int to match DB model.
     """
     if status == JobStatus.pending:
-        return 0.0
+        return 0
     elif status == JobStatus.running:
-        return 0.5
+        return 50
     else:  # completed or failed
-        return 1.0
+        return 100
 
 
 @router.get("/v1/jobs", response_model=JobListResponse)
@@ -169,12 +170,13 @@ async def get_job(job_id: UUID, db: Session = Depends(get_db)) -> JobResultsResp
         return JobResultsResponse(
             job_id=job.job_id,
             status=job.status.value,  # Issue #211: Include status
+            plugin_id=job.plugin_id,  # Issue #296: Was missing
             results=None,
             tool=job.tool,
             tool_list=tool_list,
             job_type=job.job_type,
             error_message=job.error_message,
-            progress=float(job.progress) if job.progress is not None else None,
+            progress=job.progress,  # Issue #296: Return int directly, DB stores Integer
             current_tool=current_tool,
             tools_total=tools_total,
             tools_completed=tools_completed,
@@ -196,12 +198,13 @@ async def get_job(job_id: UUID, db: Session = Depends(get_db)) -> JobResultsResp
     return JobResultsResponse(
         job_id=job.job_id,
         status=job.status.value,  # Issue #211: Include status
+        plugin_id=job.plugin_id,  # Issue #296: Was missing
         results=results,
         tool=job.tool,
         tool_list=tool_list,
         job_type=job.job_type,
         error_message=job.error_message,
-        progress=float(job.progress) if job.progress is not None else None,
+        progress=job.progress,  # Issue #296: Return int directly, DB stores Integer
         current_tool=current_tool,
         tools_total=tools_total,
         tools_completed=tools_completed,
