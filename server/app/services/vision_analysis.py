@@ -71,19 +71,23 @@ class VisionAnalysisService:
         """
         self.plugin_service = plugin_service
         self.ws_manager = ws_manager
-        # Track active Ray actors: client_id -> {tool_name: actor_handle}
-        self.active_actors: Dict[str, Dict[str, Any]] = {}
+        # Track active Ray actors: client_id -> {(plugin_name, tool_name): actor_handle}
+        # Using tuple key prevents cross-plugin reuse when clients switch plugins
+        self.active_actors: Dict[str, Dict[tuple, Any]] = {}
 
         logger.debug("VisionAnalysisService initialized")
 
     def _get_or_create_actor(
         self, client_id: str, plugin_name: str, tool_name: str
     ) -> Any:
-        """Get or create a Ray Actor for a specific client/tool combination.
+        """Get or create a Ray Actor for a specific client/plugin/tool combination.
 
         This method implements lazy initialization with caching:
         - First call creates a new actor
         - Subsequent calls return the cached actor
+
+        v0.13.1: Key now includes plugin_name to prevent cross-plugin reuse
+        when clients switch plugins mid-connection.
 
         Args:
             client_id: Unique client identifier
@@ -98,13 +102,19 @@ class VisionAnalysisService:
         if client_id not in self.active_actors:
             self.active_actors[client_id] = {}
 
-        if tool_name not in self.active_actors[client_id]:
-            logger.info(f"Spawning Ray Actor for client {client_id}, tool {tool_name}")
+        # Use (plugin_name, tool_name) tuple as key to prevent cross-plugin reuse
+        actor_key = (plugin_name, tool_name)
+
+        if actor_key not in self.active_actors[client_id]:
+            logger.info(
+                f"Spawning Ray Actor for client {client_id}, "
+                f"plugin {plugin_name}, tool {tool_name}"
+            )
             # StreamingToolActor.remote is dynamically created by @ray.remote
             actor = StreamingToolActor.remote(plugin_name, tool_name)  # type: ignore[attr-defined]
-            self.active_actors[client_id][tool_name] = actor
+            self.active_actors[client_id][actor_key] = actor
 
-        return self.active_actors[client_id][tool_name]
+        return self.active_actors[client_id][actor_key]
 
     async def cleanup_client(self, client_id: str) -> None:
         """Kill all Ray actors associated with a disconnected client.
@@ -112,14 +122,18 @@ class VisionAnalysisService:
         This method MUST be called when a WebSocket disconnects to
         free GPU VRAM. Otherwise, actors will leak and exhaust GPU memory.
 
+        v0.13.1: Updated to use (plugin_name, tool_name) tuple keys.
+
         Args:
             client_id: Unique client identifier
         """
         if client_id in self.active_actors:
             if ray.is_initialized():
-                for tool_name, actor in self.active_actors[client_id].items():
+                for actor_key, actor in self.active_actors[client_id].items():
+                    plugin_name, tool_name = actor_key
                     logger.info(
-                        f"Killing Ray Actor for client {client_id}, tool {tool_name}"
+                        f"Killing Ray Actor for client {client_id}, "
+                        f"plugin {plugin_name}, tool {tool_name}"
                     )
                     ray.kill(actor)
             del self.active_actors[client_id]
@@ -192,7 +206,9 @@ class VisionAnalysisService:
                     # Use cached Ray Actor for GPU-accelerated processing
                     actor = self._get_or_create_actor(client_id, plugin_name, tool_name)
                     future = actor.process_frame.remote(args)
-                    tool_result = ray.get(future)
+                    # v0.13.1: Await ObjectRef directly instead of blocking ray.get()
+                    # This yields to the event loop, allowing concurrent WebSocket handling
+                    tool_result = await future  # type: ignore[misc]
                 else:
                     # Fallback to local synchronous execution
                     tool_result = self.plugin_service.run_plugin_tool(
