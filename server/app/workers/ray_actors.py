@@ -59,15 +59,17 @@ class StreamingToolActor:
         Raises:
             RuntimeError: If plugin or tool cannot be loaded
         """
-        from app.plugins.loader.plugin_registry import get_registry
+        from app.plugin_loader import PluginRegistry
         from app.services.plugin_management_service import PluginManagementService
 
         logger.info(f"Initializing StreamingToolActor for {plugin_id}.{tool_name}")
         self.plugin_id = plugin_id
         self.tool_name = tool_name
 
-        # Use singleton registry for consistent state with run_plugin_tool()
-        self.registry = get_registry()
+        # Ray workers run in separate processes - must load plugins locally.
+        # PluginRegistry from app.plugin_loader has load_plugins() method.
+        self.registry = PluginRegistry()
+        self.registry.load_plugins()
         self.plugin_service = PluginManagementService(self.registry)  # type: ignore[arg-type]
 
         # Instantiate plugin and run validation to preload models into VRAM

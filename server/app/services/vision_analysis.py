@@ -205,10 +205,27 @@ class VisionAnalysisService:
                 if use_ray:
                     # Use cached Ray Actor for GPU-accelerated processing
                     actor = self._get_or_create_actor(client_id, plugin_name, tool_name)
-                    future = actor.process_frame.remote(args)
-                    # v0.13.1: Await ObjectRef directly instead of blocking ray.get()
-                    # This yields to the event loop, allowing concurrent WebSocket handling
-                    tool_result = await future  # type: ignore[misc]
+                    try:
+                        future = actor.process_frame.remote(args)
+                        # v0.13.1: Await ObjectRef directly instead of blocking ray.get()
+                        # This yields to the event loop, allowing concurrent WebSocket handling
+                        tool_result = await future  # type: ignore[misc]
+                    except ray.exceptions.RayActorError as e:
+                        # v0.13.3: Evict poisoned handle - actor failed during init
+                        # This prevents reusing dead actors indefinitely
+                        actor_key = (plugin_name, tool_name)
+                        if (
+                            client_id in self.active_actors
+                            and actor_key in self.active_actors[client_id]
+                        ):
+                            del self.active_actors[client_id][actor_key]
+                            logger.warning(
+                                f"Evicted dead actor for {plugin_name}.{tool_name}",
+                                extra={"client_id": client_id},
+                            )
+                        raise RuntimeError(
+                            f"Ray Actor for {plugin_name}.{tool_name} failed: {e}"
+                        ) from e
                 else:
                     # Fallback to local synchronous execution
                     tool_result = self.plugin_service.run_plugin_tool(
