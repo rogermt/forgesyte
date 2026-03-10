@@ -58,6 +58,7 @@ async def get_job_results(
     return JobResultsResponse(
         job_id=job.job_id,
         status=job.status.value if hasattr(job.status, "value") else str(job.status),
+        plugin_id=job.plugin_id,  # Issue #296: Now required
         results=results,
         created_at=job.created_at,
         updated_at=job.updated_at,

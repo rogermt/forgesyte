@@ -1,10 +1,20 @@
 """Alembic migration environment for DuckDB."""
 
+# Register DuckDB dialect with SQLAlchemy before any Alembic operations
+# This fixes KeyError: 'duckdb' when Alembic tries to run migrations
 from logging.config import fileConfig
 
+import duckdb_engine  # noqa: F401
 from alembic import context
+from alembic.ddl import impl
+from alembic.ddl.postgresql import PostgresqlImpl
 
-from app.core.database import Base, engine
+# Register DuckDB implementation with Alembic
+# DuckDB is PostgreSQL-compatible, so we use PostgresqlImpl
+impl._impls["duckdb"] = PostgresqlImpl
+
+
+from app.core.database import Base, engine  # noqa: E402
 
 config = context.config
 
