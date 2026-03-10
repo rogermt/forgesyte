@@ -237,7 +237,10 @@ def app_with_plugins():
 
     plugin_exec_service = PluginExecutionService(tool_runner)
     job_exec_service = JobExecutionService(plugin_exec_service)
-    analysis_exec_service = AnalysisExecutionService(job_exec_service)
+    # Issue #302: Pass plugin_service for tool_name resolution from manifest
+    analysis_exec_service = AnalysisExecutionService(
+        job_exec_service, app.state.plugin_service
+    )
     app.state.analysis_execution_service = analysis_exec_service
 
     return app

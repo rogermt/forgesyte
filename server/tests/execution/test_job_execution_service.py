@@ -7,6 +7,8 @@ Tests verify:
 - Correct job storage
 """
 
+from unittest.mock import AsyncMock, MagicMock
+
 import pytest
 import pytest_asyncio
 
@@ -345,3 +347,243 @@ class TestJobDataclass:
         # We test via the service's _job_to_dict method indirectly
         # by checking that the service properly converts jobs
         pass  # The service integration tests cover this
+
+
+class TestAnalysisExecutionServiceDefaultToolName:
+    """Tests for AnalysisExecutionService.analyze() tool_name behavior.
+
+    Issue #302: When tool_name is not provided in args, analyze() should
+    get the first tool from the plugin manifest (NOT a hardcoded default).
+
+    Key principle: There is NO default tool name. If a plugin doesn't have
+    a tool with the specified name, it's an error. The tool_name must come
+    from the plugin manifest.
+    """
+
+    @pytest_asyncio.fixture
+    async def mock_job_execution_service_for_analysis(self):
+        """Create a mock JobExecutionService that captures tool_name."""
+        mock_service = MagicMock()
+
+        # Track calls to create_job
+        create_job_calls: list[dict] = []
+
+        async def mock_create_job(plugin_name: str, tool_name: str, args: dict) -> str:
+            create_job_calls.append(
+                {
+                    "plugin_name": plugin_name,
+                    "tool_name": tool_name,
+                    "args": args,
+                }
+            )
+            return "test-job-id"
+
+        async def mock_run_job(job_id: str) -> dict:
+            return {
+                "job_id": job_id,
+                "status": "done",
+                "result": {"text": "extracted"},
+                "error": None,
+                "created_at": "2024-01-01T00:00:00",
+                "completed_at": "2024-01-01T00:00:01",
+            }
+
+        mock_service.create_job = AsyncMock(side_effect=mock_create_job)
+        mock_service.run_job = AsyncMock(side_effect=mock_run_job)
+        mock_service._jobs = {}  # For submit_analysis_async access
+
+        # Store calls list for assertions
+        mock_service._create_job_calls = create_job_calls
+
+        return mock_service
+
+    @pytest_asyncio.fixture
+    def mock_plugin_service(self):
+        """Create a mock PluginManagementService with manifest lookup."""
+        mock_service = MagicMock()
+
+        # Manifest with tools as dict (common format)
+        mock_service.get_plugin_manifest.return_value = {
+            "name": "ocr",
+            "tools": {
+                "analyze": {"description": "OCR text extraction"},
+                "detect_regions": {"description": "Detect text regions"},
+            },
+        }
+
+        return mock_service
+
+    @pytest.mark.asyncio
+    async def test_analyze_gets_tool_name_from_manifest_when_not_provided(
+        self, mock_job_execution_service_for_analysis, mock_plugin_service
+    ):
+        """When tool_name is not in args, analyze should get first tool from manifest.
+
+        Issue #302: The service should look up the plugin manifest and use
+        the first tool defined there, NOT a hardcoded "analyze" default.
+        """
+        from app.services.execution.analysis_execution_service import (
+            AnalysisExecutionService,
+        )
+
+        mock_jes = mock_job_execution_service_for_analysis
+        service = AnalysisExecutionService(mock_jes, mock_plugin_service)
+
+        # Call analyze WITHOUT tool_name in args (mimics real API request)
+        result, error = await service.analyze(
+            plugin_name="ocr",
+            args={"image": "base64imagedata", "mime_type": "image/png"},
+        )
+
+        # Verify no error occurred
+        assert error is None, f"Expected no error, got: {error}"
+        assert result is not None
+
+        # Verify manifest was looked up
+        mock_plugin_service.get_plugin_manifest.assert_called_once_with("ocr")
+
+        # Verify create_job was called with first tool from manifest
+        assert len(mock_jes._create_job_calls) == 1
+        call = mock_jes._create_job_calls[0]
+        # First tool in manifest dict is "analyze"
+        assert call["tool_name"] == "analyze", (
+            f"Expected tool_name='analyze' (first tool from manifest), "
+            f"got '{call['tool_name']}'"
+        )
+
+    @pytest.mark.asyncio
+    async def test_analyze_uses_explicit_tool_name_when_provided(
+        self, mock_job_execution_service_for_analysis, mock_plugin_service
+    ):
+        """When tool_name IS in args, analyze should use it without manifest lookup."""
+        from app.services.execution.analysis_execution_service import (
+            AnalysisExecutionService,
+        )
+
+        mock_jes = mock_job_execution_service_for_analysis
+        service = AnalysisExecutionService(mock_jes, mock_plugin_service)
+
+        # Call analyze WITH explicit tool_name
+        result, error = await service.analyze(
+            plugin_name="ocr",
+            args={
+                "image": "base64imagedata",
+                "mime_type": "image/png",
+                "tool_name": "detect_regions",
+            },
+        )
+
+        # Verify create_job was called with the explicit tool_name
+        assert len(mock_jes._create_job_calls) == 1
+        call = mock_jes._create_job_calls[0]
+        assert call["tool_name"] == "detect_regions"
+
+    @pytest.mark.asyncio
+    async def test_analyze_raises_error_when_plugin_not_found(
+        self, mock_job_execution_service_for_analysis, mock_plugin_service
+    ):
+        """When plugin manifest is not found, analyze should raise error."""
+        from app.services.execution.analysis_execution_service import (
+            AnalysisExecutionService,
+        )
+
+        mock_jes = mock_job_execution_service_for_analysis
+        mock_plugin_service.get_plugin_manifest.return_value = None
+        service = AnalysisExecutionService(mock_jes, mock_plugin_service)
+
+        # Call analyze with non-existent plugin
+        result, error = await service.analyze(
+            plugin_name="nonexistent_plugin",
+            args={"image": "base64imagedata", "mime_type": "image/png"},
+        )
+
+        # Should return error
+        assert error is not None
+        assert "not found" in error.get("message", "").lower()
+
+    @pytest.mark.asyncio
+    async def test_analyze_raises_error_when_manifest_has_no_tools(
+        self, mock_job_execution_service_for_analysis, mock_plugin_service
+    ):
+        """When plugin manifest has no tools, analyze should raise error."""
+        from app.services.execution.analysis_execution_service import (
+            AnalysisExecutionService,
+        )
+
+        mock_jes = mock_job_execution_service_for_analysis
+        # Manifest with no tools
+        mock_plugin_service.get_plugin_manifest.return_value = {
+            "name": "empty_plugin",
+            "tools": {},
+        }
+        service = AnalysisExecutionService(mock_jes, mock_plugin_service)
+
+        # Call analyze
+        result, error = await service.analyze(
+            plugin_name="empty_plugin",
+            args={"image": "base64imagedata", "mime_type": "image/png"},
+        )
+
+        # Should return error
+        assert error is not None
+        assert "no tools" in error.get("message", "").lower()
+
+    @pytest.mark.asyncio
+    async def test_analyze_passes_plugin_name_in_args_for_tool_runner(
+        self, mock_job_execution_service_for_analysis, mock_plugin_service
+    ):
+        """analyze should include plugin_name in args for tool_runner (Issue #303)."""
+        from app.services.execution.analysis_execution_service import (
+            AnalysisExecutionService,
+        )
+
+        mock_jes = mock_job_execution_service_for_analysis
+        service = AnalysisExecutionService(mock_jes, mock_plugin_service)
+
+        # Call analyze
+        await service.analyze(
+            plugin_name="ocr",
+            args={"image": "base64imagedata", "mime_type": "image/png"},
+        )
+
+        # Verify plugin_name was added to args
+        assert len(mock_jes._create_job_calls) == 1
+        call = mock_jes._create_job_calls[0]
+        assert (
+            call["args"].get("plugin_name") == "ocr"
+        ), "plugin_name should be passed in args for tool_runner"
+
+
+class TestAnalysisExecutionServiceProductionInit:
+    """Tests for Bug #303: analysis_execution_service initialization in production.
+
+    Issue #303: The /v1/analyze-execution endpoint returns 503 in production
+    because app.state.analysis_execution_service is never set during startup.
+    """
+
+    def test_production_app_has_analysis_execution_service_initialized(self):
+        """Verify create_app() initializes analysis_execution_service on app.state.
+
+        This test verifies that the production app (via create_app()) properly
+        initializes the execution service chain during lifespan startup.
+        """
+        from fastapi.testclient import TestClient
+
+        from app.main import create_app
+
+        app = create_app()
+
+        # Use TestClient to trigger lifespan startup
+        with TestClient(app):
+            # After startup, app.state should have analysis_execution_service
+            service = getattr(app.state, "analysis_execution_service", None)
+            assert service is not None, (
+                "app.state.analysis_execution_service is None after startup. "
+                "The lifespan() function must initialize the execution service chain: "
+                "tool_runner → PluginExecutionService → JobExecutionService → "
+                "AnalysisExecutionService"
+            )
+            assert hasattr(service, "analyze"), (
+                "analysis_execution_service missing analyze() method. "
+                "Expected AnalysisExecutionService instance."
+            )
