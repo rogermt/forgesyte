@@ -311,3 +311,40 @@ class TestPydanticModelHandling:
         assert isinstance(result["test_tool"], dict)
         assert result["test_tool"]["status"] == "completed"
         assert result["test_tool"]["count"] == 42
+
+
+class TestPluginServiceInitialization:
+    """Tests for plugin service initialization (Issue #304).
+
+    These tests verify that _get_plugin_service() properly loads plugins
+    by calling registry.load_plugins(). Without this call, the registry
+    remains empty and plugin lookups fail.
+    """
+
+    def test_get_plugin_service_loads_plugins(self):
+        """Test that _get_plugin_service() loads plugins from entry points.
+
+        This test calls the real _get_plugin_service() function without mocks.
+        It verifies that the returned service has plugins loaded (non-empty registry).
+
+        Issue #304: Without load_plugins(), the PluginRegistry is empty,
+        causing "Plugin not found" errors in Ray workers.
+        """
+        from app.ray_tasks import _get_plugin_service
+
+        # Call the real function (no mock)
+        service = _get_plugin_service()
+
+        # The service should have a plugin registry with loaded plugins
+        # We can verify this by checking if the manifest lookup works
+        # for a known plugin (e.g., "ocr" which is always installed)
+        manifest = service.get_plugin_manifest("ocr")
+
+        # If load_plugins() was NOT called, manifest would be None
+        # If load_plugins() WAS called, manifest should be a dict
+        assert manifest is not None, (
+            "Plugin 'ocr' not found - _get_plugin_service() likely "
+            "forgot to call registry.load_plugins()"
+        )
+        assert isinstance(manifest, dict)
+        assert "id" in manifest or "tools" in manifest

@@ -680,6 +680,7 @@ class JobWorker:
                 from ..services.plugin_management_service import PluginManagementService
 
                 plugin_manager = PluginRegistry()
+                plugin_manager.load_plugins()  # Issue #304: Load plugins from entry points
                 plugin_service = PluginManagementService(plugin_manager)
 
             manifest = plugin_service.get_plugin_manifest(job.plugin_id)

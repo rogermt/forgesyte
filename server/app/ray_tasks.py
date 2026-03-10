@@ -70,6 +70,7 @@ def _get_plugin_service() -> PluginServiceProtocol:
     from .services.plugin_management_service import PluginManagementService
 
     registry = PluginRegistry()
+    registry.load_plugins()  # Issue #304: Load plugins from entry points
     return PluginManagementService(registry)
 
 
