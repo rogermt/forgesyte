@@ -12,6 +12,7 @@ class TestRayInitialization:
         from app.workers.worker import init_ray
 
         mock_ray = MagicMock()
+        mock_ray.is_initialized.return_value = False
 
         with patch.dict("sys.modules", {"ray": mock_ray}):
             with patch.dict(os.environ, {}, clear=True):
@@ -21,12 +22,16 @@ class TestRayInitialization:
         # Should be called with ignore_reinit_error=True
         call_kwargs = mock_ray.init.call_args.kwargs
         assert call_kwargs.get("ignore_reinit_error") is True
+        # Should have runtime_env with env_vars
+        assert "runtime_env" in call_kwargs
+        assert "env_vars" in call_kwargs["runtime_env"]
 
     def test_init_ray_with_address_from_env(self):
         """Test Ray connects to head when RAY_ADDRESS is set."""
         from app.workers.worker import init_ray
 
         mock_ray = MagicMock()
+        mock_ray.is_initialized.return_value = False
 
         with patch.dict("sys.modules", {"ray": mock_ray}):
             with patch.dict(
@@ -37,25 +42,31 @@ class TestRayInitialization:
         mock_ray.init.assert_called_once()
         call_kwargs = mock_ray.init.call_args.kwargs
         assert call_kwargs.get("address") == "ray://head-node:10001"
+        # Should have runtime_env for remote cluster too
+        assert "runtime_env" in call_kwargs
+        assert "env_vars" in call_kwargs["runtime_env"]
 
     def test_init_ray_idempotent(self):
-        """Test Ray init is idempotent (handles re-init gracefully)."""
+        """Test Ray init is idempotent - skips init if already initialized."""
         from app.workers.worker import init_ray
 
         mock_ray = MagicMock()
+        # First call: not initialized, second call: initialized
+        mock_ray.is_initialized.side_effect = [False, True]
 
         with patch.dict("sys.modules", {"ray": mock_ray}):
             init_ray()
-            init_ray()  # Call twice
+            init_ray()  # Call twice - should skip second init
 
-        # Should be called twice but with ignore_reinit_error=True
-        assert mock_ray.init.call_count == 2
+        # Should only be called once (second call skips due to is_initialized check)
+        mock_ray.init.assert_called_once()
 
     def test_init_ray_returns_on_success(self):
         """Test init_ray returns True on successful initialization."""
         from app.workers.worker import init_ray
 
         mock_ray = MagicMock()
+        mock_ray.is_initialized.return_value = False
 
         with patch.dict("sys.modules", {"ray": mock_ray}):
             result = init_ray()
@@ -67,12 +78,82 @@ class TestRayInitialization:
         from app.workers.worker import init_ray
 
         mock_ray = MagicMock()
+        mock_ray.is_initialized.return_value = False
         mock_ray.init.side_effect = RuntimeError("Ray failed to start")
 
         with patch.dict("sys.modules", {"ray": mock_ray}):
             result = init_ray()
 
         assert result is False
+
+    def test_init_ray_injects_runtime_env_with_pythonpath(self):
+        """Test that init_ray injects CWD into PYTHONPATH via runtime_env."""
+        from app.workers.worker import init_ray
+
+        mock_ray = MagicMock()
+        mock_ray.is_initialized.return_value = False
+
+        with patch.dict("sys.modules", {"ray": mock_ray}):
+            with patch.dict(os.environ, {"PYTHONPATH": "/existing/path"}, clear=False):
+                init_ray()
+
+        mock_ray.init.assert_called_once()
+        call_kwargs = mock_ray.init.call_args.kwargs
+
+        # Should have runtime_env
+        assert "runtime_env" in call_kwargs
+        runtime_env = call_kwargs["runtime_env"]
+
+        # Should have env_vars
+        assert "env_vars" in runtime_env
+        env_vars = runtime_env["env_vars"]
+
+        # PYTHONPATH should include CWD and existing path
+        assert "PYTHONPATH" in env_vars
+        pythonpath = env_vars["PYTHONPATH"]
+        assert "/" in pythonpath  # Contains a path (CWD)
+        assert "/existing/path" in pythonpath
+
+    def test_init_ray_syncs_forgesyte_env_vars(self):
+        """Test that init_ray passes FORGESYTE_* env vars to Ray workers."""
+        from app.workers.worker import init_ray
+
+        mock_ray = MagicMock()
+        mock_ray.is_initialized.return_value = False
+
+        test_env = {
+            "FORGESYTE_CUSTOM": "test_value",
+            "PATH": "/usr/bin",
+            "UNRELATED_VAR": "should_not_pass",
+        }
+
+        with patch.dict("sys.modules", {"ray": mock_ray}):
+            with patch.dict(os.environ, test_env, clear=True):
+                init_ray()
+
+        call_kwargs = mock_ray.init.call_args.kwargs
+        env_vars = call_kwargs["runtime_env"]["env_vars"]
+
+        # Should pass FORGESYTE_* vars
+        assert env_vars.get("FORGESYTE_CUSTOM") == "test_value"
+
+        # Should NOT pass unrelated vars OR PATH (PATH overwrites worker node's binary paths)
+        assert "UNRELATED_VAR" not in env_vars
+        assert "PATH" not in env_vars
+
+    def test_init_ray_skips_if_already_initialized(self):
+        """Test that init_ray skips initialization if Ray is already running."""
+        from app.workers.worker import init_ray
+
+        mock_ray = MagicMock()
+        mock_ray.is_initialized.return_value = True  # Already initialized
+
+        with patch.dict("sys.modules", {"ray": mock_ray}):
+            result = init_ray()
+
+        # Should return True without calling ray.init
+        assert result is True
+        mock_ray.init.assert_not_called()
 
 
 class TestWorkerRayIntegration:
