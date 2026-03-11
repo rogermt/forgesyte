@@ -14,9 +14,10 @@ export function resolveVideoTools(
 ): string[] {
   if (!manifest || !manifest.tools) return logicalTools;
 
+  // v0.13.11: FIX - Use Object.entries to preserve tool ID from object key
   const toolsArray = Array.isArray(manifest.tools)
     ? manifest.tools
-    : Object.values(manifest.tools);
+    : Object.entries(manifest.tools).map(([id, tool]) => ({ id, ...tool }));
 
   const videoMap: Record<string, string> = {};
 

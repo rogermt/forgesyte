@@ -108,6 +108,7 @@ describe("VideoUpload", () => {
                 <VideoUpload
                     pluginId={null}
                     manifest={defaultManifest}
+                    selectedTools={["player_detection"]}
                     onStartStreaming={vi.fn()}
                     onRunJob={vi.fn()}
                 />
@@ -123,7 +124,7 @@ describe("VideoUpload", () => {
         });
 
         it("disables action buttons when callback not provided", () => {
-            render(<VideoUpload pluginId="yolo" manifest={defaultManifest} />);
+            render(<VideoUpload pluginId="yolo" manifest={defaultManifest} selectedTools={["player_detection"]} />);
 
             const fileInput = screen.getByLabelText(/select/i) as HTMLInputElement;
             const file = new File(["test"], "test.mp4", { type: "video/mp4" });
@@ -149,6 +150,7 @@ describe("VideoUpload", () => {
                 <VideoUpload
                     pluginId="yolo"
                     manifest={defaultManifest}
+                    selectedTools={["player_detection"]}
                     onVideoUploaded={onVideoUploaded}
                     onStartStreaming={onStartStreaming}
                 />
@@ -172,7 +174,12 @@ describe("VideoUpload", () => {
 
             await waitFor(() => {
                 expect(onVideoUploaded).toHaveBeenCalledWith("video/input/test-123.mp4", file);
-                expect(onStartStreaming).toHaveBeenCalled();
+                // v0.13.11: Callback now receives lockedTools
+                expect(onStartStreaming).toHaveBeenCalledWith(
+                    "video/input/test-123.mp4",
+                    file,
+                    expect.arrayContaining(["video_player_detection"])
+                );
             });
         });
 
@@ -188,6 +195,7 @@ describe("VideoUpload", () => {
                 <VideoUpload
                     pluginId="yolo"
                     manifest={defaultManifest}
+                    selectedTools={["player_detection"]}
                     onVideoUploaded={onVideoUploaded}
                     onRunJob={onRunJob}
                 />
@@ -211,7 +219,12 @@ describe("VideoUpload", () => {
 
             await waitFor(() => {
                 expect(onVideoUploaded).toHaveBeenCalledWith("video/input/test-123.mp4", file);
-                expect(onRunJob).toHaveBeenCalled();
+                // v0.13.11: Callback now receives lockedTools
+                expect(onRunJob).toHaveBeenCalledWith(
+                    "video/input/test-123.mp4",
+                    file,
+                    expect.arrayContaining(["video_player_detection"])
+                );
             });
         });
 
@@ -233,6 +246,7 @@ describe("VideoUpload", () => {
                 <VideoUpload
                     pluginId="yolo"
                     manifest={defaultManifest}
+                    selectedTools={["player_detection"]}
                     onStartStreaming={onStartStreaming}
                 />
             );
@@ -271,6 +285,7 @@ describe("VideoUpload", () => {
                 <VideoUpload
                     pluginId="yolo"
                     manifest={defaultManifest}
+                    selectedTools={["player_detection"]}
                     onStartStreaming={onStartStreaming}
                     onRunJob={onRunJob}
                 />
@@ -301,7 +316,11 @@ describe("VideoUpload", () => {
 
             // Now callbacks should be called
             await waitFor(() => {
-                expect(onStartStreaming).toHaveBeenCalled();
+                expect(onStartStreaming).toHaveBeenCalledWith(
+                    "video/input/test.mp4",
+                    file,
+                    expect.arrayContaining(["video_player_detection"])
+                );
             });
         });
 
@@ -316,6 +335,7 @@ describe("VideoUpload", () => {
                 <VideoUpload
                     pluginId="yolo"
                     manifest={defaultManifest}
+                    selectedTools={["player_detection"]}
                     onStartStreaming={onStartStreaming}
                 />
             );
@@ -350,6 +370,7 @@ describe("VideoUpload", () => {
                 <VideoUpload
                     pluginId="yolo"
                     manifest={defaultManifest}
+                    selectedTools={["player_detection"]}
                     onStartStreaming={onStartStreaming}
                 />
             );
@@ -452,6 +473,137 @@ describe("VideoUpload", () => {
 
             expect(screen.getByText(/my-video.mp4/)).toBeInTheDocument();
             expect(screen.getByText(/1.00 MB/)).toBeInTheDocument();
+        });
+    });
+
+    // -------------------------------------------------------------------------
+    // v0.13.11: TDD - Fix state race condition and selectedTools validation
+    // These tests verify the fix for Discussion #317
+    // -------------------------------------------------------------------------
+
+    describe("state race condition fix (Discussion #317)", () => {
+        it("passes resolved tools to onStartStreaming callback", async () => {
+            (apiClient.submitVideoUpload as ReturnType<typeof vi.fn>).mockResolvedValue({
+                video_path: "video/input/test-123.mp4",
+            });
+
+            const onVideoUploaded = vi.fn();
+            const onStartStreaming = vi.fn();
+
+            render(
+                <VideoUpload
+                    pluginId="yolo"
+                    manifest={defaultManifest}
+                    selectedTools={["player_detection"]}
+                    onVideoUploaded={onVideoUploaded}
+                    onStartStreaming={onStartStreaming}
+                />
+            );
+
+            const fileInput = screen.getByLabelText(/select/i) as HTMLInputElement;
+            const file = new File(["test"], "test.mp4", { type: "video/mp4" });
+
+            fireEvent.change(fileInput, { target: { files: [file] } });
+
+            const startButton = screen.getByText("Start Streaming");
+            fireEvent.click(startButton);
+
+            await waitFor(() => {
+                // FIX: onStartStreaming should receive (videoPath, file, lockedTools)
+                // so App.tsx can use them directly without state race condition
+                expect(onStartStreaming).toHaveBeenCalledWith(
+                    "video/input/test-123.mp4",
+                    file,
+                    expect.arrayContaining(["video_player_detection"])
+                );
+            });
+        });
+
+        it("passes resolved tools to onRunJob callback", async () => {
+            (apiClient.submitVideoUpload as ReturnType<typeof vi.fn>).mockResolvedValue({
+                video_path: "video/input/test-123.mp4",
+            });
+
+            const onVideoUploaded = vi.fn();
+            const onRunJob = vi.fn();
+
+            render(
+                <VideoUpload
+                    pluginId="yolo"
+                    manifest={defaultManifest}
+                    selectedTools={["player_detection"]}
+                    onVideoUploaded={onVideoUploaded}
+                    onRunJob={onRunJob}
+                />
+            );
+
+            const fileInput = screen.getByLabelText(/select/i) as HTMLInputElement;
+            const file = new File(["test"], "test.mp4", { type: "video/mp4" });
+
+            fireEvent.change(fileInput, { target: { files: [file] } });
+
+            const runButton = screen.getByText("Run Job");
+            fireEvent.click(runButton);
+
+            await waitFor(() => {
+                // FIX: onRunJob should receive (videoPath, file, lockedTools)
+                expect(onRunJob).toHaveBeenCalledWith(
+                    "video/input/test-123.mp4",
+                    file,
+                    expect.arrayContaining(["video_player_detection"])
+                );
+            });
+        });
+    });
+
+    describe("selectedTools validation (Discussion #317)", () => {
+        it("disables action buttons when no tools selected", () => {
+            render(
+                <VideoUpload
+                    pluginId="yolo"
+                    manifest={defaultManifest}
+                    selectedTools={[]}  // Empty array
+                    onStartStreaming={vi.fn()}
+                    onRunJob={vi.fn()}
+                />
+            );
+
+            const fileInput = screen.getByLabelText(/select/i) as HTMLInputElement;
+            const file = new File(["test"], "test.mp4", { type: "video/mp4" });
+
+            fireEvent.change(fileInput, { target: { files: [file] } });
+
+            // FIX: Buttons should be disabled when selectedTools is empty
+            expect(screen.getByText("Start Streaming")).toBeDisabled();
+            expect(screen.getByText("Run Job")).toBeDisabled();
+        });
+
+        it("enables action buttons when tools are selected", async () => {
+            (apiClient.submitVideoUpload as ReturnType<typeof vi.fn>).mockResolvedValue({
+                video_path: "video/input/test.mp4",
+            });
+
+            const onStartStreaming = vi.fn();
+            const onRunJob = vi.fn();
+
+            render(
+                <VideoUpload
+                    pluginId="yolo"
+                    manifest={defaultManifest}
+                    selectedTools={["player_detection"]}  // Has tools
+                    onStartStreaming={onStartStreaming}
+                    onRunJob={onRunJob}
+                />
+            );
+
+            const fileInput = screen.getByLabelText(/select/i) as HTMLInputElement;
+            const file = new File(["test"], "test.mp4", { type: "video/mp4" });
+
+            fireEvent.change(fileInput, { target: { files: [file] } });
+
+            // FIX: Buttons should be enabled when selectedTools has items AND callbacks provided
+            expect(screen.getByText("Start Streaming")).not.toBeDisabled();
+            expect(screen.getByText("Run Job")).not.toBeDisabled();
         });
     });
 });

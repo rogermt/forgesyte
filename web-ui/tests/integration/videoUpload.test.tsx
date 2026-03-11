@@ -1,6 +1,7 @@
 /**
  * Integration test for video upload flow
  * v0.13.11: Redesigned UX - action buttons appear immediately after file selection
+ * v0.13.11: Fixed state race condition - callbacks receive values directly
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
@@ -49,6 +50,7 @@ describe("VideoUpload Integration", () => {
                 <VideoUpload
                     pluginId="yolo"
                     manifest={videoManifest}
+                    selectedTools={["player_detection"]}
                     onStartStreaming={onStartStreaming}
                     onRunJob={onRunJob}
                 />
@@ -95,6 +97,7 @@ describe("VideoUpload Integration", () => {
                 <VideoUpload
                     pluginId="yolo"
                     manifest={videoManifest}
+                    selectedTools={["player_detection"]}
                     onVideoUploaded={onVideoUploaded}
                     onStartStreaming={onStartStreaming}
                 />
@@ -121,10 +124,15 @@ describe("VideoUpload Integration", () => {
             );
         });
 
-        // Verify callbacks were called
+        // Verify callbacks were called with new signature
         await waitFor(() => {
             expect(onVideoUploaded).toHaveBeenCalledWith("video/input/test-123.mp4", file);
-            expect(onStartStreaming).toHaveBeenCalled();
+            // v0.13.11: Callback now receives lockedTools
+            expect(onStartStreaming).toHaveBeenCalledWith(
+                "video/input/test-123.mp4",
+                file,
+                expect.arrayContaining(["video_player_detection"])
+            );
         });
     });
 
@@ -142,6 +150,7 @@ describe("VideoUpload Integration", () => {
                 <VideoUpload
                     pluginId="yolo"
                     manifest={videoManifest}
+                    selectedTools={["player_detection"]}
                     onVideoUploaded={onVideoUploaded}
                     onRunJob={onRunJob}
                 />
@@ -168,10 +177,15 @@ describe("VideoUpload Integration", () => {
             );
         });
 
-        // Verify callbacks were called
+        // Verify callbacks were called with new signature
         await waitFor(() => {
             expect(onVideoUploaded).toHaveBeenCalledWith("video/input/test-456.mp4", file);
-            expect(onRunJob).toHaveBeenCalled();
+            // v0.13.11: Callback now receives lockedTools
+            expect(onRunJob).toHaveBeenCalledWith(
+                "video/input/test-456.mp4",
+                file,
+                expect.arrayContaining(["video_player_detection"])
+            );
         });
     });
 
@@ -194,6 +208,7 @@ describe("VideoUpload Integration", () => {
                 <VideoUpload
                     pluginId="yolo"
                     manifest={videoManifest}
+                    selectedTools={["player_detection"]}
                     onStartStreaming={onStartStreaming}
                 />
             );
@@ -233,6 +248,7 @@ describe("VideoUpload Integration", () => {
                 <VideoUpload
                     pluginId="yolo"
                     manifest={videoManifest}
+                    selectedTools={["player_detection"]}
                     onVideoUploaded={onVideoUploaded}
                     onStartStreaming={onStartStreaming}
                 />
@@ -271,6 +287,7 @@ describe("VideoUpload Integration", () => {
                 <VideoUpload
                     pluginId={null}
                     manifest={videoManifest}
+                    selectedTools={["player_detection"]}
                     onStartStreaming={onStartStreaming}
                     onRunJob={onRunJob}
                 />
