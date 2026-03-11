@@ -653,7 +653,6 @@ function App() {
                 pluginId={selectedPlugin}
                 manifest={manifest}
                 selectedTools={selectedTools}
-                lockedTools={lockedTools}
                 onVideoUploaded={handleVideoUploaded}
                 onStartStreaming={handleStartStreaming}
                 onRunJob={handleRunVideoJob}
