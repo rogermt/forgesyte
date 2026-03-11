@@ -220,13 +220,17 @@ class TestExecutePipelineRemote:
             )
 
     def test_handles_plugin_not_found(self, mock_storage):
-        """Test that missing plugin raises an error."""
+        """Test that missing plugin raises a detailed error with available plugins."""
         from app.ray_tasks import _execute_pipeline_impl
 
         mock_service = MagicMock()
         mock_service.get_plugin_manifest.return_value = None
+        # Mock registry.list() to provide available plugins list
+        mock_registry = MagicMock()
+        mock_registry.list.return_value = {"ocr": MagicMock(), "yolo": MagicMock()}
+        mock_service.registry = mock_registry
 
-        with pytest.raises(RuntimeError, match="Plugin .* not found"):
+        with pytest.raises(RuntimeError) as exc_info:
             _execute_pipeline_impl(
                 plugin_id="missing_plugin",
                 tools_to_run=["test_tool"],
@@ -235,6 +239,13 @@ class TestExecutePipelineRemote:
                 get_plugin_service_fn=lambda: mock_service,
                 get_storage_service_fn=lambda: mock_storage,
             )
+
+        # Verify the new verbose error message format
+        error_msg = str(exc_info.value)
+        assert "missing_plugin" in error_msg
+        assert "Ray Worker process" in error_msg
+        assert "Available plugins" in error_msg
+        assert "ocr" in error_msg or "yolo" in error_msg
 
 
 class TestRayTaskDecorator:
@@ -380,3 +391,47 @@ class TestPluginServiceInitialization:
         )
         assert plugin.name == "test_dummy"
         assert "test_tool" in plugin.tools
+
+    def test_get_plugin_service_logs_load_errors(self, monkeypatch, caplog):
+        """Test that _get_plugin_service logs errors when plugins fail to load.
+
+        When a plugin crashes during __init__, the error should be logged
+        with "Ray Worker Plugin Load Errors" so developers can diagnose
+        why plugins are missing in Ray worker processes.
+        """
+        import logging
+
+        from app.plugins.base import BasePlugin
+        from app.ray_tasks import _get_plugin_service
+
+        # Create a plugin that crashes during initialization
+        class BrokenPlugin(BasePlugin):
+            name = "broken_plugin"
+            tools = {}  # Define tools to satisfy base class
+
+            def __init__(self):
+                raise ImportError("Missing model file")
+
+            def run_tool(self, tool_name: str, args: dict) -> dict:
+                return {}
+
+        # Monkeypatch entry_points to return broken plugin
+        class BrokenEntryPoint:
+            name = "broken_plugin"
+
+            def load(self):
+                return BrokenPlugin
+
+        def fake_entry_points(group=None):
+            if group == "forgesyte.plugins":
+                return [BrokenEntryPoint()]
+            return []
+
+        monkeypatch.setattr("app.plugin_loader.entry_points", fake_entry_points)
+
+        with caplog.at_level(logging.ERROR):
+            _get_plugin_service()  # Call for side effect (error logging)
+
+        # Should log the error with specific prefix
+        assert "Ray Worker Plugin Load Errors" in caplog.text
+        assert "broken_plugin" in caplog.text

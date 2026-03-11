@@ -310,14 +310,35 @@ async def lifespan(app: FastAPI):
             try:
                 if not ray.is_initialized():
                     ray_address = os.environ.get("RAY_ADDRESS")
+
+                    # Lightweight sync: Avoid 'working_dir' upload penalty.
+                    cwd = str(Path.cwd().resolve())
+                    curr_pp = os.environ.get("PYTHONPATH", "")
+                    new_pp = f"{cwd}:{curr_pp}" if curr_pp else cwd
+
+                    runtime_env = {
+                        "env_vars": {
+                            k: v
+                            for k, v in os.environ.items()
+                            if k.startswith(("FORGESYTE_", "RAY_")) or k == "PATH"
+                        }
+                    }
+                    runtime_env["env_vars"]["PYTHONPATH"] = new_pp
+
                     if ray_address:
-                        ray.init(address=ray_address, ignore_reinit_error=True)
+                        ray.init(
+                            address=ray_address,
+                            ignore_reinit_error=True,
+                            runtime_env=runtime_env,
+                        )
                         logger.info(
                             f"Main process connected to Ray cluster at {ray_address}"
                         )
                     else:
-                        ray.init(ignore_reinit_error=True)
-                        logger.info("Main process initialized Ray locally")
+                        ray.init(ignore_reinit_error=True, runtime_env=runtime_env)
+                        logger.info(
+                            "Main process initialized Ray locally with synced env_vars"
+                        )
             except Exception as e:
                 logger.warning(
                     f"Ray not available for WebSocket streaming: {e}. "
