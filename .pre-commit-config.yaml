@@ -71,15 +71,20 @@ repos:
           - |
             changed=$(git diff --cached --name-only | grep -E "\.test\.tsx$|server/tests|plugins/.*/tests" || true);
             if [[ -n "$changed" ]]; then
-              if ! git log -1 --pretty=%B | grep -q "TEST-CHANGE"; then
-                echo "❌ Test files modified:";
-                echo "$changed";
-                echo "❌ Commit message must include TEST-CHANGE to explain why tests changed.";
-                exit 1;
+              # Read commit message from file (passed as $1 by commit-msg hook)
+              COMMIT_MSG_FILE="$1"
+              if [[ -f "$COMMIT_MSG_FILE" ]]; then
+                if ! grep -q "TEST-CHANGE" "$COMMIT_MSG_FILE"; then
+                  echo "❌ Test files modified:";
+                  echo "$changed";
+                  echo "❌ Commit message must include TEST-CHANGE to explain why tests changed.";
+                  exit 1;
+                fi
               fi
             fi
         language: system
         pass_filenames: false
+        stages: [commit-msg]
 
       - id: check-illegal-filenames
         name: Check for illegal filenames (control characters)

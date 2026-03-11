@@ -72,7 +72,12 @@ def _get_plugin_service() -> PluginServiceProtocol:
     from .services.plugin_management_service import PluginManagementService
 
     registry = PluginRegistry()
-    registry.load_plugins()  # Issue #304: Load plugins from entry points
+    load_result = registry.load_plugins()  # Issue #304: Load plugins from entry points
+
+    # Surface silent plugin initialization errors in Ray workers
+    if load_result.get("errors"):
+        logger.error(f"Ray Worker Plugin Load Errors: {load_result['errors']}")
+
     return PluginManagementService(registry)
 
 
@@ -160,7 +165,19 @@ def _execute_pipeline_impl(
         args: Dict[str, Any] = {}
         manifest = plugin_service.get_plugin_manifest(plugin_id)
         if not manifest:
-            raise RuntimeError(f"Plugin '{plugin_id}' not found")
+            # Provide detailed error instead of just "not found"
+            available = []
+            if hasattr(plugin_service, "registry") and hasattr(
+                plugin_service.registry, "list"
+            ):
+                available = list(plugin_service.registry.list().keys())
+
+            raise RuntimeError(
+                f"Plugin '{plugin_id}' not found in Ray Worker process. "
+                f"Available plugins loaded in this worker: {available}. "
+                f"If the plugin is installed but missing here, it crashed during __init__. "
+                f"Check Ray worker logs above for 'Ray Worker Plugin Load Errors'."
+            )
 
         # Use shared helper to normalize tools to list format
         manifest_tools = iter_manifest_tools(manifest)

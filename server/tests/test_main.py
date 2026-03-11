@@ -8,6 +8,7 @@ Tests cover:
 - Error handling and edge cases
 """
 
+import os
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -83,6 +84,32 @@ async def test_lifespan_startup_shutdown(mock_plugin_manager):
 
         # Shutdown phase — mock should have been called
         assert mock_plugin_manager is not None
+
+
+@pytest.mark.asyncio
+async def test_lifespan_ray_init_with_runtime_env(mock_plugin_manager):
+    """Test that lifespan initializes Ray with runtime_env for WebSocket actors."""
+    mock_ray = MagicMock()
+    mock_ray.is_initialized.return_value = False
+
+    with (
+        patch.dict("sys.modules", {"ray": mock_ray}),
+        patch("app.main.PluginRegistry", return_value=mock_plugin_manager),
+        patch("app.main.init_auth_service"),
+        patch.dict(
+            os.environ,
+            {"FORGESYTE_TEST": "value", "FORGESYTE_ENABLE_WORKERS": "1"},
+            clear=False,
+        ),
+    ):
+        async with lifespan(app):
+            pass
+
+    # Ray should have been initialized with runtime_env
+    mock_ray.init.assert_called_once()
+    call_kwargs = mock_ray.init.call_args.kwargs
+    assert "runtime_env" in call_kwargs
+    assert "env_vars" in call_kwargs["runtime_env"]
 
 
 def test_app_creation():

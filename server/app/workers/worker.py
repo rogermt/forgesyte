@@ -123,17 +123,37 @@ def init_ray() -> bool:
         True if initialization succeeded, False otherwise
     """
     import os
+    from pathlib import Path
 
     import ray
 
     try:
+        # Lightweight sync: Pass FORGESYTE_* vars and inject CWD into PYTHONPATH.
+        # This avoids the massive performance penalty of Ray's 'working_dir' upload
+        # while still allowing workers to resolve local plugins on a shared filesystem.
+        cwd = str(Path.cwd().resolve())
+        current_pythonpath = os.environ.get("PYTHONPATH", "")
+        new_pythonpath = f"{cwd}:{current_pythonpath}" if current_pythonpath else cwd
+        runtime_env = {
+            "env_vars": {
+                k: v
+                for k, v in os.environ.items()
+                if k.startswith(("FORGESYTE_", "RAY_")) or k == "PATH"
+            }
+        }
+        runtime_env["env_vars"]["PYTHONPATH"] = new_pythonpath
+
         ray_address = os.environ.get("RAY_ADDRESS")
         if ray_address:
-            ray.init(address=ray_address, ignore_reinit_error=True)
+            ray.init(
+                address=ray_address,
+                ignore_reinit_error=True,
+                runtime_env=runtime_env,
+            )
             logger.info(f"Ray connected to cluster at {ray_address}")
         else:
-            ray.init(ignore_reinit_error=True)
-            logger.info("Ray initialized locally")
+            ray.init(ignore_reinit_error=True, runtime_env=runtime_env)
+            logger.info("Ray initialized locally with synced env_vars")
         return True
     except Exception as e:
         logger.error(f"Failed to initialize Ray: {e}")
