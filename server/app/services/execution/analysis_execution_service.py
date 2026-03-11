@@ -18,6 +18,7 @@ import logging
 from typing import Any, Dict, Optional, Protocol, Tuple
 
 from app.models_pydantic import JobStatus
+from app.services.tool_router import get_first_tool_name
 
 from .job_execution_service import JobExecutionService
 
@@ -66,28 +67,6 @@ class AnalysisExecutionService:
         self._plugin_service = plugin_service
         logger.debug("AnalysisExecutionService initialized")
 
-    def _get_first_tool_name(self, manifest: Dict[str, Any]) -> Optional[str]:
-        """Get the first tool name from a plugin manifest.
-
-        Handles both dict and list formats for tools field.
-
-        Args:
-            manifest: Plugin manifest dictionary
-
-        Returns:
-            First tool name or None if no tools
-        """
-        tools = manifest.get("tools", {})
-        if isinstance(tools, dict):
-            # Tools as dict: {"analyze": {...}, "detect": {...}}
-            if tools:
-                return next(iter(tools.keys()))
-        elif isinstance(tools, list):
-            # Tools as list: [{"id": "analyze", ...}, ...]
-            if tools and isinstance(tools[0], dict):
-                return tools[0].get("id")
-        return None
-
     # -------------------------------------------------------------------------
     # Synchronous execution (for API compatibility)
     # -------------------------------------------------------------------------
@@ -131,7 +110,7 @@ class AnalysisExecutionService:
                 }
                 return {}, error_response
 
-            tool_name = self._get_first_tool_name(manifest)
+            tool_name = get_first_tool_name(manifest)
             if not tool_name:
                 error_response = {
                     "type": "invalid_plugin",

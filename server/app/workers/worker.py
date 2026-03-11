@@ -20,6 +20,7 @@ from typing import Any, Dict, List, Optional, Protocol
 from ..core.database import SessionLocal
 from ..models.job import Job, JobStatus
 from ..services.queue.memory_queue import InMemoryQueueService
+from ..services.tool_router import _iter_manifest_tools
 from .progress import send_job_completed
 from .worker_state import worker_last_heartbeat
 
@@ -712,22 +713,14 @@ class JobWorker:
                 tools_to_run = [job.tool]
 
             # Validate all tools exist and support the job type
-            manifest_tools = manifest.get("tools", [])
+            manifest_tools = _iter_manifest_tools(manifest)
 
             for tool_name in tools_to_run:
                 tool_def = None
-
-                # Handle list format (Phase 12+)
-                if isinstance(manifest_tools, list):
-                    for t in manifest_tools:
-                        if t.get("id") == tool_name:
-                            tool_def = t
-                            break
-                # Handle dict format (legacy)
-                elif isinstance(manifest_tools, dict):
-                    if tool_name in manifest_tools:
-                        tool_def = manifest_tools[tool_name]
-                        tool_def["id"] = tool_name
+                for t in manifest_tools:
+                    if t.get("id") == tool_name:
+                        tool_def = t
+                        break
 
                 if not tool_def:
                     job.status = JobStatus.failed
@@ -779,13 +772,10 @@ class JobWorker:
 
                 # Determine parameter name from first tool's manifest
                 first_tool_def = None
-                if isinstance(manifest_tools, list):
-                    for t in manifest_tools:
-                        if t.get("id") == tools_to_run[0]:
-                            first_tool_def = t
-                            break
-                elif isinstance(manifest_tools, dict):
-                    first_tool_def = manifest_tools.get(tools_to_run[0])
+                for t in manifest_tools:
+                    if t.get("id") == tools_to_run[0]:
+                        first_tool_def = t
+                        break
 
                 if first_tool_def:
                     tool_inputs = first_tool_def.get("inputs", [])

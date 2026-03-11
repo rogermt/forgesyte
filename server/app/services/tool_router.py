@@ -35,6 +35,27 @@ def _iter_manifest_tools(manifest: dict[str, Any]) -> list[dict[str, Any]]:
     return []
 
 
+def get_first_tool_name(manifest: dict[str, Any]) -> str | None:
+    """Get the first tool name from a plugin manifest.
+
+    Handles both dict and list formats for the tools field.
+    This consolidates duplicate logic from:
+    - analysis_execution_service.py
+    - worker.py
+    - ray_tasks.py
+
+    Args:
+        manifest: Plugin manifest dictionary
+
+    Returns:
+        First tool name or None if no tools
+    """
+    tools = _iter_manifest_tools(manifest)
+    if tools:
+        return tools[0].get("id")
+    return None
+
+
 def resolve_tools(
     logical_tool_ids: Iterable[str],
     file_mime: str,
