@@ -31,6 +31,8 @@ from typing import Any, Dict, List, Optional, Protocol
 
 import ray
 
+from .services.tool_router import iter_manifest_tools
+
 logger = logging.getLogger(__name__)
 
 
@@ -160,11 +162,8 @@ def _execute_pipeline_impl(
         if not manifest:
             raise RuntimeError(f"Plugin '{plugin_id}' not found")
 
-        manifest_tools = manifest.get("tools", [])
-
-        # Handle both dict and list format for tools
-        if isinstance(manifest_tools, dict):
-            manifest_tools = [{"id": k, **v} for k, v in manifest_tools.items()]
+        # Use shared helper to normalize tools to list format
+        manifest_tools = iter_manifest_tools(manifest)
 
         # Prepare arguments based on job type
         if job_type in ("image", "image_multi"):

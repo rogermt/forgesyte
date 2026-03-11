@@ -302,7 +302,10 @@ class PluginManagementService:
                     manifest[key] = raw_manifest[key]
 
             # Canonicalize inputs: normalize 'input_types' to 'inputs' for backward compatibility
-            for tool in manifest.get("tools", []):
+            # Lazy import to avoid circular dependency with tool_router
+            from .tool_router import iter_manifest_tools
+
+            for tool in iter_manifest_tools(manifest):
                 if "inputs" not in tool or not tool["inputs"]:
                     if "input_types" in tool and tool["input_types"]:
                         tool["inputs"] = tool["input_types"]
@@ -311,7 +314,7 @@ class PluginManagementService:
 
             logger.debug(
                 f"Loaded manifest for plugin '{plugin_id}': "
-                f"{len(manifest.get('tools', []))} tools"
+                f"{len(iter_manifest_tools(manifest))} tools"
             )
 
             return manifest

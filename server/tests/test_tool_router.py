@@ -274,3 +274,85 @@ class TestManifestToolsIteration:
             service,
         )
         assert tools == ["video_player_tracking"]
+
+
+class TestGetFirstToolName:
+    """Test get_first_tool_name() helper for extracting first tool from manifest.
+
+    This tests the shared utility function that consolidates duplicate logic
+    from analysis_execution_service.py, worker.py, and ray_tasks.py.
+    """
+
+    def test_dict_format_returns_first_key(self) -> None:
+        """Manifest with tools as dict returns first key."""
+        from app.services.tool_router import get_first_tool_name
+
+        manifest = {
+            "name": "test",
+            "tools": {
+                "analyze": {"description": "Analyze tool"},
+                "detect": {"description": "Detect tool"},
+            },
+        }
+        result = get_first_tool_name(manifest)
+        assert result == "analyze"
+
+    def test_list_format_returns_first_id(self) -> None:
+        """Manifest with tools as list returns first tool's id."""
+        from app.services.tool_router import get_first_tool_name
+
+        manifest = {
+            "name": "test",
+            "tools": [
+                {"id": "analyze", "description": "Analyze tool"},
+                {"id": "detect", "description": "Detect tool"},
+            ],
+        }
+        result = get_first_tool_name(manifest)
+        assert result == "analyze"
+
+    def test_empty_tools_dict_returns_none(self) -> None:
+        """Manifest with empty tools dict returns None."""
+        from app.services.tool_router import get_first_tool_name
+
+        manifest = {"name": "test", "tools": {}}
+        result = get_first_tool_name(manifest)
+        assert result is None
+
+    def test_empty_tools_list_returns_none(self) -> None:
+        """Manifest with empty tools list returns None."""
+        from app.services.tool_router import get_first_tool_name
+
+        manifest = {"name": "test", "tools": []}
+        result = get_first_tool_name(manifest)
+        assert result is None
+
+    def test_missing_tools_key_returns_none(self) -> None:
+        """Manifest without tools key returns None."""
+        from app.services.tool_router import get_first_tool_name
+
+        manifest = {"name": "test"}
+        result = get_first_tool_name(manifest)
+        assert result is None
+
+    def test_single_tool_dict(self) -> None:
+        """Manifest with single tool in dict format."""
+        from app.services.tool_router import get_first_tool_name
+
+        manifest = {
+            "name": "test",
+            "tools": {"analyze": {"description": "Analyze tool"}},
+        }
+        result = get_first_tool_name(manifest)
+        assert result == "analyze"
+
+    def test_single_tool_list(self) -> None:
+        """Manifest with single tool in list format."""
+        from app.services.tool_router import get_first_tool_name
+
+        manifest = {
+            "name": "test",
+            "tools": [{"id": "analyze", "description": "Analyze tool"}],
+        }
+        result = get_first_tool_name(manifest)
+        assert result == "analyze"

@@ -18,7 +18,7 @@ from typing import Any, Iterable, List
 from app.services.plugin_management_service import PluginManagementService
 
 
-def _iter_manifest_tools(manifest: dict[str, Any]) -> list[dict[str, Any]]:
+def iter_manifest_tools(manifest: dict[str, Any]) -> list[dict[str, Any]]:
     """Extract tools list from manifest, handling both list and dict formats.
 
     Args:
@@ -33,6 +33,27 @@ def _iter_manifest_tools(manifest: dict[str, Any]) -> list[dict[str, Any]]:
     if isinstance(tools, dict):
         return [{"id": k, **v} for k, v in tools.items()]
     return []
+
+
+def get_first_tool_name(manifest: dict[str, Any]) -> str | None:
+    """Get the first tool name from a plugin manifest.
+
+    Handles both dict and list formats for the tools field.
+    This consolidates duplicate logic from:
+    - analysis_execution_service.py
+    - worker.py
+    - ray_tasks.py
+
+    Args:
+        manifest: Plugin manifest dictionary
+
+    Returns:
+        First tool name or None if no tools
+    """
+    tools = iter_manifest_tools(manifest)
+    if tools:
+        return tools[0].get("id")
+    return None
 
 
 def resolve_tools(
@@ -71,7 +92,7 @@ def resolve_tools(
     if not manifest:
         raise ValueError(f"Plugin '{plugin_name}' manifest not found")
 
-    tools = _iter_manifest_tools(manifest)
+    tools = iter_manifest_tools(manifest)
 
     # Determine required input type from file MIME type
     required_input = (
