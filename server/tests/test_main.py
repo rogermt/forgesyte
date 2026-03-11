@@ -100,12 +100,15 @@ async def test_lifespan_ray_init_with_runtime_env(mock_plugin_manager):
         patch.dict("sys.modules", {"ray": mock_ray}),
         patch("app.main.PluginRegistry", return_value=mock_plugin_manager),
         patch("app.main.init_auth_service"),
+        patch("app.main.threading.Thread") as MockThread,
         patch.dict(
             os.environ,
             {"FORGESYTE_TEST": "value", "FORGESYTE_ENABLE_WORKERS": "1"},
             clear=False,
         ),
     ):
+        # Prevent real worker thread from starting
+        MockThread.return_value.start.return_value = None
         async with lifespan(app):
             pass
 
