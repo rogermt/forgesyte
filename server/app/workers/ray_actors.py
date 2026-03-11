@@ -1,15 +1,15 @@
 """Ray actors for real-time WebSocket streaming (Phase C).
 
-v0.13.0: Long-lived Ray Actors for holding plugin state in GPU memory
-across frames, enabling near-zero latency real-time streaming.
+v0.13.0: Long-lived Ray Actors for holding plugin state in memory
+across frames, enabling low-latency real-time streaming.
 
 Architecture:
-    WebSocket Frame → VisionAnalysisService → StreamingToolActor (GPU)
+    WebSocket Frame → VisionAnalysisService → StreamingToolActor (CPU or GPU)
                                                       ↓
                                               process_frame.remote()
                                                       ↓
                                               Plugin executed with
-                                              cached model in VRAM
+                                              cached model (GPU VRAM or CPU RAM)
 
 The Actor lifecycle is managed by VisionAnalysisService:
     - Created on first frame (lazy initialization)
@@ -34,11 +34,12 @@ class StreamingToolActor:
 
     This actor is created when a WebSocket client connects and requests
     a specific tool. The actor loads the plugin once and holds the model
-    in GPU VRAM, enabling near-zero latency for subsequent frames.
+    in memory (GPU VRAM if available, otherwise CPU RAM), enabling
+    low-latency processing for subsequent frames.
 
     Lifecycle:
         1. Created by VisionAnalysisService._get_or_create_actor()
-        2. Calls plugin.validate() to preload models into VRAM
+        2. Calls plugin.validate() to preload models into memory
         3. Processes frames via process_frame()
         4. Killed by VisionAnalysisService.cleanup_client()
 
@@ -92,10 +93,15 @@ class StreamingToolActor:
                     f"Available: {available}"
                 )
 
-            # Run validation to preload models into VRAM
+            # Run validation to preload models into memory
             if hasattr(plugin, "validate"):
                 plugin.validate()
-                logger.info(f"Plugin {plugin_id} validated, models preloaded into VRAM")
+                from app.services.device_selector import get_gpu_available
+
+                device_type = "GPU VRAM" if get_gpu_available() else "CPU RAM"
+                logger.info(
+                    f"Plugin {plugin_id} validated, models preloaded into {device_type}"
+                )
         except Exception as e:
             raise RuntimeError(
                 f"Actor initialization failed for {plugin_id}.{tool_name}: {e}"
@@ -105,7 +111,7 @@ class StreamingToolActor:
         """Process a single frame synchronously within the long-lived actor.
 
         This method is called for each incoming frame from the WebSocket.
-        The plugin's model is already loaded in VRAM, so execution is fast.
+        The plugin's model is already loaded in memory, so execution is fast.
 
         Args:
             args: Arguments dict with:
