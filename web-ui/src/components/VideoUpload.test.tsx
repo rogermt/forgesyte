@@ -328,16 +328,19 @@ describe("VideoUpload", () => {
             const startButton = screen.getByText("Start Streaming");
             fireEvent.click(startButton);
 
+            // v0.13.11: Increased timeout for retry logic (Issue #320)
+            // withRetry does 3 retries with ~1400ms total delay
             await waitFor(() => {
                 expect(screen.getByText(/Upload failed/i)).toBeInTheDocument();
-            });
+            }, { timeout: 3000 });
 
             // Should NOT call callbacks on failure
             expect(onStartStreaming).not.toHaveBeenCalled();
         });
 
         it("clears error when new file is selected", async () => {
-            (apiClient.submitVideoUpload as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
+            // v0.13.11: Use mockRejectedValue (not mockRejectedValueOnce) because withRetry retries
+            (apiClient.submitVideoUpload as ReturnType<typeof vi.fn>).mockRejectedValue(
                 new Error("Upload failed")
             );
 
@@ -359,9 +362,10 @@ describe("VideoUpload", () => {
             const startButton = screen.getByText("Start Streaming");
             fireEvent.click(startButton);
 
+            // v0.13.11: Increased timeout for retry logic (Issue #320)
             await waitFor(() => {
                 expect(screen.getByText(/Upload failed/i)).toBeInTheDocument();
-            });
+            }, { timeout: 3000 });
 
             // Select a new file
             const file2 = new File(["test2"], "test2.mp4", { type: "video/mp4" });

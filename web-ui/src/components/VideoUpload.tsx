@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useCallback } from "react";
 import { apiClient } from "../api/client";
 import type { PluginManifest } from "../types/plugin";
+import { withRetry } from "../utils/runTool";
 
 interface VideoUploadProps {
   pluginId: string | null;
@@ -53,10 +54,8 @@ export const VideoUpload: React.FC<VideoUploadProps> = ({
     setProgress(0);
 
     try {
-      const result = await apiClient.submitVideoUpload(
-        file,
-        pluginId,
-        (p) => setProgress(p)
+      const result = await withRetry(() =>
+        apiClient.submitVideoUpload(file, pluginId, (p) => setProgress(p))
       );
 
       return result.video_path;
