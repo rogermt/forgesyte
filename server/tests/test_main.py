@@ -90,7 +90,11 @@ async def test_lifespan_startup_shutdown(mock_plugin_manager):
 async def test_lifespan_ray_init_with_runtime_env(mock_plugin_manager):
     """Test that lifespan initializes Ray with runtime_env for WebSocket actors."""
     mock_ray = MagicMock()
+    # Simulate real Ray behavior: is_initialized returns True after init is called
     mock_ray.is_initialized.return_value = False
+    mock_ray.init.side_effect = lambda *args, **kwargs: setattr(
+        mock_ray.is_initialized, "return_value", True
+    )
 
     with (
         patch.dict("sys.modules", {"ray": mock_ray}),
