@@ -31,7 +31,7 @@ from typing import Any, Dict, List, Optional, Protocol
 
 import ray
 
-from .services.tool_router import _iter_manifest_tools
+from .services.tool_router import iter_manifest_tools
 
 logger = logging.getLogger(__name__)
 
@@ -163,7 +163,7 @@ def _execute_pipeline_impl(
             raise RuntimeError(f"Plugin '{plugin_id}' not found")
 
         # Use shared helper to normalize tools to list format
-        manifest_tools = _iter_manifest_tools(manifest)
+        manifest_tools = iter_manifest_tools(manifest)
 
         # Prepare arguments based on job type
         if job_type in ("image", "image_multi"):

@@ -20,7 +20,7 @@ from typing import Any, Dict, List, Optional, Protocol
 from ..core.database import SessionLocal
 from ..models.job import Job, JobStatus
 from ..services.queue.memory_queue import InMemoryQueueService
-from ..services.tool_router import _iter_manifest_tools
+from ..services.tool_router import iter_manifest_tools
 from .progress import send_job_completed
 from .worker_state import worker_last_heartbeat
 
@@ -713,7 +713,7 @@ class JobWorker:
                 tools_to_run = [job.tool]
 
             # Validate all tools exist and support the job type
-            manifest_tools = _iter_manifest_tools(manifest)
+            manifest_tools = iter_manifest_tools(manifest)
 
             for tool_name in tools_to_run:
                 tool_def = None
