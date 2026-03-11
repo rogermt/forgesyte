@@ -311,3 +311,72 @@ class TestPydanticModelHandling:
         assert isinstance(result["test_tool"], dict)
         assert result["test_tool"]["status"] == "completed"
         assert result["test_tool"]["count"] == 42
+
+
+class TestPluginServiceInitialization:
+    """Tests for plugin service initialization (Issue #304).
+
+    These tests verify that _get_plugin_service() properly loads plugins
+    by calling registry.load_plugins(). Without this call, the registry
+    remains empty and plugin lookups fail.
+    """
+
+    def test_get_plugin_service_loads_plugins(self, monkeypatch):
+        """Test that _get_plugin_service() loads plugins from entry points.
+
+        This test injects a test-controlled plugin via monkeypatch to avoid
+        depending on externally-installed plugins like 'ocr'.
+
+        Issue #304: Without load_plugins(), the PluginRegistry is empty,
+        causing "Plugin not found" errors in Ray workers.
+        """
+        from app.plugins.base import BasePlugin
+        from app.ray_tasks import _get_plugin_service
+
+        # Create a minimal test plugin
+        class DummyPlugin(BasePlugin):
+            name = "test_dummy"
+
+            def __init__(self):
+                self.tools = {
+                    "test_tool": {
+                        "description": "Test tool",
+                        "input_schema": {"type": "object"},
+                        "output_schema": {"type": "object"},
+                        "handler": lambda **args: args,
+                    }
+                }
+                super().__init__()
+
+            def run_tool(self, tool_name: str, args: dict) -> dict:
+                return args
+
+        # Monkeypatch entry_points to return our dummy plugin
+        class DummyEntryPoint:
+            name = "test_dummy"
+
+            def load(self):
+                return DummyPlugin
+
+        def fake_entry_points(group=None):
+            if group == "forgesyte.plugins":
+                return [DummyEntryPoint()]
+            return []
+
+        monkeypatch.setattr("app.plugin_loader.entry_points", fake_entry_points)
+
+        # Call the real function
+        service = _get_plugin_service()
+
+        # Verify the dummy plugin was loaded by checking the registry directly
+        # (get_plugin_manifest requires a manifest.json file which test plugins lack)
+        plugin = service.registry.get("test_dummy")
+
+        # If load_plugins() was NOT called, plugin would be None
+        # If load_plugins() WAS called, plugin should be a BasePlugin instance
+        assert plugin is not None, (
+            "Plugin 'test_dummy' not found - _get_plugin_service() likely "
+            "forgot to call registry.load_plugins()"
+        )
+        assert plugin.name == "test_dummy"
+        assert "test_tool" in plugin.tools

@@ -218,6 +218,85 @@ async def lifespan(app: FastAPI):
         app.state.pipeline_registry = PipelineRegistryService(str(pipelines_dir))
         app.state.plugin_manager_for_pipelines = plugin_manager
 
+        # Phase 12: Initialize execution service chain for /v1/analyze-execution endpoint
+        # Issue #303: This chain is required for the sync analyze-execution endpoint
+        import base64
+        import inspect
+
+        from .services.execution import (
+            AnalysisExecutionService,
+            JobExecutionService,
+            PluginExecutionService,
+        )
+
+        async def tool_runner(tool_name: str, args: dict) -> dict:
+            """Production tool_runner that delegates to loaded plugins.
+
+            The tool_runner receives plugin_name via args (passed by
+            AnalysisExecutionService.analyze()) to route to the correct plugin.
+
+            Args:
+                tool_name: Name of the tool to execute
+                args: Tool arguments including 'plugin_name', 'image', etc.
+
+            Returns:
+                Tool execution result as dict
+            """
+            # Default to 'analyze' if tool_name is empty
+            effective_tool = tool_name or "analyze"
+
+            # Get plugin name from args (passed by AnalysisExecutionService)
+            plugin_name = args.get("plugin_name")
+            if not plugin_name:
+                raise ValueError("plugin_name required in args for tool execution")
+
+            plugin = plugin_manager.get(plugin_name)
+            if not plugin:
+                raise ValueError(f"Plugin '{plugin_name}' not found")
+
+            # Convert base64 image string to bytes for plugins
+            processed_args = dict(args)
+            if "image" in processed_args and isinstance(processed_args["image"], str):
+                try:
+                    processed_args["image_bytes"] = base64.b64decode(
+                        processed_args["image"]
+                    )
+                except Exception:
+                    pass  # Keep original if decode fails
+
+            if hasattr(plugin, "run_tool"):
+                # run_tool may be sync or async
+                result = plugin.run_tool(effective_tool, processed_args)
+                if inspect.iscoroutine(result):
+                    result = await result
+                # Handle Pydantic models
+                if hasattr(result, "model_dump"):
+                    return result.model_dump()
+                return result if isinstance(result, dict) else {"result": result}
+
+            # Fallback: try analyze method directly
+            if hasattr(plugin, "analyze"):
+                image_data = processed_args.get(
+                    "image_bytes", processed_args.get("image", b"")
+                )
+                result = plugin.analyze(image_data)
+                if hasattr(result, "model_dump"):
+                    return result.model_dump()
+                return result if isinstance(result, dict) else {"result": result}
+
+            raise RuntimeError(
+                f"Plugin '{plugin_name}' has no run_tool or analyze method"
+            )
+
+        plugin_exec_service = PluginExecutionService(tool_runner)
+        job_exec_service = JobExecutionService(plugin_exec_service)
+        # Issue #302: Pass plugin_service for tool_name resolution from manifest
+        analysis_exec_service = AnalysisExecutionService(
+            job_exec_service, app.state.plugin_service
+        )
+        app.state.analysis_execution_service = analysis_exec_service
+        logger.info("Execution service chain initialized for /v1/analyze-execution")
+
     except Exception as e:
         logger.error("Service initialization failed", extra={"error": str(e)})
 

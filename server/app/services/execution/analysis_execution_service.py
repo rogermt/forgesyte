@@ -15,13 +15,21 @@ Execution Chain:
 """
 
 import logging
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, Optional, Protocol, Tuple
 
 from app.models_pydantic import JobStatus
 
 from .job_execution_service import JobExecutionService
 
 logger = logging.getLogger(__name__)
+
+
+class PluginServiceProtocol(Protocol):
+    """Protocol for PluginManagementService (for type hints)."""
+
+    def get_plugin_manifest(self, plugin_id: str) -> Optional[Dict[str, Any]]:
+        """Get plugin manifest by ID."""
+        ...
 
 
 class AnalysisExecutionService:
@@ -33,6 +41,7 @@ class AnalysisExecutionService:
     - Create job via JobExecutionService
     - Run job and return result/error
     - Present results in API-friendly format
+    - Resolve tool_name from plugin manifest if not provided (Issue #302)
 
     Does NOT:
     - Call ToolRunner directly
@@ -42,14 +51,42 @@ class AnalysisExecutionService:
     This is the top-level service that API routes interact with.
     """
 
-    def __init__(self, job_execution_service: JobExecutionService):
+    def __init__(
+        self,
+        job_execution_service: JobExecutionService,
+        plugin_service: Optional[PluginServiceProtocol] = None,
+    ):
         """Initialize analysis execution service.
 
         Args:
             job_execution_service: Service for job lifecycle management
+            plugin_service: Service for plugin manifest lookup (optional for backwards compat)
         """
         self._job_execution_service = job_execution_service
+        self._plugin_service = plugin_service
         logger.debug("AnalysisExecutionService initialized")
+
+    def _get_first_tool_name(self, manifest: Dict[str, Any]) -> Optional[str]:
+        """Get the first tool name from a plugin manifest.
+
+        Handles both dict and list formats for tools field.
+
+        Args:
+            manifest: Plugin manifest dictionary
+
+        Returns:
+            First tool name or None if no tools
+        """
+        tools = manifest.get("tools", {})
+        if isinstance(tools, dict):
+            # Tools as dict: {"analyze": {...}, "detect": {...}}
+            if tools:
+                return next(iter(tools.keys()))
+        elif isinstance(tools, list):
+            # Tools as list: [{"id": "analyze", ...}, ...]
+            if tools and isinstance(tools[0], dict):
+                return tools[0].get("id")
+        return None
 
     # -------------------------------------------------------------------------
     # Synchronous execution (for API compatibility)
@@ -64,6 +101,9 @@ class AnalysisExecutionService:
         Creates a job, runs it immediately, and returns (result, error).
         This is the asynchronous wrapper that API routes expect.
 
+        Issue #302: If tool_name is not provided, get first tool from manifest.
+        Issue #303: Include plugin_name in args for tool_runner.
+
         Args:
             plugin_name: Name of the plugin to execute
             args: Tool-specific arguments including 'image' and 'mime_type'
@@ -72,21 +112,52 @@ class AnalysisExecutionService:
             Tuple of (result_dict, error_dict) where error_dict is None on success
         """
         # Extract tool_name from args if present
-        # If not provided, pass None to JobExecutionService which handles tool selection
         tool_name: Optional[str] = args.get("tool_name")
 
+        # Issue #302: If tool_name not provided, get from plugin manifest
+        if not tool_name:
+            if not self._plugin_service:
+                error_response: dict[str, Any] = {
+                    "type": "configuration_error",
+                    "message": "plugin_service not configured for tool_name resolution",
+                }
+                return {}, error_response
+
+            manifest = self._plugin_service.get_plugin_manifest(plugin_name)
+            if not manifest:
+                error_response = {
+                    "type": "plugin_not_found",
+                    "message": f"Plugin '{plugin_name}' not found",
+                }
+                return {}, error_response
+
+            tool_name = self._get_first_tool_name(manifest)
+            if not tool_name:
+                error_response = {
+                    "type": "invalid_plugin",
+                    "message": f"Plugin '{plugin_name}' has no tools defined in manifest",
+                }
+                return {}, error_response
+
+            logger.debug(
+                "Tool name resolved from manifest",
+                extra={"plugin_name": plugin_name, "tool_name": tool_name},
+            )
+
+        # Issue #303: Include plugin_name in args for tool_runner
+        args_with_plugin = {**args, "plugin_name": plugin_name}
+
         # Create and run job asynchronously without asyncio.run()
-        # JobExecutionService validates tool_name against plugin manifest
         job_id = await self._job_execution_service.create_job(
             plugin_name=plugin_name,
-            tool_name=tool_name or "",  # type: ignore  # JobExecutionService handles validation
-            args=args,
+            tool_name=tool_name,
+            args=args_with_plugin,
         )
         job_result = await self._job_execution_service.run_job(job_id)
 
         # Return (result, error) tuple
         if job_result.get("error"):
-            error_response: dict[str, Any] = {
+            error_response = {
                 "type": "execution_error",
                 "message": job_result["error"],
             }
@@ -132,14 +203,14 @@ class AnalysisExecutionService:
             },
         )
 
+        # Issue #303: Include plugin_name in args for tool_runner
+        args_with_plugin = {**args, "mime_type": mime_type, "plugin_name": plugin_name}
+
         # Create job
         job_id = await self._job_execution_service.create_job(
             plugin_name=plugin_name,
             tool_name=tool_name,
-            args={
-                **args,
-                "mime_type": mime_type,
-            },
+            args=args_with_plugin,
         )
 
         # Run job
@@ -190,14 +261,14 @@ class AnalysisExecutionService:
             },
         )
 
+        # Issue #303: Include plugin_name in args for tool_runner
+        args_with_plugin = {**args, "mime_type": mime_type, "plugin_name": plugin_name}
+
         # Create job (doesn't start execution yet)
         job_id = await self._job_execution_service.create_job(
             plugin_name=plugin_name,
             tool_name=tool_name,
-            args={
-                **args,
-                "mime_type": mime_type,
-            },
+            args=args_with_plugin,
         )
 
         return {

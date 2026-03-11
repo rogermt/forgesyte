@@ -485,3 +485,88 @@ def test_worker_flattens_video_results_for_ui(test_engine, session):
     assert "results" not in saved_json or not isinstance(
         saved_json.get("results"), list
     )
+
+
+# Issue #304: Test that sync mode fallback loads plugins
+
+
+@pytest.mark.unit
+def test_worker_sync_mode_loads_plugins(test_engine, session):
+    """Test that sync mode fallback loads plugins when plugin_service is None.
+
+    Issue #304: When JobWorker is created without a plugin_service (common in
+    production), it falls back to creating a PluginRegistry in _execute_pipeline.
+    This fallback must call load_plugins() or the registry remains empty.
+
+    This test creates a worker WITHOUT injecting a mock plugin_service,
+    testing the real fallback code path.
+    """
+    import tempfile
+    from importlib.metadata import entry_points
+
+    from PIL import Image
+
+    # Skip if OCR plugin entry point is not available (clean CI environments)
+    eps = entry_points(group="forgesyte.plugins")
+    ocr_available = any(ep.name == "ocr" for ep in eps)
+    if not ocr_available:
+        pytest.skip("OCR plugin entry point not available - requires forgesyte-plugins")
+
+    Session = sessionmaker(bind=test_engine)
+
+    mock_storage = MagicMock()
+
+    # Create worker WITHOUT plugin_service - triggers fallback code path
+    worker = JobWorker(
+        session_factory=Session,
+        storage=mock_storage,
+        plugin_service=None,  # Explicitly None to trigger fallback
+    )
+
+    # Create a real test image file for OCR
+    with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as f:
+        test_image_path = f.name
+        # Create a simple white image
+        img = Image.new("RGB", (100, 50), color="white")
+        img.save(f, format="PNG")
+
+    # Create a pending job
+    job_id = str(uuid4())
+    job = Job(
+        job_id=job_id,
+        status=JobStatus.pending,
+        plugin_id="ocr",  # Use a known plugin
+        tool="analyze",  # OCR plugin's tool name
+        input_path="image/input/test.png",
+        job_type="image",
+    )
+    session.add(job)
+    session.commit()
+
+    # Setup storage mock to return real temp file
+    mock_storage.load_file.return_value = test_image_path
+    mock_storage.save_file.return_value = "image/output/test.json"
+
+    # Execute - this will fail if load_plugins() is missing
+    result = worker.run_once()
+
+    # Check job state for diagnostics
+    session.expire_all()
+    updated_job = session.query(Job).filter(Job.job_id == job_id).first()
+
+    # Cleanup temp file
+    import os
+
+    os.unlink(test_image_path)
+
+    # If load_plugins() was NOT called, result would be False (plugin not found)
+    # If load_plugins() WAS called, the OCR plugin should be found
+    assert result is True, (
+        f"Worker failed: result={result}, "
+        f"job_status={updated_job.status if updated_job else 'None'}, "
+        f"error_message={updated_job.error_message if updated_job else 'None'}. "
+        f"Sync mode fallback may have forgotten to call plugin_manager.load_plugins()"
+    )
+
+    # Verify job completed
+    assert updated_job.status == JobStatus.completed
