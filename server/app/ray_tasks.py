@@ -1,12 +1,12 @@
 """Ray remote tasks for distributed plugin execution.
 
 This module provides Ray-decorated functions for executing plugin tools
-in a distributed Ray cluster environment. GPU-heavy plugins (like YOLO)
-can be executed on remote GPU workers while the head node manages job dispatch.
+in a distributed Ray cluster environment. Tasks run on any available
+Ray worker (CPU or GPU). Plugins detect and use GPU at runtime via CUDA.
 
 Architecture:
-    Laptop (Ray Head) --> Lightning AI (GPU Worker)
-                        --> Lightning AI (GPU Worker)
+    Laptop (Ray Head) --> Ray Worker (CPU or GPU)
+                        --> Ray Worker (CPU or GPU)
                         --> ...
 
 The head node dispatches jobs via execute_pipeline_remote.remote() and
@@ -89,18 +89,19 @@ def _get_storage_service() -> StorageServiceProtocol:
     return get_storage_service(settings)
 
 
-@ray.remote(num_gpus=1)
+@ray.remote(num_gpus=0)
 def execute_pipeline_remote(
     plugin_id: str,
     tools_to_run: List[str],
     input_path: str,
     job_type: str,
 ) -> Dict[str, Any]:
-    """Execute a plugin pipeline on a Ray worker (GPU-enabled).
+    """Execute a plugin pipeline on a Ray worker.
 
-    This function runs on a Ray worker node (e.g., Lightning AI GPU).
-    It downloads the input file from storage, executes the plugin tools,
-    and returns the results.
+    This function runs on any Ray worker node (CPU or GPU). Plugins can
+    detect and use GPU at runtime via CUDA availability. It downloads
+    the input file from storage, executes the plugin tools, and returns
+    the results.
 
     Args:
         plugin_id: Plugin identifier (e.g., "yolo", "ocr")

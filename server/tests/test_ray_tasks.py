@@ -260,6 +260,26 @@ class TestRayTaskDecorator:
         assert hasattr(execute_pipeline_remote, "remote")
         assert callable(execute_pipeline_remote.remote)
 
+    def test_execute_pipeline_remote_no_gpu_requirement(self):
+        """Verify execute_pipeline_remote doesn't require GPU (Issue #301).
+
+        Ray tasks should be schedulable on CPU-only clusters. Plugins can
+        use GPU via CUDA detection if available. Hardcoding num_gpus=1
+        blocks execution on clusters without GPU nodes.
+
+        Error: "No available node types can fulfill resource request {'GPU': 1.0}"
+        """
+        from app.ray_tasks import execute_pipeline_remote
+
+        # Ray remote functions store decorator options in _default_options
+        # num_gpus should be 0 (no GPU requirement) or not set
+        num_gpus = execute_pipeline_remote._default_options.get("num_gpus", 0)
+        assert num_gpus == 0, (
+            f"execute_pipeline_remote has num_gpus={num_gpus}, "
+            "which blocks CPU-only clusters. Set num_gpus=0 to allow "
+            "scheduling on any node (plugins can detect GPU at runtime)."
+        )
+
 
 class TestStorageIntegration:
     """Tests for storage integration in Ray tasks."""
