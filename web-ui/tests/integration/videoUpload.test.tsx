@@ -250,10 +250,12 @@ describe("VideoUpload Integration", () => {
             fireEvent.click(startButton);
         });
 
+        // v0.13.11: Increased timeout for retry logic (Issue #320)
+        // withRetry does 3 retries with ~1400ms total delay
         // Verify error is shown
         await waitFor(() => {
             expect(screen.getByText(/Upload failed: server error/i)).toBeInTheDocument();
-        });
+        }, { timeout: 3000 });
 
         // Verify callbacks were NOT called on failure
         expect(onVideoUploaded).not.toHaveBeenCalled();
