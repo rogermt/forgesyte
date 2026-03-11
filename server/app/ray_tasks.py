@@ -89,7 +89,7 @@ def _get_storage_service() -> StorageServiceProtocol:
     return get_storage_service(settings)
 
 
-@ray.remote(num_gpus=1)
+@ray.remote(num_gpus=0)
 def execute_pipeline_remote(
     plugin_id: str,
     tools_to_run: List[str],

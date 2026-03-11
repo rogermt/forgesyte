@@ -25,10 +25,10 @@ import ray
 logger = logging.getLogger(__name__)
 
 
-# Fractional GPU allocation: 0.25 allows up to 4 concurrent actors per GPU.
-# This prevents CPU-only scheduling while avoiding deadlock from full GPU
-# reservation when multiple tools are requested per WebSocket.
-@ray.remote(num_gpus=0.25)
+# No GPU requirement: Allow scheduling on CPU-only clusters.
+# Plugins can detect and use GPU at runtime via CUDA availability.
+# This fixes Issue #301: "No available node types can fulfill resource request {'GPU': 1.0}"
+@ray.remote(num_gpus=0)
 class StreamingToolActor:
     """Ray Actor for holding plugin state in memory across frames.
 
