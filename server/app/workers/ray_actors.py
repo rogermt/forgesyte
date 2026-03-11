@@ -22,6 +22,8 @@ from typing import Any, Dict
 
 import ray
 
+from app.services.device_selector import get_gpu_available
+
 logger = logging.getLogger(__name__)
 
 
@@ -96,8 +98,6 @@ class StreamingToolActor:
             # Run validation to preload models into memory
             if hasattr(plugin, "validate"):
                 plugin.validate()
-                from app.services.device_selector import get_gpu_available
-
                 device_type = "GPU VRAM" if get_gpu_available() else "CPU RAM"
                 logger.info(
                     f"Plugin {plugin_id} validated, models preloaded into {device_type}"
