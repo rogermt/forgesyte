@@ -309,21 +309,10 @@ async def lifespan(app: FastAPI):
 
             try:
                 if not ray.is_initialized():
+                    from .workers.worker import get_ray_runtime_env
+
+                    runtime_env = get_ray_runtime_env()
                     ray_address = os.environ.get("RAY_ADDRESS")
-
-                    # Lightweight sync: Avoid 'working_dir' upload penalty.
-                    cwd = str(Path.cwd().resolve())
-                    curr_pp = os.environ.get("PYTHONPATH", "")
-                    new_pp = f"{cwd}:{curr_pp}" if curr_pp else cwd
-
-                    runtime_env = {
-                        "env_vars": {
-                            k: v
-                            for k, v in os.environ.items()
-                            if k.startswith(("FORGESYTE_", "RAY_"))
-                        }
-                    }
-                    runtime_env["env_vars"]["PYTHONPATH"] = new_pp
 
                     if ray_address:
                         ray.init(

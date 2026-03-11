@@ -112,6 +112,34 @@ def _merge_video_frames(
     }
 
 
+def get_ray_runtime_env() -> dict:
+    """Build Ray runtime_env with FORGESYTE_* vars and PYTHONPATH sync.
+
+    This shared helper ensures consistent runtime_env construction between
+    main.py (WebSocket actors) and worker.py (background job processing).
+
+    Returns:
+        dict: runtime_env dict with env_vars containing:
+            - FORGESYTE_* environment variables
+            - RAY_* environment variables
+            - PYTHONPATH with CWD prepended
+    """
+    import os
+    from pathlib import Path
+
+    cwd = str(Path.cwd().resolve())
+    current_pythonpath = os.environ.get("PYTHONPATH", "")
+    new_pythonpath = f"{cwd}:{current_pythonpath}" if current_pythonpath else cwd
+
+    runtime_env = {
+        "env_vars": {
+            k: v for k, v in os.environ.items() if k.startswith(("FORGESYTE_", "RAY_"))
+        }
+    }
+    runtime_env["env_vars"]["PYTHONPATH"] = new_pythonpath
+    return runtime_env
+
+
 def init_ray() -> bool:
     """Initialize Ray with configurable mode.
 
@@ -123,25 +151,11 @@ def init_ray() -> bool:
         True if initialization succeeded, False otherwise
     """
     import os
-    from pathlib import Path
 
     import ray
 
     try:
-        # Lightweight sync: Pass FORGESYTE_* vars and inject CWD into PYTHONPATH.
-        # This avoids the massive performance penalty of Ray's 'working_dir' upload
-        # while still allowing workers to resolve local plugins on a shared filesystem.
-        cwd = str(Path.cwd().resolve())
-        current_pythonpath = os.environ.get("PYTHONPATH", "")
-        new_pythonpath = f"{cwd}:{current_pythonpath}" if current_pythonpath else cwd
-        runtime_env = {
-            "env_vars": {
-                k: v
-                for k, v in os.environ.items()
-                if k.startswith(("FORGESYTE_", "RAY_"))
-            }
-        }
-        runtime_env["env_vars"]["PYTHONPATH"] = new_pythonpath
+        runtime_env = get_ray_runtime_env()
 
         ray_address = os.environ.get("RAY_ADDRESS")
         if ray_address:
