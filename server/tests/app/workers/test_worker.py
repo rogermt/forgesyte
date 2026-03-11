@@ -502,8 +502,15 @@ def test_worker_sync_mode_loads_plugins(test_engine, session):
     testing the real fallback code path.
     """
     import tempfile
+    from importlib.metadata import entry_points
 
     from PIL import Image
+
+    # Skip if OCR plugin entry point is not available (clean CI environments)
+    eps = entry_points(group="forgesyte.plugins")
+    ocr_available = any(ep.name == "ocr" for ep in eps)
+    if not ocr_available:
+        pytest.skip("OCR plugin entry point not available - requires forgesyte-plugins")
 
     Session = sessionmaker(bind=test_engine)
 
