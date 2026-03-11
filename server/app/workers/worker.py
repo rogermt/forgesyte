@@ -138,7 +138,7 @@ def init_ray() -> bool:
             "env_vars": {
                 k: v
                 for k, v in os.environ.items()
-                if k.startswith(("FORGESYTE_", "RAY_")) or k == "PATH"
+                if k.startswith(("FORGESYTE_", "RAY_"))
             }
         }
         runtime_env["env_vars"]["PYTHONPATH"] = new_pythonpath

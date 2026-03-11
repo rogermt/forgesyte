@@ -129,8 +129,9 @@ class TestRayInitialization:
         # Should pass FORGESYTE_* vars
         assert env_vars.get("FORGESYTE_CUSTOM") == "test_value"
 
-        # Should NOT pass unrelated vars
+        # Should NOT pass unrelated vars OR PATH (PATH overwrites worker node's binary paths)
         assert "UNRELATED_VAR" not in env_vars
+        assert "PATH" not in env_vars
 
 
 class TestWorkerRayIntegration:

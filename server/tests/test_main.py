@@ -114,6 +114,8 @@ async def test_lifespan_ray_init_with_runtime_env(mock_plugin_manager):
     call_kwargs = mock_ray.init.call_args.kwargs
     assert "runtime_env" in call_kwargs
     assert "env_vars" in call_kwargs["runtime_env"]
+    # PATH should NOT be in env_vars (overwrites worker node's binary paths)
+    assert "PATH" not in call_kwargs["runtime_env"]["env_vars"]
 
 
 def test_app_creation():
