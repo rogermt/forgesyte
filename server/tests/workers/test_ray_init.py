@@ -12,6 +12,7 @@ class TestRayInitialization:
         from app.workers.worker import init_ray
 
         mock_ray = MagicMock()
+        mock_ray.is_initialized.return_value = False
 
         with patch.dict("sys.modules", {"ray": mock_ray}):
             with patch.dict(os.environ, {}, clear=True):
@@ -30,6 +31,7 @@ class TestRayInitialization:
         from app.workers.worker import init_ray
 
         mock_ray = MagicMock()
+        mock_ray.is_initialized.return_value = False
 
         with patch.dict("sys.modules", {"ray": mock_ray}):
             with patch.dict(
@@ -45,23 +47,26 @@ class TestRayInitialization:
         assert "env_vars" in call_kwargs["runtime_env"]
 
     def test_init_ray_idempotent(self):
-        """Test Ray init is idempotent (handles re-init gracefully)."""
+        """Test Ray init is idempotent - skips init if already initialized."""
         from app.workers.worker import init_ray
 
         mock_ray = MagicMock()
+        # First call: not initialized, second call: initialized
+        mock_ray.is_initialized.side_effect = [False, True]
 
         with patch.dict("sys.modules", {"ray": mock_ray}):
             init_ray()
-            init_ray()  # Call twice
+            init_ray()  # Call twice - should skip second init
 
-        # Should be called twice but with ignore_reinit_error=True
-        assert mock_ray.init.call_count == 2
+        # Should only be called once (second call skips due to is_initialized check)
+        mock_ray.init.assert_called_once()
 
     def test_init_ray_returns_on_success(self):
         """Test init_ray returns True on successful initialization."""
         from app.workers.worker import init_ray
 
         mock_ray = MagicMock()
+        mock_ray.is_initialized.return_value = False
 
         with patch.dict("sys.modules", {"ray": mock_ray}):
             result = init_ray()
@@ -73,6 +78,7 @@ class TestRayInitialization:
         from app.workers.worker import init_ray
 
         mock_ray = MagicMock()
+        mock_ray.is_initialized.return_value = False
         mock_ray.init.side_effect = RuntimeError("Ray failed to start")
 
         with patch.dict("sys.modules", {"ray": mock_ray}):
@@ -85,6 +91,7 @@ class TestRayInitialization:
         from app.workers.worker import init_ray
 
         mock_ray = MagicMock()
+        mock_ray.is_initialized.return_value = False
 
         with patch.dict("sys.modules", {"ray": mock_ray}):
             with patch.dict(os.environ, {"PYTHONPATH": "/existing/path"}, clear=False):
@@ -112,6 +119,7 @@ class TestRayInitialization:
         from app.workers.worker import init_ray
 
         mock_ray = MagicMock()
+        mock_ray.is_initialized.return_value = False
 
         test_env = {
             "FORGESYTE_CUSTOM": "test_value",
@@ -132,6 +140,20 @@ class TestRayInitialization:
         # Should NOT pass unrelated vars OR PATH (PATH overwrites worker node's binary paths)
         assert "UNRELATED_VAR" not in env_vars
         assert "PATH" not in env_vars
+
+    def test_init_ray_skips_if_already_initialized(self):
+        """Test that init_ray skips initialization if Ray is already running."""
+        from app.workers.worker import init_ray
+
+        mock_ray = MagicMock()
+        mock_ray.is_initialized.return_value = True  # Already initialized
+
+        with patch.dict("sys.modules", {"ray": mock_ray}):
+            result = init_ray()
+
+        # Should return True without calling ray.init
+        assert result is True
+        mock_ray.init.assert_not_called()
 
 
 class TestWorkerRayIntegration:

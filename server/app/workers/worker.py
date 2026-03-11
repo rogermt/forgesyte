@@ -155,6 +155,10 @@ def init_ray() -> bool:
     import ray
 
     try:
+        # Skip if already initialized (e.g., by main.py for WebSocket actors)
+        if ray.is_initialized():
+            return True
+
         runtime_env = get_ray_runtime_env()
 
         ray_address = os.environ.get("RAY_ADDRESS")
