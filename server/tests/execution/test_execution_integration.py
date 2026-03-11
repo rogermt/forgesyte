@@ -206,6 +206,86 @@ class TestFullExecutionFlow:
         assert job["started_at"] is not None
         assert job["completed_at"] is not None
 
+    @pytest.mark.asyncio
+    async def test_submit_analysis_includes_plugin_name_in_args(
+        self, integrated_services
+    ):
+        """Test that submit_analysis() includes plugin_name in args (Issue #303)."""
+        analysis_service = integrated_services["analysis"]
+        tool_runner = integrated_services["tool_runner"]
+
+        # Execute via submit_analysis
+        result = await analysis_service.submit_analysis(
+            plugin_name="test_plugin",
+            tool_name="test_tool",
+            args={"image": "base64_encoded_image_data"},
+            mime_type="image/png",
+        )
+
+        # Verify job completed
+        assert result["status"] == JobStatus.DONE.value
+
+        # Verify plugin_name is in args passed to tool_runner (Issue #303)
+        assert len(tool_runner.execute_calls) == 1
+        call = tool_runner.execute_calls[0]
+        assert (
+            "plugin_name" in call["args"]
+        ), "plugin_name missing from args - submit_analysis() must include it for tool_runner routing"
+        assert call["args"]["plugin_name"] == "test_plugin"
+
+    @pytest.mark.asyncio
+    async def test_submit_analysis_async_includes_plugin_name_in_args(
+        self, integrated_services
+    ):
+        """Test that submit_analysis_async() includes plugin_name in args (Issue #303)."""
+        analysis_service = integrated_services["analysis"]
+        tool_runner = integrated_services["tool_runner"]
+
+        # Submit job asynchronously
+        job_info = await analysis_service.submit_analysis_async(
+            plugin_name="test_plugin_async",
+            tool_name="test_tool",
+            args={"image": "base64_encoded_image_data"},
+            mime_type="image/png",
+        )
+
+        # Start the job
+        job_result = await analysis_service.start_job(job_info["job_id"])
+
+        # Verify job completed
+        assert job_result["status"] == JobStatus.DONE.value
+
+        # Verify plugin_name is in args passed to tool_runner (Issue #303)
+        assert len(tool_runner.execute_calls) == 1
+        call = tool_runner.execute_calls[0]
+        assert (
+            "plugin_name" in call["args"]
+        ), "plugin_name missing from args - submit_analysis_async() must include it for tool_runner routing"
+        assert call["args"]["plugin_name"] == "test_plugin_async"
+
+    @pytest.mark.asyncio
+    async def test_analyze_includes_plugin_name_in_args(self, integrated_services):
+        """Test that analyze() includes plugin_name in args (Issue #303)."""
+        analysis_service = integrated_services["analysis"]
+        tool_runner = integrated_services["tool_runner"]
+
+        # Execute via analyze (provide tool_name since plugin_service is not configured)
+        result, error = await analysis_service.analyze(
+            plugin_name="test_plugin_analyze",
+            args={"image": "base64_encoded_image_data", "tool_name": "test_tool"},
+        )
+
+        # Verify no error
+        assert error is None
+
+        # Verify plugin_name is in args passed to tool_runner (Issue #303)
+        assert len(tool_runner.execute_calls) == 1
+        call = tool_runner.execute_calls[0]
+        assert (
+            "plugin_name" in call["args"]
+        ), "plugin_name missing from args - analyze() must include it for tool_runner routing"
+        assert call["args"]["plugin_name"] == "test_plugin_analyze"
+
 
 class TestErrorWrapping:
     """Tests for error wrapping across all layers."""

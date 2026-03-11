@@ -203,14 +203,14 @@ class AnalysisExecutionService:
             },
         )
 
+        # Issue #303: Include plugin_name in args for tool_runner
+        args_with_plugin = {**args, "mime_type": mime_type, "plugin_name": plugin_name}
+
         # Create job
         job_id = await self._job_execution_service.create_job(
             plugin_name=plugin_name,
             tool_name=tool_name,
-            args={
-                **args,
-                "mime_type": mime_type,
-            },
+            args=args_with_plugin,
         )
 
         # Run job
@@ -261,14 +261,14 @@ class AnalysisExecutionService:
             },
         )
 
+        # Issue #303: Include plugin_name in args for tool_runner
+        args_with_plugin = {**args, "mime_type": mime_type, "plugin_name": plugin_name}
+
         # Create job (doesn't start execution yet)
         job_id = await self._job_execution_service.create_job(
             plugin_name=plugin_name,
             tool_name=tool_name,
-            args={
-                **args,
-                "mime_type": mime_type,
-            },
+            args=args_with_plugin,
         )
 
         return {
