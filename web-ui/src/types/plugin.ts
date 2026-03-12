@@ -9,6 +9,7 @@ export interface Tool {
   title?: string;
   description?: string;
   input_types?: string[];
+  capabilities?: string[];  // v0.13.12: Logical capabilities this tool provides
   inputs: Record<string, ToolParameter>;
   outputs: Record<string, ToolParameter>;
 }

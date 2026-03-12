@@ -1,4 +1,4 @@
-import type { PluginManifest } from "../types/plugin";
+import type { PluginManifest, Tool } from "../types/plugin";
 
 /**
  * Detect tool type from a capability name or tool ID.
@@ -14,7 +14,7 @@ export function detectToolType(
   // First try direct lookup (tool ID)
   const directTool = manifest.tools[toolName];
   if (directTool) {
-    return getToolTypeFromInputs(directTool.inputs);
+    return getToolType(directTool);
   }
 
   // If not found, search for capability match
@@ -23,27 +23,33 @@ export function detectToolType(
     : Object.values(manifest.tools);
 
   for (const tool of toolsArray) {
-    const toolWithCaps = tool as { capabilities?: string[] };
-    if (toolWithCaps.capabilities?.includes(toolName)) {
-      // Found a tool with this capability - check its input type
-      // Prefer input_types (new) over inputs (legacy)
-      const inputTypes = (tool as { input_types?: string[] }).input_types;
-      if (inputTypes?.includes("video")) {
-        return "frame";  // Video tools are treated as frame-based
-      }
-
-      const inputs = (tool as { inputs?: Record<string, unknown> }).inputs;
-      if (inputs) {
-        return getToolTypeFromInputs(inputs);
-      }
+    if (tool.capabilities?.includes(toolName)) {
+      return getToolType(tool);
     }
   }
 
   return "unknown";
 }
 
-function getToolTypeFromInputs(inputs: Record<string, unknown>): string {
-  if ("stream_id" in inputs) return "stream";
-  if ("frame_base64" in inputs) return "frame";
+/**
+ * Get tool type from tool definition.
+ * Checks input_types (new format) first, then inputs (legacy format).
+ */
+function getToolType(tool: Tool): string {
+  // v0.13.12: Check input_types first (new manifest format)
+  const inputTypes = tool.input_types;
+  if (inputTypes) {
+    if (inputTypes.includes("video")) return "frame";
+    if (inputTypes.includes("stream")) return "stream";
+    return "image";
+  }
+
+  // Legacy: check inputs object
+  const inputs = tool.inputs;
+  if (inputs) {
+    if ("stream_id" in inputs) return "stream";
+    if ("frame_base64" in inputs) return "frame";
+  }
+
   return "image";
 }
