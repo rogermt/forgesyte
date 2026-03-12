@@ -56,18 +56,35 @@ function App() {
 
   // -------------------------------------------------------------------------
   // Compute tool list from manifest
-  // FIX: Handle both Phase-12 array and legacy object formats
+  // v0.13.12: FIX - Extract capabilities (not tool IDs) for ToolSelector
+  // ToolSelector displays capabilities, so selectedTools must contain capabilities
+  // resolveVideoTools() maps capabilities → video tool IDs when needed
   // -------------------------------------------------------------------------
   const toolList = useMemo(() => {
     if (!manifest) return [];
 
-    // Phase-12 format: tools is an array of objects with id property
-    if (Array.isArray(manifest.tools)) {
-      return manifest.tools.map((tool: { id: string }) => tool.id);
+    // Check for top-level capabilities first (preferred)
+    const manifestWithCaps = manifest as { capabilities?: string[]; tools: unknown };
+    if (manifestWithCaps.capabilities && Array.isArray(manifestWithCaps.capabilities)) {
+      return manifestWithCaps.capabilities;
     }
 
-    // Legacy format: tools is an object where keys are tool names
-    return Object.keys(manifest.tools);
+    // Extract capabilities from tools
+    const caps = new Set<string>();
+    const toolsArray = Array.isArray(manifest.tools)
+      ? manifest.tools
+      : Object.values(manifest.tools);
+
+    for (const tool of toolsArray) {
+      const toolWithCaps = tool as { capabilities?: string[] };
+      if (toolWithCaps.capabilities) {
+        for (const cap of toolWithCaps.capabilities) {
+          caps.add(cap);
+        }
+      }
+    }
+
+    return Array.from(caps);
   }, [manifest]);
 
   // -------------------------------------------------------------------------

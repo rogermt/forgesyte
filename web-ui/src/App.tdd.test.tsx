@@ -123,6 +123,7 @@ vi.mock("./api/client", () => ({
     getJob: vi.fn(),
     pollJob: vi.fn(),
     // IMPORTANT: return different manifests per plugin
+    // v0.13.12: Mock structure matches real manifests - tool ID ≠ capability name
     getPluginManifest: vi.fn((pluginId: string) => {
       if (pluginId === "yolo-tracker") {
         return Promise.resolve({
@@ -131,18 +132,22 @@ vi.mock("./api/client", () => ({
           version: "1.0.0",
           entrypoint: "plugin.py",
           tools: {
+            // v0.13.12: Tool IDs are distinct from capabilities (like real manifests)
             // Object key order is insertion order: first tool becomes default
-            player_detection: {
+            player_detection_tool: {
+              capabilities: ["player_detection"],
               inputs: { frame_base64: { type: "string" } },
               outputs: {},
               description: "Detect players",
             },
-            ball_detection: {
+            ball_detection_tool: {
+              capabilities: ["ball_detection"],
               inputs: { frame_base64: { type: "string" } },
               outputs: {},
               description: "Detect ball",
             },
-            radar: {
+            radar_tool: {
+              capabilities: ["radar"],
               inputs: { frame_base64: { type: "string" } },
               outputs: {},
               description: "Radar overlay",
@@ -158,7 +163,8 @@ vi.mock("./api/client", () => ({
           version: "1.0.0",
           entrypoint: "plugin.py",
           tools: {
-            analyze: {
+            analyze_tool: {
+              capabilities: ["analyze"],
               inputs: { image: { type: "string" } },
               outputs: {},
               description: "Extract text",
