@@ -1,24 +1,24 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useCallback } from "react";
 import { apiClient } from "../api/client";
 import type { PluginManifest } from "../types/plugin";
+import { withRetry } from "../utils/runTool";
+import { resolveVideoTools } from "../utils/resolveVideoTools";
 
 interface VideoUploadProps {
   pluginId: string | null;
   manifest?: PluginManifest | null;
   selectedTools?: string[];
-  // v0.10.1: deterministic tool locking
-  lockedTools?: string[] | null;
-  // Called when video has been uploaded and server returns a path
+  // v0.13.11: Callbacks now receive values directly to avoid state race condition
+  // Called when video has been uploaded and user chooses an action
   onVideoUploaded?: (videoPath: string, file: File) => void;
-  // User choices after upload
-  onStartStreaming?: () => void;
-  onRunJob?: () => void;
+  onStartStreaming?: (videoPath: string, file: File, lockedTools: string[]) => void;
+  onRunJob?: (videoPath: string, file: File, lockedTools: string[]) => void;
 }
 
 export const VideoUpload: React.FC<VideoUploadProps> = ({
   pluginId,
   manifest,
-  lockedTools,
+  selectedTools = [],
   onVideoUploaded,
   onStartStreaming,
   onRunJob,
@@ -42,18 +42,77 @@ export const VideoUpload: React.FC<VideoUploadProps> = ({
     );
   }, [manifest]);
 
-  // v0.9.5: Show fallback if no video tools available
-  if (availableVideoTools.length === 0) {
-    return (
-      <div style={{ padding: "20px", maxWidth: "800px", margin: "0 auto" }}>
-        <h2>Video Upload</h2>
-        <p>No video-compatible tools available for this plugin.</p>
-      </div>
-    );
-  }
+  // v0.13.11: Resolve logical tools to video tool IDs
+  const lockedTools = useMemo(() => {
+    if (!selectedTools.length || !manifest) return [];
+    return resolveVideoTools(selectedTools, manifest);
+  }, [selectedTools, manifest]);
 
-  // Display the first tool for UI purposes
-  const videoTool = availableVideoTools[0];
+  // v0.13.11: Upload video and return path
+  // Must be defined before early return to satisfy hooks rules
+  const uploadVideo = useCallback(async (): Promise<string | null> => {
+    if (!file) return null;
+    if (!pluginId) {
+      setError("Please select a plugin first.");
+      return null;
+    }
+
+    setError(null);
+    setUploading(true);
+    setProgress(0);
+
+    try {
+      const result = await withRetry(() =>
+        apiClient.submitVideoUpload(file, pluginId, (p) => setProgress(p))
+      );
+
+      return result.video_path;
+    } catch (e: unknown) {
+      const errorMsg = e instanceof Error ? e.message : "Upload failed.";
+      setError(errorMsg);
+      return null;
+    } finally {
+      setUploading(false);
+    }
+  }, [file, pluginId]);
+
+  // v0.13.11: Upload then start streaming
+  // FIX: Pass values directly to callback to avoid state race condition
+  const handleStartStreaming = useCallback(async () => {
+    if (!lockedTools.length) {
+      setError("Please select at least one tool.");
+      return;
+    }
+    
+    const path = await uploadVideo();
+    if (path && file) {
+      if (onVideoUploaded) {
+        onVideoUploaded(path, file);
+      }
+      if (onStartStreaming) {
+        onStartStreaming(path, file, lockedTools);
+      }
+    }
+  }, [uploadVideo, file, lockedTools, onVideoUploaded, onStartStreaming]);
+
+  // v0.13.11: Upload then run job
+  // FIX: Pass values directly to callback to avoid state race condition
+  const handleRunJob = useCallback(async () => {
+    if (!lockedTools.length) {
+      setError("Please select at least one tool.");
+      return;
+    }
+    
+    const path = await uploadVideo();
+    if (path && file) {
+      if (onVideoUploaded) {
+        onVideoUploaded(path, file);
+      }
+      if (onRunJob) {
+        onRunJob(path, file, lockedTools);
+      }
+    }
+  }, [uploadVideo, file, lockedTools, onVideoUploaded, onRunJob]);
 
   const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0] ?? null;
@@ -74,36 +133,21 @@ export const VideoUpload: React.FC<VideoUploadProps> = ({
     setFile(f);
   };
 
-  const onUpload = async () => {
-    if (!file) return;
-    if (!pluginId) {
-      setError("Please select a plugin first.");
-      return;
-    }
+  // v0.9.5: Show fallback if no video tools available
+  // Must come AFTER all hooks to satisfy react-hooks/rules-of-hooks
+  if (availableVideoTools.length === 0) {
+    return (
+      <div style={{ padding: "20px", maxWidth: "800px", margin: "0 auto" }}>
+        <h2>Video Upload</h2>
+        <p>No video-compatible tools available for this plugin.</p>
+      </div>
+    );
+  }
 
-    setError(null);
-    setUploading(true);
-    setProgress(0);
-
-    try {
-      // v0.10.1: Upload-only, no job submission here
-      const { video_path } = await apiClient.submitVideoUpload(
-        file,
-        pluginId,
-        (p) => setProgress(p)
-      );
-
-      if (onVideoUploaded) {
-        onVideoUploaded(video_path, file);
-      }
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Upload failed.");
-    } finally {
-      setUploading(false);
-    }
-  };
-
-  const canUpload = file && pluginId;
+  // Display the first tool for UI purposes
+  const videoTool = availableVideoTools[0];
+  // v0.13.11: FIX - Add selectedTools validation to canAct
+  const canAct = file && pluginId && !uploading && selectedTools.length > 0;
 
   return (
     <div style={{ padding: "20px", maxWidth: "800px", margin: "0 auto" }}>
@@ -113,7 +157,7 @@ export const VideoUpload: React.FC<VideoUploadProps> = ({
         Using tool: <strong>{videoTool.title || videoTool.id}</strong>
       </p>
 
-      <label htmlFor="video-upload">Upload video:</label>
+      <label htmlFor="video-upload">Select video:</label>
       <input id="video-upload" type="file" accept="video/mp4" onChange={onFileChange} />
 
       {error && <div style={{ color: "red", marginTop: "10px" }}>{error}</div>}
@@ -124,35 +168,38 @@ export const VideoUpload: React.FC<VideoUploadProps> = ({
         </div>
       )}
 
-      <button
-        onClick={onUpload}
-        disabled={!canUpload || uploading}
-        style={{
-          marginTop: "10px",
-          padding: "10px 20px",
-          cursor: canUpload && !uploading ? "pointer" : "not-allowed",
-        }}
-      >
-        Upload Video
-      </button>
-
-      {/* v0.10.1: After upload → tools locked in App → user chooses streaming or job */}
-      {lockedTools && !uploading && (
+      {/* v0.13.11: Show action buttons immediately after file selection */}
+      {file && !uploading && (
         <div style={{ marginTop: "20px", display: "flex", gap: "10px" }}>
           <button
-            onClick={onStartStreaming}
-            disabled={!onStartStreaming}
-            style={{ padding: "8px 16px" }}
+            onClick={handleStartStreaming}
+            disabled={!canAct || !onStartStreaming}
+            style={{
+              padding: "10px 20px",
+              cursor: canAct && onStartStreaming ? "pointer" : "not-allowed",
+              opacity: canAct && onStartStreaming ? 1 : 0.6,
+            }}
           >
             Start Streaming
           </button>
           <button
-            onClick={onRunJob}
-            disabled={!onRunJob}
-            style={{ padding: "8px 16px" }}
+            onClick={handleRunJob}
+            disabled={!canAct || !onRunJob}
+            style={{
+              padding: "10px 20px",
+              cursor: canAct && onRunJob ? "pointer" : "not-allowed",
+              opacity: canAct && onRunJob ? 1 : 0.6,
+            }}
           >
             Run Job
           </button>
+        </div>
+      )}
+
+      {/* Show selected file info */}
+      {file && !uploading && (
+        <div style={{ marginTop: "10px", fontSize: "12px", color: "var(--text-secondary)" }}>
+          Selected: {file.name} ({(file.size / 1024 / 1024).toFixed(2)} MB)
         </div>
       )}
     </div>

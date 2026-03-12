@@ -23,7 +23,6 @@ import { VideoUpload } from "./components/VideoUpload";
 import { useWebSocket, FrameResult } from "./hooks/useWebSocket";
 import { apiClient, Job } from "./api/client";
 import { detectToolType } from "./utils/detectToolType";
-import { resolveVideoTools } from "./utils/resolveVideoTools";
 import type { PluginManifest } from "./types/plugin";
 
 const WS_BACKEND_URL =
@@ -43,9 +42,6 @@ function App() {
 
   // v0.10.1: Tools become locked after upload to prevent mid-session changes
   const [lockedTools, setLockedTools] = useState<string[] | null>(null);
-
-  // v0.10.1: Uploaded video path for job submission
-  const [videoPath, setVideoPath] = useState<string | null>(null);
 
   // Local uploaded file for VideoTracker streaming
   const [videoFile, setVideoFile] = useState<File | null>(null);
@@ -339,56 +335,64 @@ function App() {
   );
 
   // -------------------------------------------------------------------------
-  // v0.10.1: Video upload → lock tools → user chooses streaming or job
+  // v0.13.11: Video upload handlers - receive values directly from callbacks
+  // FIX: Pass values directly to avoid React state race condition
   // -------------------------------------------------------------------------
   const handleVideoUploaded = useCallback(
-    (path: string, file: File) => {
-      if (!selectedPlugin || selectedTools.length === 0) return;
-
-      // v0.10.1: lock *video* tools, not logical tools
-      const videoTools = resolveVideoTools(selectedTools, manifest);
-      setLockedTools(videoTools);
-      setVideoPath(path);
+    (_path: string, file: File) => {
+      // Note: State updates now happen in handleStartStreaming/handleRunVideoJob
+      // This callback is kept for backwards compatibility but state is set by action handlers
       setVideoFile(file);
-
-      // Ensure streaming is OFF by default after upload
       setStreamEnabled(false);
     },
-    [selectedPlugin, selectedTools, manifest]
+    []
   );
 
-  const handleStartStreaming = useCallback(() => {
-    if (!lockedTools || !videoFile) return;
-    setStreamEnabled(true);
-    setViewMode("video-stream");
-  }, [lockedTools, videoFile]);
+  // v0.13.11: FIX - Receive values directly from callback, set state synchronously
+  const handleStartStreaming = useCallback(
+    (_videoPath: string, videoFile: File, lockedTools: string[]) => {
+      if (!lockedTools.length || !videoFile) return;
+      
+      // Set all state synchronously before view change
+      setLockedTools(lockedTools);
+      setVideoFile(videoFile);
+      setStreamEnabled(true);
+      setViewMode("video-stream");
+    },
+    []
+  );
 
-  const handleRunVideoJob = useCallback(async () => {
-    if (!lockedTools || !videoPath || !selectedPlugin) return;
-  
-    try {
-      // Ensure streaming is OFF while job runs
+  // v0.13.11: FIX - Receive values directly from callback, set state synchronously
+  const handleRunVideoJob = useCallback(
+    async (videoPath: string, _videoFile: File, lockedTools: string[]) => {
+      if (!lockedTools.length || !videoPath || !selectedPlugin) return;
+    
+      // Set all state synchronously
+      setLockedTools(lockedTools);
       setStreamEnabled(false);
-  
-      const { job_id } = await apiClient.submitVideoJob(
-        selectedPlugin,
-        videoPath,
-        lockedTools
-      );
-      
-      // FIX: Set the job immediately so the UI mounts <JobStatus>.
-      // DO NOT use await apiClient.pollJob() here, because it blocks 
-      // the UI from updating until the job is 100% finished!
-      
-      const initialJobState = { job_id, status: "pending", created_at: new Date().toISOString() } as Job;
-      
-      setUploadResult(initialJobState);
-      setSelectedJob(initialJobState);
-      
-    } catch (err) {
-      console.error("Video job failed:", err);
-    }
-  }, [lockedTools, videoPath, selectedPlugin]);
+    
+      try {
+        const { job_id } = await apiClient.submitVideoJob(
+          selectedPlugin,
+          videoPath,
+          lockedTools
+        );
+        
+        // FIX: Set the job immediately so the UI mounts <JobStatus>.
+        // DO NOT use await apiClient.pollJob() here, because it blocks 
+        // the UI from updating until the job is 100% finished!
+        
+        const initialJobState = { job_id, status: "pending", created_at: new Date().toISOString() } as Job;
+        
+        setUploadResult(initialJobState);
+        setSelectedJob(initialJobState);
+        
+      } catch (err) {
+        console.error("Video job failed:", err);
+      }
+    },
+    [selectedPlugin]
+  );
 
   // -------------------------------------------------------------------------
   // Styles
@@ -653,7 +657,6 @@ function App() {
                 pluginId={selectedPlugin}
                 manifest={manifest}
                 selectedTools={selectedTools}
-                lockedTools={lockedTools}
                 onVideoUploaded={handleVideoUploaded}
                 onStartStreaming={handleStartStreaming}
                 onRunJob={handleRunVideoJob}

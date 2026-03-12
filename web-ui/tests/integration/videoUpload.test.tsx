@@ -1,5 +1,7 @@
 /**
  * Integration test for video upload flow
+ * v0.13.11: Redesigned UX - action buttons appear immediately after file selection
+ * v0.13.11: Fixed state race condition - callbacks receive values directly
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
@@ -10,14 +12,14 @@ import { VideoUpload } from "../../src/components/VideoUpload";
 vi.mock("../../src/api/client", () => ({
     apiClient: {
         submitVideo: vi.fn(),
-        submitVideoUpload: vi.fn(),  // v0.10.1: upload-only endpoint
+        submitVideoUpload: vi.fn(),
         getJob: vi.fn(),
     },
 }));
 
 import { apiClient } from "../../src/api/client";
 
-// v0.9.7: Default manifest with video tool AND capabilities for integration tests
+// Default manifest with video tool
 const videoManifest = {
     id: "yolo",
     name: "yolo",
@@ -28,7 +30,7 @@ const videoManifest = {
             description: "Run player detection on video",
             input_types: ["video"],
             output_types: ["video_detections"],
-            capabilities: ["player_detection"],  // v0.9.7: Required for logical tool matching
+            capabilities: ["player_detection"],
         },
     },
 };
@@ -38,187 +40,267 @@ describe("VideoUpload Integration", () => {
         vi.clearAllMocks();
     });
 
-    it.skip("should submit video and display job ID", async () => {
-        // Mock successful upload
-        (apiClient.submitVideoUpload as ReturnType<typeof vi.fn>).mockResolvedValue({
-            video_path: "video/input/test-123",
+    // v0.13.11: New UX - action buttons appear immediately
+    it("should show action buttons after file selection", async () => {
+        const onStartStreaming = vi.fn();
+        const onRunJob = vi.fn();
+
+        await act(async () => {
+            render(
+                <VideoUpload
+                    pluginId="yolo"
+                    manifest={videoManifest}
+                    selectedTools={["player_detection"]}
+                    onStartStreaming={onStartStreaming}
+                    onRunJob={onRunJob}
+                />
+            );
         });
 
-        render(<VideoUpload pluginId="yolo" manifest={videoManifest} selectedTool="video_player_detection" />);
+        // No buttons before file selection
+        expect(screen.queryByText("Start Streaming")).not.toBeInTheDocument();
+        expect(screen.queryByText("Run Job")).not.toBeInTheDocument();
 
-        // Simulate file selection
-        const fileInput = screen.getByLabelText(/upload/i) as HTMLInputElement;
+        // Select file
+        const fileInput = screen.getByLabelText(/select/i) as HTMLInputElement;
         const file = new File([""], "test.mp4", { type: "video/mp4" });
-        Object.defineProperty(fileInput, "files", { value: [file] });
-        fileInput.dispatchEvent(new Event("change", { bubbles: true }));
+        fireEvent.change(fileInput, { target: { files: [file] } });
 
-        // Click upload button
-        const uploadButton = screen.getByText("Upload Video");
-        uploadButton.click();
-
-        // Wait for job ID to appear
-        await waitFor(() => {
-            expect(screen.getByText(/Job ID: test-job-123/i)).toBeInTheDocument();
-        });
+        // Buttons appear after selection
+        expect(screen.getByText("Start Streaming")).toBeInTheDocument();
+        expect(screen.getByText("Run Job")).toBeInTheDocument();
     });
 
     it("should reject non-MP4 files", async () => {
         await act(async () => {
-            render(<VideoUpload pluginId="yolo" manifest={videoManifest} selectedTool="video_player_detection" />);
+            render(<VideoUpload pluginId="yolo" manifest={videoManifest} />);
         });
 
-        const fileInput = screen.getByLabelText(/upload/i) as HTMLInputElement;
+        const fileInput = screen.getByLabelText(/select/i) as HTMLInputElement;
         const file = new File([""], "test.jpg", { type: "image/jpeg" });
-        Object.defineProperty(fileInput, "files", { value: [file] });
-
-        await act(async () => {
-            fileInput.dispatchEvent(new Event("change", { bubbles: true }));
-        });
+        fireEvent.change(fileInput, { target: { files: [file] } });
 
         expect(screen.getByText(/Only MP4 videos are supported/i)).toBeInTheDocument();
     });
 
-    // APPROVED: Skipping this test due to polling timeout issues with mock implementation
-// The test requires complex async polling mock setup that needs further investigation
-// TODO: Fix polling mock to properly return status sequence
-it.skip("should poll job status and display results when complete", async () => {
-        // Mock successful upload
+    // v0.13.11: Upload triggered by Start Streaming
+    it("should upload video when Start Streaming is clicked", async () => {
         (apiClient.submitVideoUpload as ReturnType<typeof vi.fn>).mockResolvedValue({
-            video_path: "video/input/test-456",
+            video_path: "video/input/test-123.mp4",
         });
 
-        // Mock job status progression with implementation
-        let callCount = 0;
-        (apiClient.getJob as ReturnType<typeof vi.fn>).mockImplementation(async () => {
-            callCount++;
-            if (callCount === 1) {
-                return {
-                    video_path: "video/input/test-456",
-                    status: "running",
-                    plugin: "yolo",
-                    created_at: "2026-02-18T10:00:00Z",
-                };
-            } else {
-                return {
-                    video_path: "video/input/test-456",
-                    status: "done",
-                    plugin: "yolo",
-                    result: {
-                        text: "Test OCR text",
-                        detections: [],
-                    },
-                    created_at: "2026-02-18T10:00:00Z",
-                    completed_at: "2026-02-18T10:01:00Z",
-                };
-            }
+        const onVideoUploaded = vi.fn();
+        const onStartStreaming = vi.fn();
+
+        await act(async () => {
+            render(
+                <VideoUpload
+                    pluginId="yolo"
+                    manifest={videoManifest}
+                    selectedTools={["player_detection"]}
+                    onVideoUploaded={onVideoUploaded}
+                    onStartStreaming={onStartStreaming}
+                />
+            );
         });
 
-        render(<VideoUpload pluginId="yolo" manifest={videoManifest} selectedTool="video_player_detection" />);
+        // Select file
+        const fileInput = screen.getByLabelText(/select/i) as HTMLInputElement;
+        const file = new File(["video data"], "test.mp4", { type: "video/mp4" });
+        fireEvent.change(fileInput, { target: { files: [file] } });
 
-        // Simulate file selection
-        const fileInput = screen.getByLabelText(/upload/i) as HTMLInputElement;
-        const file = new File([""], "test.mp4", { type: "video/mp4" });
-        Object.defineProperty(fileInput, "files", { value: [file] });
-        fileInput.dispatchEvent(new Event("change", { bubbles: true }));
-
-        // Click upload button
-        const uploadButton = screen.getByText("Upload Video");
-        uploadButton.click();
-
-        // Wait for job ID to appear
-        await waitFor(() => {
-            expect(screen.getByText(/Job ID: test-job-456/i)).toBeInTheDocument();
+        // Click Start Streaming
+        const startButton = screen.getByText("Start Streaming");
+        await act(async () => {
+            fireEvent.click(startButton);
         });
 
-        // Wait for status to update to completed
+        // Verify upload was called
         await waitFor(() => {
-            expect(screen.getByText(/Status: done/i)).toBeInTheDocument();
-        }, { timeout: 5000 });
+            expect(apiClient.submitVideoUpload).toHaveBeenCalledWith(
+                file,
+                "yolo",
+                expect.any(Function)
+            );
+        });
 
-        // Wait for results to appear
+        // Verify callbacks were called with new signature
         await waitFor(() => {
-            expect(screen.getByText(/Test OCR text/i)).toBeInTheDocument();
-        }, { timeout: 5000 });
+            expect(onVideoUploaded).toHaveBeenCalledWith("video/input/test-123.mp4", file);
+            // v0.13.11: Callback now receives lockedTools
+            expect(onStartStreaming).toHaveBeenCalledWith(
+                "video/input/test-123.mp4",
+                file,
+                expect.arrayContaining(["video_player_detection"])
+            );
+        });
     });
 
-    it.skip("should handle job failure gracefully", async () => {
-        // Mock successful upload
+    // v0.13.11: Upload triggered by Run Job
+    it("should upload video when Run Job is clicked", async () => {
         (apiClient.submitVideoUpload as ReturnType<typeof vi.fn>).mockResolvedValue({
-            video_path: "video/input/test-789",
+            video_path: "video/input/test-456.mp4",
         });
 
-        // Mock job status progression to failed
-        (apiClient.getJob as ReturnType<typeof vi.fn>).mockResolvedValue({
-            video_path: "video/input/test-789",
-            status: "failed",
-            error: "Job failed",
-            plugin: "yolo",
-            created_at: "2026-02-18T10:00:00Z",
+        const onVideoUploaded = vi.fn();
+        const onRunJob = vi.fn();
+
+        await act(async () => {
+            render(
+                <VideoUpload
+                    pluginId="yolo"
+                    manifest={videoManifest}
+                    selectedTools={["player_detection"]}
+                    onVideoUploaded={onVideoUploaded}
+                    onRunJob={onRunJob}
+                />
+            );
         });
 
-        render(<VideoUpload pluginId="yolo" manifest={videoManifest} selectedTool="video_player_detection" />);
+        // Select file
+        const fileInput = screen.getByLabelText(/select/i) as HTMLInputElement;
+        const file = new File(["video data"], "test.mp4", { type: "video/mp4" });
+        fireEvent.change(fileInput, { target: { files: [file] } });
 
-        // Simulate file selection
-        const fileInput = screen.getByLabelText(/upload/i) as HTMLInputElement;
-        const file = new File([""], "test.mp4", { type: "video/mp4" });
-        Object.defineProperty(fileInput, "files", { value: [file] });
-        fileInput.dispatchEvent(new Event("change", { bubbles: true }));
+        // Click Run Job
+        const runButton = screen.getByText("Run Job");
+        await act(async () => {
+            fireEvent.click(runButton);
+        });
 
-        // Click upload button
-        const uploadButton = screen.getByText("Upload Video");
-        uploadButton.click();
-
-        // Wait for job ID to appear
+        // Verify upload was called
         await waitFor(() => {
-            expect(screen.getByText(/Job ID: test-job-789/i)).toBeInTheDocument();
+            expect(apiClient.submitVideoUpload).toHaveBeenCalledWith(
+                file,
+                "yolo",
+                expect.any(Function)
+            );
         });
 
-        // Wait for error message to appear
+        // Verify callbacks were called with new signature
         await waitFor(() => {
-            expect(screen.getByText(/Job failed/i)).toBeInTheDocument();
-        }, { timeout: 3000 });
+            expect(onVideoUploaded).toHaveBeenCalledWith("video/input/test-456.mp4", file);
+            // v0.13.11: Callback now receives lockedTools
+            expect(onRunJob).toHaveBeenCalledWith(
+                "video/input/test-456.mp4",
+                file,
+                expect.arrayContaining(["video_player_detection"])
+            );
+        });
     });
 
-    it.skip("should display upload progress", async () => {
+    it("should display upload progress during upload", async () => {
         let progressCallback: ((percent: number) => void) | null = null;
-        let resolveUpload: ((value: { job_id: string }) => void) | null = null;
 
         (apiClient.submitVideoUpload as ReturnType<typeof vi.fn>).mockImplementation(
-            (_file: File, _pluginId: string, _tool: string, onProgress?: (percent: number) => void) => {
+            (_file: File, _pluginId: string, onProgress?: (percent: number) => void) => {
                 progressCallback = onProgress || null;
                 return new Promise((resolve) => {
-                    resolveUpload = resolve;
+                    setTimeout(() => resolve({ video_path: "video/input/test.mp4" }), 100);
                 });
             }
         );
 
-        render(<VideoUpload pluginId="yolo" manifest={videoManifest} selectedTool="video_player_detection" />);
+        const onStartStreaming = vi.fn();
 
-        // Simulate file selection
-        const fileInput = screen.getByLabelText(/upload/i) as HTMLInputElement;
-        const file = new File([""], "test.mp4", { type: "video/mp4" });
-        Object.defineProperty(fileInput, "files", { value: [file] });
-        fileInput.dispatchEvent(new Event("change", { bubbles: true }));
-
-        // Click upload button
-        const uploadButton = screen.getByText("Upload Video");
-        uploadButton.click();
-
-        // Simulate progress updates
-        if (progressCallback) {
-            progressCallback(25);
-            progressCallback(50);
-            progressCallback(75);
-        }
-
-        // Wait for progress to be displayed
-        await waitFor(() => {
-            expect(screen.getByText(/Uploading… 75%/i)).toBeInTheDocument();
+        await act(async () => {
+            render(
+                <VideoUpload
+                    pluginId="yolo"
+                    manifest={videoManifest}
+                    selectedTools={["player_detection"]}
+                    onStartStreaming={onStartStreaming}
+                />
+            );
         });
 
-        // Complete the upload
-        if (resolveUpload) {
-            resolveUpload({ video_path: "video/input/test-999" });
+        // Select file
+        const fileInput = screen.getByLabelText(/select/i) as HTMLInputElement;
+        const file = new File([""], "test.mp4", { type: "video/mp4" });
+        fireEvent.change(fileInput, { target: { files: [file] } });
+
+        // Click Start Streaming
+        const startButton = screen.getByText("Start Streaming");
+        await act(async () => {
+            fireEvent.click(startButton);
+        });
+
+        // Simulate progress
+        if (progressCallback) {
+            progressCallback(50);
         }
+
+        await waitFor(() => {
+            expect(screen.getByText(/Uploading… 50%/i)).toBeInTheDocument();
+        });
+    });
+
+    it("should handle upload failure gracefully", async () => {
+        (apiClient.submitVideoUpload as ReturnType<typeof vi.fn>).mockRejectedValue(
+            new Error("Upload failed: server error")
+        );
+
+        const onVideoUploaded = vi.fn();
+        const onStartStreaming = vi.fn();
+
+        await act(async () => {
+            render(
+                <VideoUpload
+                    pluginId="yolo"
+                    manifest={videoManifest}
+                    selectedTools={["player_detection"]}
+                    onVideoUploaded={onVideoUploaded}
+                    onStartStreaming={onStartStreaming}
+                />
+            );
+        });
+
+        // Select file
+        const fileInput = screen.getByLabelText(/select/i) as HTMLInputElement;
+        const file = new File([""], "test.mp4", { type: "video/mp4" });
+        fireEvent.change(fileInput, { target: { files: [file] } });
+
+        // Click Start Streaming
+        const startButton = screen.getByText("Start Streaming");
+        await act(async () => {
+            fireEvent.click(startButton);
+        });
+
+        // v0.13.11: Increased timeout for retry logic (Issue #320)
+        // withRetry does 3 retries with ~1400ms total delay
+        // Verify error is shown
+        await waitFor(() => {
+            expect(screen.getByText(/Upload failed: server error/i)).toBeInTheDocument();
+        }, { timeout: 3000 });
+
+        // Verify callbacks were NOT called on failure
+        expect(onVideoUploaded).not.toHaveBeenCalled();
+        expect(onStartStreaming).not.toHaveBeenCalled();
+    });
+
+    it("should disable action buttons when no plugin selected", async () => {
+        const onStartStreaming = vi.fn();
+        const onRunJob = vi.fn();
+
+        await act(async () => {
+            render(
+                <VideoUpload
+                    pluginId={null}
+                    manifest={videoManifest}
+                    selectedTools={["player_detection"]}
+                    onStartStreaming={onStartStreaming}
+                    onRunJob={onRunJob}
+                />
+            );
+        });
+
+        // Select file
+        const fileInput = screen.getByLabelText(/select/i) as HTMLInputElement;
+        const file = new File([""], "test.mp4", { type: "video/mp4" });
+        fireEvent.change(fileInput, { target: { files: [file] } });
+
+        // Buttons should be disabled
+        expect(screen.getByText("Start Streaming")).toBeDisabled();
+        expect(screen.getByText("Run Job")).toBeDisabled();
     });
 });
