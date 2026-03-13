@@ -263,8 +263,18 @@ function App() {
       return;
     }
 
-    if (selectedTools.length === 0 || !selectedTools.every((t) => toolList.includes(t))) {
+    // If no tools selected yet, default to first capability
+    if (selectedTools.length === 0) {
       setSelectedTools([toolList[0]]);
+      return;
+    }
+
+    // Keep only tools that still exist in the manifest
+    const validTools = selectedTools.filter((t) => toolList.includes(t));
+
+    // If some selected tools were removed, update selection
+    if (validTools.length !== selectedTools.length) {
+      setSelectedTools(validTools);
     }
   }, [manifest, toolList, selectedTools]);
 
@@ -569,7 +579,7 @@ function App() {
               pluginId={selectedPlugin}
               selectedTools={selectedTools}
               onToolChange={handleToolChange}
-              disabled={false}
+              disabled={lockedTools !== null}
             />
           </div>
 
@@ -635,6 +645,7 @@ function App() {
                 <div style={styles.panel}>
                   <p>Upload image for analysis</p>
                   <input
+                    data-testid="image-upload"
                     type="file"
                     accept="image/*"
                     onChange={handleFileUpload}

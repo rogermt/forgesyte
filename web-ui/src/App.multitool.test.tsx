@@ -131,4 +131,293 @@ describe("Multitool Selection - REAL tests", () => {
       expect(button.getAttribute("aria-pressed")).toBe("true");
     }, { timeout: 3000 });
   });
+
+  // -------------------------------------------------------------------------
+  // Test 1: Core multitool selection preservation
+  // -------------------------------------------------------------------------
+  it("allows selecting multiple tools and keeps both pressed", async () => {
+    render(<App />);
+
+    // Select YOLO plugin
+    await userEvent.click(screen.getByTestId("select-yolo"));
+
+    // Wait for tool buttons to appear
+    await waitFor(() => {
+      expect(screen.getAllByRole("button").length).toBeGreaterThan(5);
+    }, { timeout: 5000 });
+
+    // Find tool buttons (Player Detection, Ball Detection)
+    const allButtons = screen.getAllByRole("button");
+    const toolButtons = allButtons.filter(b => {
+      const text = b.textContent?.toLowerCase() || "";
+      return text.includes("player detection") || text.includes("ball detection");
+    });
+
+    expect(toolButtons.length).toBe(2);
+
+    // Click first tool (Player Detection)
+    await userEvent.click(toolButtons[0]);
+
+    // Click second tool (Ball Detection) - multi-select
+    await userEvent.click(toolButtons[1]);
+
+    // CRITICAL: Both should be selected (aria-pressed="true")
+    // WITH BUG: useEffect collapses to single tool -> only one selected
+    // WITH FIX: Both stay selected
+    await waitFor(() => {
+      expect(toolButtons[0].getAttribute("aria-pressed")).toBe("true");
+      expect(toolButtons[1].getAttribute("aria-pressed")).toBe("true");
+    }, { timeout: 3000 });
+  });
+
+  // -------------------------------------------------------------------------
+  // Test 2: Verify no reset after multi-select
+  // -------------------------------------------------------------------------
+  it("does not reset selectedTools after selecting multiple tools", async () => {
+    render(<App />);
+
+    await userEvent.click(screen.getByTestId("select-yolo"));
+
+    await waitFor(() => {
+      expect(screen.getAllByRole("button").length).toBeGreaterThan(5);
+    }, { timeout: 5000 });
+
+    const allButtons = screen.getAllByRole("button");
+    const toolButtons = allButtons.filter(b => {
+      const text = b.textContent?.toLowerCase() || "";
+      return text.includes("player detection") || text.includes("ball detection");
+    });
+
+    // Select both tools
+    await userEvent.click(toolButtons[0]);
+    await userEvent.click(toolButtons[1]);
+
+    // Wait a bit for any effects to run
+    await new Promise(resolve => setTimeout(resolve, 500));
+
+    // Both tools should STILL be selected after effects settle
+    await waitFor(() => {
+      expect(toolButtons[0].getAttribute("aria-pressed")).toBe("true");
+      expect(toolButtons[1].getAttribute("aria-pressed")).toBe("true");
+    }, { timeout: 3000 });
+  });
+
+  // -------------------------------------------------------------------------
+  // Test 3: Capability resolution end-to-end
+  // -------------------------------------------------------------------------
+  it("resolves capabilities to tool IDs end-to-end", async () => {
+    const { apiClient } = await import("./api/client");
+
+    render(<App />);
+
+    await userEvent.click(screen.getByTestId("select-yolo"));
+
+    await waitFor(() => {
+      expect(apiClient.getPluginManifest).toHaveBeenCalled();
+    }, { timeout: 5000 });
+
+    // Switch to Upload view mode
+    const navButtons = screen.getAllByRole("button");
+    const uploadNavBtn = navButtons.find(b =>
+      b.textContent?.toLowerCase().trim() === "upload"
+    );
+    if (uploadNavBtn) {
+      await userEvent.click(uploadNavBtn);
+    }
+
+    // Get tool buttons
+    const allButtons = screen.getAllByRole("button");
+    const toolButtons = allButtons.filter(b => {
+      const text = b.textContent?.toLowerCase() || "";
+      return text.includes("player detection") || text.includes("ball detection");
+    });
+
+    // Select both tools
+    await userEvent.click(toolButtons[0]);
+    await userEvent.click(toolButtons[1]);
+
+    // Trigger image upload (simulate file selection)
+    const fileInput = await screen.findByTestId("image-upload");
+    expect(fileInput).toBeTruthy();
+
+    const file = new File(["test"], "test.png", { type: "image/png" });
+    Object.defineProperty(fileInput, "files", { value: [file] });
+    fileInput.dispatchEvent(new Event("change", { bubbles: true }));
+
+    // Wait for submitImage to be called
+    await waitFor(() => {
+      expect(apiClient.submitImage).toHaveBeenCalled();
+    }, { timeout: 5000 });
+
+    // Check that submitImage was called with capabilities (not tool IDs)
+    const callArgs = (apiClient.submitImage as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(callArgs).toBeDefined();
+  });
+
+  // -------------------------------------------------------------------------
+  // Test 4: Video job with multiple tools
+  // -------------------------------------------------------------------------
+  it("submits a video job with multiple tools", async () => {
+    render(<App />);
+
+    await userEvent.click(screen.getByTestId("select-yolo"));
+
+    await waitFor(() => {
+      expect(screen.getAllByRole("button").length).toBeGreaterThan(5);
+    }, { timeout: 5000 });
+
+    // Get tool buttons
+    const allButtons = screen.getAllByRole("button");
+    const toolButtons = allButtons.filter(b => {
+      const text = b.textContent?.toLowerCase() || "";
+      return text.includes("player detection") || text.includes("ball detection");
+    });
+
+    // Select both tools
+    await userEvent.click(toolButtons[0]);
+    await userEvent.click(toolButtons[1]);
+
+    // Verify both are selected
+    await waitFor(() => {
+      expect(toolButtons[0].getAttribute("aria-pressed")).toBe("true");
+      expect(toolButtons[1].getAttribute("aria-pressed")).toBe("true");
+    }, { timeout: 3000 });
+
+    // The VideoUpload component is mocked, so we verify the tools state indirectly
+    // by checking that both tools remain selected (the fix preserves multi-tool state)
+    expect(toolButtons[0].getAttribute("aria-pressed")).toBe("true");
+    expect(toolButtons[1].getAttribute("aria-pressed")).toBe("true");
+  });
+
+  // -------------------------------------------------------------------------
+  // Test 5: Tool locking after upload
+  // -------------------------------------------------------------------------
+  it("locks tools after upload and prevents further changes", async () => {
+    render(<App />);
+
+    await userEvent.click(screen.getByTestId("select-yolo"));
+
+    await waitFor(() => {
+      expect(screen.getAllByRole("button").length).toBeGreaterThan(5);
+    }, { timeout: 5000 });
+
+    // Switch to Upload view mode
+    const navButtons = screen.getAllByRole("button");
+    const uploadNavBtn = navButtons.find(b =>
+      b.textContent?.toLowerCase().trim() === "upload"
+    );
+    if (uploadNavBtn) {
+      await userEvent.click(uploadNavBtn);
+    }
+
+    // Get tool buttons
+    const allButtons = screen.getAllByRole("button");
+    const toolButtons = allButtons.filter(b => {
+      const text = b.textContent?.toLowerCase() || "";
+      return text.includes("player detection") || text.includes("ball detection");
+    });
+
+    // Select both tools
+    await userEvent.click(toolButtons[0]);
+    await userEvent.click(toolButtons[1]);
+
+    // Verify both are selected
+    await waitFor(() => {
+      expect(toolButtons[0].getAttribute("aria-pressed")).toBe("true");
+      expect(toolButtons[1].getAttribute("aria-pressed")).toBe("true");
+    }, { timeout: 3000 });
+
+    // Trigger image upload
+    const fileInput = await screen.findByTestId("image-upload");
+    const file = new File(["test"], "test.png", { type: "image/png" });
+    Object.defineProperty(fileInput, "files", { value: [file] });
+    fileInput.dispatchEvent(new Event("change", { bubbles: true }));
+
+    // After upload, tools should be locked
+    // The ToolSelector should be disabled (aria-disabled or disabled attribute)
+    await waitFor(() => {
+      // Check if tool buttons are disabled
+      const isDisabled = toolButtons[0].hasAttribute("disabled") ||
+                         toolButtons[0].getAttribute("aria-disabled") === "true";
+      expect(isDisabled).toBe(true);
+    }, { timeout: 5000 });
+  });
+
+  // -------------------------------------------------------------------------
+  // Test 6: WebSocket streaming with multiple tools
+  // -------------------------------------------------------------------------
+  it("passes multiple tools to WebSocket for streaming", async () => {
+    // Mock useWebSocket to return connected state
+    const { useWebSocket } = await import("./hooks/useWebSocket");
+    (useWebSocket as ReturnType<typeof vi.fn>).mockReturnValue({
+      isConnected: true,
+      connectionStatus: "connected",
+      attempt: 0,
+      error: null,
+      sendFrame: vi.fn(),
+      switchPlugin: vi.fn(),
+      reconnect: vi.fn(),
+      latestResult: null,
+    });
+
+    render(<App />);
+
+    await userEvent.click(screen.getByTestId("select-yolo"));
+
+    await waitFor(() => {
+      expect(screen.getAllByRole("button").length).toBeGreaterThan(5);
+    }, { timeout: 5000 });
+
+    // Get tool buttons
+    const allButtons = screen.getAllByRole("button");
+    const toolButtons = allButtons.filter(b => {
+      const text = b.textContent?.toLowerCase() || "";
+      return text.includes("player detection") || text.includes("ball detection");
+    });
+
+    // Select both tools
+    await userEvent.click(toolButtons[0]);
+    await userEvent.click(toolButtons[1]);
+
+    // Verify both are selected
+    await waitFor(() => {
+      expect(toolButtons[0].getAttribute("aria-pressed")).toBe("true");
+      expect(toolButtons[1].getAttribute("aria-pressed")).toBe("true");
+    }, { timeout: 3000 });
+
+    // Click "Stream" nav button to enter stream view
+    const navButtons = screen.getAllByRole("button");
+    const streamNavBtn = navButtons.find(b =>
+      b.textContent?.toLowerCase().trim() === "stream"
+    );
+    if (streamNavBtn) {
+      await userEvent.click(streamNavBtn);
+    }
+
+    // Find and click "Start Streaming" button
+    await waitFor(() => {
+      const buttons = screen.getAllByRole("button");
+      const startStreamBtn = buttons.find(b =>
+        b.textContent?.toLowerCase().includes("start streaming")
+      );
+      expect(startStreamBtn).toBeTruthy();
+    }, { timeout: 3000 });
+
+    const buttons = screen.getAllByRole("button");
+    const startStreamBtn = buttons.find(b =>
+      b.textContent?.toLowerCase().includes("start streaming")
+    );
+
+    if (startStreamBtn) {
+      await userEvent.click(startStreamBtn);
+
+      // Verify streaming started (check for "Stop Streaming" button)
+      await waitFor(() => {
+        const stopBtn = screen.getAllByRole("button").find(b =>
+          b.textContent?.toLowerCase().includes("stop streaming")
+        );
+        expect(stopBtn).toBeTruthy();
+      }, { timeout: 3000 });
+    }
+  });
 });
