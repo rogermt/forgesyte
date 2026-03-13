@@ -10,6 +10,8 @@ v0.9.8: Added mutual exclusivity check (tool vs logical_tool_id),
 """
 
 import json
+import logging
+import traceback
 from datetime import timezone
 from io import BytesIO
 from typing import List
@@ -25,6 +27,7 @@ from app.services.storage.factory import get_storage_service
 from app.services.tool_router import resolve_tools
 from app.settings import settings
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
@@ -141,6 +144,11 @@ async def submit_image(
     Raises:
         HTTPException: If file is invalid or processing fails
     """
+    # DEBUG: Log incoming request parameters
+    logger.info(
+        f"[DEBUG] submit_image called: plugin_id={plugin_id}, tool={tool}, logical_tool_id={logical_tool_id}"
+    )
+
     # Validate plugin exists
     plugin = plugin_manager.get(plugin_id)
     if not plugin:
@@ -161,19 +169,38 @@ async def submit_image(
     logicals_used: List[str] = []
 
     if logical_tool_id and len(logical_tool_id) > 0:
+        # DEBUG: Log manifest structure before resolving
+        try:
+            manifest = plugin_service.get_plugin_manifest(plugin_id)
+            logger.info(
+                f"[DEBUG] Manifest for '{plugin_id}': {json.dumps(manifest, indent=2, default=str)[:2000]}"
+            )
+        except Exception as e:
+            logger.error(f"[DEBUG] Failed to get manifest: {e}")
+
         try:
             logicals_used = logical_tool_id
+            logger.info(
+                f"[DEBUG] Calling resolve_tools with logical_tool_id={logical_tool_id}, mime={file.content_type}"
+            )
             resolved_tools = resolve_tools(
                 logical_tool_id,
                 file.content_type or "image/png",
                 plugin_id,
                 plugin_service,
             )
+            logger.info(f"[DEBUG] resolve_tools returned: {resolved_tools}")
         except ValueError as e:
+            logger.error(f"[DEBUG] resolve_tools ValueError: {e}")
             raise HTTPException(
                 status_code=400,
                 detail=str(e),
             ) from e
+        except Exception as e:
+            logger.error(
+                f"[DEBUG] resolve_tools unexpected error: {e}\n{traceback.format_exc()}"
+            )
+            raise
     elif tool and len(tool) > 0:
         resolved_tools = tool
     else:
@@ -232,12 +259,21 @@ async def submit_image(
     is_multi_tool = len(resolved_tools) > 1
     job_type = "image_multi" if is_multi_tool else "image"
 
+    logger.info(
+        f"[DEBUG] is_multi_tool={is_multi_tool}, job_type={job_type}, resolved_tools={resolved_tools}"
+    )
+
     # Create job record with UUID object (not string)
     job_id = uuid4()
     input_path = f"image/input/{job_id}_{file.filename}"
 
     # Save file to storage
-    storage.save_file(src=BytesIO(contents), dest_path=input_path)
+    try:
+        storage.save_file(src=BytesIO(contents), dest_path=input_path)
+        logger.info(f"[DEBUG] File saved to {input_path}")
+    except Exception as e:
+        logger.error(f"[DEBUG] Storage save failed: {e}\n{traceback.format_exc()}")
+        raise
 
     # Create database record
     db = SessionLocal()
@@ -254,6 +290,10 @@ async def submit_image(
         db.add(job)
         db.commit()
         db.refresh(job)
+        logger.info(f"[DEBUG] Job created: job_id={job_id}")
+    except Exception as e:
+        logger.error(f"[DEBUG] Database error: {e}\n{traceback.format_exc()}")
+        raise
     finally:
         db.close()
 

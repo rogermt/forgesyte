@@ -233,6 +233,10 @@ export class ForgeSyteAPIClient {
                 url.searchParams.append(paramName, tools);
             }
             
+            // DEBUG: Log the request URL
+            console.log(`[DEBUG] submitImage URL: ${url.toString()}`);
+            console.log(`[DEBUG] submitImage params: pluginId=${pluginId}, tools=${JSON.stringify(tools)}, useLogicalId=${useLogicalId}`);
+            
             xhr.open("POST", url.toString());
 
             if (this.apiKey) {
@@ -246,6 +250,9 @@ export class ForgeSyteAPIClient {
             };
 
             xhr.onload = () => {
+                // DEBUG: Log the response
+                console.log(`[DEBUG] submitImage response: status=${xhr.status}, body=${xhr.responseText.substring(0, 500)}`);
+                
                 if (xhr.status >= 200 && xhr.status < 300) {
                     try {
                         resolve(JSON.parse(xhr.responseText));
@@ -257,7 +264,10 @@ export class ForgeSyteAPIClient {
                 }
             };
 
-            xhr.onerror = () => reject(new Error("Network error during upload."));
+            xhr.onerror = () => {
+                console.error(`[DEBUG] submitImage network error`);
+                reject(new Error("Network error during upload."));
+            };
 
             const formData = new FormData();
             formData.append("file", file);
