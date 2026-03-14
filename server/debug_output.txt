@@ -1,0 +1,11 @@
+[DEBUG] submit_image called: plugin_id=yolo-tracker, tool=None, logical_tool_id=['player_detection', 'pitch_detection']
+[DEBUG] logical_tool_id provided: ['player_detection', 'pitch_detection']
+[DEBUG] Manifest tools: [{"id": "player_detection", "title": "Player Detection", "description": "Detect players in a single image.", "inputs": {"image_bytes": "string", "device": "string", "annotated": "boolean"}, "outputs": {"detections": "array", "annotated_image_base64": "string?"}, "input_types": ["image_bytes"], "output_types": ["detections"], "capabilities": ["player_detection"]}, {"id": "ball_detection", "title": "Ball Detection", "description": "Detect the football in a single image.", "inputs": {"image_bytes":
+[DEBUG] Calling resolve_tools with logical_tool_id=['player_detection', 'pitch_detection'], mime=image/jpeg
+[DEBUG] resolve_tools returned: ['player_detection', 'pitch_detection']
+[DEBUG] is_multi_tool=True, job_type=image_multi, resolved_tools=['player_detection', 'pitch_detection']
+[DEBUG] File saved to image/input/6c9ecbef-1ec8-4feb-8007-8a263fbb864b_08fd33_3_1_png.rf.6f25c835bf6d1828dcf584e5969b1f58.jpg
+[DEBUG] Database error: (_duckdb.ConstraintException) Constraint Error: NOT NULL constraint failed: jobs.tool
+[SQL: INSERT INTO jobs (job_id, status, plugin_id, tool, tool_list, input_path, output_path, job_type, error_message, created_at, updated_at, progress, ray_future_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)]
+[parameters: (UUID('6c9ecbef-1ec8-4feb-8007-8a263fbb864b'), 'pending', 'yolo-tracker', None, '["player_detection", "pitch_detection"]', 'image/input/6c9ecbef-1ec8-4feb-8007-8a263fbb864b_08fd33_3_1_png.rf.6f25c835bf6d1828dcf584e5969b1f58.jpg', None, 'image_multi', None, datetime.datetime(2026, 3, 14, 1, 0, 31, 619126), datetime.datetime(2026, 3, 14, 1, 0, 31, 619140), None, None)]
+(Background on this error at: https://sqlalche.me/e/20/gkpj)
