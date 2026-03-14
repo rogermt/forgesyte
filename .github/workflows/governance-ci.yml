@@ -22,6 +22,11 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v2
 
+      - name: Clone forgesyte-plugins
+        run: |
+          cd ..
+          git clone --depth 1 https://github.com/rogermt/forgesyte-plugins.git forgesyte-plugins
+
       - name: Install dependencies
         run: |
           cd server

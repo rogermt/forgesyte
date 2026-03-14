@@ -23,7 +23,8 @@ from typing import Dict, List, Set
 
 ROOT = Path(__file__).resolve().parents[1]
 PIPELINES_DIR = ROOT / "app" / "pipelines"
-PLUGINS_DIR = ROOT / ".." / "plugins"
+# CI clones forgesyte-plugins repo, which has a plugins/ subdirectory
+PLUGINS_DIR = ROOT / ".." / "forgesyte-plugins" / "plugins"
 
 
 def load_plugin_metadata() -> Dict[str, Dict[str, dict]]:

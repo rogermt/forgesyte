@@ -15,7 +15,8 @@ import json
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-PLUGINS_DIR = ROOT / ".." / "plugins"
+# CI clones forgesyte-plugins repo, which has a plugins/ subdirectory
+PLUGINS_DIR = ROOT / ".." / "forgesyte-plugins" / "plugins"
 OUT = ROOT / ".." / "docs" / "plugin_capability_matrix_generated.md"
 
 

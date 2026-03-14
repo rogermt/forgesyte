@@ -20,7 +20,8 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-PLUGINS_DIR = ROOT / "plugins"
+# CI clones forgesyte-plugins repo, which has a plugins/ subdirectory
+PLUGINS_DIR = ROOT / ".." / "forgesyte-plugins" / "plugins"
 
 REQUIRED_FIELDS = ["input_types", "output_types", "capabilities"]
 

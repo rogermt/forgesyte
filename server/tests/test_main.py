@@ -87,38 +87,31 @@ async def test_lifespan_startup_shutdown(mock_plugin_manager):
 
 
 @pytest.mark.asyncio
-async def test_lifespan_ray_init_with_runtime_env(mock_plugin_manager):
-    """Test that lifespan initializes Ray with runtime_env for WebSocket actors."""
-    mock_ray = MagicMock()
-    # Simulate real Ray behavior: is_initialized returns True after init is called
-    mock_ray.is_initialized.return_value = False
-    mock_ray.init.side_effect = lambda *args, **kwargs: setattr(
-        mock_ray.is_initialized, "return_value", True
-    )
+async def test_lifespan_worker_thread_with_env_enabled(mock_plugin_manager):
+    """Test that lifespan starts JobWorker thread when FORGESYTE_ENABLE_WORKERS=1.
 
+    v0.15.0: Ray initialization removed - JobWorker runs as daemon thread.
+    """
     with (
-        patch.dict("sys.modules", {"ray": mock_ray}),
         patch("app.main.PluginRegistry", return_value=mock_plugin_manager),
         patch("app.main.init_auth_service"),
         patch("app.main.threading.Thread") as MockThread,
         patch.dict(
             os.environ,
-            {"FORGESYTE_TEST": "value", "FORGESYTE_ENABLE_WORKERS": "1"},
+            {"FORGESYTE_ENABLE_WORKERS": "1"},
             clear=False,
         ),
     ):
-        # Prevent real worker thread from starting
-        MockThread.return_value.start.return_value = None
+        # Mock the thread to prevent real worker from starting
+        mock_thread = MagicMock()
+        MockThread.return_value = mock_thread
+
         async with lifespan(app):
             pass
 
-    # Ray should have been initialized with runtime_env
-    mock_ray.init.assert_called_once()
-    call_kwargs = mock_ray.init.call_args.kwargs
-    assert "runtime_env" in call_kwargs
-    assert "env_vars" in call_kwargs["runtime_env"]
-    # PATH should NOT be in env_vars (overwrites worker node's binary paths)
-    assert "PATH" not in call_kwargs["runtime_env"]["env_vars"]
+        # Thread should have been created and started
+        MockThread.assert_called_once()
+        mock_thread.start.assert_called_once()
 
 
 def test_app_creation():

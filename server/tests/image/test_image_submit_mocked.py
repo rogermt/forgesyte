@@ -106,8 +106,9 @@ class TestImageSubmitSuccess:
             "/v1/image/submit?plugin_id=ocr&tool=analyze",
             files={"file": ("test.png", BytesIO(FAKE_PNG), "image/png")},
         )
-        mock_deps["db"].add.assert_called_once()
-        mock_deps["db"].commit.assert_called_once()
+        # v0.15.1: db.add called twice - once for Job, once for JobTool
+        assert mock_deps["db"].add.call_count == 2
+        mock_deps["db"].commit.assert_called()
 
 
 class TestImageSubmitValidation:
