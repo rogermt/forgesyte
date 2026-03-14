@@ -7,6 +7,9 @@ The actual migration issue (Issue #293) is that on production systems,
 running init_db() with just create_all() doesn't apply new migrations
 to existing tables. This is tested indirectly by verifying all columns
 exist after table creation.
+
+NOTE: v0.15.1 dropped tool/tool_list columns from jobs table.
+Tools are now stored in job_tools table.
 """
 
 from sqlalchemy import text
@@ -26,12 +29,11 @@ def test_jobs_table_has_all_expected_columns(test_engine):
 
     With proper migration handling, all columns should exist.
     """
+    # v0.15.1: tool and tool_list columns removed, stored in job_tools table
     expected_columns = [
         "job_id",
         "status",
         "plugin_id",
-        "tool",
-        "tool_list",
         "input_path",
         "output_path",
         "job_type",
@@ -85,9 +87,10 @@ def test_jobs_table_column_count(test_engine):
         )
         count = result.fetchone()[0]
 
-    # Expected: 13 columns (see test_jobs_table_has_all_expected_columns)
-    assert count == 13, (
-        f"Expected 13 columns in jobs table, got {count}. "
+    # v0.15.1: Expected 11 columns (tool/tool_list dropped)
+    # See test_jobs_table_has_all_expected_columns for list
+    assert count == 11, (
+        f"Expected 11 columns in jobs table, got {count}. "
         f"This may indicate missing migrations (Issue #293)."
     )
 

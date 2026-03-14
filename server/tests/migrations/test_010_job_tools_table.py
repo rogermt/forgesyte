@@ -2,9 +2,10 @@
 
 Tests verify:
 1. job_tools table is created with correct schema
-2. Existing tool data is backfilled from jobs.tool
-3. Existing tool_list data is backfilled from jobs.tool_list
-4. Foreign key constraint to jobs table exists
+2. JobTool model can be used to associate tools with jobs
+
+NOTE: v0.15.1 dropped tool/tool_list columns from jobs table.
+These tests now verify job_tools table exists and can be used directly.
 """
 
 from sqlalchemy import text
@@ -64,31 +65,37 @@ def test_job_tools_has_tool_id_column(test_engine):
         assert row[1] == "NO", "tool_id should be NOT NULL"
 
 
-def test_job_tools_backfills_single_tool(test_engine):
-    """RED: Verify migration backfills tool from existing single-tool jobs."""
+def test_job_tools_single_tool(test_engine):
+    """Verify job_tools can store single tool for a job."""
     from sqlalchemy.orm import sessionmaker
 
     from app.models.job import Job, JobStatus
+    from app.models.job_tool import JobTool
 
     Session = sessionmaker(bind=test_engine)
     session = Session()
 
-    # Create a single-tool job
+    # Create a job with a single tool
     job = Job(
         plugin_id="test-plugin",
-        tool="single_tool",
         input_path="test/input.jpg",
         job_type="image",
         status=JobStatus.pending,
     )
     session.add(job)
+    session.flush()
+
+    # Add tool to job_tools table (v0.15.1: replaced tool column)
+    job_tool = JobTool(
+        job_id=job.job_id,
+        tool_id="single_tool",
+        tool_order=0,
+    )
+    session.add(job_tool)
     session.commit()
 
-    # Run migration backfill (this would be done by migration in real scenario)
-    # For now, we test that the query works
-    job_id = str(job.job_id)
-
     # Query job_tools for this job's tool
+    job_id = str(job.job_id)
     with test_engine.connect() as conn:
         result = conn.execute(
             text("SELECT tool_id FROM job_tools WHERE job_id = :job_id"),
@@ -96,22 +103,18 @@ def test_job_tools_backfills_single_tool(test_engine):
         )
         rows = result.fetchall()
 
-        # After migration, should have one row with tool_id='single_tool'
-        # For TDD, this will fail until migration runs
-        if rows:
-            assert len(rows) == 1
-            assert rows[0][0] == "single_tool"
+        assert len(rows) == 1
+        assert rows[0][0] == "single_tool"
 
     session.close()
 
 
-def test_job_tools_backfills_multi_tool(test_engine):
-    """RED: Verify migration backfills tool_list from existing multi-tool jobs."""
-    import json
-
+def test_job_tools_multi_tool(test_engine):
+    """Verify job_tools can store multiple tools for a job."""
     from sqlalchemy.orm import sessionmaker
 
     from app.models.job import Job, JobStatus
+    from app.models.job_tool import JobTool
 
     Session = sessionmaker(bind=test_engine)
     session = Session()
@@ -120,13 +123,21 @@ def test_job_tools_backfills_multi_tool(test_engine):
     tools = ["tool_a", "tool_b", "tool_c"]
     job = Job(
         plugin_id="test-plugin",
-        tool=None,
-        tool_list=json.dumps(tools),
         input_path="test/input.jpg",
         job_type="image_multi",
         status=JobStatus.pending,
     )
     session.add(job)
+    session.flush()
+
+    # Add tools to job_tools table (v0.15.1: replaced tool_list column)
+    for idx, tool_id in enumerate(tools):
+        job_tool = JobTool(
+            job_id=job.job_id,
+            tool_id=tool_id,
+            tool_order=idx,
+        )
+        session.add(job_tool)
     session.commit()
 
     job_id = str(job.job_id)
@@ -139,10 +150,8 @@ def test_job_tools_backfills_multi_tool(test_engine):
         )
         rows = result.fetchall()
 
-        # After migration, should have 3 rows
-        if rows:
-            assert len(rows) == 3
-            tool_ids = [r[0] for r in rows]
-            assert set(tool_ids) == set(tools)
+        assert len(rows) == 3
+        tool_ids = [r[0] for r in rows]
+        assert set(tool_ids) == set(tools)
 
     session.close()
