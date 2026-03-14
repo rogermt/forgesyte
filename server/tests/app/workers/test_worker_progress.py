@@ -7,6 +7,7 @@ import pytest
 from sqlalchemy.orm import sessionmaker
 
 from app.models.job import Job, JobStatus
+from app.models.job_tool import JobTool
 from app.workers.worker import JobWorker
 
 
@@ -61,14 +62,15 @@ def test_worker_update_progress_throttled(test_engine, session):
     job = Job(
         job_id=job_id,
         plugin_id="yolo",
-        tool="detect",
         input_path="/tmp/test.mp4",
         job_type="video",
         status=JobStatus.running,
     )
     session.add(job)
+    session.flush()
+    job_tool = JobTool(job_id=job_id, tool_id="detect", tool_order=0)
+    session.add(job_tool)
     session.commit()
-
     # Update at 1% (should update - first frame)
     worker._update_job_progress(job_id, 1, 100, session)
     session.expire_all()
@@ -100,15 +102,16 @@ def test_worker_update_progress_always_updates_last_frame(test_engine, session):
     job = Job(
         job_id=job_id,
         plugin_id="yolo",
-        tool="detect",
         input_path="/tmp/test.mp4",
         job_type="video",
         status=JobStatus.running,
         progress=95,
     )
     session.add(job)
+    session.flush()
+    job_tool = JobTool(job_id=job_id, tool_id="detect", tool_order=0)
+    session.add(job_tool)
     session.commit()
-
     # Update at last frame (100%) - should update even if not 5% boundary
     worker._update_job_progress(job_id, 100, 100, session)
     session.expire_all()
@@ -134,15 +137,16 @@ def test_worker_sets_100_percent_on_completion(test_engine, session):
     job = Job(
         job_id=job_id,
         plugin_id="yolo",
-        tool="detect",
         input_path="/tmp/test.mp4",
         job_type="video",
         status=JobStatus.running,
         progress=95,
     )
     session.add(job)
+    session.flush()
+    job_tool = JobTool(job_id=job_id, tool_id="detect", tool_order=0)
+    session.add(job_tool)
     session.commit()
-
     # Setup mock behaviors
     mock_storage.load_file.return_value = "/tmp/test.mp4"
     mock_storage.save_file.return_value = "video/output/test.json"

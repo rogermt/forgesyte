@@ -189,10 +189,17 @@ def test_submit_stores_tool_in_job(
     assert response.status_code == 200
     job_id = response.json()["job_id"]
 
-    # Verify tool was stored
-    job = session.query(Job).filter(Job.job_id == job_id).first()
-    assert job is not None
-    assert job.tool == "analyze"
+    # Verify tool was stored in job_tools table
+    from app.models.job_tool import JobTool
+
+    job_tools = (
+        session.query(JobTool)
+        .filter(JobTool.job_id == job_id)
+        .order_by(JobTool.tool_order)
+        .all()
+    )
+    assert len(job_tools) == 1
+    assert job_tools[0].tool_id == "analyze"
 
 
 @pytest.mark.unit
@@ -301,7 +308,16 @@ def test_submit_with_logical_tool_id_resolves_tool(
     assert response.status_code == 200
     job_id = response.json()["job_id"]
 
-    # Verify resolved tool was stored (video_track for video input)
-    job = session.query(Job).filter(Job.job_id == job_id).first()
-    assert job is not None
-    assert job.tool == "video_track"  # Resolved from text_extraction + video
+    # Verify resolved tool was stored in job_tools table (video_track for video input)
+    from app.models.job_tool import JobTool
+
+    job_tools = (
+        session.query(JobTool)
+        .filter(JobTool.job_id == job_id)
+        .order_by(JobTool.tool_order)
+        .all()
+    )
+    assert len(job_tools) == 1
+    assert (
+        job_tools[0].tool_id == "video_track"
+    )  # Resolved from text_extraction + video

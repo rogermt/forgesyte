@@ -13,6 +13,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import sessionmaker
 
 from app.models.job import Job, JobStatus
+from app.models.job_tool import JobTool
 from app.workers.worker import JobWorker
 
 
@@ -46,13 +47,14 @@ class TestWorkerPydanticSerialization:
             job_id=job_id,
             status=JobStatus.pending,
             plugin_id="ocr",
-            tool="analyze",
             input_path="image/input/test.png",
             job_type="image",
         )
         session.add(job)
+        session.flush()
+        job_tool = JobTool(job_id=job_id, tool_id="analyze", tool_order=0)
+        session.add(job_tool)
         session.commit()
-
         # Setup mock behaviors
         mock_storage.load_file.return_value = "/data/jobs/image/input/test.png"
 
@@ -125,13 +127,14 @@ class TestWorkerPydanticSerialization:
             job_id=job_id,
             status=JobStatus.pending,
             plugin_id="ocr",
-            tool="analyze",
             input_path="image/input/test.png",
             job_type="image",
         )
         session.add(job)
+        session.flush()
+        job_tool = JobTool(job_id=job_id, tool_id="analyze", tool_order=0)
+        session.add(job_tool)
         session.commit()
-
         # Setup mock behaviors
         mock_storage.load_file.return_value = "/data/jobs/image/input/test.png"
 
@@ -188,13 +191,14 @@ class TestWorkerPydanticSerialization:
             job_id=job_id,
             status=JobStatus.pending,
             plugin_id="ocr",
-            tool="analyze",
             input_path="image/input/test.png",
             job_type="image",
         )
         session.add(job)
+        session.flush()
+        job_tool = JobTool(job_id=job_id, tool_id="analyze", tool_order=0)
+        session.add(job_tool)
         session.commit()
-
         # Setup mock behaviors
         import tempfile
 

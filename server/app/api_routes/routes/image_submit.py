@@ -33,7 +33,7 @@ router = APIRouter()
 
 def debug_file(msg: str) -> None:
     """Write debug message to file since logging may not work."""
-    with open("debug_output.txt", "a") as f:
+    with open("debug_output.log", "a") as f:
         f.write(msg + "\n")
 
 
