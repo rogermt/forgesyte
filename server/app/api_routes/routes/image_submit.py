@@ -303,16 +303,27 @@ async def submit_image(
     # Create database record
     db = SessionLocal()
     try:
+        from app.models.job_tool import JobTool
+
         job = Job(
             job_id=job_id,  # Pass UUID object, not string
             status=JobStatus.pending,
             plugin_id=plugin_id,
-            tool=resolved_tools[0] if not is_multi_tool else None,
-            tool_list=json.dumps(resolved_tools) if is_multi_tool else None,
             input_path=input_path,
             job_type=job_type,
         )
         db.add(job)
+        db.flush()  # Flush to get job_id before adding JobTools
+
+        # Add tools to job_tools table
+        for order, tool_id in enumerate(resolved_tools):
+            job_tool = JobTool(
+                job_id=job_id,
+                tool_id=tool_id,
+                tool_order=order,
+            )
+            db.add(job_tool)
+
         db.commit()
         db.refresh(job)
         debug_file(f"[DEBUG] Job created: job_id={job_id}")

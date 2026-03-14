@@ -29,8 +29,9 @@ export interface Job {
     job_id: string;
     status: "pending" | "running" | "completed" | "failed";  // Issue #212: Aligned with server enum
     plugin_id?: string;  // v0.9.2: plugin_id from server
-    tool?: string;  // v0.9.2: tool from server (single-tool)
-    tool_list?: string[];  // v0.9.4: tool_list from server (multi-tool)
+    tool?: string;  // v0.9.2: tool from server (single-tool, first tool for multi-tool)
+    tools?: string[];  // v0.15.1: All tools from job_tools table
+    tool_list?: string[];  // DEPRECATED: Use tools instead (kept for backward compatibility)
     job_type?: "image" | "image_multi" | "video" | "video_multi";  // v0.9.8: added video_multi
     plugin?: string;  // Legacy: kept for backward compatibility
     results?: Record<string, unknown>;  // v0.9.2: results from server
