@@ -208,6 +208,9 @@ async def submit_video_job(
             job_id=job_id,
             status=JobStatus.pending,
             plugin_id=plugin_id,
+            tool=locked_tools[
+                0
+            ],  # First tool (backward compat with NOT NULL constraint)
             input_path=video_path,
             job_type=job_type,
         )
@@ -391,6 +394,9 @@ async def submit_video(
             job_id=job_id,  # Pass UUID object, not string
             status=JobStatus.pending,
             plugin_id=plugin_id,
+            tool=resolved_tools[
+                0
+            ],  # First tool (backward compat with NOT NULL constraint)
             input_path=input_path,
             job_type=job_type,
         )

@@ -309,6 +309,9 @@ async def submit_image(
             job_id=job_id,  # Pass UUID object, not string
             status=JobStatus.pending,
             plugin_id=plugin_id,
+            tool=resolved_tools[
+                0
+            ],  # First tool (backward compat with NOT NULL constraint)
             input_path=input_path,
             job_type=job_type,
         )

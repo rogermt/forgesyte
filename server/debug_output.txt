@@ -68,3 +68,45 @@
 [DEBUG] File saved to image/input/c6b7b797-f1b9-4d27-95e9-08e58a76a311_test.png
 [DEBUG] Job created: job_id=c6b7b797-f1b9-4d27-95e9-08e58a76a311
 [DEBUG] Returning legacy response: job_id=c6b7b797-f1b9-4d27-95e9-08e58a76a311
+[DEBUG] submit_image called: plugin_id=yolo-tracker, tool=None, logical_tool_id=['player_detection', 'pitch_detection']
+[DEBUG] logical_tool_id provided: ['player_detection', 'pitch_detection']
+[DEBUG] Manifest tools: [{"id": "player_detection", "title": "Player Detection", "description": "Detect players in a single image.", "inputs": {"image_bytes": "string", "device": "string", "annotated": "boolean"}, "outputs": {"detections": "array", "annotated_image_base64": "string?"}, "input_types": ["image_bytes"], "output_types": ["detections"], "capabilities": ["player_detection"]}, {"id": "ball_detection", "title": "Ball Detection", "description": "Detect the football in a single image.", "inputs": {"image_bytes":
+[DEBUG] Calling resolve_tools with logical_tool_id=['player_detection', 'pitch_detection'], mime=image/jpeg
+[DEBUG] resolve_tools returned: ['player_detection', 'pitch_detection']
+[DEBUG] is_multi_tool=True, job_type=image_multi, resolved_tools=['player_detection', 'pitch_detection']
+[DEBUG] File saved to image/input/491f3a82-af49-481a-829b-ae5fb69f7041_08fd33_3_1_png.rf.6f25c835bf6d1828dcf584e5969b1f58.jpg
+[DEBUG] Database error: (_duckdb.ConstraintException) Constraint Error: NOT NULL constraint failed: jobs.tool
+[SQL: INSERT INTO jobs (job_id, status, plugin_id, tool, tool_list, input_path, output_path, job_type, error_message, created_at, updated_at, progress, ray_future_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)]
+[parameters: (UUID('491f3a82-af49-481a-829b-ae5fb69f7041'), 'pending', 'yolo-tracker', None, None, 'image/input/491f3a82-af49-481a-829b-ae5fb69f7041_08fd33_3_1_png.rf.6f25c835bf6d1828dcf584e5969b1f58.jpg', None, 'image_multi', None, datetime.datetime(2026, 3, 14, 1, 31, 36, 184680), datetime.datetime(2026, 3, 14, 1, 31, 36, 184690), None, None)]
+(Background on this error at: https://sqlalche.me/e/20/gkpj)
+[DEBUG] submit_image called: plugin_id=yolo-tracker, tool=None, logical_tool_id=['player_detection', 'pitch_detection']
+[DEBUG] logical_tool_id provided: ['player_detection', 'pitch_detection']
+[DEBUG] Manifest tools: [{"id": "player_detection", "title": "Player Detection", "description": "Detect players in a single image.", "inputs": {"image_bytes": "string", "device": "string", "annotated": "boolean"}, "outputs": {"detections": "array", "annotated_image_base64": "string?"}, "input_types": ["image_bytes"], "output_types": ["detections"], "capabilities": ["player_detection"]}, {"id": "ball_detection", "title": "Ball Detection", "description": "Detect the football in a single image.", "inputs": {"image_bytes":
+[DEBUG] Calling resolve_tools with logical_tool_id=['player_detection', 'pitch_detection'], mime=image/jpeg
+[DEBUG] resolve_tools returned: ['player_detection', 'pitch_detection']
+[DEBUG] is_multi_tool=True, job_type=image_multi, resolved_tools=['player_detection', 'pitch_detection']
+[DEBUG] File saved to image/input/a73b13a4-9f16-4972-95d6-221b9e4f224b_08fd33_3_1_png.rf.6f25c835bf6d1828dcf584e5969b1f58.jpg
+[DEBUG] Job created: job_id=a73b13a4-9f16-4972-95d6-221b9e4f224b
+[DEBUG] Returning multi-tool response: job_id=a73b13a4-9f16-4972-95d6-221b9e4f224b, tools=['player_detection', 'pitch_detection']
+[DEBUG] submit_image called: plugin_id=yolo-tracker, tool=['player_detection', 'ball_detection'], logical_tool_id=None
+[DEBUG] is_multi_tool=True, job_type=image_multi, resolved_tools=['player_detection', 'ball_detection']
+[DEBUG] File saved to image/input/374f0da8-57fd-4a4e-93df-a89efe640783_test.png
+[DEBUG] Job created: job_id=374f0da8-57fd-4a4e-93df-a89efe640783
+[DEBUG] Returning legacy response: job_id=374f0da8-57fd-4a4e-93df-a89efe640783
+[DEBUG] submit_image called: plugin_id=yolo-tracker, tool=['player_detection', 'ball_detection', 'player_tracking'], logical_tool_id=None
+[DEBUG] is_multi_tool=True, job_type=image_multi, resolved_tools=['player_detection', 'ball_detection', 'player_tracking']
+[DEBUG] File saved to image/input/7e38077f-eb2f-4440-b9fb-ee63945daed6_test.png
+[DEBUG] Job created: job_id=7e38077f-eb2f-4440-b9fb-ee63945daed6
+[DEBUG] Returning legacy response: job_id=7e38077f-eb2f-4440-b9fb-ee63945daed6
+[DEBUG] submit_image called: plugin_id=yolo-tracker, tool=['player_detection'], logical_tool_id=None
+[DEBUG] is_multi_tool=False, job_type=image, resolved_tools=['player_detection']
+[DEBUG] File saved to image/input/7385acf8-54d2-4989-a9ae-cd488f30d90d_test.png
+[DEBUG] Job created: job_id=7385acf8-54d2-4989-a9ae-cd488f30d90d
+[DEBUG] Returning legacy response: job_id=7385acf8-54d2-4989-a9ae-cd488f30d90d
+[DEBUG] submit_image called: plugin_id=yolo-tracker, tool=['player_detection', 'invalid_tool'], logical_tool_id=None
+[DEBUG] submit_image called: plugin_id=test, tool=['image_tool', 'video_only_tool'], logical_tool_id=None
+[DEBUG] submit_image called: plugin_id=yolo-tracker, tool=['player_tracking', 'ball_detection', 'player_detection'], logical_tool_id=None
+[DEBUG] is_multi_tool=True, job_type=image_multi, resolved_tools=['player_tracking', 'ball_detection', 'player_detection']
+[DEBUG] File saved to image/input/19bb21fe-9885-4795-9c88-a99c9fc53daf_test.png
+[DEBUG] Job created: job_id=19bb21fe-9885-4795-9c88-a99c9fc53daf
+[DEBUG] Returning legacy response: job_id=19bb21fe-9885-4795-9c88-a99c9fc53daf
