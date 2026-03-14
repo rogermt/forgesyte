@@ -11,6 +11,7 @@ import pytest
 from sqlalchemy.orm import sessionmaker
 
 from app.models.job import Job, JobStatus
+from app.models.job_tool import JobTool
 from app.workers.worker import JobWorker
 
 
@@ -53,11 +54,15 @@ def test_worker_stores_relative_output_path_only(test_engine, session):
         job_id=job_id,
         status=JobStatus.pending,
         plugin_id="test_plugin",
-        tool="test_tool",
         input_path="input/test.mp4",
         job_type="video",  # Required field
     )
     session.add(job)
+    session.flush()  # Flush before adding JobTool entries
+
+    # Add tool to job_tools table (v0.15.1: replaced tool column)
+    job_tool = JobTool(job_id=job_id, tool_id="test_tool", tool_order=0)
+    session.add(job_tool)
     session.commit()
 
     # Execute worker
@@ -131,11 +136,15 @@ def test_worker_does_not_store_absolute_path(test_engine, session):
         job_id=job_id,
         status=JobStatus.pending,
         plugin_id="test_plugin",
-        tool="test_tool",
         input_path="input/test.mp4",
         job_type="video",  # Required field
     )
     session.add(job)
+    session.flush()  # Flush before adding JobTool entries
+
+    # Add tool to job_tools table (v0.15.1: replaced tool column)
+    job_tool = JobTool(job_id=job_id, tool_id="test_tool", tool_order=0)
+    session.add(job_tool)
     session.commit()
 
     # Execute worker
