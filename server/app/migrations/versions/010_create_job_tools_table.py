@@ -48,16 +48,25 @@ def upgrade() -> None:
     if _table_exists("job_tools"):
         return
 
-    # Create job_tools table
-    op.create_table(
-        "job_tools",
-        sa.Column("id", sa.String(36), primary_key=True),
-        sa.Column(
-            "job_id", sa.String(36), sa.ForeignKey("jobs.job_id"), nullable=False
-        ),
-        sa.Column("tool_id", sa.String(), nullable=False),
-        sa.Column("tool_order", sa.Integer(), nullable=False, server_default="0"),
+    conn = op.get_bind()
+
+    # Create job_tools table WITHOUT foreign key constraint
+    # DuckDB has issues with FK constraints that block updates to parent table
+    conn.execute(
+        sa.text(
+            """
+            CREATE TABLE job_tools (
+                id UUID PRIMARY KEY,
+                job_id UUID NOT NULL,
+                tool_id VARCHAR NOT NULL,
+                tool_order INTEGER NOT NULL DEFAULT 0
+            )
+            """
+        )
     )
+
+    # Create index on job_id for faster lookups
+    conn.execute(sa.text("CREATE INDEX idx_job_tools_job_id ON job_tools (job_id)"))
 
     # Backfill from single-tool jobs (jobs.tool IS NOT NULL AND jobs.tool_list IS NULL)
     conn = op.get_bind()

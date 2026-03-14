@@ -504,16 +504,10 @@ class JobWorker:
 
                     db.refresh(job)
 
-                    # Query tools from job_tools table
-                    from app.models.job_tool import JobTool
+                    # Query tools from job_tools table via service
+                    from app.services.job_tools_service import JobToolsService
 
-                    job_tools = (
-                        db.query(JobTool)
-                        .filter(JobTool.job_id == job.job_id)
-                        .order_by(JobTool.tool_order)
-                        .all()
-                    )
-                    tools_to_run = [jt.tool_id for jt in job_tools]
+                    tools_to_run = JobToolsService.get_tools_for_job(db, job.job_id)
                     is_multi = len(tools_to_run) > 1
                     meta = {
                         "plugin_id": job.plugin_id,
@@ -739,16 +733,10 @@ class JobWorker:
                 return False
 
             # v0.9.4: Determine tools to execute from job_tools table
-            # v0.15.1: Query from job_tools instead of tool_list column
-            from app.models.job_tool import JobTool
+            # v0.15.1: Query from job_tools via JobToolsService
+            from app.services.job_tools_service import JobToolsService
 
-            job_tools = (
-                db.query(JobTool)
-                .filter(JobTool.job_id == job.job_id)
-                .order_by(JobTool.tool_order)
-                .all()
-            )
-            tools_to_run = [jt.tool_id for jt in job_tools]
+            tools_to_run = JobToolsService.get_tools_for_job(db, job.job_id)
 
             if not tools_to_run:
                 job.status = JobStatus.failed

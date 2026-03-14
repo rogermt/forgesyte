@@ -303,7 +303,7 @@ async def submit_image(
     # Create database record
     db = SessionLocal()
     try:
-        from app.models.job_tool import JobTool
+        from app.services.job_tools_service import JobToolsService
 
         job = Job(
             job_id=job_id,  # Pass UUID object, not string
@@ -316,16 +316,10 @@ async def submit_image(
             job_type=job_type,
         )
         db.add(job)
-        db.flush()  # Flush to get job_id before adding JobTools
+        db.flush()  # Flush to ensure job exists before adding tools
 
-        # Add tools to job_tools table
-        for order, tool_id in enumerate(resolved_tools):
-            job_tool = JobTool(
-                job_id=job_id,
-                tool_id=tool_id,
-                tool_order=order,
-            )
-            db.add(job_tool)
+        # Add tools to job_tools table via service
+        JobToolsService.add_tools_to_job(db, job_id, resolved_tools)
 
         db.commit()
         db.refresh(job)
