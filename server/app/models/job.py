@@ -20,7 +20,11 @@ class JobStatus(str, enum.Enum):
 
 
 class Job(Base):
-    """Job database model for persistent job tracking."""
+    """Job database model for persistent job tracking.
+
+    v0.15.1: tool/tool_list columns removed. Use job_tools table instead.
+    See JobToolsService for application-level integrity.
+    """
 
     __tablename__ = "jobs"
 
@@ -37,12 +41,8 @@ class Job(Base):
         default=JobStatus.pending,
     )
 
-    # Plugin and tool selection (replaces pipeline_id + tools)
+    # Plugin selection (tools are stored in job_tools table)
     plugin_id = Column(String, nullable=False)
-    tool = Column(String, nullable=True)  # v0.9.4: Nullable for multi-tool jobs
-    tool_list = Column(
-        String, nullable=True
-    )  # v0.9.4: JSON-encoded list for multi-tool jobs
 
     input_path = Column(String, nullable=False)
     output_path = Column(String, nullable=True)
