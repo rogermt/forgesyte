@@ -8,6 +8,7 @@ import pytest
 from sqlalchemy.orm import sessionmaker
 
 from app.models.job import Job, JobStatus
+from app.models.job_tool import JobTool
 from app.workers.worker import JobWorker
 
 
@@ -52,11 +53,14 @@ def test_worker_run_once_marks_job_running(test_engine, session):
         job_id=job_id,
         status=JobStatus.pending,
         plugin_id="test_plugin",
-        tool="test_tool",
         input_path="video/input/test.mp4",
         job_type="video",
     )
     session.add(job)
+    session.flush()
+    # Add tool to job_tools table
+    job_tool = JobTool(job_id=job_id, tool_id="test_tool", tool_order=0)
+    session.add(job_tool)
     session.commit()
 
     # Setup mock behaviors
@@ -91,13 +95,14 @@ def test_worker_run_once_no_matching_job(test_engine, session):
         job_id=job_id,
         status=JobStatus.completed,
         plugin_id="test_plugin",
-        tool="test_tool",
         input_path="test.mp4",
         job_type="video",
     )
     session.add(job)
+    session.flush()
+    job_tool = JobTool(job_id=job_id, tool_id="test_tool", tool_order=0)
+    session.add(job_tool)
     session.commit()
-
     # Run worker — should find nothing pending
     result = worker.run_once()
 
@@ -125,11 +130,14 @@ def test_worker_multiple_run_once_calls(test_engine, session):
             job_id=job_id,
             status=JobStatus.pending,
             plugin_id="test_plugin",
-            tool="test_tool",
             input_path="video/input/test.mp4",
             job_type="video",
         )
         session.add(job)
+        session.flush()
+        # Add tool to job_tools table
+        job_tool = JobTool(job_id=job_id, tool_id="test_tool", tool_order=0)
+        session.add(job_tool)
     session.commit()
 
     # Setup mock behaviors
@@ -178,13 +186,14 @@ def test_worker_run_once_executes_pipeline(test_engine, session):
         job_id=job_id,
         status=JobStatus.pending,
         plugin_id="test_plugin",
-        tool="test_tool",
         input_path="video/input/test.mp4",
         job_type="video",
     )
     session.add(job)
+    session.flush()
+    job_tool = JobTool(job_id=job_id, tool_id="test_tool", tool_order=0)
+    session.add(job_tool)
     session.commit()
-
     # Setup mock behaviors
     mock_storage.load_file.return_value = "/data/jobs/video/input/test.mp4"
     mock_storage.save_file.return_value = "video/output/test.json"
@@ -230,13 +239,14 @@ def test_worker_run_once_saves_results_to_storage(test_engine, session):
         job_id=job_id,
         status=JobStatus.pending,
         plugin_id="test_plugin",
-        tool="test_tool",
         input_path="video/input/test.mp4",
         job_type="video",
     )
     session.add(job)
+    session.flush()
+    job_tool = JobTool(job_id=job_id, tool_id="test_tool", tool_order=0)
+    session.add(job_tool)
     session.commit()
-
     # Setup mock behaviors
     test_results = [
         {"frame_index": 0, "result": {"detections": [{"id": 1}]}},
@@ -293,13 +303,14 @@ def test_worker_run_once_updates_job_completed(test_engine, session):
         job_id=job_id,
         status=JobStatus.pending,
         plugin_id="test_plugin",
-        tool="test_tool",
         input_path="video/input/test.mp4",
         job_type="video",
     )
     session.add(job)
+    session.flush()
+    job_tool = JobTool(job_id=job_id, tool_id="test_tool", tool_order=0)
+    session.add(job_tool)
     session.commit()
-
     # Setup mock behaviors
     mock_storage.load_file.return_value = "/data/jobs/video/input/test.mp4"
     mock_storage.save_file.return_value = "video/output/test.json"
@@ -342,13 +353,14 @@ def test_worker_run_once_handles_pipeline_error(test_engine, session):
         job_id=job_id,
         status=JobStatus.pending,
         plugin_id="test_plugin",
-        tool="test_tool",
         input_path="video/input/test.mp4",
         job_type="video",
     )
     session.add(job)
+    session.flush()
+    job_tool = JobTool(job_id=job_id, tool_id="test_tool", tool_order=0)
+    session.add(job_tool)
     session.commit()
-
     # Setup mock to raise error
     mock_storage.load_file.return_value = "/data/jobs/video/input/test.mp4"
     mock_plugin_service.get_plugin_manifest.return_value = {
@@ -387,13 +399,14 @@ def test_worker_run_once_handles_storage_error(test_engine, session):
         job_id=job_id,
         status=JobStatus.pending,
         plugin_id="test_plugin",
-        tool="test_tool",
         input_path="video/input/missing.mp4",
         job_type="video",
     )
     session.add(job)
+    session.flush()
+    job_tool = JobTool(job_id=job_id, tool_id="test_tool", tool_order=0)
+    session.add(job_tool)
     session.commit()
-
     # Setup mock to raise file not found
     mock_storage.load_file.side_effect = FileNotFoundError("File not found")
     mock_plugin_service.get_plugin_manifest.return_value = {
@@ -435,13 +448,14 @@ def test_worker_flattens_video_results_for_ui(test_engine, session):
         job_id=job_id,
         status=JobStatus.pending,
         plugin_id="yolo",
-        tool="video_player_tracking",
         input_path="video/input/test.mp4",
         job_type="video",
     )
     session.add(job)
+    session.flush()
+    job_tool = JobTool(job_id=job_id, tool_id="video_player_tracking", tool_order=0)
+    session.add(job_tool)
     session.commit()
-
     # Mock returns dict with frames and total_frames (like YOLO plugin)
     mock_storage.load_file.return_value = "/data/jobs/video/input/test.mp4"
     mock_storage.save_file.return_value = "video/output/test.json"
@@ -536,13 +550,16 @@ def test_worker_sync_mode_loads_plugins(test_engine, session):
         job_id=job_id,
         status=JobStatus.pending,
         plugin_id="ocr",  # Use a known plugin
-        tool="analyze",  # OCR plugin's tool name
         input_path="image/input/test.png",
         job_type="image",
     )
     session.add(job)
+    session.flush()
+    job_tool = JobTool(
+        job_id=job_id, tool_id="analyze", tool_order=0
+    )  # OCR plugin's tool name
+    session.add(job_tool)
     session.commit()
-
     # Setup storage mock to return real temp file
     mock_storage.load_file.return_value = test_image_path
     mock_storage.save_file.return_value = "image/output/test.json"

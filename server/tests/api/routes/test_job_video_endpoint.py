@@ -66,7 +66,6 @@ class TestGetJobVideo:
             job_id=job_id,
             status=JobStatus.completed,
             plugin_id="yolo",
-            tool="video_player_tracking",
             input_path=f"video/input/{job_id}.mp4",
             output_path=f"video/output/{job_id}.json",
             job_type="video",
@@ -101,7 +100,6 @@ class TestGetJobVideo:
             job_id=job_id,
             status=JobStatus.completed,
             plugin_id="yolo",
-            tool="video_player_tracking",
             input_path=f"video/input/{job_id}.mp4",
             output_path=f"video/output/{job_id}.json",
             job_type="video",
@@ -124,7 +122,6 @@ class TestGetJobVideo:
             job_id=job_id,
             status=JobStatus.pending,
             plugin_id="yolo",
-            tool="video_player_tracking",
             input_path=f"video/input/{job_id}.mp4",
             job_type="video",
         )

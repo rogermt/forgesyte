@@ -14,7 +14,6 @@ class TestJobStatusEndpoint:
         """Assert pending job returns progress=null for pre-v0.9.6 jobs."""
         job = Job(
             plugin_id="yolo-tracker",
-            tool="video_track",
             input_path="video/test.mp4",
             status=JobStatus.pending,
             job_type="video",
@@ -38,7 +37,6 @@ class TestJobStatusEndpoint:
         """Assert running job returns actual progress when available."""
         job = Job(
             plugin_id="yolo-tracker",
-            tool="video_track",
             input_path="video/test.mp4",
             status=JobStatus.running,
             job_type="video",
@@ -59,7 +57,6 @@ class TestJobStatusEndpoint:
         """Assert completed job returns progress=100."""
         job = Job(
             plugin_id="yolo-tracker",
-            tool="video_track",
             input_path="video/test.mp4",
             output_path="video/output/test_results.json",
             status=JobStatus.completed,
@@ -81,7 +78,6 @@ class TestJobStatusEndpoint:
         """Assert failed job returns actual progress or null."""
         job = Job(
             plugin_id="yolo-tracker",
-            tool="video_track",
             input_path="video/test.mp4",
             status=JobStatus.failed,
             error_message="Test error",
@@ -103,7 +99,6 @@ class TestJobStatusEndpoint:
         """Assert response has all required fields."""
         job = Job(
             plugin_id="yolo-tracker",
-            tool="video_track",
             input_path="video/test.mp4",
             status=JobStatus.running,
             job_type="video",

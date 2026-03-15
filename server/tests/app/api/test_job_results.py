@@ -27,7 +27,6 @@ class TestJobResultsEndpoint:
         # Create completed job with output_path
         job = Job(
             plugin_id="yolo-tracker",
-            tool="video_track",
             input_path="video/test.mp4",
             output_path=results_file,
             status=JobStatus.completed,
@@ -51,7 +50,6 @@ class TestJobResultsEndpoint:
         """Assert pending job returns 404."""
         job = Job(
             plugin_id="yolo-tracker",
-            tool="video_track",
             input_path="video/test.mp4",
             status=JobStatus.pending,
             job_type="video",
@@ -67,7 +65,6 @@ class TestJobResultsEndpoint:
         """Assert running job returns 404."""
         job = Job(
             plugin_id="yolo-tracker",
-            tool="video_track",
             input_path="video/test.mp4",
             status=JobStatus.running,
             job_type="video",
@@ -83,7 +80,6 @@ class TestJobResultsEndpoint:
         """Assert failed job returns 404."""
         job = Job(
             plugin_id="yolo-tracker",
-            tool="video_track",
             input_path="video/test.mp4",
             status=JobStatus.failed,
             error_message="Test error",

@@ -202,29 +202,20 @@ async def submit_video_job(
     # Create database record
     db = SessionLocal()
     try:
-        from app.models.job_tool import JobTool
+        from app.services.job_tools_service import JobToolsService
 
         job = Job(
             job_id=job_id,
             status=JobStatus.pending,
             plugin_id=plugin_id,
-            tool=locked_tools[
-                0
-            ],  # First tool (backward compat with NOT NULL constraint)
             input_path=video_path,
             job_type=job_type,
         )
         db.add(job)
-        db.flush()  # Flush to get job_id before adding JobTools
+        db.flush()  # Flush to ensure job exists before adding tools
 
-        # Add tools to job_tools table
-        for order, tool_id in enumerate(locked_tools):
-            job_tool = JobTool(
-                job_id=job_id,
-                tool_id=tool_id,
-                tool_order=order,
-            )
-            db.add(job_tool)
+        # Add tools to job_tools table via service
+        JobToolsService.add_tools_to_job(db, job_id, locked_tools)
 
         db.commit()
         db.refresh(job)
@@ -388,29 +379,20 @@ async def submit_video(
     # Create database record
     db = SessionLocal()
     try:
-        from app.models.job_tool import JobTool
+        from app.services.job_tools_service import JobToolsService
 
         job = Job(
             job_id=job_id,  # Pass UUID object, not string
             status=JobStatus.pending,
             plugin_id=plugin_id,
-            tool=resolved_tools[
-                0
-            ],  # First tool (backward compat with NOT NULL constraint)
             input_path=input_path,
             job_type=job_type,
         )
         db.add(job)
-        db.flush()  # Flush to get job_id before adding JobTools
+        db.flush()  # Flush to ensure job exists before adding tools
 
-        # Add tools to job_tools table
-        for order, tool_id in enumerate(resolved_tools):
-            job_tool = JobTool(
-                job_id=job_id,
-                tool_id=tool_id,
-                tool_order=order,
-            )
-            db.add(job_tool)
+        # Add tools to job_tools table via service
+        JobToolsService.add_tools_to_job(db, job_id, resolved_tools)
 
         db.commit()
         db.refresh(job)

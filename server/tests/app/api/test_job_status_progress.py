@@ -16,7 +16,6 @@ async def test_get_job_status_returns_progress_for_v096_jobs(client, session):
     job = Job(
         job_id=job_id,
         plugin_id="yolo",
-        tool="detect",
         input_path="/tmp/test.mp4",
         job_type="video",
         status=JobStatus.running,
@@ -43,7 +42,6 @@ async def test_get_job_status_returns_null_for_old_jobs(client, session):
     job = Job(
         job_id=job_id,
         plugin_id="yolo",
-        tool="detect",
         input_path="/tmp/test.mp4",
         job_type="video",
         status=JobStatus.running,
@@ -69,7 +67,6 @@ async def test_get_job_status_returns_100_for_completed_jobs(client, session):
     job = Job(
         job_id=job_id,
         plugin_id="yolo",
-        tool="detect",
         input_path="/tmp/test.mp4",
         job_type="video",
         status=JobStatus.completed,
@@ -95,7 +92,6 @@ async def test_get_job_status_returns_0_for_pending_jobs(client, session):
     job = Job(
         job_id=job_id,
         plugin_id="yolo",
-        tool="detect",
         input_path="/tmp/test.mp4",
         job_type="video",
         status=JobStatus.pending,

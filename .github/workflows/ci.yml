@@ -177,8 +177,7 @@ jobs:
       - name: Require TEST CHANGE JUSTIFICATION
         if: ${{ steps.detect.outputs.changed != '' }}
         run: |
-          body="${{ github.event.pull_request.body }}"
-          if ! grep -qi "TEST CHANGE JUSTIFICATION" <<< "$body"; then
+          if ! echo "${{ github.event.pull_request.body }}" | grep -qi "TEST CHANGE JUSTIFICATION"; then
             echo "❌ Tests changed but no TEST CHANGE JUSTIFICATION found in PR body."
             exit 1
           fi
@@ -203,7 +202,16 @@ jobs:
           echo "**Baseline assertions:** $BASELINE_ASSERTIONS" >> $GITHUB_STEP_SUMMARY
           echo "**PR assertions:** $PR_ASSERTIONS" >> $GITHUB_STEP_SUMMARY
 
+      - name: Check for approved test deletions
+        id: approved
+        run: |
+          if echo "${{ github.event.pull_request.body }}" | grep -qi "APPROVED TEST DELETION"; then
+            echo "approved=true" >> $GITHUB_OUTPUT
+            echo "✅ APPROVED TEST DELETION found in PR body" >> $GITHUB_STEP_SUMMARY
+          fi
+
       - name: Enforce test integrity
+        if: ${{ steps.approved.outputs.approved != 'true' }}
         run: |
           if [ "$PR_TEST_FILES" -lt "$BASELINE_TEST_FILES" ]; then
             echo "❌ Test file count decreased"

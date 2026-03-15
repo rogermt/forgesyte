@@ -48,7 +48,6 @@ class TestJobResultsResponseStatusField:
             job_id=uuid4(),
             status=JobStatus.pending,
             plugin_id="ocr",
-            tool="analyze",
             input_path="image/input/test.png",
             job_type="image",
         )
@@ -69,7 +68,6 @@ class TestJobResultsResponseStatusField:
             job_id=uuid4(),
             status=JobStatus.running,
             plugin_id="yolo",
-            tool="detect_objects",
             input_path="video/input/test.mp4",
             job_type="video",
         )
@@ -91,7 +89,6 @@ class TestJobResultsResponseStatusField:
             job_id=job_id,
             status=JobStatus.completed,
             plugin_id="ocr",
-            tool="analyze",
             input_path="image/input/test.png",
             output_path="image/output/test.json",
             job_type="image",
@@ -118,7 +115,6 @@ class TestJobResultsResponseStatusField:
             job_id=uuid4(),
             status=JobStatus.failed,
             plugin_id="ocr",
-            tool="analyze",
             input_path="image/input/test.png",
             job_type="image",
             error_message="Processing failed",

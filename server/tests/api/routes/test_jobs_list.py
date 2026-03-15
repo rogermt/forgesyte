@@ -48,7 +48,6 @@ def create_job(session, status: JobStatus, plugin_id="ocr", with_result=False):
         job_id=uuid4(),
         status=status,
         plugin_id=plugin_id,
-        tool="analyze",
         job_type="image",
         input_path="jobs/input.png",
         output_path="jobs/output.json" if with_result else None,

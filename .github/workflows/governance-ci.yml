@@ -22,39 +22,30 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v2
 
-      - name: Install dependencies
+      - name: Install server dependencies
         run: |
           cd server
           uv sync
 
-      # -----------------------------
-      # 1. Plugin metadata validator
-      # -----------------------------
-      - name: Validate plugin metadata
-        run: |
-          cd server
-          uv run python tools/validate_plugins.py
-
-      # -----------------------------
-      # 2. Pipeline validator
-      # -----------------------------
+      # 1. Pipeline validator (abstract, plugin-agnostic)
       - name: Validate pipelines
         run: |
           cd server
           uv run python tools/validate_pipelines.py
 
-      # -----------------------------
-      # 3. Regenerate capability matrix
-      # -----------------------------
+      # 2. Clone plugin repo for capability matrix
+      - name: Clone forgesyte-plugins
+        run: |
+          cd ..
+          git clone --depth 1 https://github.com/rogermt/forgesyte-plugins.git forgesyte-plugins
+
+      # 3. Generate capability matrix
       - name: Generate capability matrix
         run: |
           cd server
           uv run python tools/generate_plugin_capability_matrix.py
 
-      # -----------------------------
       # 4. Ensure capability matrix is committed
-      # -----------------------------
       - name: Check capability matrix is up to date
         run: |
           git diff --exit-code docs/plugin_capability_matrix_generated.md
-

@@ -9,7 +9,6 @@ Tests verify:
 6. v0.9.8: Canonical JSON response
 """
 
-import json
 from io import BytesIO
 from unittest.mock import MagicMock
 
@@ -405,13 +404,19 @@ class TestVideoSubmitMultiTool:
         assert response.status_code == 200
         data = response.json()
         job_id = data["job_id"]
-        job = session.query(Job).filter(Job.job_id == job_id).first()
 
-        # tool_list should be a JSON array
-        assert job.tool_list is not None
-        tool_list = json.loads(job.tool_list)
-        assert "video_player_tracking" in tool_list
-        assert "video_ball_detection" in tool_list
+        # Tools should be stored in job_tools table
+        from app.models.job_tool import JobTool
+
+        job_tools = (
+            session.query(JobTool)
+            .filter(JobTool.job_id == job_id)
+            .order_by(JobTool.tool_order)
+            .all()
+        )
+        tool_ids = [jt.tool_id for jt in job_tools]
+        assert "video_player_tracking" in tool_ids
+        assert "video_ball_detection" in tool_ids
 
 
 class TestVideoSubmitCanonicalJson:

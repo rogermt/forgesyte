@@ -17,6 +17,7 @@ import pytest
 from sqlalchemy.orm import Session
 
 from app.models.job import Job, JobStatus
+from app.models.job_tool import JobTool
 from app.workers.worker import JobWorker
 
 # Use a consistent test job_id for cleanup
@@ -41,12 +42,22 @@ def create_video_job(
         job_id=TEST_JOB_ID,
         status=JobStatus.pending,
         plugin_id=plugin_id,
-        tool=tools[0] if tools and len(tools) == 1 else None,
-        tool_list=json.dumps(tools) if tools and len(tools) > 1 else None,
         input_path="video/input/test.mp4",
         job_type=job_type,
     )
     session.add(job)
+    session.flush()  # Flush to get job_id before adding JobTool entries
+
+    # Add tools to job_tools table (v0.15.1: replaced tool/tool_list columns)
+    if tools:
+        for idx, tool_id in enumerate(tools):
+            job_tool = JobTool(
+                job_id=TEST_JOB_ID,
+                tool_id=tool_id,
+                tool_order=idx,
+            )
+            session.add(job_tool)
+
     session.commit()
     return job
 
@@ -64,25 +75,30 @@ class TestMultiToolVideoSubmission:
         validate_mp4_magic_bytes(video_data)  # Should not raise
 
     def test_job_stores_tool_list_for_multiple_tools(self, session: Session):
-        """Test that job stores tool_list when multiple tools provided."""
+        """Test that job stores tools in job_tools table when multiple tools provided."""
         tools = ["tool_one", "tool_two"]
         job = create_video_job(session, tools=tools)
 
-        # Verify tool_list is stored as JSON
-        assert job.tool_list is not None
-        stored_tools = json.loads(job.tool_list)
-        assert stored_tools == tools
-        # Single tool should be None for multi-tool jobs
-        assert job.tool is None
+        # Verify tools are stored in job_tools table (v0.15.1: replaced tool_list column)
+        stored_tools = (
+            session.query(JobTool)
+            .filter(JobTool.job_id == job.job_id)
+            .order_by(JobTool.tool_order)
+            .all()
+        )
+        assert len(stored_tools) == 2
+        assert stored_tools[0].tool_id == "tool_one"
+        assert stored_tools[1].tool_id == "tool_two"
 
     def test_job_stores_single_tool_for_one_tool(self, session: Session):
-        """Test that job stores tool field when single tool provided."""
+        """Test that job stores tool in job_tools table when single tool provided."""
         tools = ["tool_one"]
         job = create_video_job(session, tools=tools)
 
-        # Single tool should be stored in tool field
-        assert job.tool == "tool_one"
-        assert job.tool_list is None
+        # Verify tool is stored in job_tools table (v0.15.1: replaced tool column)
+        stored_tools = session.query(JobTool).filter(JobTool.job_id == job.job_id).all()
+        assert len(stored_tools) == 1
+        assert stored_tools[0].tool_id == "tool_one"
 
 
 @pytest.mark.integration
@@ -277,7 +293,14 @@ class TestMultiToolStatusEndpoint:
         session.commit()
 
         # Test the logic from jobs.py endpoint
-        tools_list = json.loads(job.tool_list)
+        # Get tools from job_tools table (v0.15.1: replaced tool_list column)
+        tools_list = [
+            jt.tool_id
+            for jt in session.query(JobTool)
+            .filter(JobTool.job_id == job.job_id)
+            .order_by(JobTool.tool_order)
+            .all()
+        ]
         tools_total = len(tools_list)
         tool_weight = 100 / tools_total
         tools_completed = int(job.progress / tool_weight)
@@ -294,7 +317,14 @@ class TestMultiToolStatusEndpoint:
         job.progress = 75  # Second tool at 50% = 75% overall
         session.commit()
 
-        tools_list = json.loads(job.tool_list)
+        # Get tools from job_tools table (v0.15.1: replaced tool_list column)
+        tools_list = [
+            jt.tool_id
+            for jt in session.query(JobTool)
+            .filter(JobTool.job_id == job.job_id)
+            .order_by(JobTool.tool_order)
+            .all()
+        ]
         tools_total = len(tools_list)
         tool_weight = 100 / tools_total
         tools_completed = int(job.progress / tool_weight)
