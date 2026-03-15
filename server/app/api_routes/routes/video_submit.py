@@ -242,21 +242,21 @@ async def submit_video(
 ):
     """
     Submit an MP4 video to a plugin and create a queued job for processing.
-    
+
     Validates the plugin, resolves tool IDs from either explicit `tool` values or capability-based `logical_tool_id` (mutually exclusive), ensures each resolved tool supports video input, saves the uploaded MP4 to storage, creates a job record with job_type "video" or "video_multi", attaches the tools to the job, and returns a canonical JSON summary of the queued job.
-    
+
     Parameters:
         file: UploadFile containing the MP4 video to process.
         plugin_id (str): Plugin identifier.
         tool (List[str] | None): Concrete tool ID(s) from the plugin manifest. Repeatable for multi-tool; optional if `logical_tool_id` is provided.
         logical_tool_id (List[str] | None): Logical capability strings used to resolve concrete tool ID(s). Repeatable for multi-tool.
-    
+
     Returns:
         dict: Canonical JSON describing the queued job.
         - Single tool: {"job_id": "<uuid>", "plugin": "<plugin_id>", "tool": "<tool_id>", "status": "queued", "submitted_at": "<ISO-8601 Z>"}.
         - Multi tool: {"job_id": "<uuid>", "plugin": "<plugin_id>", "tools": [...], "status": "queued", "submitted_at": "<ISO-8601 Z>"}.
         - When `logical_tool_id` was used and multiple logicals were provided, the "tools" array contains objects with "logical" and "resolved" entries.
-    
+
     Raises:
         HTTPException: For validation failures such as missing plugin, mutually exclusive parameters, unresolved tools, manifest or tool definition issues, tools that do not accept video, invalid MP4 content, or missing file.
     """

@@ -560,7 +560,7 @@ class TestVideoSubmitCanonicalJson:
     ):
         """
         Verify the legacy `tool=` request path returns the canonical JSON response.
-        
+
         Asserts the response includes the canonical fields: `job_id`, `plugin` (equals "yolo-tracker"),
         `tool` (equals "video_player_tracking"), `status` (equals "queued"), and `submitted_at`
         in ISO 8601 format ending with a trailing "Z".
@@ -569,7 +569,7 @@ class TestVideoSubmitCanonicalJson:
         def override_get_plugin_manager():
             """
             Supply the mock plugin registry used to override the plugin manager dependency in tests.
-            
+
             Returns:
                 mock_plugin_registry: The mock plugin registry object provided by the test fixture.
             """
@@ -578,7 +578,7 @@ class TestVideoSubmitCanonicalJson:
         def override_get_plugin_service():
             """
             Provide the mock plugin service for dependency override in tests.
-            
+
             Returns:
                 mock_plugin_service: The mock plugin service object used to replace the real service in test dependency injection.
             """
