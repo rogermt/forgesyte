@@ -16,10 +16,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v6
         with:
           python-version: "3.11"
 
@@ -47,7 +47,7 @@ jobs:
         python-version: ["3.10", "3.11"]
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Clone forgesyte-plugins (for integration tests)
         run: |
@@ -55,7 +55,7 @@ jobs:
           git clone --depth 1 https://github.com/rogermt/forgesyte-plugins.git forgesyte-plugins
 
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python-version }}
 
@@ -93,7 +93,7 @@ jobs:
     needs: lint
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -129,10 +129,10 @@ jobs:
     needs: [test, web-ui]
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v6
         with:
           python-version: "3.11"
 
@@ -163,7 +163,7 @@ jobs:
     if: ${{ github.event_name == 'pull_request' }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Fetch main
         run: git fetch origin main
@@ -232,7 +232,7 @@ jobs:
     if: ${{ github.event_name == 'pull_request' }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Detect skipped tests
         id: skipped
@@ -291,10 +291,10 @@ jobs:
         python-version: ["3.10", "3.11"]
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python-version }}
 
