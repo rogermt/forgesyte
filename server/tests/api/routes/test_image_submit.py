@@ -760,3 +760,133 @@ class TestImageSubmitStorageRetry:
         assert "job_id" in data
         # Verify retry happened
         assert call_count[0] >= 2, "Expected at least 2 calls (1 fail + 1 success)"
+
+    def test_non_transient_error_propagates_without_retry(
+        self, mock_plugin, session: Session
+    ):
+        """Non-transient errors like FileNotFoundError should NOT retry (Issue #337).
+
+        Only transient errors (ConnectionError, TimeoutError) should be retried.
+        Non-transient errors should propagate immediately.
+        """
+        from app.api_routes.routes.image_submit import get_storage
+
+        plugin = MagicMock()
+        plugin.tools = {
+            "analyze": {
+                "handler": "analyze_handler",
+                "input_schema": {"properties": {"image_bytes": {"type": "string"}}},
+            }
+        }
+
+        mock_registry = MagicMock()
+        mock_registry.get.return_value = plugin
+
+        mock_service = MagicMock()
+        mock_service.get_available_tools.return_value = ["analyze"]
+
+        # Mock storage to raise non-transient error
+        call_count = [0]
+
+        def mock_save_file(*args, **kwargs):
+            call_count[0] += 1
+            raise FileNotFoundError("Path not found")
+
+        mock_storage = MagicMock()
+        mock_storage.save_file.side_effect = mock_save_file
+
+        def override_get_plugin_manager():
+            return mock_registry
+
+        def override_get_plugin_service():
+            return mock_service
+
+        def override_get_storage():
+            return mock_storage
+
+        app.dependency_overrides[get_plugin_manager] = override_get_plugin_manager
+        app.dependency_overrides[get_plugin_service] = override_get_plugin_service
+        app.dependency_overrides[get_storage] = override_get_storage
+
+        # Use raise_server_exceptions=False to catch exceptions as 500 responses
+        client = TestClient(app, raise_server_exceptions=False)
+
+        png_data = b"\x89PNG\r\n\x1a\n" + b"\x00" * 100
+
+        response = client.post(
+            "/v1/image/submit?plugin_id=ocr&tool=analyze",
+            files={"file": ("test.png", BytesIO(png_data), "image/png")},
+        )
+
+        app.dependency_overrides.clear()
+
+        # Should fail with 500 (internal error) after exception is caught
+        assert (
+            response.status_code == 500
+        ), f"Got status {response.status_code}: {response.text[:200] if response.text else 'empty'}"
+        # CRITICAL (Issue #337): Should NOT retry non-transient errors
+        assert (
+            call_count[0] == 1
+        ), f"Expected exactly 1 call (no retry), got {call_count[0]} calls"
+
+    def test_transient_error_retries_three_times_then_raises(
+        self, mock_plugin, session: Session
+    ):
+        """Transient errors should retry exactly 3 times before raising (Issue #337)."""
+        from app.api_routes.routes.image_submit import get_storage
+
+        plugin = MagicMock()
+        plugin.tools = {
+            "analyze": {
+                "handler": "analyze_handler",
+                "input_schema": {"properties": {"image_bytes": {"type": "string"}}},
+            }
+        }
+
+        mock_registry = MagicMock()
+        mock_registry.get.return_value = plugin
+
+        mock_service = MagicMock()
+        mock_service.get_available_tools.return_value = ["analyze"]
+
+        # Mock storage to always fail with transient error
+        call_count = [0]
+
+        def mock_save_file(*args, **kwargs):
+            call_count[0] += 1
+            raise ConnectionError("Network error")
+
+        mock_storage = MagicMock()
+        mock_storage.save_file.side_effect = mock_save_file
+
+        def override_get_plugin_manager():
+            return mock_registry
+
+        def override_get_plugin_service():
+            return mock_service
+
+        def override_get_storage():
+            return mock_storage
+
+        app.dependency_overrides[get_plugin_manager] = override_get_plugin_manager
+        app.dependency_overrides[get_plugin_service] = override_get_plugin_service
+        app.dependency_overrides[get_storage] = override_get_storage
+
+        # Use raise_server_exceptions=False to catch exceptions as 500 responses
+        client = TestClient(app, raise_server_exceptions=False)
+
+        png_data = b"\x89PNG\r\n\x1a\n" + b"\x00" * 100
+
+        response = client.post(
+            "/v1/image/submit?plugin_id=ocr&tool=analyze",
+            files={"file": ("test.png", BytesIO(png_data), "image/png")},
+        )
+
+        app.dependency_overrides.clear()
+
+        # Should fail with 500 after retries exhausted
+        assert response.status_code == 500, f"Got: {response.text}"
+        # CRITICAL (Issue #337): Should retry exactly 3 times
+        assert (
+            call_count[0] == 3
+        ), f"Expected exactly 3 retries, got {call_count[0]} calls"

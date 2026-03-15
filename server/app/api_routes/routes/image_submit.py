@@ -9,6 +9,7 @@ v0.9.8: Added mutual exclusivity check (tool vs logical_tool_id),
         repeatable logical_tool_id, and canonical JSON response.
 """
 
+import asyncio
 import json
 import logging
 import traceback
@@ -18,7 +19,12 @@ from typing import List
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile
-from tenacity import retry, stop_after_attempt, wait_exponential
+from tenacity import (
+    retry,
+    retry_if_exception_type,
+    stop_after_attempt,
+    wait_exponential,
+)
 
 from app.core.database import SessionLocal
 from app.models.job import Job, JobStatus
@@ -291,17 +297,21 @@ async def submit_image(
     job_id = uuid4()
     input_path = f"image/input/{job_id}_{file.filename}"
 
-    # Save file to storage with retry logic (Issue #332)
+    # Save file to storage with async retry logic (Issue #332, #337)
+    # Only retry on transient errors (ConnectionError, TimeoutError)
     @retry(
         stop=stop_after_attempt(3),
         wait=wait_exponential(multiplier=1, min=2, max=10),
+        retry=retry_if_exception_type((ConnectionError, TimeoutError)),
         reraise=True,
     )
-    def save_file_with_retry():
-        storage.save_file(src=BytesIO(contents), dest_path=input_path)
+    async def save_file_with_retry():
+        await asyncio.to_thread(
+            storage.save_file, src=BytesIO(contents), dest_path=input_path
+        )
 
     try:
-        save_file_with_retry()
+        await save_file_with_retry()
         debug_file(f"[DEBUG] File saved to {input_path}")
         logger.info(f"[DEBUG] File saved to {input_path}")
     except Exception as e:
