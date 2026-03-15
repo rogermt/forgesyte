@@ -177,8 +177,7 @@ jobs:
       - name: Require TEST CHANGE JUSTIFICATION
         if: ${{ steps.detect.outputs.changed != '' }}
         run: |
-          body="${{ github.event.pull_request.body }}"
-          if ! grep -qi "TEST CHANGE JUSTIFICATION" <<< "$body"; then
+          if ! echo "${{ github.event.pull_request.body }}" | grep -qi "TEST CHANGE JUSTIFICATION"; then
             echo "❌ Tests changed but no TEST CHANGE JUSTIFICATION found in PR body."
             exit 1
           fi
@@ -206,8 +205,7 @@ jobs:
       - name: Check for approved test deletions
         id: approved
         run: |
-          body="${{ github.event.pull_request.body }}"
-          if grep -qi "APPROVED TEST DELETION" <<< "$body"; then
+          if echo "${{ github.event.pull_request.body }}" | grep -qi "APPROVED TEST DELETION"; then
             echo "approved=true" >> $GITHUB_OUTPUT
             echo "✅ APPROVED TEST DELETION found in PR body" >> $GITHUB_STEP_SUMMARY
           fi
