@@ -558,16 +558,30 @@ class TestVideoSubmitCanonicalJson:
     def test_canonical_json_legacy_tool_path(
         self, session: Session, mock_plugin_registry, mock_plugin_service
     ):
-        """Legacy tool= path returns canonical JSON (Issue #333).
-
-        The docstring promises canonical JSON for ALL code paths,
-        but legacy tool= callers only got {"job_id": "..."}.
+        """
+        Verify the legacy `tool=` request path returns the canonical JSON response.
+        
+        Asserts the response includes the canonical fields: `job_id`, `plugin` (equals "yolo-tracker"),
+        `tool` (equals "video_player_tracking"), `status` (equals "queued"), and `submitted_at`
+        in ISO 8601 format ending with a trailing "Z".
         """
 
         def override_get_plugin_manager():
+            """
+            Supply the mock plugin registry used to override the plugin manager dependency in tests.
+            
+            Returns:
+                mock_plugin_registry: The mock plugin registry object provided by the test fixture.
+            """
             return mock_plugin_registry
 
         def override_get_plugin_service():
+            """
+            Provide the mock plugin service for dependency override in tests.
+            
+            Returns:
+                mock_plugin_service: The mock plugin service object used to replace the real service in test dependency injection.
+            """
             return mock_plugin_service
 
         app.dependency_overrides[get_plugin_manager] = override_get_plugin_manager

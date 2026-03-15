@@ -633,10 +633,10 @@ class TestImageSubmitCanonicalJson:
             assert "resolved" in tool_entry
 
     def test_canonical_json_legacy_tool_path(self, mock_plugin, session: Session):
-        """Legacy tool= path returns canonical JSON (Issue #333).
-
-        The docstring promises canonical JSON for ALL code paths,
-        but legacy tool= callers only got {"job_id": "..."}.
+        """
+        Verify that the legacy tool= submission path returns the canonical JSON response including job_id, plugin, tool, status and submitted_at.
+        
+        Submits a PNG file using the legacy query parameters (plugin_id and tool) and asserts a 200 response, presence of the canonical fields, and that `submitted_at` is an ISO 8601 UTC timestamp ending with 'Z'.
         """
         plugin = MagicMock()
         plugin.tools = {
@@ -653,9 +653,21 @@ class TestImageSubmitCanonicalJson:
         mock_service.get_available_tools.return_value = ["analyze"]
 
         def override_get_plugin_manager():
+            """
+            Provide the mocked plugin registry to use as the application's plugin manager override.
+            
+            Returns:
+                mock_registry: The mocked plugin registry instance to be injected as the plugin manager.
+            """
             return mock_registry
 
         def override_get_plugin_service():
+            """
+            Provide the mocked plugin service used for dependency injection in tests.
+            
+            Returns:
+                The mocked plugin service instance (`mock_service`) supplied by the test fixture.
+            """
             return mock_service
 
         app.dependency_overrides[get_plugin_manager] = override_get_plugin_manager
@@ -720,6 +732,15 @@ class TestImageSubmitStorageRetry:
         call_count = [0]
 
         def mock_save_file(*args, **kwargs):
+            """
+            Simulate a storage save operation that fails once with a transient network error and then succeeds.
+            
+            Returns:
+                str: The saved file path ("image/input/test.png") on successful save.
+            
+            Raises:
+                ConnectionError: On the first invocation to simulate a transient network error.
+            """
             call_count[0] += 1
             if call_count[0] == 1:
                 # First call: simulate transient S3 error
@@ -731,12 +752,30 @@ class TestImageSubmitStorageRetry:
         mock_storage.save_file.side_effect = mock_save_file
 
         def override_get_plugin_manager():
+            """
+            Provide the mocked plugin registry to use as the application's plugin manager override.
+            
+            Returns:
+                mock_registry: The mocked plugin registry instance to be injected as the plugin manager.
+            """
             return mock_registry
 
         def override_get_plugin_service():
+            """
+            Provide the mocked plugin service used for dependency injection in tests.
+            
+            Returns:
+                The mocked plugin service instance (`mock_service`) supplied by the test fixture.
+            """
             return mock_service
 
         def override_get_storage():
+            """
+            Provide the mock storage instance for dependency overrides in tests.
+            
+            Returns:
+                mock_storage: The mock storage object used by tests, exposing the same public methods as the production storage implementation (e.g. `save_file`).
+            """
             return mock_storage
 
         app.dependency_overrides[get_plugin_manager] = override_get_plugin_manager
@@ -789,6 +828,12 @@ class TestImageSubmitStorageRetry:
         call_count = [0]
 
         def mock_save_file(*args, **kwargs):
+            """
+            Simulate a storage save that always fails with a non-transient error.
+            
+            Increments the external `call_count[0]` counter on each invocation and raises
+            FileNotFoundError to emulate a non-transient storage failure (no return).
+            """
             call_count[0] += 1
             raise FileNotFoundError("Path not found")
 
@@ -796,12 +841,30 @@ class TestImageSubmitStorageRetry:
         mock_storage.save_file.side_effect = mock_save_file
 
         def override_get_plugin_manager():
+            """
+            Provide the mocked plugin registry to use as the application's plugin manager override.
+            
+            Returns:
+                mock_registry: The mocked plugin registry instance to be injected as the plugin manager.
+            """
             return mock_registry
 
         def override_get_plugin_service():
+            """
+            Provide the mocked plugin service used for dependency injection in tests.
+            
+            Returns:
+                The mocked plugin service instance (`mock_service`) supplied by the test fixture.
+            """
             return mock_service
 
         def override_get_storage():
+            """
+            Provide the mock storage instance for dependency overrides in tests.
+            
+            Returns:
+                mock_storage: The mock storage object used by tests, exposing the same public methods as the production storage implementation (e.g. `save_file`).
+            """
             return mock_storage
 
         app.dependency_overrides[get_plugin_manager] = override_get_plugin_manager
@@ -853,6 +916,14 @@ class TestImageSubmitStorageRetry:
         call_count = [0]
 
         def mock_save_file(*args, **kwargs):
+            """
+            Mock replacement for a storage `save_file` function that records invocation and simulates a transient network failure.
+            
+            Increments `call_count[0]` to indicate an attempted save, then raises a `ConnectionError`.
+            
+            Raises:
+                ConnectionError: Always raised to simulate a transient network error.
+            """
             call_count[0] += 1
             raise ConnectionError("Network error")
 
@@ -860,12 +931,30 @@ class TestImageSubmitStorageRetry:
         mock_storage.save_file.side_effect = mock_save_file
 
         def override_get_plugin_manager():
+            """
+            Provide the mocked plugin registry to use as the application's plugin manager override.
+            
+            Returns:
+                mock_registry: The mocked plugin registry instance to be injected as the plugin manager.
+            """
             return mock_registry
 
         def override_get_plugin_service():
+            """
+            Provide the mocked plugin service used for dependency injection in tests.
+            
+            Returns:
+                The mocked plugin service instance (`mock_service`) supplied by the test fixture.
+            """
             return mock_service
 
         def override_get_storage():
+            """
+            Provide the mock storage instance for dependency overrides in tests.
+            
+            Returns:
+                mock_storage: The mock storage object used by tests, exposing the same public methods as the production storage implementation (e.g. `save_file`).
+            """
             return mock_storage
 
         app.dependency_overrides[get_plugin_manager] = override_get_plugin_manager

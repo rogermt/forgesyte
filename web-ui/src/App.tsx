@@ -30,6 +30,13 @@ const WS_BACKEND_URL =
 
 type ViewMode = "stream" | "upload" | "jobs" | "video-upload" | "video-stream";
 
+/**
+ * Root application component that manages UI state, plugin manifests, WebSocket streaming, uploads, job polling and video processing views.
+ *
+ * Renders the main layout including plugin and tool selectors, stream/upload/job/video views, and results pane while coordinating network interactions (manifest loading, WebSocket streaming, image/video submission and job polling) and related UI state.
+ *
+ * @returns The root JSX element for the application
+ */
 function App() {
   // -------------------------------------------------------------------------
   // State

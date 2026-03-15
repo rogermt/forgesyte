@@ -123,39 +123,24 @@ async def submit_image(
     plugin_service=Depends(get_plugin_service),
     storage=Depends(get_storage),
 ):
-    """Submit an image file for processing.
-
-    This endpoint creates a new job with job_type="image" (single tool) or
-    job_type="image_multi" (multiple tools) and enqueues it for processing
-    by the worker.
-
-    v0.9.4: Supports multiple tools via repeated query parameters.
-    Example: ?tool=player_detection&tool=ball_detection
-
-    v0.9.7: Supports logical_tool_id parameter for capability-based resolution.
-    The logical tool ID (capability string) is matched against tool capabilities
-    in the manifest to find the actual plugin tool ID.
-
-    v0.9.8: Mutual exclusivity - cannot provide both tool and logical_tool_id.
-    Canonical JSON response with submitted_at, tools array for multi-tool.
-
-    Args:
-        file: Image file (PNG or JPEG) to process
-        plugin_id: ID of the plugin to use (from /v1/plugins)
-        tool: Tool ID(s) to run (from plugin manifest). Can be repeated for multi-tool.
-            Optional if logical_tool_id is provided.
-        logical_tool_id: Logical tool ID(s) (capability strings) for dynamic resolution.
-            Repeatable for multi-tool. e.g., "player_detection", "ball_detection"
-        plugin_manager: PluginRegistry from app state (DI)
-        plugin_service: PluginManagementService instance (DI)
-
+    """
+    Submit an image for processing by a plugin and create a queued job.
+    
+    Either `tool` or `logical_tool_id` must be provided (they are mutually exclusive). If `logical_tool_id` is used, capability-based resolution determines concrete tool ID(s). The created job will be enqueued and a canonical JSON summary is returned.
+    
+    Parameters:
+        plugin_id (str): Plugin identifier (from /v1/plugins).
+        tool (List[str] | None): Explicit plugin tool ID(s); repeatable for multi-tool requests. Optional when `logical_tool_id` is provided.
+        logical_tool_id (List[str] | None): Logical capability strings to resolve into concrete tool ID(s); repeatable for multi-tool requests.
+    
     Returns:
-        Canonical JSON:
-        - Single tool: {"job_id": "...", "plugin": "...", "tool": "...", "status": "queued", "submitted_at": "..."}
-        - Multi tool: {"job_id": "...", "plugin": "...", "tools": [...], "status": "queued", "submitted_at": "..."}
-
+        dict: Canonical JSON describing the queued job:
+            - Always includes: `job_id` (string), `plugin` (plugin_id), `status` ("queued"), and `submitted_at` (ISO 8601 UTC string).
+            - If a single tool was selected: includes `tool` with the resolved tool ID.
+            - If multiple tools were selected: includes `tools` (either a list of resolved tool IDs for explicit `tool` requests, or a list of {"logical": ..., "resolved": ...} mappings when `logical_tool_id` was used).
+    
     Raises:
-        HTTPException: If file is invalid or processing fails
+        HTTPException: For invalid input (missing plugin, invalid/mutually exclusive parameters, unsupported tools or non-image files) or other request-time validation errors.
     """
     # DEBUG: Log incoming request parameters
     debug_file(
@@ -306,6 +291,11 @@ async def submit_image(
         reraise=True,
     )
     async def save_file_with_retry():
+        """
+        Save the in-memory image bytes to the configured storage backend at the designated destination path.
+        
+        The coroutine wraps the captured `contents` in a `BytesIO` and invokes `storage.save_file` on a worker thread so the I/O does not block the event loop.
+        """
         await asyncio.to_thread(
             storage.save_file, src=BytesIO(contents), dest_path=input_path
         )
