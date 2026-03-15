@@ -9,7 +9,6 @@ Tests verify:
 6. Single-tool backward compatibility is maintained
 """
 
-import json
 from io import BytesIO
 from unittest.mock import MagicMock
 
@@ -107,7 +106,11 @@ class TestMultiToolSubmission:
         assert job.job_type == "image_multi"
 
     def test_submit_image_multi_tool_stores_tool_list(self, session, client_multi_tool):
-        """Test that multi-tool submission stores tool_list as JSON."""
+        """Test that multi-tool submission stores tools in job_tools table."""
+        from uuid import UUID
+
+        from app.models.job_tool import JobTool
+
         png_data = b"\x89PNG\r\n\x1a\n" + b"\x00" * 100
 
         response = client_multi_tool.post(
@@ -120,16 +123,25 @@ class TestMultiToolSubmission:
 
         job = session.query(Job).filter(Job.job_id == job_id).first()
         assert job is not None
-        assert job.tool is None  # tool is null for multi-tool jobs
 
-        # Parse tool_list
-        tool_list = json.loads(job.tool_list)
+        # Check tools are stored in job_tools table
+        job_tools = (
+            session.query(JobTool)
+            .filter(JobTool.job_id == UUID(job_id))
+            .order_by(JobTool.tool_order)
+            .all()
+        )
+        tool_list = [jt.tool_id for jt in job_tools]
         assert tool_list == ["player_detection", "ball_detection", "player_tracking"]
 
     def test_submit_image_single_tool_backward_compatible(
         self, session, client_multi_tool
     ):
         """Test that single-tool submission still works unchanged."""
+        from uuid import UUID
+
+        from app.models.job_tool import JobTool
+
         png_data = b"\x89PNG\r\n\x1a\n" + b"\x00" * 100
 
         response = client_multi_tool.post(
@@ -143,8 +155,16 @@ class TestMultiToolSubmission:
         job = session.query(Job).filter(Job.job_id == job_id).first()
         assert job is not None
         assert job.job_type == "image"  # NOT image_multi
-        assert job.tool == "player_detection"
-        assert job.tool_list is None
+
+        # Check tool is stored in job_tools table
+        job_tools = (
+            session.query(JobTool)
+            .filter(JobTool.job_id == UUID(job_id))
+            .order_by(JobTool.tool_order)
+            .all()
+        )
+        assert len(job_tools) == 1
+        assert job_tools[0].tool_id == "player_detection"
 
     def test_submit_image_multi_tool_validates_all_tools(self, mock_multi_tool_plugin):
         """Test that all tools are validated against plugin.tools."""
@@ -226,7 +246,11 @@ class TestMultiToolSubmission:
         assert "does not support image input" in response.json()["detail"].lower()
 
     def test_submit_image_multi_tool_preserves_order(self, session, client_multi_tool):
-        """Test that tool order is preserved in tool_list."""
+        """Test that tool order is preserved in job_tools table."""
+        from uuid import UUID
+
+        from app.models.job_tool import JobTool
+
         png_data = b"\x89PNG\r\n\x1a\n" + b"\x00" * 100
 
         # Submit with specific order
@@ -238,8 +262,14 @@ class TestMultiToolSubmission:
         assert response.status_code == 200
         job_id = response.json()["job_id"]
 
-        job = session.query(Job).filter(Job.job_id == job_id).first()
-        tool_list = json.loads(job.tool_list)
+        # Check order is preserved in job_tools table
+        job_tools = (
+            session.query(JobTool)
+            .filter(JobTool.job_id == UUID(job_id))
+            .order_by(JobTool.tool_order)
+            .all()
+        )
+        tool_list = [jt.tool_id for jt in job_tools]
 
         # Order should match query parameter order
         assert tool_list == ["player_tracking", "ball_detection", "player_detection"]

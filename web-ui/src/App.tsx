@@ -56,18 +56,49 @@ function App() {
 
   // -------------------------------------------------------------------------
   // Compute tool list from manifest
-  // FIX: Handle both Phase-12 array and legacy object formats
+  // FIX: Return capabilities (logical tool names), not tool IDs
+  // v0.15.0: Extract capabilities from tool.capabilities for multi-tool support
   // -------------------------------------------------------------------------
   const toolList = useMemo(() => {
     if (!manifest) return [];
 
-    // Phase-12 format: tools is an array of objects with id property
+    // Collect all unique capabilities from all tools
+    const allCapabilities = new Set<string>();
+
+    // Phase-12 format: tools is an array of objects
     if (Array.isArray(manifest.tools)) {
+      for (const tool of manifest.tools) {
+        const toolWithCapabilities = tool as { capabilities?: string[] };
+        if (toolWithCapabilities.capabilities) {
+          for (const cap of toolWithCapabilities.capabilities) {
+            allCapabilities.add(cap);
+          }
+        }
+      }
+      if (allCapabilities.size > 0) {
+        return Array.from(allCapabilities);
+      }
+      // Fallback: no capabilities, return tool IDs
       return manifest.tools.map((tool: { id: string }) => tool.id);
     }
 
-    // Legacy format: tools is an object where keys are tool names
-    return Object.keys(manifest.tools);
+    // Legacy format: tools is an object where keys are tool IDs
+    const toolsObj = manifest.tools as Record<string, { capabilities?: string[] }>;
+    for (const toolId of Object.keys(toolsObj)) {
+      const tool = toolsObj[toolId];
+      if (tool?.capabilities) {
+        for (const cap of tool.capabilities) {
+          allCapabilities.add(cap);
+        }
+      }
+    }
+
+    if (allCapabilities.size > 0) {
+      return Array.from(allCapabilities);
+    }
+
+    // Fallback: no capabilities found, return tool IDs
+    return Object.keys(toolsObj);
   }, [manifest]);
 
   // -------------------------------------------------------------------------
@@ -232,8 +263,18 @@ function App() {
       return;
     }
 
-    if (selectedTools.length === 0 || !selectedTools.every((t) => toolList.includes(t))) {
+    // If no tools selected yet, default to first capability
+    if (selectedTools.length === 0) {
       setSelectedTools([toolList[0]]);
+      return;
+    }
+
+    // Keep only tools that still exist in the manifest
+    const validTools = selectedTools.filter((t) => toolList.includes(t));
+
+    // If some selected tools were removed, update selection
+    if (validTools.length !== selectedTools.length) {
+      setSelectedTools(validTools);
     }
   }, [manifest, toolList, selectedTools]);
 
@@ -318,10 +359,13 @@ function App() {
       setIsUploading(true);
       try {
         // v0.9.4: Pass all selected tools (not just first) for multi-tool support
+        // v0.15.0: Pass useLogicalId=true so backend resolves capabilities to tool IDs
         const response = await apiClient.submitImage(
           file,
           selectedPlugin,
-          selectedTools  // CHANGED: was selectedTools[0]
+          selectedTools,
+          undefined,  // onProgress callback (not used)
+          true  // useLogicalId: send logical_tool_id instead of tool
         );
         const job = await apiClient.pollJob(response.job_id);
         setSelectedJob(job);
@@ -535,7 +579,7 @@ function App() {
               pluginId={selectedPlugin}
               selectedTools={selectedTools}
               onToolChange={handleToolChange}
-              disabled={false}
+              disabled={lockedTools !== null}
             />
           </div>
 
@@ -601,6 +645,7 @@ function App() {
                 <div style={styles.panel}>
                   <p>Upload image for analysis</p>
                   <input
+                    data-testid="image-upload"
                     type="file"
                     accept="image/*"
                     onChange={handleFileUpload}

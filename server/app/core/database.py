@@ -46,6 +46,7 @@ def init_db():
     """
     # Import models to register them with Base
     from ..models.job import Job  # noqa: F401
+    from ..models.job_tool import JobTool  # noqa: F401
 
     # Check if we should try Alembic migrations
     # Skip if running in test mode (tests use isolated databases)

@@ -131,39 +131,43 @@ async def get_job(job_id: UUID, db: Session = Depends(get_db)) -> JobResultsResp
         - If job is completed, results will contain the output JSON
         - Progress is calculated from job status
     """
+    from app.models.job_tool import JobTool
+
     job = db.query(Job).filter(Job.job_id == job_id).first()
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
 
-    # Parse tool_list from JSON if present
-    tool_list = json.loads(job.tool_list) if job.tool_list else None
+    # Query tools from job_tools table
+    job_tools = (
+        db.query(JobTool)
+        .filter(JobTool.job_id == job_id)
+        .order_by(JobTool.tool_order)
+        .all()
+    )
+    tools = [jt.tool_id for jt in job_tools]
 
     # v0.9.7: Calculate multi-tool video metadata
     current_tool = None
     tools_total = None
     tools_completed = None
 
-    if job.job_type == "video" and job.tool_list:
+    if job.job_type in ("video", "video_multi") and len(tools) > 1:
         # Multi-tool video job: derive metadata
-        try:
-            tools_list = json.loads(job.tool_list)
-            tools_total = len(tools_list)
+        tools_total = len(tools)
 
-            if job.status == JobStatus.running and job.progress is not None:
-                # Calculate which tool is running based on progress
-                # Each tool gets equal weight (100/total_tools)
-                tool_weight = 100 / tools_total
-                tools_completed = int(job.progress / tool_weight)
-                # Clamp to valid range
-                tools_completed = max(0, min(tools_total - 1, tools_completed))
-                # Current tool is the next one after completed
-                if tools_completed < tools_total:
-                    current_tool = tools_list[tools_completed]
-            elif job.status == JobStatus.completed:
-                tools_completed = tools_total
-                current_tool = None  # All done
-        except (json.JSONDecodeError, ZeroDivisionError):
-            pass
+        if job.status == JobStatus.running and job.progress is not None:
+            # Calculate which tool is running based on progress
+            # Each tool gets equal weight (100/total_tools)
+            tool_weight = 100 / tools_total
+            tools_completed = int(job.progress / tool_weight)
+            # Clamp to valid range
+            tools_completed = max(0, min(tools_total - 1, tools_completed))
+            # Current tool is the next one after completed
+            if tools_completed < tools_total:
+                current_tool = tools[tools_completed]
+        elif job.status == JobStatus.completed:
+            tools_completed = tools_total
+            current_tool = None  # All done
 
     # If job is not completed, return status without results
     if job.status != JobStatus.completed:
@@ -172,8 +176,8 @@ async def get_job(job_id: UUID, db: Session = Depends(get_db)) -> JobResultsResp
             status=job.status.value,  # Issue #211: Include status
             plugin_id=job.plugin_id,  # Issue #296: Was missing
             results=None,
-            tool=job.tool,
-            tool_list=tool_list,
+            tool=tools[0] if tools else None,
+            tools=tools if len(tools) > 1 else None,
             job_type=job.job_type,
             error_message=job.error_message,
             progress=job.progress,  # Issue #296: Return int directly, DB stores Integer
@@ -200,8 +204,8 @@ async def get_job(job_id: UUID, db: Session = Depends(get_db)) -> JobResultsResp
         status=job.status.value,  # Issue #211: Include status
         plugin_id=job.plugin_id,  # Issue #296: Was missing
         results=results,
-        tool=job.tool,
-        tool_list=tool_list,
+        tool=tools[0] if tools else None,
+        tools=tools if len(tools) > 1 else None,
         job_type=job.job_type,
         error_message=job.error_message,
         progress=job.progress,  # Issue #296: Return int directly, DB stores Integer

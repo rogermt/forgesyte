@@ -504,8 +504,11 @@ class JobWorker:
 
                     db.refresh(job)
 
-                    is_multi = job.job_type in ("image_multi", "video_multi")
-                    tools_to_run = json.loads(job.tool_list) if is_multi else [job.tool]
+                    # Query tools from job_tools table via service
+                    from app.services.job_tools_service import JobToolsService
+
+                    tools_to_run = JobToolsService.get_tools_for_job(db, job.job_id)
+                    is_multi = len(tools_to_run) > 1
                     meta = {
                         "plugin_id": job.plugin_id,
                         "job_type": job.job_type,
@@ -729,26 +732,19 @@ class JobWorker:
                 db.commit()
                 return False
 
-            # v0.9.4: Determine tools to execute based on job_type
-            # v0.9.8: video_multi job type support
-            is_multi_tool = job.job_type in ("image_multi", "video_multi")
+            # v0.9.4: Determine tools to execute from job_tools table
+            # v0.15.1: Query from job_tools via JobToolsService
+            from app.services.job_tools_service import JobToolsService
 
-            if is_multi_tool:
-                # Parse tool_list from JSON
-                if not job.tool_list:
-                    job.status = JobStatus.failed
-                    job.error_message = "Multi-tool job has no tool_list"
-                    db.commit()
-                    return False
-                tools_to_run = json.loads(job.tool_list)
-            else:
-                # Single-tool job
-                if not job.tool:
-                    job.status = JobStatus.failed
-                    job.error_message = "Single-tool job has no tool"
-                    db.commit()
-                    return False
-                tools_to_run = [job.tool]
+            tools_to_run = JobToolsService.get_tools_for_job(db, job.job_id)
+
+            if not tools_to_run:
+                job.status = JobStatus.failed
+                job.error_message = "Job has no tools"
+                db.commit()
+                return False
+
+            is_multi_tool = len(tools_to_run) > 1
 
             # Validate all tools exist and support the job type
             manifest_tools = iter_manifest_tools(manifest)

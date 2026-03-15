@@ -304,36 +304,7 @@ async def lifespan(app: FastAPI):
     # Disabled in pytest via FORGESYTE_ENABLE_WORKERS=0 to prevent DB lock errors
     if os.getenv("FORGESYTE_ENABLE_WORKERS", "1") == "1":
         try:
-            # v0.13.0: Initialize Ray in main process for WebSocket Actors
-            import ray
-
-            try:
-                if not ray.is_initialized():
-                    from .workers.worker import get_ray_runtime_env
-
-                    runtime_env = get_ray_runtime_env()
-                    ray_address = os.environ.get("RAY_ADDRESS")
-
-                    if ray_address:
-                        ray.init(
-                            address=ray_address,
-                            ignore_reinit_error=True,
-                            runtime_env=runtime_env,
-                        )
-                        logger.info(
-                            f"Main process connected to Ray cluster at {ray_address}"
-                        )
-                    else:
-                        ray.init(ignore_reinit_error=True, runtime_env=runtime_env)
-                        logger.info(
-                            "Main process initialized Ray locally with synced env_vars"
-                        )
-            except Exception as e:
-                logger.warning(
-                    f"Ray not available for WebSocket streaming: {e}. "
-                    "Falling back to local execution."
-                )
-
+            # v0.15.0: Ray initialization removed - JobWorker runs without Ray
             from .workers.run_job_worker import run_worker_forever
 
             worker_thread = threading.Thread(
@@ -343,7 +314,7 @@ async def lifespan(app: FastAPI):
                 daemon=True,
             )
             worker_thread.start()
-            logger.info("JobWorker thread started")
+            logger.info("JobWorker thread started (Ray disabled)")
         except Exception as e:
             logger.error("Failed to start JobWorker thread", extra={"error": str(e)})
     else:
@@ -382,6 +353,22 @@ def create_app() -> FastAPI:
         version=settings.version,
         lifespan=lifespan,
     )
+
+    # Global exception handler to catch unhandled errors
+    @app.exception_handler(Exception)
+    async def global_exception_handler(request, exc):
+        import traceback
+
+        logger.error(f"[UNHANDLED EXCEPTION] {type(exc).__name__}: {exc}")
+        logger.error(f"[UNHANDLED EXCEPTION] Traceback:\n{traceback.format_exc()}")
+        from fastapi.responses import JSONResponse
+
+        return JSONResponse(
+            status_code=500,
+            content={
+                "detail": f"Internal server error: {type(exc).__name__}: {str(exc)}"
+            },
+        )
 
     # CORS
     app.add_middleware(

@@ -12,7 +12,6 @@ v0.10.1: Split video upload and job submission for deterministic tool-locking.
 - POST /v1/video/submit: Accepts JSON body {plugin_id, video_path, lockedTools}
 """
 
-import json
 from datetime import timezone
 from io import BytesIO
 from typing import List
@@ -203,16 +202,30 @@ async def submit_video_job(
     # Create database record
     db = SessionLocal()
     try:
+        from app.models.job_tool import JobTool
+
         job = Job(
             job_id=job_id,
             status=JobStatus.pending,
             plugin_id=plugin_id,
-            tool=locked_tools[0] if not is_multi_tool else None,
-            tool_list=json.dumps(locked_tools) if is_multi_tool else None,
+            tool=locked_tools[
+                0
+            ],  # First tool (backward compat with NOT NULL constraint)
             input_path=video_path,
             job_type=job_type,
         )
         db.add(job)
+        db.flush()  # Flush to get job_id before adding JobTools
+
+        # Add tools to job_tools table
+        for order, tool_id in enumerate(locked_tools):
+            job_tool = JobTool(
+                job_id=job_id,
+                tool_id=tool_id,
+                tool_order=order,
+            )
+            db.add(job_tool)
+
         db.commit()
         db.refresh(job)
     finally:
@@ -375,16 +388,30 @@ async def submit_video(
     # Create database record
     db = SessionLocal()
     try:
+        from app.models.job_tool import JobTool
+
         job = Job(
             job_id=job_id,  # Pass UUID object, not string
             status=JobStatus.pending,
             plugin_id=plugin_id,
-            tool=resolved_tools[0] if not is_multi_tool else None,
-            tool_list=json.dumps(resolved_tools) if is_multi_tool else None,
+            tool=resolved_tools[
+                0
+            ],  # First tool (backward compat with NOT NULL constraint)
             input_path=input_path,
             job_type=job_type,
         )
         db.add(job)
+        db.flush()  # Flush to get job_id before adding JobTools
+
+        # Add tools to job_tools table
+        for order, tool_id in enumerate(resolved_tools):
+            job_tool = JobTool(
+                job_id=job_id,
+                tool_id=tool_id,
+                tool_order=order,
+            )
+            db.add(job_tool)
+
         db.commit()
         db.refresh(job)
     finally:

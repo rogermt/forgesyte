@@ -204,7 +204,23 @@ export function ToolSelector({
       // No capabilities, return tools as-is
       return tools;
     } else {
-      // Legacy: tools is an object, convert to array of objects
+      // Legacy: tools is an object, extract capabilities first
+      const allCapabilities = new Set<string>();
+      for (const [, tool] of Object.entries(tools)) {
+        const toolWithCapabilities = tool as { capabilities?: string[] };
+        if (toolWithCapabilities.capabilities) {
+          for (const cap of toolWithCapabilities.capabilities) {
+            allCapabilities.add(cap);
+          }
+        }
+      }
+      if (allCapabilities.size > 0) {
+        return Array.from(allCapabilities).map((cap) => ({
+          id: cap,
+          title: cap.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase()),
+        }));
+      }
+      // Fallback: no capabilities, return tool IDs
       return Object.entries(tools).map(([name]) => ({
         id: name,
         title: name,

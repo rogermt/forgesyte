@@ -29,8 +29,9 @@ export interface Job {
     job_id: string;
     status: "pending" | "running" | "completed" | "failed";  // Issue #212: Aligned with server enum
     plugin_id?: string;  // v0.9.2: plugin_id from server
-    tool?: string;  // v0.9.2: tool from server (single-tool)
-    tool_list?: string[];  // v0.9.4: tool_list from server (multi-tool)
+    tool?: string;  // v0.9.2: tool from server (single-tool, first tool for multi-tool)
+    tools?: string[];  // v0.15.1: All tools from job_tools table
+    tool_list?: string[];  // DEPRECATED: Use tools instead (kept for backward compatibility)
     job_type?: "image" | "image_multi" | "video" | "video_multi";  // v0.9.8: added video_multi
     plugin?: string;  // Legacy: kept for backward compatibility
     results?: Record<string, unknown>;  // v0.9.2: results from server
@@ -233,6 +234,10 @@ export class ForgeSyteAPIClient {
                 url.searchParams.append(paramName, tools);
             }
             
+            // DEBUG: Log the request URL
+            console.log(`[DEBUG] submitImage URL: ${url.toString()}`);
+            console.log(`[DEBUG] submitImage params: pluginId=${pluginId}, tools=${JSON.stringify(tools)}, useLogicalId=${useLogicalId}`);
+            
             xhr.open("POST", url.toString());
 
             if (this.apiKey) {
@@ -246,6 +251,9 @@ export class ForgeSyteAPIClient {
             };
 
             xhr.onload = () => {
+                // DEBUG: Log the response
+                console.log(`[DEBUG] submitImage response: status=${xhr.status}, body=${xhr.responseText.substring(0, 500)}`);
+                
                 if (xhr.status >= 200 && xhr.status < 300) {
                     try {
                         resolve(JSON.parse(xhr.responseText));
@@ -257,7 +265,10 @@ export class ForgeSyteAPIClient {
                 }
             };
 
-            xhr.onerror = () => reject(new Error("Network error during upload."));
+            xhr.onerror = () => {
+                console.error(`[DEBUG] submitImage network error`);
+                reject(new Error("Network error during upload."));
+            };
 
             const formData = new FormData();
             formData.append("file", file);

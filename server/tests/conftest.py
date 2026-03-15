@@ -697,6 +697,7 @@ def test_engine(tmp_path):
 
     from app.core.database import Base
     from app.models.job import Job  # noqa: F401 - registers model with Base
+    from app.models.job_tool import JobTool  # noqa: F401 - registers model with Base
 
     # Create a temporary database file
     db_path = tmp_path / "test.duckdb"

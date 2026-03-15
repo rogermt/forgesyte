@@ -18,6 +18,7 @@ import pytest
 from sqlalchemy.orm import sessionmaker
 
 from app.models.job import Job, JobStatus
+from app.models.job_tool import JobTool
 from app.workers.worker import JobWorker
 
 
@@ -29,13 +30,22 @@ def multi_tool_job_setup(test_engine, session):
         job_id=job_id,
         status=JobStatus.pending,
         plugin_id="yolo-tracker",
-        tool=None,
-        tool_list=json.dumps(["player_detection", "ball_detection"]),
         input_path="image/input/test.png",
         job_type="image_multi",
     )
     session.add(job)
     session.commit()
+
+    # Add tools to job_tools table
+    for i, tool_id in enumerate(["player_detection", "ball_detection"]):
+        job_tool = JobTool(
+            job_id=job_id,
+            tool_id=tool_id,
+            tool_order=i,
+        )
+        session.add(job_tool)
+    session.commit()
+
     return job_id
 
 
@@ -62,12 +72,20 @@ class TestMultiToolWorkerExecution:
             job_id=job_id,
             status=JobStatus.pending,
             plugin_id="yolo-tracker",
-            tool=None,
-            tool_list=json.dumps(["t1", "t2"]),
             input_path="image/input/test.png",
             job_type="image_multi",
         )
         session.add(job)
+        session.commit()
+
+        # Add tools to job_tools table
+        for i, tool_id in enumerate(["t1", "t2"]):
+            job_tool = JobTool(
+                job_id=job_id,
+                tool_id=tool_id,
+                tool_order=i,
+            )
+            session.add(job_tool)
         session.commit()
 
         # Setup mocks
@@ -122,12 +140,20 @@ class TestMultiToolWorkerExecution:
             job_id=job_id,
             status=JobStatus.pending,
             plugin_id="test-plugin",
-            tool=None,
-            tool_list=json.dumps(["tool_a", "tool_b", "tool_c"]),
             input_path="image/input/test.png",
             job_type="image_multi",
         )
         session.add(job)
+        session.commit()
+
+        # Add tools to job_tools table
+        for i, tool_id in enumerate(["tool_a", "tool_b", "tool_c"]):
+            job_tool = JobTool(
+                job_id=job_id,
+                tool_id=tool_id,
+                tool_order=i,
+            )
+            session.add(job_tool)
         session.commit()
 
         # Setup mocks
@@ -180,12 +206,20 @@ class TestMultiToolWorkerExecution:
             job_id=job_id,
             status=JobStatus.pending,
             plugin_id="test-plugin",
-            tool=None,
-            tool_list=json.dumps(["t1", "t2"]),
             input_path="image/input/test.png",
             job_type="image_multi",
         )
         session.add(job)
+        session.commit()
+
+        # Add tools to job_tools table
+        for i, tool_id in enumerate(["t1", "t2"]):
+            job_tool = JobTool(
+                job_id=job_id,
+                tool_id=tool_id,
+                tool_order=i,
+            )
+            session.add(job_tool)
         session.commit()
 
         # Setup mocks
@@ -252,12 +286,19 @@ class TestMultiToolWorkerExecution:
             job_id=job_id,
             status=JobStatus.pending,
             plugin_id="test-plugin",
-            tool="analyze",
-            tool_list=None,
             input_path="image/input/test.png",
             job_type="image",
         )
         session.add(job)
+        session.commit()
+
+        # Add tool to job_tools table
+        job_tool = JobTool(
+            job_id=job_id,
+            tool_id="analyze",
+            tool_order=0,
+        )
+        session.add(job_tool)
         session.commit()
 
         # Setup mocks
@@ -311,12 +352,20 @@ class TestMultiToolWorkerExecution:
             job_id=job_id,
             status=JobStatus.pending,
             plugin_id="test-plugin",
-            tool=None,
-            tool_list=json.dumps(["t1", "t2", "t3"]),
             input_path="image/input/test.png",
             job_type="image_multi",
         )
         session.add(job)
+        session.commit()
+
+        # Add tools to job_tools table
+        for i, tool_id in enumerate(["t1", "t2", "t3"]):
+            job_tool = JobTool(
+                job_id=job_id,
+                tool_id=tool_id,
+                tool_order=i,
+            )
+            session.add(job_tool)
         session.commit()
 
         # Setup mocks
@@ -390,12 +439,20 @@ class TestVideoMultiWorkerExecution:
             job_id=job_id,
             status=JobStatus.pending,
             plugin_id="yolo-tracker",
-            tool=None,
-            tool_list=json.dumps(["video_player_tracking", "video_ball_detection"]),
             input_path="video/input/test.mp4",
             job_type="video_multi",
         )
         session.add(job)
+        session.commit()
+
+        # Add tools to job_tools table
+        for i, tool_id in enumerate(["video_player_tracking", "video_ball_detection"]):
+            job_tool = JobTool(
+                job_id=job_id,
+                tool_id=tool_id,
+                tool_order=i,
+            )
+            session.add(job_tool)
         session.commit()
 
         # Setup mocks
@@ -454,12 +511,20 @@ class TestVideoMultiWorkerExecution:
             job_id=job_id,
             status=JobStatus.pending,
             plugin_id="yolo-tracker",
-            tool=None,
-            tool_list=json.dumps(["video_player_tracking", "video_ball_detection"]),
             input_path="video/input/test.mp4",
             job_type="video_multi",
         )
         session.add(job)
+        session.commit()
+
+        # Add tools to job_tools table
+        for i, tool_id in enumerate(["video_player_tracking", "video_ball_detection"]):
+            job_tool = JobTool(
+                job_id=job_id,
+                tool_id=tool_id,
+                tool_order=i,
+            )
+            session.add(job_tool)
         session.commit()
 
         # Setup mocks
@@ -564,12 +629,19 @@ class TestVideoMultiWorkerExecution:
             job_id=job_id,
             status=JobStatus.pending,
             plugin_id="yolo-tracker",
-            tool="video_player_tracking",
-            tool_list=None,
             input_path="video/input/test.mp4",
             job_type="video",
         )
         session.add(job)
+        session.commit()
+
+        # Add tool to job_tools table
+        job_tool = JobTool(
+            job_id=job_id,
+            tool_id="video_player_tracking",
+            tool_order=0,
+        )
+        session.add(job_tool)
         session.commit()
 
         # Setup mocks
