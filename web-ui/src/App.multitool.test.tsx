@@ -26,6 +26,9 @@ vi.mock("./components/PluginSelector", () => ({
       <button data-testid="select-yolo" onClick={() => props.onPluginChange("yolo-tracker")}>
         Select YOLO
       </button>
+      <button data-testid="select-nocap" onClick={() => props.onPluginChange("no-cap-plugin")}>
+        Select NoCap
+      </button>
     </div>
   ),
 }));
@@ -64,6 +67,17 @@ vi.mock("./api/client", () => ({
               inputs: {},
               outputs: { result: { type: "object" } },
             },
+          },
+        });
+      }
+      if (pluginId === "no-cap-plugin") {
+        // Manifest WITHOUT capabilities - only tool IDs
+        return Promise.resolve({
+          id: "no-cap-plugin",
+          name: "No Cap Plugin",
+          tools: {
+            toolA: { input_types: ["image"], inputs: {}, outputs: {} },
+            toolB: { input_types: ["image"], inputs: {}, outputs: {} },
           },
         });
       }
@@ -234,5 +248,122 @@ describe("Multitool Selection - REAL tests", () => {
       expect(toolButtons[0].getAttribute("aria-pressed")).toBe("true");
       expect(toolButtons[1].getAttribute("aria-pressed")).toBe("true");
     }, { timeout: 3000 });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Discussion #335: isUsingLogicalIds derivation tests
+// These tests verify that useLogicalId is derived from manifest, not hardcoded
+// ---------------------------------------------------------------------------
+describe("Discussion #335: isUsingLogicalIds derivation", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  // -------------------------------------------------------------------------
+  // Test A: Manifest WITH capabilities → useLogicalId=true
+  // -------------------------------------------------------------------------
+  it("passes useLogicalId=true when manifest HAS capabilities", { timeout: 15000 }, async () => {
+    const { apiClient } = await import("./api/client");
+
+    render(<App />);
+
+    // Select plugin (yolo-tracker has capabilities in mock)
+    await userEvent.click(screen.getByTestId("select-yolo"));
+
+    // Wait for manifest load
+    await waitFor(() => {
+      expect(apiClient.getPluginManifest).toHaveBeenCalled();
+    }, { timeout: 5000 });
+
+    // Switch to Upload view
+    const navButtons = screen.getAllByRole("button");
+    const uploadNavBtn = navButtons.find(b =>
+      b.textContent?.toLowerCase().trim() === "upload"
+    );
+    if (uploadNavBtn) {
+      await userEvent.click(uploadNavBtn);
+    }
+
+    // Select capability buttons
+    const buttons = screen.getAllByRole("button");
+    const capButtons = buttons.filter(b =>
+      (b.textContent || "").toLowerCase().includes("detection")
+    );
+
+    if (capButtons.length >= 2) {
+      await userEvent.click(capButtons[0]);
+      await userEvent.click(capButtons[1]);
+    } else if (capButtons.length === 1) {
+      await userEvent.click(capButtons[0]);
+    }
+
+    // Upload image
+    const fileInput = await screen.findByTestId("image-upload");
+    const file = new File(["x"], "x.png", { type: "image/png" });
+    Object.defineProperty(fileInput, "files", { value: [file] });
+    fileInput.dispatchEvent(new Event("change", { bubbles: true }));
+
+    await waitFor(() => {
+      expect(apiClient.submitImage).toHaveBeenCalled();
+    }, { timeout: 5000 });
+
+    const call = apiClient.submitImage.mock.calls[0];
+    const useLogicalId = call[4];
+    expect(useLogicalId).toBe(true);
+  });
+
+  // -------------------------------------------------------------------------
+  // Test B: Manifest WITHOUT capabilities → useLogicalId=false
+  // THIS TEST SHOULD FAIL until we fix the hardcoded useLogicalId=true
+  // -------------------------------------------------------------------------
+  it("passes useLogicalId=false when manifest has NO capabilities", { timeout: 15000 }, async () => {
+    const { apiClient } = await import("./api/client");
+
+    render(<App />);
+
+    // Select no-cap-plugin (manifest has NO capabilities, only tool IDs)
+    await userEvent.click(screen.getByTestId("select-nocap"));
+
+    // Wait for manifest load
+    await waitFor(() => {
+      expect(apiClient.getPluginManifest).toHaveBeenCalledWith("no-cap-plugin");
+    }, { timeout: 5000 });
+
+    // Switch to Upload view
+    const navButtons = screen.getAllByRole("button");
+    const uploadNavBtn = navButtons.find(b =>
+      b.textContent?.toLowerCase().trim() === "upload"
+    );
+    if (uploadNavBtn) {
+      await userEvent.click(uploadNavBtn);
+    }
+
+    // Get tool buttons (toolA, toolB - no capabilities, just IDs)
+    const buttons = screen.getAllByRole("button");
+    const toolButtons = buttons.filter(b =>
+      (b.textContent || "").toLowerCase().includes("tool")
+    );
+
+    if (toolButtons.length >= 1) {
+      await userEvent.click(toolButtons[0]);
+    }
+
+    // Upload image
+    const fileInput = await screen.findByTestId("image-upload");
+    const file = new File(["x"], "x.png", { type: "image/png" });
+    Object.defineProperty(fileInput, "files", { value: [file] });
+    fileInput.dispatchEvent(new Event("change", { bubbles: true }));
+
+    await waitFor(() => {
+      expect(apiClient.submitImage).toHaveBeenCalled();
+    }, { timeout: 5000 });
+
+    const call = apiClient.submitImage.mock.calls[0];
+    const useLogicalId = call[4];
+    
+    // Discussion #335: When manifest has NO capabilities, useLogicalId should be FALSE
+    // THIS WILL FAIL with current code because useLogicalId is hardcoded to true
+    expect(useLogicalId).toBe(false);
   });
 });

@@ -631,3 +631,351 @@ class TestImageSubmitCanonicalJson:
         for tool_entry in data["tools"]:
             assert "logical" in tool_entry
             assert "resolved" in tool_entry
+
+    def test_canonical_json_legacy_tool_path(self, mock_plugin, session: Session):
+        """
+        Verify that the legacy tool= submission path returns the canonical JSON response including job_id, plugin, tool, status and submitted_at.
+
+        Submits a PNG file using the legacy query parameters (plugin_id and tool) and asserts a 200 response, presence of the canonical fields, and that `submitted_at` is an ISO 8601 UTC timestamp ending with 'Z'.
+        """
+        plugin = MagicMock()
+        plugin.tools = {
+            "analyze": {
+                "handler": "analyze_handler",
+                "input_schema": {"properties": {"image_bytes": {"type": "string"}}},
+            }
+        }
+
+        mock_registry = MagicMock()
+        mock_registry.get.return_value = plugin
+
+        mock_service = MagicMock()
+        mock_service.get_available_tools.return_value = ["analyze"]
+
+        def override_get_plugin_manager():
+            """
+            Provide the mocked plugin registry to use as the application's plugin manager override.
+
+            Returns:
+                mock_registry: The mocked plugin registry instance to be injected as the plugin manager.
+            """
+            return mock_registry
+
+        def override_get_plugin_service():
+            """
+            Provide the mocked plugin service used for dependency injection in tests.
+
+            Returns:
+                The mocked plugin service instance (`mock_service`) supplied by the test fixture.
+            """
+            return mock_service
+
+        app.dependency_overrides[get_plugin_manager] = override_get_plugin_manager
+        app.dependency_overrides[get_plugin_service] = override_get_plugin_service
+
+        client = TestClient(app)
+
+        png_data = b"\x89PNG\r\n\x1a\n" + b"\x00" * 100
+
+        response = client.post(
+            "/v1/image/submit?plugin_id=ocr&tool=analyze",
+            files={"file": ("test.png", BytesIO(png_data), "image/png")},
+        )
+
+        app.dependency_overrides.clear()
+
+        assert response.status_code == 200
+        data = response.json()
+
+        # Canonical JSON fields - ALL paths should return these
+        assert "job_id" in data
+        assert "plugin" in data
+        assert data["plugin"] == "ocr"
+        assert "tool" in data
+        assert data["tool"] == "analyze"
+        assert "status" in data
+        assert data["status"] == "queued"
+        assert "submitted_at" in data
+        # ISO 8601 format check
+        assert "T" in data["submitted_at"]
+        assert data["submitted_at"].endswith("Z")
+
+
+class TestImageSubmitStorageRetry:
+    """Tests for storage retry logic (Issue #332)."""
+
+    def test_storage_save_retries_on_transient_failure(
+        self, mock_plugin, session: Session
+    ):
+        """Storage save retries on transient errors (Issue #332).
+
+        If storage.save_file fails with a transient error, it should be
+        retried with exponential backoff before raising.
+        """
+        from app.api_routes.routes.image_submit import get_storage
+
+        plugin = MagicMock()
+        plugin.tools = {
+            "analyze": {
+                "handler": "analyze_handler",
+                "input_schema": {"properties": {"image_bytes": {"type": "string"}}},
+            }
+        }
+
+        mock_registry = MagicMock()
+        mock_registry.get.return_value = plugin
+
+        mock_service = MagicMock()
+        mock_service.get_available_tools.return_value = ["analyze"]
+
+        # Mock storage to fail once, then succeed
+        call_count = [0]
+
+        def mock_save_file(*args, **kwargs):
+            """
+            Simulate a storage save operation that fails once with a transient network error and then succeeds.
+
+            Returns:
+                str: The saved file path ("image/input/test.png") on successful save.
+
+            Raises:
+                ConnectionError: On the first invocation to simulate a transient network error.
+            """
+            call_count[0] += 1
+            if call_count[0] == 1:
+                # First call: simulate transient S3 error
+                raise ConnectionError("Transient network error")
+            # Second call: succeed
+            return "image/input/test.png"
+
+        mock_storage = MagicMock()
+        mock_storage.save_file.side_effect = mock_save_file
+
+        def override_get_plugin_manager():
+            """
+            Provide the mocked plugin registry to use as the application's plugin manager override.
+
+            Returns:
+                mock_registry: The mocked plugin registry instance to be injected as the plugin manager.
+            """
+            return mock_registry
+
+        def override_get_plugin_service():
+            """
+            Provide the mocked plugin service used for dependency injection in tests.
+
+            Returns:
+                The mocked plugin service instance (`mock_service`) supplied by the test fixture.
+            """
+            return mock_service
+
+        def override_get_storage():
+            """
+            Provide the mock storage instance for dependency overrides in tests.
+
+            Returns:
+                mock_storage: The mock storage object used by tests, exposing the same public methods as the production storage implementation (e.g. `save_file`).
+            """
+            return mock_storage
+
+        app.dependency_overrides[get_plugin_manager] = override_get_plugin_manager
+        app.dependency_overrides[get_plugin_service] = override_get_plugin_service
+        app.dependency_overrides[get_storage] = override_get_storage
+
+        client = TestClient(app)
+
+        png_data = b"\x89PNG\r\n\x1a\n" + b"\x00" * 100
+
+        response = client.post(
+            "/v1/image/submit?plugin_id=ocr&tool=analyze",
+            files={"file": ("test.png", BytesIO(png_data), "image/png")},
+        )
+
+        app.dependency_overrides.clear()
+
+        # Should succeed after retry
+        assert response.status_code == 200, f"Got: {response.text}"
+        data = response.json()
+        assert "job_id" in data
+        # Verify retry happened
+        assert call_count[0] >= 2, "Expected at least 2 calls (1 fail + 1 success)"
+
+    def test_non_transient_error_propagates_without_retry(
+        self, mock_plugin, session: Session
+    ):
+        """Non-transient errors like FileNotFoundError should NOT retry (Issue #337).
+
+        Only transient errors (ConnectionError, TimeoutError) should be retried.
+        Non-transient errors should propagate immediately.
+        """
+        from app.api_routes.routes.image_submit import get_storage
+
+        plugin = MagicMock()
+        plugin.tools = {
+            "analyze": {
+                "handler": "analyze_handler",
+                "input_schema": {"properties": {"image_bytes": {"type": "string"}}},
+            }
+        }
+
+        mock_registry = MagicMock()
+        mock_registry.get.return_value = plugin
+
+        mock_service = MagicMock()
+        mock_service.get_available_tools.return_value = ["analyze"]
+
+        # Mock storage to raise non-transient error
+        call_count = [0]
+
+        def mock_save_file(*args, **kwargs):
+            """
+            Simulate a storage save that always fails with a non-transient error.
+
+            Increments the external `call_count[0]` counter on each invocation and raises
+            FileNotFoundError to emulate a non-transient storage failure (no return).
+            """
+            call_count[0] += 1
+            raise FileNotFoundError("Path not found")
+
+        mock_storage = MagicMock()
+        mock_storage.save_file.side_effect = mock_save_file
+
+        def override_get_plugin_manager():
+            """
+            Provide the mocked plugin registry to use as the application's plugin manager override.
+
+            Returns:
+                mock_registry: The mocked plugin registry instance to be injected as the plugin manager.
+            """
+            return mock_registry
+
+        def override_get_plugin_service():
+            """
+            Provide the mocked plugin service used for dependency injection in tests.
+
+            Returns:
+                The mocked plugin service instance (`mock_service`) supplied by the test fixture.
+            """
+            return mock_service
+
+        def override_get_storage():
+            """
+            Provide the mock storage instance for dependency overrides in tests.
+
+            Returns:
+                mock_storage: The mock storage object used by tests, exposing the same public methods as the production storage implementation (e.g. `save_file`).
+            """
+            return mock_storage
+
+        app.dependency_overrides[get_plugin_manager] = override_get_plugin_manager
+        app.dependency_overrides[get_plugin_service] = override_get_plugin_service
+        app.dependency_overrides[get_storage] = override_get_storage
+
+        # Use raise_server_exceptions=False to catch exceptions as 500 responses
+        client = TestClient(app, raise_server_exceptions=False)
+
+        png_data = b"\x89PNG\r\n\x1a\n" + b"\x00" * 100
+
+        response = client.post(
+            "/v1/image/submit?plugin_id=ocr&tool=analyze",
+            files={"file": ("test.png", BytesIO(png_data), "image/png")},
+        )
+
+        app.dependency_overrides.clear()
+
+        # Should fail with 500 (internal error) after exception is caught
+        assert (
+            response.status_code == 500
+        ), f"Got status {response.status_code}: {response.text[:200] if response.text else 'empty'}"
+        # CRITICAL (Issue #337): Should NOT retry non-transient errors
+        assert (
+            call_count[0] == 1
+        ), f"Expected exactly 1 call (no retry), got {call_count[0]} calls"
+
+    def test_transient_error_retries_three_times_then_raises(
+        self, mock_plugin, session: Session
+    ):
+        """Transient errors should retry exactly 3 times before raising (Issue #337)."""
+        from app.api_routes.routes.image_submit import get_storage
+
+        plugin = MagicMock()
+        plugin.tools = {
+            "analyze": {
+                "handler": "analyze_handler",
+                "input_schema": {"properties": {"image_bytes": {"type": "string"}}},
+            }
+        }
+
+        mock_registry = MagicMock()
+        mock_registry.get.return_value = plugin
+
+        mock_service = MagicMock()
+        mock_service.get_available_tools.return_value = ["analyze"]
+
+        # Mock storage to always fail with transient error
+        call_count = [0]
+
+        def mock_save_file(*args, **kwargs):
+            """
+            Mock replacement for a storage `save_file` function that records invocation and simulates a transient network failure.
+
+            Increments `call_count[0]` to indicate an attempted save, then raises a `ConnectionError`.
+
+            Raises:
+                ConnectionError: Always raised to simulate a transient network error.
+            """
+            call_count[0] += 1
+            raise ConnectionError("Network error")
+
+        mock_storage = MagicMock()
+        mock_storage.save_file.side_effect = mock_save_file
+
+        def override_get_plugin_manager():
+            """
+            Provide the mocked plugin registry to use as the application's plugin manager override.
+
+            Returns:
+                mock_registry: The mocked plugin registry instance to be injected as the plugin manager.
+            """
+            return mock_registry
+
+        def override_get_plugin_service():
+            """
+            Provide the mocked plugin service used for dependency injection in tests.
+
+            Returns:
+                The mocked plugin service instance (`mock_service`) supplied by the test fixture.
+            """
+            return mock_service
+
+        def override_get_storage():
+            """
+            Provide the mock storage instance for dependency overrides in tests.
+
+            Returns:
+                mock_storage: The mock storage object used by tests, exposing the same public methods as the production storage implementation (e.g. `save_file`).
+            """
+            return mock_storage
+
+        app.dependency_overrides[get_plugin_manager] = override_get_plugin_manager
+        app.dependency_overrides[get_plugin_service] = override_get_plugin_service
+        app.dependency_overrides[get_storage] = override_get_storage
+
+        # Use raise_server_exceptions=False to catch exceptions as 500 responses
+        client = TestClient(app, raise_server_exceptions=False)
+
+        png_data = b"\x89PNG\r\n\x1a\n" + b"\x00" * 100
+
+        response = client.post(
+            "/v1/image/submit?plugin_id=ocr&tool=analyze",
+            files={"file": ("test.png", BytesIO(png_data), "image/png")},
+        )
+
+        app.dependency_overrides.clear()
+
+        # Should fail with 500 after retries exhausted
+        assert response.status_code == 500, f"Got: {response.text}"
+        # CRITICAL (Issue #337): Should retry exactly 3 times
+        assert (
+            call_count[0] == 3
+        ), f"Expected exactly 3 retries, got {call_count[0]} calls"

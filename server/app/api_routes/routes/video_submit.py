@@ -240,36 +240,25 @@ async def submit_video(
     plugin_manager=Depends(get_plugin_manager),
     plugin_service=Depends(get_plugin_service),
 ):
-    """Submit a video file for processing.
+    """
+    Submit an MP4 video to a plugin and create a queued job for processing.
 
-    This endpoint creates a new job with job_type="video" (single tool) or
-    job_type="video_multi" (multiple tools) and enqueues it for processing
-    by the worker.
+    Validates the plugin, resolves tool IDs from either explicit `tool` values or capability-based `logical_tool_id` (mutually exclusive), ensures each resolved tool supports video input, saves the uploaded MP4 to storage, creates a job record with job_type "video" or "video_multi", attaches the tools to the job, and returns a canonical JSON summary of the queued job.
 
-    v0.9.7: Supports logical_tool_id parameter for capability-based resolution.
-    The logical tool ID (capability string) is matched against tool capabilities
-    in the manifest to find the actual plugin tool ID.
-
-    v0.9.8: Mutual exclusivity - cannot provide both tool and logical_tool_id.
-    Canonical JSON response with submitted_at, tools array for multi-tool.
-
-    Args:
-        file: MP4 video file to process
-        plugin_id: ID of the plugin to use (from /v1/plugins)
-        tool: Tool ID(s) to run (from plugin manifest). Can be repeated for multi-tool.
-            Optional if logical_tool_id is provided.
-        logical_tool_id: Logical tool ID(s) (capability strings) for dynamic resolution.
-            Repeatable for multi-tool. e.g., "player_detection", "ball_detection"
-        plugin_manager: PluginRegistry from app state (DI)
-        plugin_service: PluginManagementService instance (DI)
+    Parameters:
+        file: UploadFile containing the MP4 video to process.
+        plugin_id (str): Plugin identifier.
+        tool (List[str] | None): Concrete tool ID(s) from the plugin manifest. Repeatable for multi-tool; optional if `logical_tool_id` is provided.
+        logical_tool_id (List[str] | None): Logical capability strings used to resolve concrete tool ID(s). Repeatable for multi-tool.
 
     Returns:
-        Canonical JSON:
-        - Single tool: {"job_id": "...", "plugin": "...", "tool": "...", "status": "queued", "submitted_at": "..."}
-        - Multi tool: {"job_id": "...", "plugin": "...", "tools": [...], "status": "queued", "submitted_at": "..."}
+        dict: Canonical JSON describing the queued job.
+        - Single tool: {"job_id": "<uuid>", "plugin": "<plugin_id>", "tool": "<tool_id>", "status": "queued", "submitted_at": "<ISO-8601 Z>"}.
+        - Multi tool: {"job_id": "<uuid>", "plugin": "<plugin_id>", "tools": [...], "status": "queued", "submitted_at": "<ISO-8601 Z>"}.
+        - When `logical_tool_id` was used and multiple logicals were provided, the "tools" array contains objects with "logical" and "resolved" entries.
 
     Raises:
-        HTTPException: If file is invalid or processing fails
+        HTTPException: For validation failures such as missing plugin, mutually exclusive parameters, unresolved tools, manifest or tool definition issues, tools that do not accept video, invalid MP4 content, or missing file.
     """
     # Validate plugin exists
     plugin = plugin_manager.get(plugin_id)
@@ -437,5 +426,15 @@ async def submit_video(
             "submitted_at": submitted_at,
         }
 
-    # Legacy (tool=...) callers get basic response
-    return {"job_id": str(job_id)}
+    # Legacy (tool=...) callers - return canonical JSON (Issue #333)
+    response = {
+        "job_id": str(job_id),
+        "plugin": plugin_id,
+        "status": "queued",
+        "submitted_at": submitted_at,
+    }
+    if len(resolved_tools) > 1:
+        response["tools"] = resolved_tools
+    else:
+        response["tool"] = resolved_tools[0]
+    return response

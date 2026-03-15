@@ -30,6 +30,13 @@ const WS_BACKEND_URL =
 
 type ViewMode = "stream" | "upload" | "jobs" | "video-upload" | "video-stream";
 
+/**
+ * Root application component that manages UI state, plugin manifests, WebSocket streaming, uploads, job polling and video processing views.
+ *
+ * Renders the main layout including plugin and tool selectors, stream/upload/job/video views, and results pane while coordinating network interactions (manifest loading, WebSocket streaming, image/video submission and job polling) and related UI state.
+ *
+ * @returns The root JSX element for the application
+ */
 function App() {
   // -------------------------------------------------------------------------
   // State
@@ -58,9 +65,10 @@ function App() {
   // Compute tool list from manifest
   // FIX: Return capabilities (logical tool names), not tool IDs
   // v0.15.0: Extract capabilities from tool.capabilities for multi-tool support
+  // Discussion #335: Track whether we're using logical IDs (capabilities)
   // -------------------------------------------------------------------------
-  const toolList = useMemo(() => {
-    if (!manifest) return [];
+  const { toolList, isUsingLogicalIds } = useMemo(() => {
+    if (!manifest) return { toolList: [], isUsingLogicalIds: false };
 
     // Collect all unique capabilities from all tools
     const allCapabilities = new Set<string>();
@@ -76,10 +84,13 @@ function App() {
         }
       }
       if (allCapabilities.size > 0) {
-        return Array.from(allCapabilities);
+        return { toolList: Array.from(allCapabilities), isUsingLogicalIds: true };
       }
       // Fallback: no capabilities, return tool IDs
-      return manifest.tools.map((tool: { id: string }) => tool.id);
+      return {
+        toolList: manifest.tools.map((tool: { id: string }) => tool.id),
+        isUsingLogicalIds: false,
+      };
     }
 
     // Legacy format: tools is an object where keys are tool IDs
@@ -94,11 +105,11 @@ function App() {
     }
 
     if (allCapabilities.size > 0) {
-      return Array.from(allCapabilities);
+      return { toolList: Array.from(allCapabilities), isUsingLogicalIds: true };
     }
 
     // Fallback: no capabilities found, return tool IDs
-    return Object.keys(toolsObj);
+    return { toolList: Object.keys(toolsObj), isUsingLogicalIds: false };
   }, [manifest]);
 
   // -------------------------------------------------------------------------
@@ -359,13 +370,13 @@ function App() {
       setIsUploading(true);
       try {
         // v0.9.4: Pass all selected tools (not just first) for multi-tool support
-        // v0.15.0: Pass useLogicalId=true so backend resolves capabilities to tool IDs
+        // Discussion #335: useLogicalId derived from manifest capabilities
         const response = await apiClient.submitImage(
           file,
           selectedPlugin,
           selectedTools,
           undefined,  // onProgress callback (not used)
-          true  // useLogicalId: send logical_tool_id instead of tool
+          isUsingLogicalIds  // Derived from resolver mode
         );
         const job = await apiClient.pollJob(response.job_id);
         setSelectedJob(job);
@@ -375,7 +386,7 @@ function App() {
         setIsUploading(false);
       }
     },
-    [selectedPlugin, selectedTools, streamEnabled]
+    [selectedPlugin, selectedTools, streamEnabled, isUsingLogicalIds]
   );
 
   // -------------------------------------------------------------------------

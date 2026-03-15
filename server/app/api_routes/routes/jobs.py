@@ -159,9 +159,14 @@ async def get_job(job_id: UUID, db: Session = Depends(get_db)) -> JobResultsResp
             # Calculate which tool is running based on progress
             # Each tool gets equal weight (100/total_tools)
             tool_weight = 100 / tools_total
-            tools_completed = int(job.progress / tool_weight)
-            # Clamp to valid range
-            tools_completed = max(0, min(tools_total - 1, tools_completed))
+            # Issue #334: Use boundary comparison to avoid truncation bug
+            # Boundaries mark where each tool completes: [33, 66] for 3 tools
+            boundaries = [
+                int((index + 1) * tool_weight) for index in range(tools_total - 1)
+            ]
+            tools_completed = sum(
+                1 for boundary in boundaries if job.progress >= boundary
+            )
             # Current tool is the next one after completed
             if tools_completed < tools_total:
                 current_tool = tools[tools_completed]

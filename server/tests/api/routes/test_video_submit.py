@@ -554,3 +554,66 @@ class TestVideoSubmitCanonicalJson:
         assert data["tools"][1]["resolved"] == "video_ball_detection"
         assert "submitted_at" in data
         assert data["status"] == "queued"
+
+    def test_canonical_json_legacy_tool_path(
+        self, session: Session, mock_plugin_registry, mock_plugin_service
+    ):
+        """
+        Verify the legacy `tool=` request path returns the canonical JSON response.
+
+        Asserts the response includes the canonical fields: `job_id`, `plugin` (equals "yolo-tracker"),
+        `tool` (equals "video_player_tracking"), `status` (equals "queued"), and `submitted_at`
+        in ISO 8601 format ending with a trailing "Z".
+        """
+
+        def override_get_plugin_manager():
+            """
+            Supply the mock plugin registry used to override the plugin manager dependency in tests.
+
+            Returns:
+                mock_plugin_registry: The mock plugin registry object provided by the test fixture.
+            """
+            return mock_plugin_registry
+
+        def override_get_plugin_service():
+            """
+            Provide the mock plugin service for dependency override in tests.
+
+            Returns:
+                mock_plugin_service: The mock plugin service object used to replace the real service in test dependency injection.
+            """
+            return mock_plugin_service
+
+        app.dependency_overrides[get_plugin_manager] = override_get_plugin_manager
+        app.dependency_overrides[get_plugin_service] = override_get_plugin_service
+
+        client = TestClient(app)
+
+        mp4_data = b"ftypmp42" + b"\x00" * 100
+
+        response = client.post(
+            "/v1/video/submit",
+            files={"file": ("test.mp4", BytesIO(mp4_data))},
+            params={
+                "plugin_id": "yolo-tracker",
+                "tool": "video_player_tracking",
+            },
+        )
+
+        app.dependency_overrides.clear()
+
+        assert response.status_code == 200
+        data = response.json()
+
+        # Canonical JSON fields - ALL paths should return these
+        assert "job_id" in data
+        assert "plugin" in data
+        assert data["plugin"] == "yolo-tracker"
+        assert "tool" in data
+        assert data["tool"] == "video_player_tracking"
+        assert "status" in data
+        assert data["status"] == "queued"
+        assert "submitted_at" in data
+        # ISO 8601 format check
+        assert "T" in data["submitted_at"]
+        assert data["submitted_at"].endswith("Z")
