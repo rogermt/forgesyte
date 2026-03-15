@@ -25,35 +25,42 @@ def load_plugins():
 
 
 def generate_matrix(plugins):
+    """Generate flat table format with Plugin column."""
     lines = []
-    lines.append("# Plugin Capability Matrix (Generated)\n")
-    lines.append("This file is auto-generated. Do not edit manually.\n")
+    lines.append("# Plugin Capability Matrix\n")
 
-    for plugin_id, tools in sorted(plugins.items()):
-        lines.append(f"## {plugin_id}\n")
+    if not plugins:
+        lines.append("_No plugins found._\n")
+        return "".join(lines)
 
-        if not tools:
-            lines.append("_No tools defined._\n")
-            continue
+    lines.append("| Plugin | Tool | Input Types | Output Types | Capabilities |")
+    lines.append("|--------|------|-------------|--------------|--------------|")
 
-        lines.append("| Tool | Input Types | Output Types | Capabilities |")
-        lines.append("|------|-------------|--------------|--------------|")
-
+    for plugin_id in sorted(plugins.keys()):
+        tools = plugins[plugin_id]
         for tool_id, meta in sorted(tools.items()):
+            input_types = ", ".join(meta.get("input_types", []))
+            output_types = ", ".join(meta.get("output_types", []))
+            capabilities = ", ".join(meta.get("capabilities", []))
             lines.append(
-                f"| `{tool_id}` | "
-                f"{', '.join(meta.get('input_types', []))} | "
-                f"{', '.join(meta.get('output_types', []))} | "
-                f"{', '.join(meta.get('capabilities', []))} |"
+                f"| `{plugin_id}` | `{tool_id}` | "
+                f"{input_types} | {output_types} | {capabilities} |"
             )
 
-        lines.append("")
-
-    return "\n".join(lines)
+    return "\n".join(lines) + "\n"
 
 
 def main():
+    if not PLUGINS_DIR.exists():
+        print(f"Plugins directory not found: {PLUGINS_DIR}")
+        print("Skipping capability matrix generation.")
+        return
+
     plugins = load_plugins()
+    if not plugins:
+        print("No plugins found. Skipping generation.")
+        return
+
     content = generate_matrix(plugins)
     OUTFILE.parent.mkdir(parents=True, exist_ok=True)
     OUTFILE.write_text(content)
