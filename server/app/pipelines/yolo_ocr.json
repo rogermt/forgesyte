@@ -1,1 +1,24 @@
-{"id": "yolo_ocr", "name": "YOLO + OCR Pipeline", "description": "Detect objects with YOLO, extract text with OCR", "nodes": [{"id": "detect", "plugin_id": "yolo", "tool_id": "detect_objects", "input_schema": {"type": "object", "properties": {"image_bytes": {"type": "string", "format": "binary"}}, "required": ["image_bytes"]}}, {"id": "read", "plugin_id": "ocr", "tool_id": "analyze", "input_schema": {"type": "object", "properties": {"image_bytes": {"type": "string", "format": "binary"}}, "required": ["image_bytes"]}}], "edges": [{"from_node": "detect", "to_node": "read"}], "entry_nodes": ["detect"], "output_nodes": ["read"]}
+{
+  "id": "yolo_ocr",
+  "entry_nodes": ["detect"],
+  "output_nodes": ["read"],
+  "nodes": [
+    {
+      "id": "detect",
+      "plugin_type": "yolo",
+      "tool_type": "detect",
+      "input_types": ["image"],
+      "output_types": ["detections"]
+    },
+    {
+      "id": "read",
+      "plugin_type": "ocr",
+      "tool_type": "read",
+      "input_types": ["detections"],
+      "output_types": ["text"]
+    }
+  ],
+  "edges": [
+    { "from_node": "detect", "to_node": "read" }
+  ]
+}

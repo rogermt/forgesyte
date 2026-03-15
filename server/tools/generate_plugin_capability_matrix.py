@@ -1,58 +1,63 @@
 #!/usr/bin/env python3
-"""Phase Plugin Capability Matrix Generator.
+"""
+Generate Plugin Capability Matrix.
 
-This script generates a Markdown table documenting all plugins, tools,
-and their declared input/output types and capabilities.
-
-Usage:
-    python tools/generate_plugin_capability_matrix.py
-
-Output:
-    docs/"plugin_capability_matrix_generated.md
+Reads manifests from forgesyte-plugins and writes:
+docs/plugin_capability_matrix_generated.md
 """
 
 import json
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-# CI clones forgesyte-plugins repo, which has a plugins/ subdirectory
 PLUGINS_DIR = ROOT / ".." / "forgesyte-plugins" / "plugins"
-OUT = ROOT / ".." / "docs" / "plugin_capability_matrix_generated.md"
+OUTFILE = ROOT / ".." / "docs" / "plugin_capability_matrix_generated.md"
 
 
-def main():
-    """Generate the plugin capability matrix."""
-    rows = []
-
-    for manifest_path in sorted(PLUGINS_DIR.glob("*/manifest.json")):
+def load_plugins():
+    plugins = {}
+    for manifest_path in PLUGINS_DIR.glob("*/manifest.json"):
         plugin_id = manifest_path.parent.name
         with manifest_path.open() as f:
             data = json.load(f)
+        plugins[plugin_id] = data.get("tools", {})
+    return plugins
 
-        for tool_id, tool in data.get("tools", {}).items():
-            rows.append(
-                {
-                    "plugin": plugin_id,
-                    "tool": tool_id,
-                    "input_types": ", ".join(tool.get("input_types", [])),
-                    "output_types": ", ".join(tool.get("output_types", [])),
-                    "capabilities": ", ".join(tool.get("capabilities", [])),
-                }
+
+def generate_matrix(plugins):
+    lines = []
+    lines.append("# Plugin Capability Matrix (Generated)\n")
+    lines.append("This file is auto-generated. Do not edit manually.\n")
+
+    for plugin_id, tools in sorted(plugins.items()):
+        lines.append(f"## {plugin_id}\n")
+
+        if not tools:
+            lines.append("_No tools defined._\n")
+            continue
+
+        lines.append("| Tool | Input Types | Output Types | Capabilities |")
+        lines.append("|------|-------------|--------------|--------------|")
+
+        for tool_id, meta in sorted(tools.items()):
+            lines.append(
+                f"| `{tool_id}` | "
+                f"{', '.join(meta.get('input_types', []))} | "
+                f"{', '.join(meta.get('output_types', []))} | "
+                f"{', '.join(meta.get('capabilities', []))} |"
             )
 
-    lines = []
-    lines.append("# Plugin Capability Matrix\n")
-    lines.append("| Plugin | Tool | Input Types | Output Types | Capabilities |")
-    lines.append("|--------|------|-------------|--------------|--------------|")
+        lines.append("")
 
-    for r in sorted(rows, key=lambda x: (x["plugin"], x["tool"])):
-        lines.append(
-            f"| `{r['plugin']}` | `{r['tool']}` | {r['input_types']} | {r['output_types']} | {r['capabilities']} |"
-        )
+    return "\n".join(lines)
 
-    OUT.parent.mkdir(parents=True, exist_ok=True)
-    OUT.write_text("\n".join(lines))
-    print(f"✅ Wrote capability matrix to {OUT}")
+
+def main():
+    plugins = load_plugins()
+    content = generate_matrix(plugins)
+    OUTFILE.parent.mkdir(parents=True, exist_ok=True)
+    OUTFILE.write_text(content)
+    print(f"Generated {OUTFILE}")
 
 
 if __name__ == "__main__":
