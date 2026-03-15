@@ -18,6 +18,7 @@ from typing import List
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile
+from tenacity import retry, stop_after_attempt, wait_exponential
 
 from app.core.database import SessionLocal
 from app.models.job import Job, JobStatus
@@ -290,14 +291,24 @@ async def submit_image(
     job_id = uuid4()
     input_path = f"image/input/{job_id}_{file.filename}"
 
-    # Save file to storage
-    try:
+    # Save file to storage with retry logic (Issue #332)
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=2, max=10),
+        reraise=True,
+    )
+    def save_file_with_retry():
         storage.save_file(src=BytesIO(contents), dest_path=input_path)
+
+    try:
+        save_file_with_retry()
         debug_file(f"[DEBUG] File saved to {input_path}")
         logger.info(f"[DEBUG] File saved to {input_path}")
     except Exception as e:
-        debug_file(f"[DEBUG] Storage save failed: {e}")
-        logger.error(f"[DEBUG] Storage save failed: {e}\n{traceback.format_exc()}")
+        debug_file(f"[DEBUG] Storage save failed after retries: {e}")
+        logger.error(
+            f"[DEBUG] Storage save failed after retries: {e}\n{traceback.format_exc()}"
+        )
         raise
 
     # Create database record
@@ -373,6 +384,16 @@ async def submit_image(
             "submitted_at": submitted_at,
         }
 
-    # Legacy (tool=...) callers get basic response
-    debug_file(f"[DEBUG] Returning legacy response: job_id={job_id}")
-    return {"job_id": str(job_id)}
+    # Legacy (tool=...) callers - return canonical JSON (Issue #333)
+    debug_file(f"[DEBUG] Returning explicit-tool response: job_id={job_id}")
+    response = {
+        "job_id": str(job_id),
+        "plugin": plugin_id,
+        "status": "queued",
+        "submitted_at": submitted_at,
+    }
+    if len(resolved_tools) > 1:
+        response["tools"] = resolved_tools
+    else:
+        response["tool"] = resolved_tools[0]
+    return response

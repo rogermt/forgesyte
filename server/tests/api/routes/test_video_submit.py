@@ -554,3 +554,52 @@ class TestVideoSubmitCanonicalJson:
         assert data["tools"][1]["resolved"] == "video_ball_detection"
         assert "submitted_at" in data
         assert data["status"] == "queued"
+
+    def test_canonical_json_legacy_tool_path(
+        self, session: Session, mock_plugin_registry, mock_plugin_service
+    ):
+        """Legacy tool= path returns canonical JSON (Issue #333).
+
+        The docstring promises canonical JSON for ALL code paths,
+        but legacy tool= callers only got {"job_id": "..."}.
+        """
+
+        def override_get_plugin_manager():
+            return mock_plugin_registry
+
+        def override_get_plugin_service():
+            return mock_plugin_service
+
+        app.dependency_overrides[get_plugin_manager] = override_get_plugin_manager
+        app.dependency_overrides[get_plugin_service] = override_get_plugin_service
+
+        client = TestClient(app)
+
+        mp4_data = b"ftypmp42" + b"\x00" * 100
+
+        response = client.post(
+            "/v1/video/submit",
+            files={"file": ("test.mp4", BytesIO(mp4_data))},
+            params={
+                "plugin_id": "yolo-tracker",
+                "tool": "video_player_tracking",
+            },
+        )
+
+        app.dependency_overrides.clear()
+
+        assert response.status_code == 200
+        data = response.json()
+
+        # Canonical JSON fields - ALL paths should return these
+        assert "job_id" in data
+        assert "plugin" in data
+        assert data["plugin"] == "yolo-tracker"
+        assert "tool" in data
+        assert data["tool"] == "video_player_tracking"
+        assert "status" in data
+        assert data["status"] == "queued"
+        assert "submitted_at" in data
+        # ISO 8601 format check
+        assert "T" in data["submitted_at"]
+        assert data["submitted_at"].endswith("Z")

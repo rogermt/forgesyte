@@ -437,5 +437,15 @@ async def submit_video(
             "submitted_at": submitted_at,
         }
 
-    # Legacy (tool=...) callers get basic response
-    return {"job_id": str(job_id)}
+    # Legacy (tool=...) callers - return canonical JSON (Issue #333)
+    response = {
+        "job_id": str(job_id),
+        "plugin": plugin_id,
+        "status": "queued",
+        "submitted_at": submitted_at,
+    }
+    if len(resolved_tools) > 1:
+        response["tools"] = resolved_tools
+    else:
+        response["tool"] = resolved_tools[0]
+    return response

@@ -292,7 +292,7 @@ class TestMultiToolStatusEndpoint:
         job.progress = 25  # First tool at 50% = 25% overall
         session.commit()
 
-        # Test the logic from jobs.py endpoint
+        # Test the logic from jobs.py endpoint (Issue #334: use boundary comparison)
         # Get tools from job_tools table (v0.15.1: replaced tool_list column)
         tools_list = [
             jt.tool_id
@@ -303,7 +303,11 @@ class TestMultiToolStatusEndpoint:
         ]
         tools_total = len(tools_list)
         tool_weight = 100 / tools_total
-        tools_completed = int(job.progress / tool_weight)
+        # Use boundary comparison (matches fixed implementation)
+        boundaries = [
+            int((index + 1) * tool_weight) for index in range(tools_total - 1)
+        ]
+        tools_completed = sum(1 for boundary in boundaries if job.progress >= boundary)
 
         assert tools_total == 2
         assert tools_completed == 0  # First tool still running
@@ -327,9 +331,69 @@ class TestMultiToolStatusEndpoint:
         ]
         tools_total = len(tools_list)
         tool_weight = 100 / tools_total
-        tools_completed = int(job.progress / tool_weight)
+        # Use boundary comparison (matches fixed implementation)
+        boundaries = [
+            int((index + 1) * tool_weight) for index in range(tools_total - 1)
+        ]
+        tools_completed = sum(1 for boundary in boundaries if job.progress >= boundary)
 
         assert tools_completed == 1  # One tool completed
+
+    def test_three_tool_progress_boundary_at_33(self, session: Session):
+        """Test 3-tool job at progress 33 correctly reports tool 1 started (Issue #334).
+
+        For 3-tool job:
+        - tool_weight = 100/3 = 33.333...
+        - progress 33 = int(33.333) = tool 1 just started
+        - tools_completed should be 1 (one tool done, second running)
+
+        The bug: int(33 / 33.333) = int(0.99) = 0 (WRONG - should be 1)
+        """
+        tools = ["tool_one", "tool_two", "tool_three"]
+        job = create_video_job(session, tools=tools)
+        job.status = JobStatus.running
+        job.progress = 33  # Tool 1 just started
+        session.commit()
+
+        # Call the actual endpoint logic (will fail until fixed)
+        import asyncio
+
+        from app.api_routes.routes.jobs import get_job
+
+        response = asyncio.run(get_job(job.job_id, session))
+
+        # At progress 33, tool 1 has started (33.333 is tool 1's start)
+        # So tools_completed = 1, current_tool = tool_two
+        assert response.tools_completed == 1
+        assert response.current_tool == "tool_two"
+
+    def test_three_tool_progress_boundary_at_66(self, session: Session):
+        """Test 3-tool job at progress 66 correctly reports tool 2 started (Issue #334).
+
+        For 3-tool job:
+        - tool_weight = 100/3 = 33.333...
+        - progress 66 = int(66.666) = tool 2 just started
+        - tools_completed should be 2 (two tools done, third running)
+
+        The bug: int(66 / 33.333) = int(1.98) = 1 (WRONG - should be 2)
+        """
+        tools = ["tool_one", "tool_two", "tool_three"]
+        job = create_video_job(session, tools=tools)
+        job.status = JobStatus.running
+        job.progress = 66  # Tool 2 just started
+        session.commit()
+
+        # Call the actual endpoint logic
+        import asyncio
+
+        from app.api_routes.routes.jobs import get_job
+
+        response = asyncio.run(get_job(job.job_id, session))
+
+        # At progress 66, tool 2 has started (66.666 is tool 2's start)
+        # So tools_completed = 2, current_tool = tool_three
+        assert response.tools_completed == 2
+        assert response.current_tool == "tool_three"
 
 
 # Fixtures for mock services
