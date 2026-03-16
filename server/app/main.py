@@ -33,6 +33,46 @@ from fastapi import (
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
 
+# Routers
+from .api import router as api_router
+from .api_plugins import router as plugins_router
+from .api_routes.routes.execution import router as execution_router
+from .api_routes.routes.image_submit import router as image_submit_router
+from .api_routes.routes.job_results import router as job_results_router
+from .api_routes.routes.job_status import router as job_status_router
+from .api_routes.routes.jobs import router as jobs_router
+from .api_routes.routes.video_file_processing import router as video_router
+from .api_routes.routes.video_submit import router as video_submit_router
+from .api_routes.routes.worker_health import router as worker_health_router
+
+# Services
+from .auth import init_auth_service
+from .core.database import init_db
+from .mcp import router as mcp_router
+from .plugin_loader import PluginRegistry
+from .plugins.health.health_router import router as health_router
+from .realtime import websocket_router as realtime_router
+from .realtime.job_progress_router import router as job_progress_router
+from .routes.routes_pipelines import router as pipelines_router
+from .routes_pipeline import init_pipeline_routes
+from .services import (
+    PluginManagementService,
+    VisionAnalysisService,
+)
+from .settings import settings
+
+# v0.9.2: TaskProcessor replaced by JobWorker
+# v0.9.3: Legacy AnalysisService and JobManagementService removed
+from .websocket_manager import ws_manager
+
+# ---------------------------------------------------------------------------
+# Configuration Layer
+# ---------------------------------------------------------------------------
+
+# Use settings for CORS and other configuration
+cors_settings = settings
+
+
 # ---------------------------------------------------------------------------
 # Logging Setup
 # ---------------------------------------------------------------------------
@@ -40,18 +80,33 @@ from fastapi.responses import RedirectResponse
 
 def setup_logging() -> None:
     """Configure JSON structured logging for console + file output."""
-    working_dir = os.environ.get("KAGGLE_WORKING", os.getcwd())
-    log_file = Path(working_dir) / "forgesyte.log"
+    # Get log level from settings (FORGESYTE_LOG_LEVEL env var)
+    log_level_name = settings.log_level.upper()
+    log_level = getattr(logging, log_level_name, logging.DEBUG)
+
+    # Get log file path from settings (FORGESYTE_LOG_FILE env var)
+    # If not absolute, make it relative to working directory
+    log_file_path = settings.log_file
+    if not os.path.isabs(log_file_path):
+        working_dir = os.environ.get("KAGGLE_WORKING", os.getcwd())
+        log_file = Path(working_dir) / log_file_path
+    else:
+        log_file = Path(log_file_path)
 
     try:
-        from pythonjsonlogger import jsonlogger
+        # python-json-logger v3.x+ import path
+        from pythonjsonlogger.json import JsonFormatter
 
         root = logging.getLogger()
-        root.setLevel(logging.DEBUG)
+        root.setLevel(log_level)
         root.handlers.clear()
 
-        fmt = "%(timestamp)s %(level)s %(name)s %(message)s"
-        formatter = jsonlogger.JsonFormatter(fmt=fmt, timestamp=True)
+        # Use valid LogRecord attributes, rename for cleaner output
+        fmt = "%(asctime)s %(levelname)s %(name)s %(message)s"
+        formatter = JsonFormatter(
+            fmt=fmt,
+            rename_fields={"asctime": "timestamp", "levelname": "level"},
+        )
 
         console = logging.StreamHandler()
         console.setFormatter(formatter)
@@ -63,69 +118,48 @@ def setup_logging() -> None:
         file_handler.setFormatter(formatter)
         root.addHandler(file_handler)
 
-        print(f"📝 Logging to: {log_file}")
+        print(f"📝 Logging to: {log_file} (level={log_level_name})")
 
     except ImportError:
-        logging.basicConfig(
-            level=logging.DEBUG,
-            format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-            handlers=[
-                logging.StreamHandler(),
-                logging.handlers.RotatingFileHandler(
-                    str(log_file), maxBytes=10_000_000, backupCount=5
-                ),
-            ],
-        )
-        print(f"📝 Logging to: {log_file} (fallback mode)")
+        # Fallback for older pythonjsonlogger versions
+        try:
+            from pythonjsonlogger import jsonlogger
+
+            root = logging.getLogger()
+            root.setLevel(log_level)
+            root.handlers.clear()
+
+            fmt = "%(asctime)s %(levelname)s %(name)s %(message)s"
+            formatter = jsonlogger.JsonFormatter(fmt=fmt)
+
+            console = logging.StreamHandler()
+            console.setFormatter(formatter)
+            root.addHandler(console)
+
+            file_handler = logging.handlers.RotatingFileHandler(
+                str(log_file), maxBytes=10_000_000, backupCount=5
+            )
+            file_handler.setFormatter(formatter)
+            root.addHandler(file_handler)
+
+            print(f"📝 Logging to: {log_file} (level={log_level_name})")
+        except ImportError:
+            logging.basicConfig(
+                level=log_level,
+                format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+                handlers=[
+                    logging.StreamHandler(),
+                    logging.handlers.RotatingFileHandler(
+                        str(log_file), maxBytes=10_000_000, backupCount=5
+                    ),
+                ],
+            )
+            print(f"📝 Logging to: {log_file} (level={log_level_name}, fallback mode)")
 
 
 setup_logging()
 logger = logging.getLogger(__name__)
 logger.info("ForgeSyte server starting...")
-
-
-# Routers
-from .api import router as api_router  # noqa: E402
-from .api_plugins import router as plugins_router  # noqa: E402
-from .api_routes.routes.execution import router as execution_router  # noqa: E402
-from .api_routes.routes.image_submit import router as image_submit_router  # noqa: E402
-from .api_routes.routes.job_results import router as job_results_router  # noqa: E402
-from .api_routes.routes.job_status import router as job_status_router  # noqa: E402
-from .api_routes.routes.jobs import router as jobs_router  # noqa: E402
-from .api_routes.routes.video_file_processing import (  # noqa: E402
-    router as video_router,
-)
-from .api_routes.routes.video_submit import router as video_submit_router  # noqa: E402
-from .api_routes.routes.worker_health import (  # noqa: E402
-    router as worker_health_router,
-)
-
-# Services
-from .auth import init_auth_service  # noqa: E402
-from .core.database import init_db  # noqa: E402
-from .mcp import router as mcp_router  # noqa: E402
-from .plugin_loader import PluginRegistry  # noqa: E402
-from .plugins.health.health_router import router as health_router  # noqa: E402
-from .realtime import websocket_router as realtime_router  # noqa: E402
-from .realtime.job_progress_router import router as job_progress_router  # noqa: E402
-from .routes.routes_pipelines import router as pipelines_router  # noqa: E402
-from .routes_pipeline import init_pipeline_routes  # noqa: E402
-from .services import (  # noqa: E402
-    PluginManagementService,
-    VisionAnalysisService,
-)
-from .settings import settings  # noqa: E402
-
-# v0.9.2: TaskProcessor replaced by JobWorker
-# v0.9.3: Legacy AnalysisService and JobManagementService removed
-from .websocket_manager import ws_manager  # noqa: E402
-
-# ---------------------------------------------------------------------------
-# Configuration Layer
-# ---------------------------------------------------------------------------
-
-# Use settings for CORS and other configuration
-cors_settings = settings
 
 
 # ---------------------------------------------------------------------------
