@@ -38,12 +38,6 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-def debug_file(msg: str) -> None:
-    """Write debug message to file since logging may not work."""
-    with open("debug_output.log", "a") as f:
-        f.write(msg + "\n")
-
-
 def get_storage():
     """Get storage service via lazy initialization.
 
@@ -142,12 +136,9 @@ async def submit_image(
     Raises:
         HTTPException: For invalid input (missing plugin, invalid/mutually exclusive parameters, unsupported tools or non-image files) or other request-time validation errors.
     """
-    # DEBUG: Log incoming request parameters
-    debug_file(
-        f"[DEBUG] submit_image called: plugin_id={plugin_id}, tool={tool}, logical_tool_id={logical_tool_id}"
-    )
+    # Log incoming request parameters
     logger.info(
-        f"[DEBUG] submit_image called: plugin_id={plugin_id}, tool={tool}, logical_tool_id={logical_tool_id}"
+        f"submit_image called: plugin_id={plugin_id}, tool={tool}, logical_tool_id={logical_tool_id}"
     )
 
     # Validate plugin exists
@@ -170,27 +161,18 @@ async def submit_image(
     logicals_used: List[str] = []
 
     if logical_tool_id and len(logical_tool_id) > 0:
-        # DEBUG: Log manifest structure before resolving
-        debug_file(f"[DEBUG] logical_tool_id provided: {logical_tool_id}")
         try:
             manifest = plugin_service.get_plugin_manifest(plugin_id)
-            debug_file(
-                f"[DEBUG] Manifest tools: {json.dumps(manifest.get('tools', [])[:3], default=str)[:500]}"
-            )
             logger.info(
-                f"[DEBUG] Manifest for '{plugin_id}': {json.dumps(manifest, indent=2, default=str)[:2000]}"
+                f"Manifest for '{plugin_id}': {json.dumps(manifest, indent=2, default=str)[:2000]}"
             )
         except Exception as e:
-            debug_file(f"[DEBUG] Failed to get manifest: {e}")
-            logger.error(f"[DEBUG] Failed to get manifest: {e}")
+            logger.error(f"Failed to get manifest: {e}")
 
         try:
             logicals_used = logical_tool_id
-            debug_file(
-                f"[DEBUG] Calling resolve_tools with logical_tool_id={logical_tool_id}, mime={file.content_type}"
-            )
             logger.info(
-                f"[DEBUG] Calling resolve_tools with logical_tool_id={logical_tool_id}, mime={file.content_type}"
+                f"Calling resolve_tools with logical_tool_id={logical_tool_id}, mime={file.content_type}"
             )
             resolved_tools = resolve_tools(
                 logical_tool_id,
@@ -198,19 +180,16 @@ async def submit_image(
                 plugin_id,
                 plugin_service,
             )
-            debug_file(f"[DEBUG] resolve_tools returned: {resolved_tools}")
-            logger.info(f"[DEBUG] resolve_tools returned: {resolved_tools}")
+            logger.info(f"resolve_tools returned: {resolved_tools}")
         except ValueError as e:
-            debug_file(f"[DEBUG] resolve_tools ValueError: {e}")
-            logger.error(f"[DEBUG] resolve_tools ValueError: {e}")
+            logger.error(f"resolve_tools ValueError: {e}")
             raise HTTPException(
                 status_code=400,
                 detail=str(e),
             ) from e
         except Exception as e:
-            debug_file(f"[DEBUG] resolve_tools unexpected error: {e}")
             logger.error(
-                f"[DEBUG] resolve_tools unexpected error: {e}\n{traceback.format_exc()}"
+                f"resolve_tools unexpected error: {e}\n{traceback.format_exc()}"
             )
             raise
     elif tool and len(tool) > 0:
@@ -271,11 +250,8 @@ async def submit_image(
     is_multi_tool = len(resolved_tools) > 1
     job_type = "image_multi" if is_multi_tool else "image"
 
-    debug_file(
-        f"[DEBUG] is_multi_tool={is_multi_tool}, job_type={job_type}, resolved_tools={resolved_tools}"
-    )
     logger.info(
-        f"[DEBUG] is_multi_tool={is_multi_tool}, job_type={job_type}, resolved_tools={resolved_tools}"
+        f"is_multi_tool={is_multi_tool}, job_type={job_type}, resolved_tools={resolved_tools}"
     )
 
     # Create job record with UUID object (not string)
@@ -302,12 +278,10 @@ async def submit_image(
 
     try:
         await save_file_with_retry()
-        debug_file(f"[DEBUG] File saved to {input_path}")
-        logger.info(f"[DEBUG] File saved to {input_path}")
+        logger.info(f"File saved to {input_path}")
     except Exception as e:
-        debug_file(f"[DEBUG] Storage save failed after retries: {e}")
         logger.error(
-            f"[DEBUG] Storage save failed after retries: {e}\n{traceback.format_exc()}"
+            f"Storage save failed after retries: {e}\n{traceback.format_exc()}"
         )
         raise
 
@@ -331,11 +305,9 @@ async def submit_image(
 
         db.commit()
         db.refresh(job)
-        debug_file(f"[DEBUG] Job created: job_id={job_id}")
-        logger.info(f"[DEBUG] Job created: job_id={job_id}")
+        logger.info(f"Job created: job_id={job_id}")
     except Exception as e:
-        debug_file(f"[DEBUG] Database error: {e}")
-        logger.error(f"[DEBUG] Database error: {e}\n{traceback.format_exc()}")
+        logger.error(f"Database error: {e}\n{traceback.format_exc()}")
         raise
     finally:
         db.close()
@@ -355,8 +327,8 @@ async def submit_image(
 
     if logicals_used and len(resolved_tools) > 1:
         # Multi-tool with logical IDs
-        debug_file(
-            f"[DEBUG] Returning multi-tool response: job_id={job_id}, tools={resolved_tools}"
+        logger.info(
+            f"Returning multi-tool response: job_id={job_id}, tools={resolved_tools}"
         )
         return {
             "job_id": str(job_id),
@@ -373,8 +345,8 @@ async def submit_image(
 
     if logicals_used and len(resolved_tools) == 1:
         # Single tool with logical ID
-        debug_file(
-            f"[DEBUG] Returning single-tool response: job_id={job_id}, tool={resolved_tools[0]}"
+        logger.info(
+            f"Returning single-tool response: job_id={job_id}, tool={resolved_tools[0]}"
         )
         return {
             "job_id": str(job_id),
@@ -385,7 +357,7 @@ async def submit_image(
         }
 
     # Legacy (tool=...) callers - return canonical JSON (Issue #333)
-    debug_file(f"[DEBUG] Returning explicit-tool response: job_id={job_id}")
+    logger.info(f"Returning explicit-tool response: job_id={job_id}")
     response = {
         "job_id": str(job_id),
         "plugin": plugin_id,
