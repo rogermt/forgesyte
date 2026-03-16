@@ -21,6 +21,10 @@ class AppSettings(BaseSettings):
     version: str = "0.1.0"
     api_prefix: str = "/v1"
 
+    # Logging configuration
+    log_level: str = Field(default="DEBUG", alias="FORGESYTE_LOG_LEVEL")
+    log_file: str = Field(default="forgesyte.log", alias="FORGESYTE_LOG_FILE")
+
     # Storage backend configuration
     storage_backend: str = Field(default="local", alias="FORGESYTE_STORAGE_BACKEND")
     s3_endpoint_url: str = Field(default="", alias="S3_ENDPOINT_URL")

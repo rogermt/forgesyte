@@ -80,15 +80,25 @@ cors_settings = settings
 
 def setup_logging() -> None:
     """Configure JSON structured logging for console + file output."""
-    working_dir = os.environ.get("KAGGLE_WORKING", os.getcwd())
-    log_file = Path(working_dir) / "forgesyte.log"
+    # Get log level from settings (FORGESYTE_LOG_LEVEL env var)
+    log_level_name = settings.log_level.upper()
+    log_level = getattr(logging, log_level_name, logging.DEBUG)
+
+    # Get log file path from settings (FORGESYTE_LOG_FILE env var)
+    # If not absolute, make it relative to working directory
+    log_file_path = settings.log_file
+    if not os.path.isabs(log_file_path):
+        working_dir = os.environ.get("KAGGLE_WORKING", os.getcwd())
+        log_file = Path(working_dir) / log_file_path
+    else:
+        log_file = Path(log_file_path)
 
     try:
         # python-json-logger v3.x+ import path
         from pythonjsonlogger.json import JsonFormatter
 
         root = logging.getLogger()
-        root.setLevel(logging.DEBUG)
+        root.setLevel(log_level)
         root.handlers.clear()
 
         # Use valid LogRecord attributes, rename for cleaner output
@@ -108,7 +118,7 @@ def setup_logging() -> None:
         file_handler.setFormatter(formatter)
         root.addHandler(file_handler)
 
-        print(f"📝 Logging to: {log_file}")
+        print(f"📝 Logging to: {log_file} (level={log_level_name})")
 
     except ImportError:
         # Fallback for older pythonjsonlogger versions
@@ -116,7 +126,7 @@ def setup_logging() -> None:
             from pythonjsonlogger import jsonlogger
 
             root = logging.getLogger()
-            root.setLevel(logging.DEBUG)
+            root.setLevel(log_level)
             root.handlers.clear()
 
             fmt = "%(asctime)s %(levelname)s %(name)s %(message)s"
@@ -132,10 +142,10 @@ def setup_logging() -> None:
             file_handler.setFormatter(formatter)
             root.addHandler(file_handler)
 
-            print(f"📝 Logging to: {log_file}")
+            print(f"📝 Logging to: {log_file} (level={log_level_name})")
         except ImportError:
             logging.basicConfig(
-                level=logging.DEBUG,
+                level=log_level,
                 format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
                 handlers=[
                     logging.StreamHandler(),
@@ -144,7 +154,7 @@ def setup_logging() -> None:
                     ),
                 ],
             )
-            print(f"📝 Logging to: {log_file} (fallback mode)")
+            print(f"📝 Logging to: {log_file} (level={log_level_name}, fallback mode)")
 
 
 setup_logging()
