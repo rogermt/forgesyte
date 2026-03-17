@@ -149,6 +149,14 @@ export function useVideoProcessor({
     setProcessing(false);
   };
 
+  // Store processFrame in ref so interval uses latest callback without recreation
+  // Issue #348: This prevents infinite render loop when tools array reference changes
+  const processFrameRef = useRef<typeof processFrame>();
+
+  useEffect(() => {
+    processFrameRef.current = processFrame;
+  });
+
   useEffect(() => {
     if (!enabled) {
       if (intervalRef.current) clearInterval(intervalRef.current);
@@ -157,13 +165,14 @@ export function useVideoProcessor({
     }
 
     const interval = Math.max(1, Math.floor(1000 / fps));
-    intervalRef.current = window.setInterval(processFrame, interval);
+    intervalRef.current = window.setInterval(() => {
+      processFrameRef.current?.();
+    }, interval);
 
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [enabled, fps, device, pluginId, tools]);
+  }, [enabled, fps]);
 
   return {
     latestResult,

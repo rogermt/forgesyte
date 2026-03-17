@@ -112,6 +112,13 @@ function App() {
     return { toolList: Object.keys(toolsObj), isUsingLogicalIds: false };
   }, [manifest]);
 
+  // Issue #348: Stabilize tools reference to prevent infinite render loop
+  // Without this, lockedTools ?? selectedTools creates new array on every render
+  const activeTools = useMemo(
+    () => lockedTools ?? selectedTools,
+    [lockedTools, selectedTools]
+  );
+
   // -------------------------------------------------------------------------
   // WebSocket connection
   // -------------------------------------------------------------------------
@@ -127,7 +134,7 @@ function App() {
   } = useWebSocket({
     url: `${WS_BACKEND_URL}/v1/stream`,
     plugin: selectedPlugin,
-    tools: lockedTools ?? selectedTools,  // v0.10.1: Use locked tools if available
+    tools: activeTools,  // v0.10.1: Use locked tools if available
     onResult: (result: FrameResult) => {
       console.log("Frame result:", result);
     },

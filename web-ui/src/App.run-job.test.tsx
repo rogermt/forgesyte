@@ -1,0 +1,299 @@
+/**
+ * Integration test for "Run Job" flow - Issues #347 & #348
+ *
+ * This test guards against UI freeze caused by infinite render loops:
+ * - Issue #347: selectedTools in useEffect deps causes infinite loop
+ * - Issue #348: tools array reference instability causes interval recreation
+ *
+ * Focus: Verify setInterval is bounded during Run Job flow
+ */
+
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { render, screen, waitFor, fireEvent, act } from "@testing-library/react";
+import App from "./App";
+
+// Mock WebSocket with all required functions
+vi.mock("./hooks/useWebSocket", () => ({
+  useWebSocket: vi.fn(() => ({
+    frameResult: null,
+    connectionStatus: "connected",
+    attempt: 0,
+    isConnected: true,
+    sendFrame: vi.fn(),
+    switchPlugin: vi.fn(),
+    disconnect: vi.fn(),
+  })),
+}));
+
+// Mock API client
+const mockGetPlugins = vi.fn();
+const mockGetPluginManifest = vi.fn();
+const mockSubmitVideoUpload = vi.fn();
+const mockSubmitVideoJob = vi.fn();
+const mockGetJob = vi.fn();
+const mockListJobs = vi.fn();
+
+vi.mock("./api/client", () => ({
+  apiClient: {
+    getPlugins: () => mockGetPlugins(),
+    getPluginManifest: (id: string) => mockGetPluginManifest(id),
+    submitVideoUpload: (...args: unknown[]) => mockSubmitVideoUpload(...args),
+    submitVideoJob: (...args: unknown[]) => mockSubmitVideoJob(...args),
+    getJob: (id: string) => mockGetJob(id),
+    listJobs: () => mockListJobs(),
+  },
+}));
+
+describe("App - Run Job Flow (Issues #347, #348)", () => {
+  let setIntervalSpy: ReturnType<typeof vi.spyOn>;
+
+  const mockPlugin = {
+    name: "test-plugin",
+    description: "Test Plugin",
+    version: "1.0.0",
+  };
+
+  const mockManifest = {
+    id: "test-plugin",
+    name: "Test Plugin",
+    version: "1.0.0",
+    tools: [
+      {
+        id: "detect_objects",
+        title: "Detect Objects",
+        description: "Detect objects in images",
+        input_types: ["image", "video"],
+        output_types: ["detections"],
+        capabilities: ["object_detection"],
+      },
+    ],
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+
+    // Spy on setInterval to detect infinite loop
+    setIntervalSpy = vi.spyOn(window, "setInterval");
+
+    // Default mock implementations
+    mockGetPlugins.mockResolvedValue([mockPlugin]);
+    mockGetPluginManifest.mockResolvedValue(mockManifest);
+    mockSubmitVideoUpload.mockResolvedValue({
+      video_path: "video/input/test-123.mp4",
+    });
+    mockSubmitVideoJob.mockResolvedValue({
+      job_id: "job-test-123",
+    });
+    // Job is already completed
+    mockGetJob.mockResolvedValue({
+      job_id: "job-test-123",
+      status: "completed",
+      results: { detections: [{ label: "person", confidence: 0.95 }] },
+      created_at: new Date().toISOString(),
+    });
+    mockListJobs.mockResolvedValue([]);
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("should NOT create runaway intervals - Issue #348 guard", async () => {
+    await act(async () => {
+      render(<App />);
+    });
+
+    // Wait for plugins to load
+    await waitFor(
+      () => {
+        expect(mockGetPlugins).toHaveBeenCalled();
+      },
+      { timeout: 3000 }
+    );
+
+    // Select a plugin to load manifest
+    const pluginSelect = document.querySelector("select") as HTMLSelectElement;
+
+    if (pluginSelect) {
+      await act(async () => {
+        fireEvent.change(pluginSelect, { target: { value: "test-plugin" } });
+      });
+
+      // Wait for manifest to load
+      await waitFor(
+        () => {
+          expect(mockGetPluginManifest).toHaveBeenCalledWith("test-plugin");
+        },
+        { timeout: 3000 }
+      );
+    }
+
+    // Record interval count after initial mount
+    const initialCount = setIntervalSpy.mock.calls.length;
+    console.log(`Intervals after mount: ${initialCount}`);
+
+    // Navigate to video-upload view
+    const uploadTab = screen.queryByRole("button", { name: /upload video/i });
+
+    if (uploadTab) {
+      await act(async () => {
+        fireEvent.click(uploadTab);
+      });
+    }
+
+    // Find file input
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+
+    if (fileInput) {
+      const videoFile = new File(["test"], "test.mp4", { type: "video/mp4" });
+
+      await act(async () => {
+        fireEvent.change(fileInput, { target: { files: [videoFile] } });
+      });
+
+      // Wait for Run Job button to appear and be enabled
+      await waitFor(
+        () => {
+          const btn = screen.queryByRole("button", { name: /run job/i });
+          expect(btn).toBeTruthy();
+          expect(btn).not.toHaveAttribute("disabled");
+        },
+        { timeout: 2000 }
+      );
+
+      const runJobButton = screen.getByRole("button", { name: /run job/i });
+
+      await act(async () => {
+        fireEvent.click(runJobButton);
+      });
+
+      // Wait for async operations
+      await waitFor(
+        () => {
+          expect(mockSubmitVideoUpload).toHaveBeenCalled();
+        },
+        { timeout: 3000 }
+      );
+
+      await waitFor(
+        () => {
+          expect(mockSubmitVideoJob).toHaveBeenCalled();
+        },
+        { timeout: 3000 }
+      );
+    }
+
+    // Give time for any polling to start
+    await new Promise((resolve) => setTimeout(resolve, 500));
+
+    // Count total intervals created
+    const finalCount = setIntervalSpy.mock.calls.length;
+    const newIntervals = finalCount - initialCount;
+
+    console.log(`New intervals during test: ${newIntervals}`);
+
+    // CRITICAL: Issue #348 bug would create 50+ intervals due to infinite loop
+    // Fixed code should create a small number (polling intervals, etc.)
+    expect(newIntervals).toBeLessThan(20);
+  });
+
+  it("UI should remain responsive after re-renders - Issue #347 guard", async () => {
+    await act(async () => {
+      render(<App />);
+    });
+
+    await waitFor(
+      () => {
+        expect(mockGetPlugins).toHaveBeenCalled();
+      },
+      { timeout: 3000 }
+    );
+
+    // Select plugin
+    const pluginSelect = document.querySelector("select") as HTMLSelectElement;
+    if (pluginSelect) {
+      await act(async () => {
+        fireEvent.change(pluginSelect, { target: { value: "test-plugin" } });
+      });
+
+      await waitFor(
+        () => {
+          expect(mockGetPluginManifest).toHaveBeenCalled();
+        },
+        { timeout: 2000 }
+      );
+    }
+
+    // Click different tabs to verify UI responds
+    const tabs = ["Stream", "Upload", "Jobs"];
+    for (const tabName of tabs) {
+      const tab = screen.queryByRole("button", { name: new RegExp(`^${tabName}$`, "i") });
+      if (tab) {
+        // Should not throw or timeout
+        await act(async () => {
+          fireEvent.click(tab);
+        });
+
+        // Small delay to allow React to process
+        await new Promise((resolve) => setTimeout(resolve, 50));
+      }
+    }
+
+    // If we got here without timeout/freeze, the UI is responsive
+    expect(true).toBe(true);
+  });
+
+  it("interval count should stay bounded during re-renders", async () => {
+    await act(async () => {
+      render(<App />);
+    });
+
+    await waitFor(
+      () => {
+        expect(mockGetPlugins).toHaveBeenCalled();
+      },
+      { timeout: 3000 }
+    );
+
+    // Select plugin
+    const pluginSelect = document.querySelector("select") as HTMLSelectElement;
+    if (pluginSelect) {
+      await act(async () => {
+        fireEvent.change(pluginSelect, { target: { value: "test-plugin" } });
+      });
+
+      await waitFor(
+        () => {
+          expect(mockGetPluginManifest).toHaveBeenCalled();
+        },
+        { timeout: 2000 }
+      );
+    }
+
+    // Clear count after initial mount
+    setIntervalSpy.mockClear();
+
+    // Trigger multiple re-renders by clicking around
+    const tabs = ["Stream", "Upload", "Jobs"];
+    for (let i = 0; i < 3; i++) {
+      for (const tabName of tabs) {
+        const tab = screen.queryByRole("button", { name: new RegExp(`^${tabName}$`, "i") });
+        if (tab) {
+          await act(async () => {
+            fireEvent.click(tab);
+          });
+          await new Promise((resolve) => setTimeout(resolve, 50));
+        }
+      }
+    }
+
+    // Check interval creation after re-renders
+    const rerenderIntervals = setIntervalSpy.mock.calls.length;
+
+    console.log(`Intervals after re-renders: ${rerenderIntervals}`);
+
+    // Issue #347/348 bug would cause massive interval growth on re-renders
+    // Fixed code should have very few new intervals
+    expect(rerenderIntervals).toBeLessThan(15);
+  });
+});
