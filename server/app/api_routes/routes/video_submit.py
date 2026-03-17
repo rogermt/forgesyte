@@ -12,12 +12,21 @@ v0.10.1: Split video upload and job submission for deterministic tool-locking.
 - POST /v1/video/submit: Accepts JSON body {plugin_id, video_path, lockedTools}
 """
 
+import asyncio
+import logging
+import traceback
 from datetime import timezone
 from io import BytesIO
 from typing import List
 from uuid import uuid4
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Query, UploadFile
+from tenacity import (
+    retry,
+    retry_if_exception_type,
+    stop_after_attempt,
+    wait_exponential,
+)
 
 from app.core.database import SessionLocal
 from app.models.job import Job, JobStatus
@@ -28,8 +37,17 @@ from app.services.storage.factory import get_storage_service
 from app.services.tool_router import resolve_tools
 from app.settings import settings
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
-storage = get_storage_service(settings)
+
+
+def get_storage():
+    """Get storage service via lazy initialization.
+
+    This avoids import-time S3 connection attempts and allows
+    dependency injection for testing.
+    """
+    return get_storage_service(settings)
 
 
 def get_plugin_manager():
@@ -99,8 +117,26 @@ async def upload_video(
     video_id = uuid4()
     video_path = f"video/input/{video_id}.mp4"
 
-    # Save file to storage
-    storage.save_file(src=BytesIO(contents), dest_path=video_path)
+    # Save file to storage with async retry logic
+    storage = get_storage()
+
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=2, max=10),
+        retry=retry_if_exception_type((ConnectionError, TimeoutError)),
+        reraise=True,
+    )
+    async def save_file_with_retry():
+        await asyncio.to_thread(
+            storage.save_file, src=BytesIO(contents), dest_path=video_path
+        )
+
+    try:
+        await save_file_with_retry()
+        logger.info(f"Video uploaded to {video_path}")
+    except Exception as e:
+        logger.error(f"Storage save failed after retries: {e}")
+        raise
 
     return {"video_path": video_path}
 
@@ -186,6 +222,7 @@ async def submit_video_job(
             )
 
     # Validate video file exists
+    storage = get_storage()
     if not storage.file_exists(video_path):
         raise HTTPException(
             status_code=400,
@@ -362,8 +399,28 @@ async def submit_video(
     job_id = uuid4()
     input_path = f"video/input/{job_id}.mp4"
 
-    # Save file to storage
-    storage.save_file(src=BytesIO(contents), dest_path=input_path)
+    # Save file to storage with async retry logic
+    storage = get_storage()
+
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=2, max=10),
+        retry=retry_if_exception_type((ConnectionError, TimeoutError)),
+        reraise=True,
+    )
+    async def save_file_with_retry():
+        await asyncio.to_thread(
+            storage.save_file, src=BytesIO(contents), dest_path=input_path
+        )
+
+    try:
+        await save_file_with_retry()
+        logger.info(f"Video saved to {input_path}")
+    except Exception as e:
+        logger.error(
+            f"Storage save failed after retries: {e}\n{traceback.format_exc()}"
+        )
+        raise
 
     # Create database record
     db = SessionLocal()

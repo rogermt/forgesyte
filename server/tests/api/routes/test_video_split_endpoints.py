@@ -202,9 +202,11 @@ class TestVideoJobEndpoint:
 
         client = TestClient(app)
 
-        # Mock storage.file_exists to return True
+        # Mock get_storage to return a mock with file_exists
+        mock_storage = MagicMock()
+        mock_storage.file_exists.return_value = True
         with patch(
-            "app.api_routes.routes.video_submit.storage.file_exists", return_value=True
+            "app.api_routes.routes.video_submit.get_storage", return_value=mock_storage
         ):
             response = client.post(
                 "/v1/video/job",
