@@ -287,7 +287,8 @@ function App() {
     if (validTools.length !== selectedTools.length) {
       setSelectedTools(validTools);
     }
-  }, [manifest, toolList, selectedTools]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [manifest, toolList]);
 
   const statusText = useMemo(() => {
     switch (connectionStatus) {
