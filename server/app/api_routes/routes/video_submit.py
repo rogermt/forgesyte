@@ -23,7 +23,7 @@ from uuid import uuid4
 from fastapi import APIRouter, Body, Depends, HTTPException, Query, UploadFile
 from tenacity import (
     retry,
-    retry_if_exception_type,
+    retry_if_exception,
     stop_after_attempt,
     wait_exponential,
 )
@@ -51,6 +51,49 @@ def get_storage() -> StorageService:
     return get_storage_service(settings)
 
 
+def is_transient_s3_error(exception: BaseException) -> bool:
+    """Check if exception is a transient S3 error that should be retried.
+
+    Handles both Python built-in errors and boto3 ClientError with transient
+    error codes (5xx server errors, 429 throttling).
+
+    Args:
+        exception: The exception to check
+
+    Returns:
+        True if the exception is transient and should be retried
+    """
+    # Python built-in connection/timeout errors (covers most botocore errors)
+    if isinstance(exception, (ConnectionError, TimeoutError)):
+        return True
+
+    # Check for transient ClientError (5xx, 429)
+    # ClientError is raised by boto3 for AWS service responses
+    try:
+        from botocore.exceptions import ClientError
+
+        if isinstance(exception, ClientError):
+            error_code = exception.response.get("Error", {}).get("Code", "")
+            transient_codes = {
+                # 5xx server errors
+                "ServiceUnavailable",
+                "InternalError",
+                "BadGateway",
+                "GatewayTimeout",
+                # 429 throttling
+                "SlowDown",
+                "ThrottlingException",
+                "RequestLimitExceeded",
+                "ProvisionedThroughputExceededException",
+            }
+            return error_code in transient_codes
+    except ImportError:
+        # botocore not installed, skip ClientError check
+        pass
+
+    return False
+
+
 async def save_file_async(
     storage: StorageService,
     src: BytesIO,
@@ -59,7 +102,9 @@ async def save_file_async(
     """Save file to storage with async retry logic.
 
     Uses asyncio.to_thread for non-blocking I/O with exponential backoff retry
-    for transient network errors (ConnectionError, TimeoutError).
+    for transient errors:
+    - Python built-in: ConnectionError, TimeoutError
+    - boto3 ClientError: 5xx server errors, 429 throttling
 
     Args:
         storage: StorageService instance
@@ -73,12 +118,13 @@ async def save_file_async(
         ConnectionError: If connection fails after retries
         TimeoutError: If operation times out after retries
         OSError: If storage operation fails
+        ClientError: If S3 returns non-transient error after retries
     """
 
     @retry(
         stop=stop_after_attempt(3),
         wait=wait_exponential(multiplier=1, min=2, max=10),
-        retry=retry_if_exception_type((ConnectionError, TimeoutError)),
+        retry=retry_if_exception(is_transient_s3_error),
         reraise=True,
     )
     async def _save_with_retry():
