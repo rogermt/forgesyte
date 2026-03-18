@@ -53,7 +53,10 @@ export const JobStatus: React.FC<Props> = ({ jobId }) => {
     if (!jobId) return;
 
     // v0.10.1 Issue #231: Stop polling forever once we reach a terminal state
-    if (pollStatus === "completed" || pollStatus === "failed") return;
+    // EXCEPTION: If completed but results is null, continue polling (race condition
+    // where server marks job complete before results file is written)
+    if (pollStatus === "failed") return;
+    if (pollStatus === "completed" && results !== null) return;
 
     // Skip polling if WebSocket is connected AND not completed
     if (isConnected && wsStatus !== "completed") return;
@@ -77,7 +80,9 @@ export const JobStatus: React.FC<Props> = ({ jobId }) => {
           return;
         }
 
-        // Only continue polling if WebSocket not connected
+        // Continue polling if:
+        // - Not completed yet (running/pending)
+        // - Completed but no results yet (race condition where results file not written)
         if (!isConnected) {
           timer = window.setTimeout(poll, 2000);
         }
@@ -91,7 +96,7 @@ export const JobStatus: React.FC<Props> = ({ jobId }) => {
     return () => {
       if (timer) window.clearTimeout(timer);
     };
-  }, [jobId, isConnected, wsStatus, pollStatus]); // v0.10.1 Issue #231: added pollStatus
+  }, [jobId, isConnected, wsStatus, pollStatus, results]); // v0.10.1 Issue #231: added pollStatus; added results for race condition fix
 
   // Render progress info from WebSocket
   const renderProgressInfo = () => {
