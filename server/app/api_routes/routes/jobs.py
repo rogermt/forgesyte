@@ -6,6 +6,7 @@ for both image and video jobs, replacing the separate /v1/video/status and
 
 v0.9.3: Added GET /v1/jobs list endpoint for job listing with pagination.
 v0.10.0: Added GET /v1/jobs/{job_id}/video endpoint for video file serving.
+Issue #350: Added GET /v1/jobs/{job_id}/result endpoint for lazy loading.
 """
 
 import json
@@ -14,6 +15,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import FileResponse
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -258,3 +260,78 @@ async def get_job_video(job_id: UUID, db: Session = Depends(get_db)) -> FileResp
         media_type="video/mp4",
         filename=f"{job_id}.mp4",
     )
+
+
+class JobResultResponse(BaseModel):
+    """Response for GET /v1/jobs/{job_id}/result endpoint.
+
+    Issue #350: Artifact Pattern for video job lazy loading.
+    """
+
+    result_url: str
+
+
+@router.get("/v1/jobs/{job_id}/result")
+async def get_job_result(
+    job_id: UUID,
+    mode: str = Query(
+        "redirect", description="'redirect' returns URL, 'stream' returns JSON"
+    ),
+    db: Session = Depends(get_db),
+):
+    """Get job results on-demand (lazy loading for video jobs).
+
+    Issue #350: Artifact Pattern - video jobs use lazy loading to prevent
+    UI freeze from large JSON payloads (~1.7 MB).
+
+    Two modes:
+    - redirect (default): Returns a signed URL for the client to fetch directly
+    - stream: Returns the JSON content directly (for local dev or small results)
+
+    Args:
+        job_id: UUID of the job
+        mode: 'redirect' returns URL, 'stream' returns JSON content
+        db: Database session
+
+    Returns:
+        For mode=redirect: {"result_url": "<signed_url>"}
+        For mode=stream: The actual JSON results
+
+    Raises:
+        HTTPException: 404 if job not found, no results, or file missing
+    """
+    from fastapi.responses import JSONResponse
+
+    job = db.query(Job).filter(Job.job_id == job_id).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    # Check if job has results
+    if job.status != JobStatus.completed:
+        raise HTTPException(status_code=404, detail="Job has no results yet")
+
+    if not job.output_path:
+        raise HTTPException(status_code=404, detail="Job has no results file")
+
+    # Handle stream mode - return JSON content directly
+    if mode == "stream":
+        try:
+            file_path = storage.load_file(job.output_path)
+            with open(file_path, "r") as f:
+                results = json.load(f)
+            return JSONResponse(content=results)
+        except FileNotFoundError:
+            raise HTTPException(
+                status_code=404, detail="Results file not found"
+            ) from None
+        except json.JSONDecodeError:
+            raise HTTPException(
+                status_code=500, detail="Invalid results file"
+            ) from None
+
+    # Handle redirect mode (default) - return signed URL
+    try:
+        result_url = storage.get_signed_url(job.output_path)
+        return JobResultResponse(result_url=result_url)
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="Results file not found") from None

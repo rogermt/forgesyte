@@ -74,3 +74,30 @@ class LocalStorageService(StorageService):
         """
         full_path = BASE_DIR / path
         return full_path.exists()
+
+    def get_signed_url(self, path: str, expires_in: int = 3600) -> str:
+        """Get a URL for local file access.
+
+        Issue #350: Artifact Pattern - lazy loading video results.
+
+        For local storage, returns an internal API endpoint URL.
+        The actual file serving is handled by the /v1/jobs/{id}/result endpoint.
+
+        Args:
+            path: Path relative to storage root
+            expires_in: URL expiration time in seconds (ignored for local)
+
+        Returns:
+            API endpoint URL for fetching the file
+
+        Raises:
+            FileNotFoundError: If file does not exist
+        """
+        full_path = BASE_DIR / path
+        if not full_path.exists():
+            raise FileNotFoundError(f"File not found: {full_path}")
+
+        # For local storage, return the stream endpoint URL
+        # The job_id is extracted from the path (e.g., video/output/{job_id}.json)
+        # This is a simplified approach - the actual endpoint handles the fetch
+        return f"/v1/jobs/result?path={path}"
