@@ -12,16 +12,25 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, waitFor, fireEvent, act } from "@testing-library/react";
 import App from "./App";
 
-// Mock WebSocket with all required functions
+// Mock WebSocket with contract matching UseWebSocketReturn interface
 vi.mock("./hooks/useWebSocket", () => ({
   useWebSocket: vi.fn(() => ({
-    frameResult: null,
-    connectionStatus: "connected",
-    attempt: 0,
+    // Connection state
     isConnected: true,
+    isConnecting: false,
+    connectionStatus: "connected" as const,
+    attempt: 0,
+    // Error state
+    error: null,
+    errorInfo: null,
+    // Methods
     sendFrame: vi.fn(),
     switchPlugin: vi.fn(),
     disconnect: vi.fn(),
+    reconnect: vi.fn(),
+    // Results
+    latestResult: null,
+    stats: { framesProcessed: 0, avgProcessingTime: 0 },
   })),
 }));
 
@@ -111,77 +120,68 @@ describe("App - Run Job Flow (Issues #347, #348)", () => {
       { timeout: 3000 }
     );
 
-    // Select a plugin to load manifest
-    const pluginSelect = document.querySelector("select") as HTMLSelectElement;
+    // Select a plugin to load manifest (required - fail if missing)
+    const pluginSelect = screen.getByRole("combobox");
+    await act(async () => {
+      fireEvent.change(pluginSelect, { target: { value: "test-plugin" } });
+    });
 
-    if (pluginSelect) {
-      await act(async () => {
-        fireEvent.change(pluginSelect, { target: { value: "test-plugin" } });
-      });
-
-      // Wait for manifest to load
-      await waitFor(
-        () => {
-          expect(mockGetPluginManifest).toHaveBeenCalledWith("test-plugin");
-        },
-        { timeout: 3000 }
-      );
-    }
+    // Wait for manifest to load
+    await waitFor(
+      () => {
+        expect(mockGetPluginManifest).toHaveBeenCalledWith("test-plugin");
+      },
+      { timeout: 3000 }
+    );
 
     // Record interval count after initial mount
     const initialCount = setIntervalSpy.mock.calls.length;
     console.log(`Intervals after mount: ${initialCount}`);
 
-    // Navigate to video-upload view
-    const uploadTab = screen.queryByRole("button", { name: /upload video/i });
+    // Navigate to video-upload view (required - fail if missing)
+    // Use more specific selector to avoid matching multiple buttons
+    const uploadTab = screen.getByRole("button", { name: /upload.*video|video.*upload/i });
+    await act(async () => {
+      fireEvent.click(uploadTab);
+    });
 
-    if (uploadTab) {
-      await act(async () => {
-        fireEvent.click(uploadTab);
-      });
-    }
+    // Find file input (required - fail if missing)
+    const fileInput = screen.getByLabelText(/select.*video|choose.*file|upload/i);
+    const videoFile = new File(["test"], "test.mp4", { type: "video/mp4" });
 
-    // Find file input
-    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+    await act(async () => {
+      fireEvent.change(fileInput, { target: { files: [videoFile] } });
+    });
 
-    if (fileInput) {
-      const videoFile = new File(["test"], "test.mp4", { type: "video/mp4" });
+    // Wait for Run Job button to appear and be enabled
+    await waitFor(
+      () => {
+        const btn = screen.getByRole("button", { name: /run job/i });
+        expect(btn).not.toHaveAttribute("disabled");
+      },
+      { timeout: 2000 }
+    );
 
-      await act(async () => {
-        fireEvent.change(fileInput, { target: { files: [videoFile] } });
-      });
+    const runJobButton = screen.getByRole("button", { name: /run job/i });
 
-      // Wait for Run Job button to appear and be enabled
-      await waitFor(
-        () => {
-          const btn = screen.queryByRole("button", { name: /run job/i });
-          expect(btn).toBeTruthy();
-          expect(btn).not.toHaveAttribute("disabled");
-        },
-        { timeout: 2000 }
-      );
+    await act(async () => {
+      fireEvent.click(runJobButton);
+    });
 
-      const runJobButton = screen.getByRole("button", { name: /run job/i });
+    // Wait for async operations
+    await waitFor(
+      () => {
+        expect(mockSubmitVideoUpload).toHaveBeenCalled();
+      },
+      { timeout: 3000 }
+    );
 
-      await act(async () => {
-        fireEvent.click(runJobButton);
-      });
-
-      // Wait for async operations
-      await waitFor(
-        () => {
-          expect(mockSubmitVideoUpload).toHaveBeenCalled();
-        },
-        { timeout: 3000 }
-      );
-
-      await waitFor(
-        () => {
-          expect(mockSubmitVideoJob).toHaveBeenCalled();
-        },
-        { timeout: 3000 }
-      );
-    }
+    await waitFor(
+      () => {
+        expect(mockSubmitVideoJob).toHaveBeenCalled();
+      },
+      { timeout: 3000 }
+    );
 
     // Give time for any polling to start
     await new Promise((resolve) => setTimeout(resolve, 500));
@@ -209,38 +209,34 @@ describe("App - Run Job Flow (Issues #347, #348)", () => {
       { timeout: 3000 }
     );
 
-    // Select plugin
-    const pluginSelect = document.querySelector("select") as HTMLSelectElement;
-    if (pluginSelect) {
-      await act(async () => {
-        fireEvent.change(pluginSelect, { target: { value: "test-plugin" } });
-      });
+    // Select plugin (required - fail if missing)
+    const pluginSelect = screen.getByRole("combobox");
+    await act(async () => {
+      fireEvent.change(pluginSelect, { target: { value: "test-plugin" } });
+    });
 
-      await waitFor(
-        () => {
-          expect(mockGetPluginManifest).toHaveBeenCalled();
-        },
-        { timeout: 2000 }
-      );
-    }
+    await waitFor(
+      () => {
+        expect(mockGetPluginManifest).toHaveBeenCalled();
+      },
+      { timeout: 2000 }
+    );
 
-    // Click different tabs to verify UI responds
+    // Click different tabs to verify UI responds (required - fail if missing)
     const tabs = ["Stream", "Upload", "Jobs"];
     for (const tabName of tabs) {
-      const tab = screen.queryByRole("button", { name: new RegExp(`^${tabName}$`, "i") });
-      if (tab) {
-        // Should not throw or timeout
-        await act(async () => {
-          fireEvent.click(tab);
-        });
+      const tab = screen.getByRole("button", { name: new RegExp(`^${tabName}$`, "i") });
+      // Should not throw or timeout
+      await act(async () => {
+        fireEvent.click(tab);
+      });
 
-        // Small delay to allow React to process
-        await new Promise((resolve) => setTimeout(resolve, 50));
-      }
+      // Small delay to allow React to process
+      await new Promise((resolve) => setTimeout(resolve, 50));
     }
 
     // If we got here without timeout/freeze, the UI is responsive
-    expect(true).toBe(true);
+    // (The real assertion is that we didn't timeout above)
   });
 
   it("interval count should stay bounded during re-renders", async () => {
@@ -255,35 +251,31 @@ describe("App - Run Job Flow (Issues #347, #348)", () => {
       { timeout: 3000 }
     );
 
-    // Select plugin
-    const pluginSelect = document.querySelector("select") as HTMLSelectElement;
-    if (pluginSelect) {
-      await act(async () => {
-        fireEvent.change(pluginSelect, { target: { value: "test-plugin" } });
-      });
+    // Select plugin (required - fail if missing)
+    const pluginSelect = screen.getByRole("combobox");
+    await act(async () => {
+      fireEvent.change(pluginSelect, { target: { value: "test-plugin" } });
+    });
 
-      await waitFor(
-        () => {
-          expect(mockGetPluginManifest).toHaveBeenCalled();
-        },
-        { timeout: 2000 }
-      );
-    }
+    await waitFor(
+      () => {
+        expect(mockGetPluginManifest).toHaveBeenCalled();
+      },
+      { timeout: 2000 }
+    );
 
     // Clear count after initial mount
     setIntervalSpy.mockClear();
 
-    // Trigger multiple re-renders by clicking around
+    // Trigger multiple re-renders by clicking around (required - fail if missing)
     const tabs = ["Stream", "Upload", "Jobs"];
     for (let i = 0; i < 3; i++) {
       for (const tabName of tabs) {
-        const tab = screen.queryByRole("button", { name: new RegExp(`^${tabName}$`, "i") });
-        if (tab) {
-          await act(async () => {
-            fireEvent.click(tab);
-          });
-          await new Promise((resolve) => setTimeout(resolve, 50));
-        }
+        const tab = screen.getByRole("button", { name: new RegExp(`^${tabName}$`, "i") });
+        await act(async () => {
+          fireEvent.click(tab);
+        });
+        await new Promise((resolve) => setTimeout(resolve, 50));
       }
     }
 
