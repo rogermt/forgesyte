@@ -216,6 +216,77 @@ describe("ForgeSyteAPIClient", () => {
         });
     });
 
+    // Issue #350: Artifact Pattern tests
+    describe("getJobResult", () => {
+        it("should fetch job result URL with redirect mode (default)", async () => {
+            const mockResult = { result_url: "http://localhost:3000/v1/jobs/job-123/result?token=abc" };
+            fetchMock.mockResolvedValueOnce(createMockResponse(mockResult));
+
+            const result = await client.getJobResult("job-123");
+
+            expect(result).toEqual(mockResult);
+            expect(fetchMock).toHaveBeenCalledWith(
+                expect.stringContaining("/jobs/job-123/result?mode=redirect"),
+                expect.any(Object)
+            );
+        });
+
+        it("should fetch job result URL with stream mode", async () => {
+            const mockResult = { frames: [], detection_count: 0 };
+            fetchMock.mockResolvedValueOnce(createMockResponse(mockResult));
+
+            const result = await client.getJobResult("job-123", "stream");
+
+            expect(result).toEqual(mockResult);
+            expect(fetchMock).toHaveBeenCalledWith(
+                expect.stringContaining("/jobs/job-123/result?mode=stream"),
+                expect.any(Object)
+            );
+        });
+    });
+
+    describe("Job interface with result_url and summary", () => {
+        it("should accept job with result_url field", async () => {
+            const mockJob = {
+                job_id: "video-job-1",
+                status: "completed" as const,
+                plugin_id: "yolo-tracker",
+                job_type: "video" as const,
+                result_url: "http://localhost:3000/v1/jobs/video-job-1/result?token=xyz",
+                summary: { frame_count: 100, detection_count: 50, classes: ["person", "car"] },
+                created_at: "2026-01-09T21:00:00Z",
+                updated_at: "2026-01-09T21:00:30Z",
+            };
+
+            fetchMock.mockResolvedValueOnce(createMockResponse(mockJob));
+
+            const job = await client.getJob("video-job-1");
+
+            expect(job.job_id).toBe("video-job-1");
+            expect(job.result_url).toBe("http://localhost:3000/v1/jobs/video-job-1/result?token=xyz");
+            expect(job.summary).toEqual({ frame_count: 100, detection_count: 50, classes: ["person", "car"] });
+        });
+
+        it("should accept job without result_url (backward compatible)", async () => {
+            const mockJob = {
+                job_id: "image-job-1",
+                status: "completed" as const,
+                plugin_id: "ocr",
+                job_type: "image" as const,
+                results: { text: "Hello World" },
+                created_at: "2026-01-09T21:00:00Z",
+            };
+
+            fetchMock.mockResolvedValueOnce(createMockResponse(mockJob));
+
+            const job = await client.getJob("image-job-1");
+
+            expect(job.job_id).toBe("image-job-1");
+            expect(job.result_url).toBeUndefined();
+            expect(job.results).toEqual({ text: "Hello World" });
+        });
+    });
+
     describe("getHealth", () => {
         it("should fetch health status", async () => {
             const mockHealth = {

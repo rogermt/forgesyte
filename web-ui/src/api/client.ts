@@ -36,6 +36,9 @@ export interface Job {
     plugin?: string;  // Legacy: kept for backward compatibility
     results?: Record<string, unknown>;  // v0.9.2: results from server
     result?: Record<string, unknown>;  // Legacy: kept for backward compatibility
+    // Issue #350: Artifact Pattern - lazy loading for video jobs
+    result_url?: string;  // v0.15.9: URL to fetch large video results on-demand
+    summary?: Record<string, unknown>;  // v0.15.9: Lightweight summary (frame_count, detection_count, classes)
     error_message?: string | null;  // v0.9.2: error_message from server
     error?: string | null;  // Legacy: kept for backward compatibility
     created_at: string;
@@ -153,6 +156,17 @@ export class ForgeSyteAPIClient {
             status: (result.status as string) || "cancelled",
             job_id: (result.job_id as string) || jobId,
         };
+    }
+
+    // Issue #350: Get job results on-demand (lazy loading for video jobs)
+    async getJobResult(
+        jobId: string,
+        mode: "redirect" | "stream" = "redirect"
+    ): Promise<Record<string, unknown>> {
+        const result = (await this.fetch(
+            `/jobs/${jobId}/result?mode=${mode}`
+        )) as Record<string, unknown>;
+        return result;
     }
 
     async getHealth(): Promise<{
