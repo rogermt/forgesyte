@@ -35,12 +35,15 @@ class JobResultsResponse(BaseModel):
     v0.9.7: Added current_tool, tools_total, tools_completed for multi-tool video jobs.
     Issue #296: Added plugin_id, fixed progress type to int.
     v0.15.1: Replaced tool_list with tools from job_tools table.
+    Issue #350: Added result_url and summary for Artifact Pattern (lazy loading).
     """
 
     job_id: UUID
     status: str  # "pending", "running", "completed", "failed"
     plugin_id: str  # Issue #296: Was missing, DB has NOT NULL
     results: dict | None
+    result_url: Optional[str] = None  # Issue #350: URL for lazy loading video results
+    summary: Optional[dict] = None  # Issue #350: Derived metadata (frame_count, etc.)
     tool: Optional[str] = None  # First tool (for backward compatibility)
     tools: Optional[List[str]] = None  # v0.15.1: All tools from job_tools table
     job_type: Optional[str] = None  # v0.9.4: "image" | "image_multi" | "video"
@@ -65,6 +68,7 @@ class JobListItem(BaseModel):
     """Single job item in list response for GET /v1/jobs.
 
     Issue #296: Fixed progress type to match DB model (Integer, not float).
+    Issue #350: Added result_url and summary for Artifact Pattern (lazy loading).
     """
 
     job_id: str
@@ -73,6 +77,8 @@ class JobListItem(BaseModel):
     created_at: datetime
     completed_at: Optional[datetime] = None
     result: Optional[dict] = None
+    result_url: Optional[str] = None  # Issue #350: URL for lazy loading video results
+    summary: Optional[dict] = None  # Issue #350: Derived metadata (frame_count, etc.)
     error: Optional[str] = None
     progress: Optional[int] = None  # Issue #296: was float, DB stores Integer (0-100)
 

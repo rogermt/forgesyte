@@ -136,3 +136,118 @@ def test_job_results_response_all_optional_fields():
     assert response.tools is None
     assert response.job_type is None
     assert response.error_message is None
+
+
+# Issue #350: Artifact Pattern - result_url and summary fields
+
+
+@pytest.mark.unit
+def test_job_results_response_includes_result_url():
+    """Test that JobResultsResponse includes result_url field for lazy loading.
+
+    Issue #350: Video jobs return result_url instead of inline results.
+    """
+    response = JobResultsResponse(
+        job_id=uuid4(),
+        status="completed",
+        plugin_id="yolo-tracker",
+        results=None,  # Large results stored separately
+        result_url="/v1/jobs/test-job-id/result",
+        job_type="video",
+        created_at=datetime.utcnow(),
+        updated_at=datetime.utcnow(),
+    )
+
+    assert response.result_url == "/v1/jobs/test-job-id/result"
+    assert response.results is None
+
+
+@pytest.mark.unit
+def test_job_results_response_includes_summary():
+    """Test that JobResultsResponse includes summary field for video jobs.
+
+    Issue #350: Summary contains derived metadata (frame_count, detection_count, classes).
+    """
+    response = JobResultsResponse(
+        job_id=uuid4(),
+        status="completed",
+        plugin_id="yolo-tracker",
+        results=None,
+        summary={
+            "frame_count": 1500,
+            "detection_count": 4500,
+            "classes": ["player", "ball", "referee"],
+        },
+        job_type="video",
+        created_at=datetime.utcnow(),
+        updated_at=datetime.utcnow(),
+    )
+
+    assert response.summary is not None
+    assert response.summary["frame_count"] == 1500
+    assert response.summary["detection_count"] == 4500
+    assert "player" in response.summary["classes"]
+
+
+@pytest.mark.unit
+def test_job_list_item_includes_result_url():
+    """Test that JobListItem includes result_url field for lazy loading.
+
+    Issue #350: Video jobs in list should return result_url, not full result.
+    """
+    from app.schemas.job import JobListItem
+
+    item = JobListItem(
+        job_id="test-job-id",
+        status="completed",
+        plugin="yolo-tracker",
+        result=None,  # Large results not returned in list
+        result_url="/v1/jobs/test-job-id/result",
+        created_at=datetime.utcnow(),
+    )
+
+    assert item.result_url == "/v1/jobs/test-job-id/result"
+    assert item.result is None
+
+
+@pytest.mark.unit
+def test_job_list_item_includes_summary():
+    """Test that JobListItem includes summary field for video jobs.
+
+    Issue #350: Summary allows UI to show metadata without loading full results.
+    """
+    from app.schemas.job import JobListItem
+
+    item = JobListItem(
+        job_id="test-job-id",
+        status="completed",
+        plugin="yolo-tracker",
+        summary={"frame_count": 1000, "detection_count": 3000},
+        created_at=datetime.utcnow(),
+    )
+
+    assert item.summary is not None
+    assert item.summary["frame_count"] == 1000
+
+
+@pytest.mark.unit
+def test_job_results_response_backward_compatible_with_inline_results():
+    """Test that image jobs still work with inline results (no result_url).
+
+    Issue #350: Backward compatibility - image jobs return results inline.
+    """
+    response = JobResultsResponse(
+        job_id=uuid4(),
+        status="completed",
+        plugin_id="ocr-plugin",
+        results={"text": "extracted text"},  # Inline results for image jobs
+        result_url=None,  # Not needed for small results
+        summary=None,  # Not needed for image jobs
+        job_type="image",
+        created_at=datetime.utcnow(),
+        updated_at=datetime.utcnow(),
+    )
+
+    assert response.results == {"text": "extracted text"}
+    assert response.result_url is None
+    assert response.summary is None
