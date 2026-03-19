@@ -151,4 +151,64 @@ describe("ResultsPanel - Styling Updates", () => {
             }, { timeout: 10000 });
         });
     });
+
+    // Issue #350: Artifact Pattern - lazy loading for video jobs
+    describe("video job lazy loading", () => {
+        it("should show summary for video job with result_url", () => {
+            const mockVideoJob = createMockJobDone({
+                job_type: "video",
+                result_url: "/v1/jobs/video-123/result",
+                summary: { frame_count: 100, detection_count: 50, classes: ["player", "ball"] },
+                results: undefined,
+                result: undefined,
+            });
+
+            render(<ResultsPanel mode="job" job={mockVideoJob} />);
+
+            expect(screen.getByText(/frame_count/)).toBeInTheDocument();
+            expect(screen.getByText(/100/)).toBeInTheDocument();
+            expect(screen.getByText(/detection_count/)).toBeInTheDocument();
+            expect(screen.getByText(/50/)).toBeInTheDocument();
+        });
+
+        it("should show 'Load Results' button for video job with result_url", () => {
+            const mockVideoJob = createMockJobDone({
+                job_type: "video",
+                result_url: "/v1/jobs/video-123/result",
+                summary: { frame_count: 100, detection_count: 50 },
+                results: undefined,
+                result: undefined,
+            });
+
+            render(<ResultsPanel mode="job" job={mockVideoJob} />);
+
+            expect(screen.getByText(/Load Results/)).toBeInTheDocument();
+        });
+
+        it("should NOT show 'Load Results' button for image job without result_url", () => {
+            const mockImageJob = createMockJobDone({
+                job_type: "image",
+                result_url: undefined,
+                summary: undefined,
+                results: { text: "extracted text" },
+            });
+
+            render(<ResultsPanel mode="job" job={mockImageJob} />);
+
+            expect(screen.queryByText(/Load Results/)).not.toBeInTheDocument();
+        });
+
+        it("should show 'too large' message for video_multi without result_url", () => {
+            const mockVideoMultiJob = createMockJobDone({
+                job_type: "video_multi",
+                result_url: undefined,
+                summary: undefined,
+                results: { tools: {} },
+            });
+
+            render(<ResultsPanel mode="job" job={mockVideoMultiJob} />);
+
+            expect(screen.getByText(/too large to render/)).toBeInTheDocument();
+        });
+    });
 });
