@@ -34,13 +34,17 @@ describe("RealtimeClient", () => {
     });
 
     it("should have correct default max reconnect attempts", () => {
-        // This test verifies the implementation exists
-        expect(true).toBe(true);
+        expect(client.getMaxReconnectAttempts()).toBe(5);
     });
 
     it("should have correct reconnect delay schedule", () => {
-        // This test verifies the exponential backoff schedule
-        expect(true).toBe(true);
+        const delays = client.getReconnectDelays();
+        expect(delays).toHaveLength(5);
+        expect(delays[0]).toBe(1000);
+        expect(delays[1]).toBe(2000);
+        expect(delays[2]).toBe(4000);
+        expect(delays[3]).toBe(8000);
+        expect(delays[4]).toBe(16000);
     });
 });
 
