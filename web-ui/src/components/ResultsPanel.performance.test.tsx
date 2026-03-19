@@ -24,6 +24,36 @@ describe("ResultsPanel performance guards", () => {
   });
 
   describe("video_multi job type", () => {
+    it("should NOT stringify the video_multi result object (prevents UI freeze)", () => {
+      // CRITICAL: This test catches the fairy story where useMemo calls JSON.stringify
+      // BEFORE the JSX guard runs. The freeze happens because 1.7MB JSON is stringified
+      // even though it's never displayed.
+      // See: https://github.com/rogermt/forgesyte/discussions/349
+
+      const bigResult = { data: "x".repeat(1_000_000) };
+
+      // Spy MUST be set up BEFORE render to catch useMemo calls
+      const stringifySpy = vi.spyOn(JSON, "stringify");
+
+      const job = createMockJob({
+        status: "completed",
+        job_type: "video_multi",
+        results: bigResult,
+      });
+
+      render(<ResultsPanel mode="job" job={job} />);
+
+      // The fix: JSON.stringify should NEVER be called with our bigResult
+      // (React internals may call JSON.stringify for CSS-in-JS, but that's fine)
+      expect(stringifySpy).not.toHaveBeenCalledWith(
+        bigResult,
+        expect.anything(),
+        expect.anything()
+      );
+
+      stringifySpy.mockRestore();
+    });
+
     it("should NOT stringify huge video_multi results", () => {
       // Simulate a 1MB+ result from video_multi job
       const bigResult = { data: "x".repeat(1_000_000) };

@@ -40,8 +40,12 @@ export function ResultsPanel({
     const resultData = job?.results || job?.result;
     const jobResultJson = useMemo(() => {
         if (!resultData) return "null";
+        // PERFORMANCE GUARD: video_multi results can be 1-10 MB.
+        // Skip stringification entirely to prevent UI freeze.
+        // The JSX below has a separate guard to display a message instead.
+        if (job?.job_type === "video_multi") return "";
         return JSON.stringify(resultData, null, 2);
-    }, [resultData]);
+    }, [resultData, job?.job_type]);
 
     // PERFORMANCE: Memoize stream result JSON
     const streamResultJson = useMemo(() => {
