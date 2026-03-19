@@ -275,6 +275,7 @@ function App() {
   // -------------------------------------------------------------------------
   useEffect(() => {
     if (!manifest) return;
+    if (lockedTools) return; // Do not auto-adjust tools while locked (video jobs)
 
     if (toolList.length === 0) {
       setSelectedTools([]);
@@ -295,7 +296,7 @@ function App() {
       setSelectedTools(validTools);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [manifest, toolList]);
+  }, [manifest, toolList, lockedTools]); // Intentionally omit selectedTools to prevent infinite loop
 
   const statusText = useMemo(() => {
     switch (connectionStatus) {
