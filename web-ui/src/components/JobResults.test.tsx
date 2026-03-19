@@ -137,4 +137,42 @@ describe("JobResults", () => {
         render(<JobResults results={mockResults} />);
         expect(screen.getByText(/No results available/i)).toBeInTheDocument();
     });
+
+    // Issue #350: Guard against large video_multi results
+    it("shows message for large video_multi results instead of rendering", () => {
+        const mockResults = {
+            job_id: "video-multi-job",
+            job_type: "video_multi",
+            results: {
+                tools: {
+                    yolo: { frames: Array(1000).fill({ detections: [] }) },
+                    ocr: { frames: Array(1000).fill({ text: "" }) },
+                },
+            },
+            created_at: "2026-02-18T10:00:00Z",
+            updated_at: "2026-02-18T10:01:00Z",
+        };
+
+        render(<JobResults results={mockResults} />);
+        // Should show message instead of trying to render huge JSON
+        expect(screen.getByText(/too large to render/i)).toBeInTheDocument();
+    });
+
+    it("shows message for video results without job_type but with tools structure", () => {
+        const mockResults = {
+            job_id: "large-video-job",
+            results: {
+                tools: {
+                    yolo: { frames: [] },
+                    ocr: { frames: [] },
+                },
+            },
+            created_at: "2026-02-18T10:00:00Z",
+            updated_at: "2026-02-18T10:01:00Z",
+        };
+
+        render(<JobResults results={mockResults} />);
+        // Should show message for tools structure (likely large)
+        expect(screen.getByText(/too large to render/i)).toBeInTheDocument();
+    });
 });
