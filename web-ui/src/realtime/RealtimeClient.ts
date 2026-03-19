@@ -52,6 +52,14 @@ export class RealtimeClient {
     return this.state === ConnectionState.CONNECTED;
   }
 
+  getMaxReconnectAttempts(): number {
+    return this.maxReconnectAttempts;
+  }
+
+  getReconnectDelays(): number[] {
+    return [...this.reconnectDelays]; // Return copy to prevent mutation
+  }
+
   async connect(): Promise<void> {
     if (this.state !== ConnectionState.IDLE && this.state !== ConnectionState.DISCONNECTED) {
       return;

@@ -272,6 +272,56 @@ describe("JobStatus", () => {
     });
   });
 
+  // Race condition: results not fetched when status=completed but results=null
+  describe("Race condition: results fetching after completed", () => {
+    it("should continue polling for results when status=completed but results=null", async () => {
+      // This test catches the bug where polling stops after status=completed
+      // even if results is still null (results file not yet written)
+      
+      mockUseJobProgress.mockReturnValue({
+        progress: null,
+        status: "pending",
+        error: null,
+        isConnected: false, // WebSocket disconnected - polling will run
+      });
+
+      // First poll: status=completed, results=null (race condition)
+      mockGetJob.mockResolvedValueOnce({
+        job_id: "job-123",
+        status: "completed",
+        results: null,
+        created_at: new Date().toISOString(),
+      });
+
+      // Second poll: status=completed, results populated
+      // Note: results must have nested 'results' property or total_frames/frames for JobResults
+      mockGetJob.mockResolvedValueOnce({
+        job_id: "job-123",
+        status: "completed",
+        results: {
+          job_id: "job-123",
+          results: { detections: [{ label: "person", confidence: 0.95 }] },
+        },
+        created_at: new Date().toISOString(),
+      });
+
+      render(<JobStatus jobId="job-123" />);
+
+      // Wait for completed status to appear
+      await waitFor(() => {
+        expect(screen.getByText(/completed/i)).toBeInTheDocument();
+      }, { timeout: 3000 });
+
+      // Wait for results to appear (should poll again after first null)
+      await waitFor(() => {
+        expect(screen.getByText(/person/)).toBeInTheDocument();
+      }, { timeout: 5000 });
+
+      // Verify getJob was called at least twice (continued polling)
+      expect(mockGetJob.mock.calls.length).toBeGreaterThanOrEqual(2);
+    });
+  });
+
   // Issue #231: Terminal state locking tests
   describe("Issue #231: Terminal state locking", () => {
     it("should lock status to 'completed' when HTTP polling confirms completion while WebSocket disconnected", async () => {

@@ -20,10 +20,11 @@ from io import BytesIO
 from typing import List
 from uuid import uuid4
 
+from botocore.exceptions import ClientError
 from fastapi import APIRouter, Body, Depends, HTTPException, Query, UploadFile
 from tenacity import (
     retry,
-    retry_if_exception_type,
+    retry_if_exception,
     stop_after_attempt,
     wait_exponential,
 )
@@ -33,6 +34,7 @@ from app.models.job import Job, JobStatus
 from app.plugin_loader import PluginRegistry
 from app.schemas.job import VideoSubmitRequest
 from app.services.plugin_management_service import PluginManagementService
+from app.services.storage.base import StorageService
 from app.services.storage.factory import get_storage_service
 from app.services.tool_router import resolve_tools
 from app.settings import settings
@@ -41,13 +43,91 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-def get_storage():
+def get_storage() -> StorageService:
     """Get storage service via lazy initialization.
 
     This avoids import-time S3 connection attempts and allows
     dependency injection for testing.
     """
     return get_storage_service(settings)
+
+
+def is_transient_s3_error(exception: BaseException) -> bool:
+    """Check if exception is a transient S3 error that should be retried.
+
+    Handles both Python built-in errors and boto3 ClientError with transient
+    error codes (5xx server errors, 429 throttling).
+
+    Args:
+        exception: The exception to check
+
+    Returns:
+        True if the exception is transient and should be retried
+    """
+    # Python built-in connection/timeout errors (covers most botocore errors)
+    if isinstance(exception, (ConnectionError, TimeoutError)):
+        return True
+
+    # Check for transient ClientError (5xx, 429)
+    # ClientError is raised by boto3 for AWS service responses
+    if isinstance(exception, ClientError):
+        error_code = exception.response.get("Error", {}).get("Code", "")
+        transient_codes = {
+            # 5xx server errors
+            "ServiceUnavailable",
+            "InternalError",
+            "BadGateway",
+            "GatewayTimeout",
+            # 429 throttling
+            "SlowDown",
+            "ThrottlingException",
+            "RequestLimitExceeded",
+            "ProvisionedThroughputExceededException",
+        }
+        return error_code in transient_codes
+
+    return False
+
+
+async def save_file_async(
+    storage: StorageService,
+    src: BytesIO,
+    dest_path: str,
+) -> str:
+    """Save file to storage with async retry logic.
+
+    Uses asyncio.to_thread for non-blocking I/O with exponential backoff retry
+    for transient errors:
+    - Python built-in: ConnectionError, TimeoutError
+    - boto3 ClientError: 5xx server errors, 429 throttling
+
+    Args:
+        storage: StorageService instance
+        src: File-like object (BytesIO) to save
+        dest_path: Destination path relative to storage root
+
+    Returns:
+        Full path where file was saved
+
+    Raises:
+        ConnectionError: If connection fails after retries
+        TimeoutError: If operation times out after retries
+        OSError: If storage operation fails
+        ClientError: If S3 returns non-transient error after retries
+    """
+
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=2, max=10),
+        retry=retry_if_exception(is_transient_s3_error),
+        reraise=True,
+    )
+    async def _save_with_retry():
+        # Reset stream position before each retry attempt
+        src.seek(0)
+        return await asyncio.to_thread(storage.save_file, src=src, dest_path=dest_path)
+
+    return await _save_with_retry()
 
 
 def get_plugin_manager():
@@ -120,23 +200,14 @@ async def upload_video(
     # Save file to storage with async retry logic
     storage = get_storage()
 
-    @retry(
-        stop=stop_after_attempt(3),
-        wait=wait_exponential(multiplier=1, min=2, max=10),
-        retry=retry_if_exception_type((ConnectionError, TimeoutError)),
-        reraise=True,
-    )
-    async def save_file_with_retry():
-        await asyncio.to_thread(
-            storage.save_file, src=BytesIO(contents), dest_path=video_path
-        )
-
     try:
-        await save_file_with_retry()
+        await save_file_async(storage, BytesIO(contents), video_path)
         logger.info(f"Video uploaded to {video_path}")
-    except Exception as e:
-        logger.error(f"Storage save failed after retries: {e}")
-        raise
+    except (ConnectionError, TimeoutError, OSError, ClientError) as e:
+        logger.error(
+            f"Storage save failed after retries: {e}\n{traceback.format_exc()}"
+        )
+        raise HTTPException(status_code=503, detail=f"Storage unavailable: {e}") from e
 
     return {"video_path": video_path}
 
@@ -402,25 +473,14 @@ async def submit_video(
     # Save file to storage with async retry logic
     storage = get_storage()
 
-    @retry(
-        stop=stop_after_attempt(3),
-        wait=wait_exponential(multiplier=1, min=2, max=10),
-        retry=retry_if_exception_type((ConnectionError, TimeoutError)),
-        reraise=True,
-    )
-    async def save_file_with_retry():
-        await asyncio.to_thread(
-            storage.save_file, src=BytesIO(contents), dest_path=input_path
-        )
-
     try:
-        await save_file_with_retry()
+        await save_file_async(storage, BytesIO(contents), input_path)
         logger.info(f"Video saved to {input_path}")
-    except Exception as e:
+    except (ConnectionError, TimeoutError, OSError, ClientError) as e:
         logger.error(
             f"Storage save failed after retries: {e}\n{traceback.format_exc()}"
         )
-        raise
+        raise HTTPException(status_code=503, detail=f"Storage unavailable: {e}") from e
 
     # Create database record
     db = SessionLocal()

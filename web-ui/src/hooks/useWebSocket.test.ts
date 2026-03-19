@@ -617,4 +617,5 @@ describe("useWebSocket", () => {
             expect(result.current.stats.avgProcessingTime).toBe(0);
         });
     });
+
 });

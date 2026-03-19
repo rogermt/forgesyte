@@ -112,6 +112,13 @@ function App() {
     return { toolList: Object.keys(toolsObj), isUsingLogicalIds: false };
   }, [manifest]);
 
+  // Issue #348: Stabilize tools reference to prevent infinite render loop
+  // Without this, lockedTools ?? selectedTools creates new array on every render
+  const activeTools = useMemo(
+    () => lockedTools ?? selectedTools,
+    [lockedTools, selectedTools]
+  );
+
   // -------------------------------------------------------------------------
   // WebSocket connection
   // -------------------------------------------------------------------------
@@ -127,7 +134,7 @@ function App() {
   } = useWebSocket({
     url: `${WS_BACKEND_URL}/v1/stream`,
     plugin: selectedPlugin,
-    tools: lockedTools ?? selectedTools,  // v0.10.1: Use locked tools if available
+    tools: activeTools,  // v0.10.1: Use locked tools if available
     onResult: (result: FrameResult) => {
       console.log("Frame result:", result);
     },
@@ -268,6 +275,7 @@ function App() {
   // -------------------------------------------------------------------------
   useEffect(() => {
     if (!manifest) return;
+    if (lockedTools) return; // Do not auto-adjust tools while locked (video jobs)
 
     if (toolList.length === 0) {
       setSelectedTools([]);
@@ -287,7 +295,8 @@ function App() {
     if (validTools.length !== selectedTools.length) {
       setSelectedTools(validTools);
     }
-  }, [manifest, toolList, selectedTools]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [manifest, toolList, lockedTools]); // Intentionally omit selectedTools to prevent infinite loop
 
   const statusText = useMemo(() => {
     switch (connectionStatus) {
@@ -556,7 +565,15 @@ function App() {
                     ? "var(--accent-orange)"
                     : "var(--border-light)",
               }}
-              onClick={() => setViewMode(mode)}
+              onClick={() => {
+                setViewMode(mode);
+                // PERFORMANCE: Clear selectedJob when entering video modes
+                // to prevent dragging huge video_multi jobs into the video flow
+                // which would cause UI freeze in ResultsPanel
+                if (mode === "video-upload" || mode === "video-stream") {
+                  setSelectedJob(null);
+                }
+              }}
             >
               {mode === "video-upload" ? "Upload Video" : mode.charAt(0).toUpperCase() + mode.slice(1)}
             </button>
@@ -763,11 +780,26 @@ function App() {
         </section>
 
         <aside>
-          <ResultsPanel
-            mode={viewMode === "stream" ? "stream" : "job"}
-            streamResult={latestResult}
-            job={selectedJob}
-          />
+          {(() => {
+            // PERFORMANCE: Don't render ResultsPanel in video-upload/video-stream modes
+            // to prevent UI freeze from rendering huge video_multi job results
+            // when switching from Jobs view with an old selectedJob still set
+            const resultsMode = viewMode === "stream" ? "stream"
+              : viewMode === "video-upload" || viewMode === "video-stream" ? "none"
+              : "job";
+
+            if (resultsMode === "none") {
+              return null;
+            }
+
+            return (
+              <ResultsPanel
+                mode={resultsMode === "stream" ? "stream" : "job"}
+                streamResult={latestResult}
+                job={resultsMode === "job" ? selectedJob : null}
+              />
+            );
+          })()}
         </aside>
       </main>
     </div>

@@ -3,7 +3,7 @@
  * Shows raw JSON only - no specialized renderers for soccer or other plugins.
  */
 
-import React from "react";
+import React, { useMemo } from "react";
 import { FrameResult } from "../hooks/useWebSocket";
 import { Job } from "../api/client";
 import { ImageMultiToolResults } from "./ImageMultiToolResults";
@@ -35,6 +35,24 @@ export function ResultsPanel({
     streamResult,
     job,
 }: ResultsPanelProps) {
+    // PERFORMANCE: Memoize JSON stringification to prevent UI freeze on large results
+    // See: https://github.com/rogermt/forgesyte/discussions/349
+    const resultData = job?.results || job?.result;
+    const jobResultJson = useMemo(() => {
+        if (!resultData) return "null";
+        // PERFORMANCE GUARD: video_multi results can be 1-10 MB.
+        // Skip stringification entirely to prevent UI freeze.
+        // The JSX below has a separate guard to display a message instead.
+        if (job?.job_type === "video_multi") return "";
+        return JSON.stringify(resultData, null, 2);
+    }, [resultData, job?.job_type]);
+
+    // PERFORMANCE: Memoize stream result JSON
+    const streamResultJson = useMemo(() => {
+        if (!streamResult?.result) return "null";
+        return JSON.stringify(streamResult.result, null, 2);
+    }, [streamResult?.result]);
+
     // TODO: Implement UI plugin loading for result components
     // Future: Load Renderer dynamically via UIPluginManager for pluginName mode
     const styles: Record<string, React.CSSProperties> = {
@@ -142,7 +160,7 @@ export function ResultsPanel({
                          <div>
                              <div style={styles.label}>Raw Result</div>
                              <pre style={styles.codeBlock}>
-                                 {JSON.stringify(streamResult.result, null, 2)}
+                                 {streamResultJson}
                              </pre>
                          </div>
                     </div>
@@ -175,11 +193,26 @@ export function ResultsPanel({
                         {/* v0.9.4: Handle multi-tool results format */}
                         {/* Use job.results (plural) from backend, fallback to job.result (legacy) */}
                         {(() => {
-                            const resultData = job.results || job.result;
+                            // PERFORMANCE GUARD: video_multi jobs can produce huge JSON.
+                            // For these, do NOT pretty-print the full result to avoid UI freeze.
+                            if (job.job_type === "video_multi") {
+                                return (
+                                    <div>
+                                        <div style={styles.label}>Result</div>
+                                        <pre style={styles.codeBlock}>
+{`Job type: video_multi
+
+The full result is too large to render in the browser.
+Please inspect the JSON artifact directly in storage (MinIO/S3).`}
+                                        </pre>
+                                    </div>
+                                );
+                            }
+
                             if (!resultData || typeof resultData !== "object") {
                                 return (
                                     <pre style={styles.codeBlock}>
-                                        {JSON.stringify(resultData, null, 2)}
+                                        {jobResultJson}
                                     </pre>
                                 );
                             }
@@ -192,14 +225,14 @@ export function ResultsPanel({
                             }
 
                             // Single-tool result: show raw JSON only
-                             return (
-                                 <div>
-                                     <div style={styles.label}>Raw Result</div>
-                                     <pre style={styles.codeBlock}>
-                                         {JSON.stringify(result, null, 2)}
-                                     </pre>
-                                 </div>
-                             );
+                            return (
+                                <div>
+                                    <div style={styles.label}>Raw Result</div>
+                                    <pre style={styles.codeBlock}>
+                                        {jobResultJson}
+                                    </pre>
+                                </div>
+                            );
                         })()}
                     </div>
                 ) : mode === "job" ? (
