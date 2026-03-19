@@ -53,6 +53,26 @@ vi.mock("./api/client", () => ({
   },
 }));
 
+// Mock JobList to expose onJobSelect callback for testing
+vi.mock("./components/JobList", () => ({
+  JobList: ({ onJobSelect }: { onJobSelect: (job: unknown) => void }) => (
+    <div data-testid="job-list">
+      <button
+        data-testid="select-test-job"
+        onClick={() => onJobSelect({
+          job_id: "job-video-multi-123",
+          status: "completed",
+          job_type: "video_multi",
+          results: { frames: new Array(1000).fill({ detections: [] }) },
+          created_at: new Date().toISOString(),
+        })}
+      >
+        Select Test Job
+      </button>
+    </div>
+  ),
+}));
+
 describe("App - Run Job Flow (Issues #347, #348)", () => {
   let setIntervalSpy: ReturnType<typeof vi.spyOn>;
 
@@ -287,5 +307,94 @@ describe("App - Run Job Flow (Issues #347, #348)", () => {
     // Issue #347/348 bug would cause massive interval growth on re-renders
     // Fixed code should have very few new intervals
     expect(rerenderIntervals).toBeLessThan(15);
+  });
+});
+
+describe("App - State smear fix (Discussion #349)", () => {
+  // These tests guard against UI freeze when switching from Jobs to Video Upload
+  // with a huge video_multi job still selected
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockGetPlugins.mockResolvedValue([{
+      name: "test-plugin",
+      description: "Test Plugin",
+      version: "1.0.0",
+    }]);
+    mockGetPluginManifest.mockResolvedValue({
+      id: "test-plugin",
+      name: "Test Plugin",
+      version: "1.0.0",
+      tools: [{
+        id: "detect_objects",
+        title: "Detect Objects",
+        capabilities: ["object_detection"],
+      }],
+    });
+    mockListJobs.mockResolvedValue([]);
+    mockGetJob.mockResolvedValue({
+      job_id: "job-video-multi-123",
+      status: "completed",
+      created_at: new Date().toISOString(),
+    });
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("should clear selectedJob when switching to video-upload mode", async () => {
+    // TDD: This test proves the bug - selectedJob persists when entering video-upload
+    // causing ResultsPanel to render huge JSON and freeze UI
+
+    await act(async () => {
+      render(<App />);
+    });
+
+    // 1. Go to Jobs view
+    const jobsTab = screen.getByRole("button", { name: /^Jobs$/i });
+    await act(async () => {
+      fireEvent.click(jobsTab);
+    });
+
+    // 2. Select a job (this sets selectedJob state)
+    const selectJobButton = screen.getByTestId("select-test-job");
+    await act(async () => {
+      fireEvent.click(selectJobButton);
+    });
+
+    // 3. Verify job is shown (job_id visible in ResultsPanel)
+    expect(screen.getByText(/job-video-multi-123/i)).toBeInTheDocument();
+
+    // 4. Switch to video-upload
+    const uploadVideoTab = screen.getByRole("button", { name: /upload.*video|video.*upload/i });
+    await act(async () => {
+      fireEvent.click(uploadVideoTab);
+    });
+
+    // 5. CRITICAL: selectedJob should be cleared
+    // The job_id should NOT be visible anymore
+    // FAILS before fix - job_id still shown because selectedJob not cleared
+    expect(screen.queryByText(/job-video-multi-123/i)).not.toBeInTheDocument();
+  });
+
+  it("should NOT render ResultsPanel in video-upload mode", async () => {
+    // TDD: ResultsPanel should be hidden in video-upload/video-stream modes
+    // to prevent rendering huge JSON from old selectedJob
+
+    await act(async () => {
+      render(<App />);
+    });
+
+    // 1. Go to video-upload directly
+    const uploadVideoTab = screen.getByRole("button", { name: /upload.*video|video.*upload/i });
+    await act(async () => {
+      fireEvent.click(uploadVideoTab);
+    });
+
+    // 2. ResultsPanel should NOT be in the DOM
+    // The fix: resultsMode === "none" so ResultsPanel is not rendered at all
+    const resultsPanel = screen.queryByTestId("results-panel");
+    expect(resultsPanel).toBeNull();
   });
 });

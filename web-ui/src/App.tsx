@@ -565,7 +565,15 @@ function App() {
                     ? "var(--accent-orange)"
                     : "var(--border-light)",
               }}
-              onClick={() => setViewMode(mode)}
+              onClick={() => {
+                setViewMode(mode);
+                // PERFORMANCE: Clear selectedJob when entering video modes
+                // to prevent dragging huge video_multi jobs into the video flow
+                // which would cause UI freeze in ResultsPanel
+                if (mode === "video-upload" || mode === "video-stream") {
+                  setSelectedJob(null);
+                }
+              }}
             >
               {mode === "video-upload" ? "Upload Video" : mode.charAt(0).toUpperCase() + mode.slice(1)}
             </button>
@@ -772,11 +780,26 @@ function App() {
         </section>
 
         <aside>
-          <ResultsPanel
-            mode={viewMode === "stream" ? "stream" : "job"}
-            streamResult={latestResult}
-            job={selectedJob}
-          />
+          {(() => {
+            // PERFORMANCE: Don't render ResultsPanel in video-upload/video-stream modes
+            // to prevent UI freeze from rendering huge video_multi job results
+            // when switching from Jobs view with an old selectedJob still set
+            const resultsMode = viewMode === "stream" ? "stream"
+              : viewMode === "video-upload" || viewMode === "video-stream" ? "none"
+              : "job";
+
+            if (resultsMode === "none") {
+              return null;
+            }
+
+            return (
+              <ResultsPanel
+                mode={resultsMode === "stream" ? "stream" : "job"}
+                streamResult={latestResult}
+                job={resultsMode === "job" ? selectedJob : null}
+              />
+            );
+          })()}
         </aside>
       </main>
     </div>
