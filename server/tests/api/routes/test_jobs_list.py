@@ -205,3 +205,138 @@ def test_list_jobs_ordering(client, session):
     assert job_ids[0] == job3_id
     assert job_ids[1] == job2_id
     assert job_ids[2] == job1_id
+
+
+# Issue #350: Artifact Pattern - video jobs return result_url, not result
+
+
+def test_list_jobs_video_returns_result_url(client, session, storage):
+    """Test GET /v1/jobs returns result_url for video jobs, not inline result.
+
+    Issue #350: Video jobs should return a URL for lazy loading.
+    """
+    # Clean database
+    session.query(Job).delete()
+    session.commit()
+
+    # Create completed video job
+    job_id = uuid4()
+    job = Job(
+        job_id=job_id,
+        status=JobStatus.completed,
+        plugin_id="yolo-tracker",
+        job_type="video",
+        input_path="video/input/test.mp4",
+        output_path=f"video/output/{job_id}.json",
+    )
+    session.add(job)
+    session.commit()
+
+    # Create a test results file
+    results_data = {
+        "frames": [
+            {"frame": 1, "detections": [{"class": "player", "bbox": [0, 0, 10, 10]}]}
+        ]
+        * 100  # Simulate large results
+    }
+    results_json = json.dumps(results_data)
+    storage.save_file(BytesIO(results_json.encode()), f"video/output/{job_id}.json")
+
+    response = client.get("/v1/jobs?limit=10&skip=0")
+
+    assert response.status_code == 200
+    data = response.json()
+
+    video_job = next((j for j in data["jobs"] if j["job_id"] == str(job_id)), None)
+    assert video_job is not None
+    # Video job should NOT have inline result
+    assert video_job["result"] is None
+    # Video job should have result_url
+    assert video_job["result_url"] is not None
+    assert "/result" in video_job["result_url"]
+
+
+def test_list_jobs_image_returns_inline_result(client, session, storage):
+    """Test GET /v1/jobs returns inline result for image jobs (backward compat).
+
+    Issue #350: Image jobs should continue returning inline results.
+    """
+    # Clean database
+    session.query(Job).delete()
+    session.commit()
+
+    # Create completed image job
+    job_id = uuid4()
+    job = Job(
+        job_id=job_id,
+        status=JobStatus.completed,
+        plugin_id="ocr-plugin",
+        job_type="image",
+        input_path="image/input/test.png",
+        output_path="image/output.json",
+    )
+    session.add(job)
+    session.commit()
+
+    # Create a test results file
+    results_data = {"text": "extracted text"}
+    results_json = json.dumps(results_data)
+    storage.save_file(BytesIO(results_json.encode()), "image/output.json")
+
+    response = client.get("/v1/jobs?limit=10&skip=0")
+
+    assert response.status_code == 200
+    data = response.json()
+
+    image_job = next((j for j in data["jobs"] if j["job_id"] == str(job_id)), None)
+    assert image_job is not None
+    # Image job should have inline result
+    assert image_job["result"] is not None
+    assert image_job["result"]["text"] == "extracted text"
+    # Image job should NOT have result_url (not needed for small results)
+    assert image_job["result_url"] is None
+
+
+def test_list_jobs_video_includes_summary(client, session, storage):
+    """Test GET /v1/jobs includes summary for video jobs.
+
+    Issue #350: Summary contains derived metadata (frame_count, etc).
+    """
+    # Clean database
+    session.query(Job).delete()
+    session.commit()
+
+    # Create completed video job
+    job_id = uuid4()
+    job = Job(
+        job_id=job_id,
+        status=JobStatus.completed,
+        plugin_id="yolo-tracker",
+        job_type="video",
+        input_path="video/input/test.mp4",
+        output_path=f"video/output/{job_id}.json",
+    )
+    session.add(job)
+    session.commit()
+
+    # Create a test results file with frames
+    results_data = {
+        "frames": [
+            {"frame": i, "detections": [{"class": "player"}, {"class": "ball"}]}
+            for i in range(10)
+        ]
+    }
+    results_json = json.dumps(results_data)
+    storage.save_file(BytesIO(results_json.encode()), f"video/output/{job_id}.json")
+
+    response = client.get("/v1/jobs?limit=10&skip=0")
+
+    assert response.status_code == 200
+    data = response.json()
+
+    video_job = next((j for j in data["jobs"] if j["job_id"] == str(job_id)), None)
+    assert video_job is not None
+    # Video job should have summary
+    assert video_job["summary"] is not None
+    assert video_job["summary"]["frame_count"] == 10
+    assert video_job["summary"]["detection_count"] == 20  # 10 frames * 2 detections

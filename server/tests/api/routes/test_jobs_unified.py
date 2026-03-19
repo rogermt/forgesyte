@@ -174,7 +174,10 @@ def test_get_job_image_type(client, session, storage):
 
 
 def test_get_job_video_type(client, session, storage):
-    """Test GET /v1/jobs/{id} for video job."""
+    """Test GET /v1/jobs/{id} for video job.
+
+    Issue #350: Video jobs now return result_url instead of inline results.
+    """
     # Create a completed video job
     job_id = uuid4()
     job = Job(
@@ -197,7 +200,9 @@ def test_get_job_video_type(client, session, storage):
 
     assert response.status_code == 200
     data = response.json()
-    assert data["results"]["results"]["objects"] == []
+    # Issue #350: Video jobs return result_url, not inline results
+    assert data["result_url"] is not None
+    assert data["results"] is None  # No inline results for video jobs
 
 
 def test_get_job_results_file_not_found(client, session):
@@ -243,3 +248,147 @@ def test_get_job_results_invalid_json(client, session, storage):
 
     assert response.status_code == 500
     assert "invalid results file" in response.json()["detail"].lower()
+
+
+# Issue #350: Artifact Pattern - video jobs return result_url, not results
+
+
+def test_get_job_video_returns_result_url(client, session, storage):
+    """Test GET /v1/jobs/{id} returns result_url for video jobs.
+
+    Issue #350: Video jobs should return a URL for lazy loading.
+    """
+    job_id = uuid4()
+    job = Job(
+        job_id=job_id,
+        status=JobStatus.completed,
+        plugin_id="yolo-tracker",
+        input_path="video/input/test.mp4",
+        output_path=f"video/output/{job_id}.json",
+        job_type="video",
+    )
+    session.add(job)
+    session.commit()
+
+    # Create a test results file with large data
+    results_data = {
+        "frames": [
+            {"frame": i, "detections": [{"class": "player"}, {"class": "ball"}]}
+            for i in range(100)
+        ]
+    }
+    results_json = json.dumps(results_data)
+    storage.save_file(BytesIO(results_json.encode()), f"video/output/{job_id}.json")
+
+    response = client.get(f"/v1/jobs/{job_id}")
+
+    assert response.status_code == 200
+    data = response.json()
+    # Video job should have result_url
+    assert data["result_url"] is not None
+    # Video job should NOT have inline results
+    assert data["results"] is None
+    # Video job should have summary
+    assert data["summary"] is not None
+
+
+def test_get_job_image_returns_inline_results(client, session, storage):
+    """Test GET /v1/jobs/{id} returns inline results for image jobs.
+
+    Issue #350: Image jobs should continue returning inline results.
+    """
+    job_id = uuid4()
+    job = Job(
+        job_id=job_id,
+        status=JobStatus.completed,
+        plugin_id="ocr-plugin",
+        input_path="image/input/test.png",
+        output_path="image/output/test.json",
+        job_type="image",
+    )
+    session.add(job)
+    session.commit()
+
+    # Create a test results file
+    results_data = {"text": "extracted text"}
+    results_json = json.dumps(results_data)
+    storage.save_file(BytesIO(results_json.encode()), "image/output/test.json")
+
+    response = client.get(f"/v1/jobs/{job_id}")
+
+    assert response.status_code == 200
+    data = response.json()
+    # Image job should have inline results
+    assert data["results"] is not None
+    assert data["results"]["text"] == "extracted text"
+    # Image job should NOT have result_url
+    assert data["result_url"] is None
+
+
+def test_get_job_video_includes_summary(client, session, storage):
+    """Test GET /v1/jobs/{id} includes summary for video jobs.
+
+    Issue #350: Summary contains derived metadata.
+    """
+    job_id = uuid4()
+    job = Job(
+        job_id=job_id,
+        status=JobStatus.completed,
+        plugin_id="yolo-tracker",
+        input_path="video/input/test.mp4",
+        output_path=f"video/output/{job_id}.json",
+        job_type="video",
+    )
+    session.add(job)
+    session.commit()
+
+    # Create a test results file
+    results_data = {
+        "frames": [
+            {"frame": i, "detections": [{"class": "player"}, {"class": "ball"}]}
+            for i in range(50)
+        ]
+    }
+    results_json = json.dumps(results_data)
+    storage.save_file(BytesIO(results_json.encode()), f"video/output/{job_id}.json")
+
+    response = client.get(f"/v1/jobs/{job_id}")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["summary"] is not None
+    assert data["summary"]["frame_count"] == 50
+    assert data["summary"]["detection_count"] == 100
+    assert "player" in data["summary"]["classes"]
+    assert "ball" in data["summary"]["classes"]
+
+
+def test_get_job_video_multi_returns_result_url(client, session, storage):
+    """Test GET /v1/jobs/{id} returns result_url for video_multi jobs.
+
+    Issue #350: video_multi jobs should also use lazy loading.
+    """
+    job_id = uuid4()
+    job = Job(
+        job_id=job_id,
+        status=JobStatus.completed,
+        plugin_id="multi-tool-plugin",
+        input_path="video/input/test.mp4",
+        output_path=f"video/output/{job_id}.json",
+        job_type="video_multi",
+    )
+    session.add(job)
+    session.commit()
+
+    # Create a test results file
+    results_data = {"tools": {"yolo": {"frames": []}, "ocr": {"frames": []}}}
+    results_json = json.dumps(results_data)
+    storage.save_file(BytesIO(results_json.encode()), f"video/output/{job_id}.json")
+
+    response = client.get(f"/v1/jobs/{job_id}")
+
+    assert response.status_code == 200
+    data = response.json()
+    # video_multi job should have result_url
+    assert data["result_url"] is not None
+    assert data["results"] is None

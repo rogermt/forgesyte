@@ -46,6 +46,63 @@ def _calculate_progress(status: JobStatus) -> int:
         return 100
 
 
+def _derive_video_summary(results: dict) -> dict:
+    """Derive summary metadata from video job results.
+
+    Issue #350: Extract lightweight metadata from large video results
+    for display in job list without loading full results.
+
+    Args:
+        results: Full video results dict
+
+    Returns:
+        Summary dict with frame_count, detection_count, classes
+    """
+    frame_count = 0
+    detection_count = 0
+    classes: List[str] = []
+
+    # Handle frames array (most common structure)
+    frames = results.get("frames", [])
+    if frames:
+        frame_count = len(frames)
+
+        classes_set: set = set()
+        for frame in frames:
+            detections = frame.get("detections", [])
+            detection_count += len(detections)
+            for det in detections:
+                if "class" in det:
+                    classes_set.add(det["class"])
+
+        classes = sorted(classes_set)
+
+    # Handle tools structure (multi-tool video jobs)
+    tools = results.get("tools", {})
+    if tools:
+        tool_detections = 0
+        tool_classes: set = set()
+
+        for _tool_name, tool_results in tools.items():
+            tool_frames = tool_results.get("frames", [])
+            for frame in tool_frames:
+                detections = frame.get("detections", [])
+                tool_detections += len(detections)
+                for det in detections:
+                    if "class" in det:
+                        tool_classes.add(det["class"])
+
+        # Add to existing counts
+        detection_count += tool_detections
+        classes = sorted(set(classes) | tool_classes)
+
+    return {
+        "frame_count": frame_count,
+        "detection_count": detection_count,
+        "classes": classes,
+    }
+
+
 @router.get("/v1/jobs", response_model=JobListResponse)
 async def list_jobs(
     limit: int = Query(
@@ -57,7 +114,8 @@ async def list_jobs(
     """List jobs with pagination.
 
     Returns a paginated list of jobs ordered by creation date (newest first).
-    Results are only loaded for completed jobs.
+
+    Issue #350: Video jobs return result_url and summary instead of inline result.
 
     Args:
         limit: Maximum number of jobs to return (1-100, default 10)
@@ -79,15 +137,34 @@ async def list_jobs(
         # Calculate progress
         progress = _calculate_progress(job.status)
 
-        # Load results only for completed jobs
+        # Issue #350: Handle video jobs differently
+        is_video_job = job.job_type in ("video", "video_multi")
+
         result = None
+        result_url = None
+        summary = None
+
         if job.status == JobStatus.completed and job.output_path:
-            try:
-                file_path = storage.load_file(job.output_path)
-                with open(file_path, "r") as f:
-                    result = json.load(f)
-            except (FileNotFoundError, json.JSONDecodeError):
-                result = None
+            if is_video_job:
+                # Video jobs: return result_url and derive summary
+                try:
+                    result_url = storage.get_signed_url(job.output_path)
+                    # Load results to derive summary
+                    file_path = storage.load_file(job.output_path)
+                    with open(file_path, "r") as f:
+                        results = json.load(f)
+                    summary = _derive_video_summary(results)
+                except (FileNotFoundError, json.JSONDecodeError):
+                    result_url = None
+                    summary = None
+            else:
+                # Image jobs: return inline result (backward compatible)
+                try:
+                    file_path = storage.load_file(job.output_path)
+                    with open(file_path, "r") as f:
+                        result = json.load(f)
+                except (FileNotFoundError, json.JSONDecodeError):
+                    result = None
 
         # Build job item
         job_items.append(
@@ -102,6 +179,8 @@ async def list_jobs(
                     else None
                 ),
                 result=result,
+                result_url=result_url,  # Issue #350
+                summary=summary,  # Issue #350
                 error=job.error_message,
                 progress=progress,
             )
@@ -118,6 +197,8 @@ async def get_job(job_id: UUID, db: Session = Depends(get_db)) -> JobResultsResp
     /v1/video/results/{job_id}. It returns both status and results
     in a single response for both image and video jobs.
 
+    Issue #350: Video jobs return result_url and summary instead of inline results.
+
     Args:
         job_id: UUID of the job
         db: Database session
@@ -130,7 +211,8 @@ async def get_job(job_id: UUID, db: Session = Depends(get_db)) -> JobResultsResp
 
     Note:
         - If job is not completed, results will be None
-        - If job is completed, results will contain the output JSON
+        - If job is completed, results will contain the output JSON (image jobs)
+        - Video jobs return result_url and summary instead of results
         - Progress is calculated from job status
     """
     from app.models.job_tool import JobTool
@@ -183,6 +265,8 @@ async def get_job(job_id: UUID, db: Session = Depends(get_db)) -> JobResultsResp
             status=job.status.value,  # Issue #211: Include status
             plugin_id=job.plugin_id,  # Issue #296: Was missing
             results=None,
+            result_url=None,  # Issue #350
+            summary=None,  # Issue #350
             tool=tools[0] if tools else None,
             tools=tools if len(tools) > 1 else None,
             job_type=job.job_type,
@@ -195,6 +279,9 @@ async def get_job(job_id: UUID, db: Session = Depends(get_db)) -> JobResultsResp
             updated_at=job.updated_at,
         )
 
+    # Issue #350: Handle video jobs differently
+    is_video_job = job.job_type in ("video", "video_multi")
+
     # Load results from storage
     try:
         results_path = job.output_path
@@ -206,11 +293,37 @@ async def get_job(job_id: UUID, db: Session = Depends(get_db)) -> JobResultsResp
     except json.JSONDecodeError as err:
         raise HTTPException(status_code=500, detail="Invalid results file") from err
 
+    # Issue #350: For video jobs, return result_url and summary
+    if is_video_job:
+        result_url = storage.get_signed_url(job.output_path)
+        summary = _derive_video_summary(results)
+        return JobResultsResponse(
+            job_id=job.job_id,
+            status=job.status.value,
+            plugin_id=job.plugin_id,
+            results=None,  # Don't return inline results for video
+            result_url=result_url,
+            summary=summary,
+            tool=tools[0] if tools else None,
+            tools=tools if len(tools) > 1 else None,
+            job_type=job.job_type,
+            error_message=job.error_message,
+            progress=job.progress,
+            current_tool=current_tool,
+            tools_total=tools_total,
+            tools_completed=tools_completed,
+            created_at=job.created_at,
+            updated_at=job.updated_at,
+        )
+
+    # Image jobs: return inline results (backward compatible)
     return JobResultsResponse(
         job_id=job.job_id,
         status=job.status.value,  # Issue #211: Include status
         plugin_id=job.plugin_id,  # Issue #296: Was missing
         results=results,
+        result_url=None,  # Issue #350: Not needed for image jobs
+        summary=None,  # Issue #350: Not needed for image jobs
         tool=tools[0] if tools else None,
         tools=tools if len(tools) > 1 else None,
         job_type=job.job_type,
