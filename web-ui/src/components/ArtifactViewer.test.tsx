@@ -108,7 +108,8 @@ describe("ArtifactViewer", () => {
 
             expect(openSpy).toHaveBeenCalledWith(
                 "http://localhost:3000/v1/jobs/job-download-test/result?token=xyz",
-                "_blank"
+                "_blank",
+                "noopener,noreferrer"
             );
             openSpy.mockRestore();
         });

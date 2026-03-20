@@ -126,13 +126,18 @@ export function ArtifactViewer({ jobId, resultUrl }: ArtifactViewerProps): React
     const handleDownload = (): void => {
         // Use resultUrl for download (may be S3 signed URL)
         if (resultUrl) {
-            window.open(resultUrl, "_blank");
+            // Security: noopener,noreferrer prevents tab-opener attacks
+            window.open(resultUrl, "_blank", "noopener,noreferrer");
         }
     };
 
     return (
         <div style={styles.container}>
-            <button style={styles.downloadButton} onClick={handleDownload}>
+            <button
+                style={resultUrl ? styles.downloadButton : styles.buttonDisabled}
+                onClick={handleDownload}
+                disabled={!resultUrl}
+            >
                 Download Full JSON
             </button>
 

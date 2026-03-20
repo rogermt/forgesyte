@@ -61,27 +61,32 @@ describe("ResultsPanel performance guards", () => {
 
         it("should NOT stringify large results - uses pagination instead", () => {
             // Large video job - results are paginated, not loaded into memory
+            const summary = {
+                frame_count: 10000,
+                detection_count: 50000,
+                classes: ["player", "ball", "referee"],
+            };
+
             const job = createMockJob({
                 status: "completed",
                 job_type: "video",
                 result_url: "/v1/jobs/test-job/result",
-                summary: {
-                    frame_count: 10000,
-                    detection_count: 50000,
-                    classes: ["player", "ball", "referee"],
-                },
+                summary,
             });
 
             render(<ResultsPanel mode="job" job={job} />);
 
-            // Should only stringify the small summary
-            // NOT a huge result object
-            const bigResult = { data: "x".repeat(1_000_000) };
-            expect(stringifySpy).not.toHaveBeenCalledWith(
-                bigResult,
-                expect.anything(),
-                expect.anything()
-            );
+            // Should only stringify the small summary, not large results
+            expect(stringifySpy).toHaveBeenCalledWith(summary, null, 2);
+
+            // Verify no calls with objects larger than the summary
+            const calls = stringifySpy.mock.calls;
+            calls.forEach(([arg]) => {
+                if (typeof arg === "object" && arg !== null) {
+                    const size = JSON.stringify(arg).length;
+                    expect(size).toBeLessThan(1000); // Summary should be small
+                }
+            });
         });
 
         it("should display summary without loading full results", () => {
