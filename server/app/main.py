@@ -28,6 +28,7 @@ from fastapi import (
     FastAPI,
     HTTPException,
     Query,
+    Request,
     WebSocket,
     WebSocketDisconnect,
 )
@@ -418,11 +419,14 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
-    # Discussion #355: Global OPTIONS handler for CORS preflight
-    # Ensures tunnels/proxies that mishandle OPTIONS still see 200
-    @app.options("/{path:path}")
-    def options_handler(path: str) -> Response:
-        return Response(status_code=200)
+    # Discussion #355: CORS preflight middleware
+    # Handles OPTIONS requests before routing to avoid 405 on undefined routes.
+    # Placed after CORSMiddleware so it only fires for OPTIONS.
+    @app.middleware("http")
+    async def options_preflight_middleware(request: Request, call_next):
+        if request.method == "OPTIONS":
+            return Response(status_code=200)
+        return await call_next(request)
 
     # Routing
     app.include_router(api_router, prefix=settings.api_prefix)
