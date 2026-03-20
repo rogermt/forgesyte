@@ -245,6 +245,65 @@ describe("ForgeSyteAPIClient", () => {
         });
     });
 
+    // Discussion #352: Paginated result fetching via API client
+    describe("getJobResultPage", () => {
+        it("should fetch paginated results via API endpoint with offset and limit", async () => {
+            const mockPage = {
+                offset: 0,
+                limit: 200,
+                total: 500,
+                frames: [{ frame: 0 }, { frame: 1 }],
+            };
+            fetchMock.mockResolvedValueOnce(createMockResponse(mockPage));
+
+            const result = await client.getJobResultPage("job-123", 0, 200);
+
+            expect(result).toEqual(mockPage);
+            expect(fetchMock).toHaveBeenCalledWith(
+                expect.stringContaining("/jobs/job-123/result/page?offset=0&limit=200"),
+                expect.any(Object)
+            );
+        });
+
+        it("should NOT build URL from result_url - use API endpoint instead", async () => {
+            const mockPage = { offset: 200, limit: 200, total: 500, frames: [] };
+            fetchMock.mockResolvedValueOnce(createMockResponse(mockPage));
+
+            await client.getJobResultPage("job-456", 200, 200);
+
+            const callUrl = fetchMock.mock.calls[0][0] as string;
+            // Must use API endpoint pattern, NOT append to result_url
+            expect(callUrl).toContain("/jobs/job-456/result/page");
+            expect(callUrl).not.toMatch(/result\?token=.*\/page/);
+        });
+
+        it("should include API key header for authentication", async () => {
+            const clientWithKey = new ForgeSyteAPIClient(
+                "http://localhost:3000/v1",
+                "test-api-key"
+            );
+            const mockPage = { offset: 0, limit: 200, total: 100, frames: [] };
+            fetchMock.mockResolvedValueOnce(createMockResponse(mockPage));
+
+            await clientWithKey.getJobResultPage("job-789", 0, 200);
+
+            const callArgs = fetchMock.mock.calls[0][1] as RequestInit;
+            const headers = callArgs.headers as Record<string, string>;
+            expect(headers["X-API-Key"]).toBe("test-api-key");
+        });
+
+        it("should fetch second page with correct offset", async () => {
+            const mockPage = { offset: 200, limit: 200, total: 500, frames: [] };
+            fetchMock.mockResolvedValueOnce(createMockResponse(mockPage));
+
+            await client.getJobResultPage("job-123", 200, 200);
+
+            const callUrl = fetchMock.mock.calls[0][0] as string;
+            expect(callUrl).toContain("offset=200");
+            expect(callUrl).toContain("limit=200");
+        });
+    });
+
     describe("Job interface with result_url and summary", () => {
         it("should accept job with result_url field", async () => {
             const mockJob = {

@@ -174,8 +174,12 @@ export function ResultsPanel({
                         )}
 
                         {/* Clean Break: Use ArtifactViewer for all jobs */}
+                        {/* Discussion #352: Pass jobId for API-based pagination */}
                         {job.result_url && (
-                            <ArtifactViewer url={job.result_url} />
+                            <ArtifactViewer
+                                jobId={job.job_id}
+                                resultUrl={job.result_url}
+                            />
                         )}
 
                         {/* No result available */}

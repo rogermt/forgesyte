@@ -15,10 +15,15 @@ import { ResultsPanel } from "./ResultsPanel";
 import { createMockFrameResult, createMockJobDone } from "../test-utils/factories";
 
 // Mock ArtifactViewer component
+// Discussion #352: ArtifactViewer now receives jobId (required) and resultUrl (optional)
 vi.mock("./ArtifactViewer", () => ({
-    ArtifactViewer: ({ url }: { url: string }) => (
-        <div data-testid="artifact-viewer" data-url={url}>
-            ArtifactViewer: {url}
+    ArtifactViewer: ({ jobId, resultUrl }: { jobId: string; resultUrl?: string }) => (
+        <div
+            data-testid="artifact-viewer"
+            data-job-id={jobId}
+            data-result-url={resultUrl || ""}
+        >
+            ArtifactViewer: jobId={jobId}
         </div>
     ),
 }));
@@ -97,11 +102,17 @@ describe("ResultsPanel - Styling Updates", () => {
         const mockJob = createMockJobDone();
 
         it("should display job ID and status", () => {
+            // Use a job without result_url to avoid ArtifactViewer showing jobId again
+            const mockJobNoResult = createMockJobDone({
+                result_url: undefined,
+                summary: undefined,
+            });
+
             render(
-                <ResultsPanel mode="job" job={mockJob} />
+                <ResultsPanel mode="job" job={mockJobNoResult} />
             );
 
-            expect(screen.getByText(new RegExp(mockJob.job_id))).toBeInTheDocument();
+            expect(screen.getByText(new RegExp(mockJobNoResult.job_id))).toBeInTheDocument();
             expect(screen.getByText(/Status: completed/)).toBeInTheDocument();
         });
 
@@ -185,6 +196,7 @@ describe("ResultsPanel - Styling Updates", () => {
 
         it("should use ArtifactViewer for job with result_url", () => {
             const mockJob = createMockJobDone({
+                job_id: "video-123",
                 job_type: "video",
                 result_url: "/v1/jobs/video-123/result",
                 summary: { frame_count: 100 },
@@ -194,10 +206,31 @@ describe("ResultsPanel - Styling Updates", () => {
 
             // ArtifactViewer should be rendered
             expect(screen.getByTestId("artifact-viewer")).toBeInTheDocument();
+            // Discussion #352: Should pass jobId (required) and resultUrl (optional)
             expect(screen.getByTestId("artifact-viewer")).toHaveAttribute(
-                "data-url",
+                "data-job-id",
+                "video-123"
+            );
+            expect(screen.getByTestId("artifact-viewer")).toHaveAttribute(
+                "data-result-url",
                 "/v1/jobs/video-123/result"
             );
+        });
+
+        // Discussion #352: Verify jobId is passed (required prop for pagination)
+        it("should pass jobId to ArtifactViewer for pagination", () => {
+            const mockJob = createMockJobDone({
+                job_id: "job-pagination-test",
+                job_type: "video",
+                result_url: "/v1/jobs/job-pagination-test/result",
+                summary: { frame_count: 500 },
+            });
+
+            render(<ResultsPanel mode="job" job={mockJob} />);
+
+            const artifactViewer = screen.getByTestId("artifact-viewer");
+            // jobId must be passed for API-based pagination
+            expect(artifactViewer).toHaveAttribute("data-job-id", "job-pagination-test");
         });
 
         it("should show 'No result available' for job without result_url or summary", () => {

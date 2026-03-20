@@ -3,12 +3,17 @@
  *
  * Clean Break (Issue #350): Displays paginated frames from video jobs
  * instead of loading entire JSON into memory.
+ *
+ * Discussion #352: Uses apiClient.getJobResultPage for pagination
+ * instead of building URL from result_url (breaks S3 signed URLs).
  */
 
 import React, { useEffect, useState, useCallback } from "react";
+import { apiClient } from "../api/client";
 
 interface ArtifactViewerProps {
-    url: string;
+    jobId: string;           // Required: Used for API-based pagination
+    resultUrl?: string;      // Optional: Used for "Download Full JSON" button
 }
 
 interface ArtifactPage {
@@ -64,33 +69,32 @@ const styles: Record<string, React.CSSProperties> = {
     },
 };
 
-export function ArtifactViewer({ url }: ArtifactViewerProps): React.ReactElement {
+export function ArtifactViewer({ jobId, resultUrl }: ArtifactViewerProps): React.ReactElement {
     const [page, setPage] = useState(0);
     const [data, setData] = useState<ArtifactPage | null>(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
     const fetchData = useCallback(async () => {
-        if (!url) return;
+        if (!jobId) return;
 
         setLoading(true);
         setError(null);
 
         try {
-            const response = await fetch(
-                `${url}/page?offset=${page * PAGE_SIZE}&limit=${PAGE_SIZE}`
+            // Discussion #352: Use apiClient for pagination (preserves auth headers)
+            const json = await apiClient.getJobResultPage(
+                jobId,
+                page * PAGE_SIZE,
+                PAGE_SIZE
             );
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}`);
-            }
-            const json: ArtifactPage = await response.json();
             setData(json);
         } catch (err) {
             setError(err instanceof Error ? err.message : "Failed to load artifact");
         } finally {
             setLoading(false);
         }
-    }, [url, page]);
+    }, [jobId, page]);
 
     useEffect(() => {
         fetchData();
@@ -112,7 +116,10 @@ export function ArtifactViewer({ url }: ArtifactViewerProps): React.ReactElement
     };
 
     const handleDownload = (): void => {
-        window.open(url, "_blank");
+        // Use resultUrl for download (may be S3 signed URL)
+        if (resultUrl) {
+            window.open(resultUrl, "_blank");
+        }
     };
 
     return (

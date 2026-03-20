@@ -167,6 +167,19 @@ export class ForgeSyteAPIClient {
         return result;
     }
 
+    // Discussion #352: Paginated result fetching via API client
+    // Returns a page of frames for large video job results
+    async getJobResultPage(
+        jobId: string,
+        offset: number,
+        limit: number
+    ): Promise<{ offset: number; limit: number; total: number; frames: unknown[] }> {
+        const result = (await this.fetch(
+            `/jobs/${jobId}/result/page?offset=${offset}&limit=${limit}`
+        )) as { offset: number; limit: number; total: number; frames: unknown[] };
+        return result;
+    }
+
     async getHealth(): Promise<{
         status: string;
         plugins_loaded: number;

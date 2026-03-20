@@ -16,10 +16,15 @@ import { ResultsPanel } from "./ResultsPanel";
 import { createMockJob } from "../test-utils/factories";
 
 // Mock ArtifactViewer component
+// Discussion #352: ArtifactViewer now receives jobId (required) and resultUrl (optional)
 vi.mock("./ArtifactViewer", () => ({
-    ArtifactViewer: ({ url }: { url: string }) => (
-        <div data-testid="artifact-viewer" data-url={url}>
-            ArtifactViewer: {url}
+    ArtifactViewer: ({ jobId, resultUrl }: { jobId: string; resultUrl?: string }) => (
+        <div
+            data-testid="artifact-viewer"
+            data-job-id={jobId}
+            data-result-url={resultUrl || ""}
+        >
+            ArtifactViewer: jobId={jobId}
         </div>
     ),
 }));
@@ -102,6 +107,7 @@ describe("ResultsPanel performance guards", () => {
 
         it("should use ArtifactViewer for result_url", () => {
             const job = createMockJob({
+                job_id: "video-123",
                 status: "completed",
                 job_type: "video",
                 result_url: "/v1/jobs/video-123/result",
@@ -113,8 +119,13 @@ describe("ResultsPanel performance guards", () => {
             // ArtifactViewer should be rendered
             const artifactViewer = screen.getByTestId("artifact-viewer");
             expect(artifactViewer).toBeInTheDocument();
+            // Discussion #352: Should pass jobId and resultUrl
             expect(artifactViewer).toHaveAttribute(
-                "data-url",
+                "data-job-id",
+                "video-123"
+            );
+            expect(artifactViewer).toHaveAttribute(
+                "data-result-url",
                 "/v1/jobs/video-123/result"
             );
         });
