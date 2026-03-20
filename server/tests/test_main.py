@@ -372,3 +372,21 @@ def test_websocket_stream_subscribe_topic(mock_vision_service):
             assert response["type"] == "pong"
     finally:
         app.dependency_overrides.clear()
+
+
+# Discussion #355: Global OPTIONS handler for CORS preflight
+# Ensures tunnels/proxies that mishandle OPTIONS still see 200
+
+
+def test_options_handler_returns_200():
+    """Test that OPTIONS requests return 200 for any path.
+
+    Discussion #355: CORS preflight requests should always succeed
+    to prevent Next button delays when using tunnels/proxies.
+    """
+    client = TestClient(app)
+
+    # Test various paths
+    for path in ["/v1/jobs", "/v1/plugins", "/some/random/path", "/"]:
+        response = client.options(path)
+        assert response.status_code == 200, f"OPTIONS {path} should return 200"

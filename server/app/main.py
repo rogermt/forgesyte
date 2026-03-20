@@ -31,7 +31,7 @@ from fastapi import (
     WebSocketDisconnect,
 )
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import RedirectResponse
+from fastapi.responses import RedirectResponse, Response
 
 # Routers
 from .api import router as api_router
@@ -412,6 +412,12 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    # Discussion #355: Global OPTIONS handler for CORS preflight
+    # Ensures tunnels/proxies that mishandle OPTIONS still see 200
+    @app.options("/{path:path}")
+    def options_handler(path: str) -> Response:
+        return Response(status_code=200)
 
     # Routing
     app.include_router(api_router, prefix=settings.api_prefix)
