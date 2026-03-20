@@ -587,3 +587,75 @@ def test_worker_sync_mode_loads_plugins(test_engine, session):
 
     # Verify job completed
     assert updated_job.status == JobStatus.completed
+
+
+# Discussion #354: Pre-computed summary for /v1/jobs hot path
+@pytest.mark.unit
+def test_worker_stores_summary_on_completion(test_engine, session):
+    """Test worker computes and stores summary when job completes.
+
+    Discussion #354: Summary should be computed once during worker finalization
+    and stored in job.summary column to avoid loading full artifacts on /v1/jobs.
+    """
+    Session = sessionmaker(bind=test_engine)
+
+    mock_storage = MagicMock()
+    mock_plugin_service = MagicMock()
+
+    worker = JobWorker(
+        session_factory=Session,
+        storage=mock_storage,
+        plugin_service=mock_plugin_service,
+    )
+
+    # Create a pending video job
+    job_id = str(uuid4())
+    job = Job(
+        job_id=job_id,
+        status=JobStatus.pending,
+        plugin_id="yolo-tracker",
+        input_path="video/input/test.mp4",
+        job_type="video",
+    )
+    session.add(job)
+    session.flush()
+    job_tool = JobTool(job_id=job_id, tool_id="detect", tool_order=0)
+    session.add(job_tool)
+    session.commit()
+
+    # Setup mock behaviors
+    mock_storage.load_file.return_value = "/data/jobs/video/input/test.mp4"
+    mock_storage.save_file.return_value = "video/output/test.json"
+    mock_plugin_service.get_plugin_manifest.return_value = {
+        "tools": [{"id": "detect", "input_types": ["video"]}]
+    }
+    # Return video results with frames and detections
+    mock_plugin_service.run_plugin_tool.return_value = {
+        "total_frames": 10,
+        "frames": [
+            {"frame_idx": i, "detections": [{"class": "person"}, {"class": "car"}]}
+            for i in range(10)
+        ],
+    }
+
+    # Run worker
+    result = worker.run_once()
+
+    assert result is True
+
+    # Verify job completed
+    session.expire_all()
+    updated_job = session.query(Job).filter(Job.job_id == job_id).first()
+    assert updated_job.status == JobStatus.completed
+
+    # Discussion #354: Summary should be stored
+    assert updated_job.summary is not None, "Worker should compute and store summary"
+
+    # Verify summary content
+    summary = json.loads(updated_job.summary)
+    assert "frame_count" in summary
+    assert "detection_count" in summary
+    assert "classes" in summary
+    # 10 frames * 2 detections each = 20 total
+    assert summary["detection_count"] == 20
+    assert set(summary["classes"]) == {"person", "car"}

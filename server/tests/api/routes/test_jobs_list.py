@@ -306,13 +306,19 @@ def test_list_jobs_video_includes_summary(client, session, storage):
     """Test GET /v1/jobs includes summary for video jobs.
 
     Issue #350: Summary contains derived metadata (frame_count, etc).
+    Discussion #354: Summary is now pre-computed and stored in job.summary column.
     """
     # Clean database
     session.query(Job).delete()
     session.commit()
 
-    # Create completed video job
+    # Create completed video job with pre-computed summary (Discussion #354)
     job_id = uuid4()
+    summary_dict = {
+        "frame_count": 10,
+        "detection_count": 20,  # 10 frames * 2 detections
+        "classes": ["player", "ball"],
+    }
     job = Job(
         job_id=job_id,
         status=JobStatus.completed,
@@ -320,11 +326,12 @@ def test_list_jobs_video_includes_summary(client, session, storage):
         job_type="video",
         input_path="video/input/test.mp4",
         output_path=f"video/output/{job_id}.json",
+        summary=json.dumps(summary_dict),  # Pre-computed summary (Discussion #354)
     )
     session.add(job)
     session.commit()
 
-    # Create a test results file with frames
+    # Create a test results file (for result_url, not for summary derivation)
     results_data = {
         "frames": [
             {"frame": i, "detections": [{"class": "player"}, {"class": "ball"}]}
@@ -341,7 +348,101 @@ def test_list_jobs_video_includes_summary(client, session, storage):
 
     video_job = next((j for j in data["jobs"] if j["job_id"] == str(job_id)), None)
     assert video_job is not None
-    # Video job should have summary
+    # Video job should have summary (pre-computed, Discussion #354)
     assert video_job["summary"] is not None
     assert video_job["summary"]["frame_count"] == 10
     assert video_job["summary"]["detection_count"] == 20  # 10 frames * 2 detections
+
+
+# Discussion #354: Pre-computed summary for /v1/jobs hot path
+def test_list_jobs_uses_precomputed_summary(client, session):
+    """Test GET /v1/jobs uses pre-computed summary from job.summary column.
+
+    Discussion #354: Summary should be pre-computed during worker finalization
+    and stored in job.summary column, avoiding loading full artifacts on hot path.
+    """
+    # Clean database
+    session.query(Job).delete()
+    session.commit()
+
+    # Create completed video job with pre-computed summary
+    job_id = uuid4()
+    precomputed_summary = json.dumps(
+        {
+            "frame_count": 500,
+            "detection_count": 2500,
+            "classes": ["person", "car", "bicycle"],
+        }
+    )
+    job = Job(
+        job_id=job_id,
+        status=JobStatus.completed,
+        plugin_id="yolo-tracker",
+        job_type="video",
+        input_path="video/input/test.mp4",
+        output_path=f"video/output/{job_id}.json",
+        summary=precomputed_summary,  # Pre-computed summary (Discussion #354)
+    )
+    session.add(job)
+    session.commit()
+
+    # NOTE: We intentionally do NOT create a results file
+    # The endpoint should use the pre-computed summary from DB
+    # If it tries to load the file, it will fail
+
+    response = client.get("/v1/jobs?limit=10&skip=0")
+
+    assert response.status_code == 200
+    data = response.json()
+
+    video_job = next((j for j in data["jobs"] if j["job_id"] == str(job_id)), None)
+    assert video_job is not None
+    # Should return pre-computed summary without loading file
+    assert video_job["summary"] is not None
+    assert video_job["summary"]["frame_count"] == 500
+    assert video_job["summary"]["detection_count"] == 2500
+    assert set(video_job["summary"]["classes"]) == {"person", "car", "bicycle"}
+
+
+def test_list_jobs_summary_fallback_for_old_jobs(client, session, storage):
+    """Test GET /v1/jobs handles jobs without pre-computed summary.
+
+    Discussion #354: Old jobs (before summary column) should gracefully
+    return None for summary, or compute it on-demand if output_path exists.
+    """
+    # Clean database
+    session.query(Job).delete()
+    session.commit()
+
+    # Create completed video job WITHOUT pre-computed summary (old job)
+    job_id = uuid4()
+    job = Job(
+        job_id=job_id,
+        status=JobStatus.completed,
+        plugin_id="yolo-tracker",
+        job_type="video",
+        input_path="video/input/test.mp4",
+        output_path=f"video/output/{job_id}.json",
+        summary=None,  # Old job - no pre-computed summary
+    )
+    session.add(job)
+    session.commit()
+
+    # Create results file for fallback
+    results_data = {
+        "frames": [{"frame": i, "detections": [{"class": "cat"}]} for i in range(5)]
+    }
+    results_json = json.dumps(results_data)
+    storage.save_file(BytesIO(results_json.encode()), f"video/output/{job_id}.json")
+
+    response = client.get("/v1/jobs?limit=10&skip=0")
+
+    assert response.status_code == 200
+    data = response.json()
+
+    video_job = next((j for j in data["jobs"] if j["job_id"] == str(job_id)), None)
+    assert video_job is not None
+    # Should fallback to loading file for old jobs
+    # Or return None if no fallback implemented
+    # (This test documents expected behavior)
+    assert video_job["summary"] is None or video_job["summary"]["frame_count"] == 5

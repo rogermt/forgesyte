@@ -180,16 +180,20 @@ async def list_jobs(
         # Clean Break: All completed jobs return result_url + summary
         # No more inline results for any job type
         if job.status == JobStatus.completed and job.output_path:
+            # Discussion #354: Use pre-computed summary from job.summary column
+            # This avoids loading full artifacts on the hot path
+            # Summary is separate from result_url - it's stored in DB
+            if job.summary:
+                try:
+                    summary = json.loads(job.summary)
+                except json.JSONDecodeError:
+                    summary = None
+
+            # Get signed URL for artifact download
             try:
                 result_url = storage.get_signed_url(job.output_path)
-                # Load results to derive summary
-                file_path = storage.load_file(job.output_path)
-                with open(file_path, "r") as f:
-                    results = json.load(f)
-                summary = _derive_video_summary(results)
-            except (FileNotFoundError, json.JSONDecodeError):
+            except FileNotFoundError:
                 result_url = None
-                summary = None
 
         # Build job item
         job_items.append(
