@@ -1,5 +1,6 @@
 """Local filesystem storage implementation."""
 
+import re
 from pathlib import Path
 from typing import BinaryIO
 
@@ -97,7 +98,14 @@ class LocalStorageService(StorageService):
         if not full_path.exists():
             raise FileNotFoundError(f"File not found: {full_path}")
 
-        # For local storage, return the stream endpoint URL
-        # The job_id is extracted from the path (e.g., video/output/{job_id}.json)
-        # This is a simplified approach - the actual endpoint handles the fetch
+        # Extract job_id from path (e.g., video/output/{job_id}.json)
+        # UUID format: 8-4-4-4-12 hex characters
+        match = re.search(
+            r"([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})", path
+        )
+        if match:
+            job_id = match.group(1)
+            return f"/v1/jobs/{job_id}/result?mode=stream"
+
+        # Fallback for unexpected path formats - should not happen in production
         return f"/v1/jobs/result?path={path}"

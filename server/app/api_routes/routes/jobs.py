@@ -10,7 +10,7 @@ Issue #350: Added GET /v1/jobs/{job_id}/result endpoint for lazy loading.
 """
 
 import json
-from typing import List
+from typing import List, Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -84,7 +84,13 @@ def _derive_video_summary(results: dict) -> dict:
         tool_classes: set = set()
 
         for _tool_name, tool_results in tools.items():
+            # Defensive: skip if tool_results is not a dict (malformed data)
+            if not isinstance(tool_results, dict):
+                continue
             tool_frames = tool_results.get("frames", [])
+            # Defensive: skip if tool_frames is not a list
+            if not isinstance(tool_frames, list):
+                continue
             for frame in tool_frames:
                 detections = frame.get("detections", [])
                 tool_detections += len(detections)
@@ -387,7 +393,7 @@ class JobResultResponse(BaseModel):
 @router.get("/v1/jobs/{job_id}/result")
 async def get_job_result(
     job_id: UUID,
-    mode: str = Query(
+    mode: Literal["redirect", "stream"] = Query(
         "redirect", description="'redirect' returns URL, 'stream' returns JSON"
     ),
     db: Session = Depends(get_db),
