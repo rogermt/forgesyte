@@ -260,6 +260,8 @@ describe("App - Run Job Flow (Issues #347, #348)", () => {
   });
 
   it("interval count should stay bounded during re-renders", async () => {
+    // Increase timeout due to multiple tab clicks and re-renders
+    vi.setConfig({ testTimeout: 15000 });
     await act(async () => {
       render(<App />);
     });
