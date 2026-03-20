@@ -5,11 +5,23 @@
  * API References:
  * - Job: GET /v1/jobs/{id} (fixtures/api-responses.json)
  * - FrameResult: WebSocket /v1/stream (fixtures/api-responses.json)
+ *
+ * Clean Break (Issue #350): No more inline results - use result_url and ArtifactViewer
  */
 
+import { vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import { ResultsPanel } from "./ResultsPanel";
 import { createMockFrameResult, createMockJobDone } from "../test-utils/factories";
+
+// Mock ArtifactViewer component
+vi.mock("./ArtifactViewer", () => ({
+    ArtifactViewer: ({ url }: { url: string }) => (
+        <div data-testid="artifact-viewer" data-url={url}>
+            ArtifactViewer: {url}
+        </div>
+    ),
+}));
 
 describe("ResultsPanel - Styling Updates", () => {
     describe("heading and layout", () => {
@@ -93,13 +105,15 @@ describe("ResultsPanel - Styling Updates", () => {
             expect(screen.getByText(/Status: completed/)).toBeInTheDocument();
         });
 
-        it("should display JSON result in code block", () => {
+        it("should display summary in code block for completed jobs", () => {
             const { container } = render(
                 <ResultsPanel mode="job" job={mockJob} />
             );
 
             const preBlock = container.querySelector("pre");
             expect(preBlock).toBeInTheDocument();
+            // Summary should be displayed
+            expect(preBlock?.textContent).toContain("frame_count");
         });
 
         it("should show prompt when no job selected", () => {
@@ -152,63 +166,62 @@ describe("ResultsPanel - Styling Updates", () => {
         });
     });
 
-    // Issue #350: Artifact Pattern - lazy loading for video jobs
-    describe("video job lazy loading", () => {
-        it("should show summary for video job with result_url", () => {
-            const mockVideoJob = createMockJobDone({
+    // Issue #350: Clean Break - Artifact Pattern
+    describe("Clean Break - Artifact Pattern", () => {
+        it("should show summary for job with result_url", () => {
+            const mockJob = createMockJobDone({
                 job_type: "video",
                 result_url: "/v1/jobs/video-123/result",
                 summary: { frame_count: 100, detection_count: 50, classes: ["player", "ball"] },
-                results: undefined,
-                result: undefined,
             });
 
-            render(<ResultsPanel mode="job" job={mockVideoJob} />);
+            render(<ResultsPanel mode="job" job={mockJob} />);
 
+            // Summary should be displayed
+            expect(screen.getByText(/Summary/)).toBeInTheDocument();
             expect(screen.getByText(/frame_count/)).toBeInTheDocument();
             expect(screen.getByText(/100/)).toBeInTheDocument();
-            expect(screen.getByText(/detection_count/)).toBeInTheDocument();
-            expect(screen.getByText(/50/)).toBeInTheDocument();
         });
 
-        it("should show 'Load Results' button for video job with result_url", () => {
-            const mockVideoJob = createMockJobDone({
+        it("should use ArtifactViewer for job with result_url", () => {
+            const mockJob = createMockJobDone({
                 job_type: "video",
                 result_url: "/v1/jobs/video-123/result",
-                summary: { frame_count: 100, detection_count: 50 },
-                results: undefined,
-                result: undefined,
+                summary: { frame_count: 100 },
             });
 
-            render(<ResultsPanel mode="job" job={mockVideoJob} />);
+            render(<ResultsPanel mode="job" job={mockJob} />);
 
-            expect(screen.getByText(/Load Results/)).toBeInTheDocument();
+            // ArtifactViewer should be rendered
+            expect(screen.getByTestId("artifact-viewer")).toBeInTheDocument();
+            expect(screen.getByTestId("artifact-viewer")).toHaveAttribute(
+                "data-url",
+                "/v1/jobs/video-123/result"
+            );
         });
 
-        it("should NOT show 'Load Results' button for image job without result_url", () => {
-            const mockImageJob = createMockJobDone({
-                job_type: "image",
+        it("should show 'No result available' for job without result_url or summary", () => {
+            const mockJob = createMockJobDone({
                 result_url: undefined,
                 summary: undefined,
-                results: { text: "extracted text" },
             });
 
-            render(<ResultsPanel mode="job" job={mockImageJob} />);
+            render(<ResultsPanel mode="job" job={mockJob} />);
 
-            expect(screen.queryByText(/Load Results/)).not.toBeInTheDocument();
+            expect(screen.getByText(/No result available/)).toBeInTheDocument();
         });
 
-        it("should show 'too large' message for video_multi without result_url", () => {
-            const mockVideoMultiJob = createMockJobDone({
-                job_type: "video_multi",
-                result_url: undefined,
-                summary: undefined,
-                results: { tools: {} },
+        it("should NOT have inline results field", () => {
+            const mockJob = createMockJobDone({
+                job_type: "video",
+                result_url: "/v1/jobs/video-123/result",
+                summary: { frame_count: 100 },
             });
 
-            render(<ResultsPanel mode="job" job={mockVideoMultiJob} />);
+            render(<ResultsPanel mode="job" job={mockJob} />);
 
-            expect(screen.getByText(/too large to render/)).toBeInTheDocument();
+            // Should not show old "Raw Result" or inline JSON display
+            expect(screen.queryByText(/Raw Result/)).not.toBeInTheDocument();
         });
     });
 });

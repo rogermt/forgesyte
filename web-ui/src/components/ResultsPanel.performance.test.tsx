@@ -1,8 +1,11 @@
 /**
  * Performance tests for ResultsPanel component
  *
+ * Clean Break (Issue #350): No more inline results.
+ * All results are loaded via ArtifactViewer with pagination.
+ *
  * These tests ensure the UI doesn't freeze when handling large results
- * (e.g., video_multi jobs with ~1.7MB JSON results).
+ * (e.g., video jobs with ~1.7MB JSON results).
  *
  * See: https://github.com/rogermt/forgesyte/discussions/349
  */
@@ -12,130 +15,156 @@ import { render, screen } from "@testing-library/react";
 import { ResultsPanel } from "./ResultsPanel";
 import { createMockJob } from "../test-utils/factories";
 
+// Mock ArtifactViewer component
+vi.mock("./ArtifactViewer", () => ({
+    ArtifactViewer: ({ url }: { url: string }) => (
+        <div data-testid="artifact-viewer" data-url={url}>
+            ArtifactViewer: {url}
+        </div>
+    ),
+}));
+
 describe("ResultsPanel performance guards", () => {
-  let stringifySpy: ReturnType<typeof vi.spyOn>;
+    let stringifySpy: ReturnType<typeof vi.spyOn>;
 
-  beforeEach(() => {
-    stringifySpy = vi.spyOn(JSON, "stringify");
-  });
-
-  afterEach(() => {
-    stringifySpy.mockRestore();
-  });
-
-  describe("video_multi job type", () => {
-    it("should NOT stringify the video_multi result object (prevents UI freeze)", () => {
-      // CRITICAL: This test catches the fairy story where useMemo calls JSON.stringify
-      // BEFORE the JSX guard runs. The freeze happens because 1.7MB JSON is stringified
-      // even though it's never displayed.
-      // See: https://github.com/rogermt/forgesyte/discussions/349
-
-      const bigResult = { data: "x".repeat(1_000_000) };
-
-      // Spy MUST be set up BEFORE render to catch useMemo calls
-      const stringifySpy = vi.spyOn(JSON, "stringify");
-
-      const job = createMockJob({
-        status: "completed",
-        job_type: "video_multi",
-        results: bigResult,
-      });
-
-      render(<ResultsPanel mode="job" job={job} />);
-
-      // The fix: JSON.stringify should NEVER be called with our bigResult
-      // (React internals may call JSON.stringify for CSS-in-JS, but that's fine)
-      expect(stringifySpy).not.toHaveBeenCalledWith(
-        bigResult,
-        expect.anything(),
-        expect.anything()
-      );
-
-      stringifySpy.mockRestore();
+    beforeEach(() => {
+        stringifySpy = vi.spyOn(JSON, "stringify");
     });
 
-    it("should NOT stringify huge video_multi results", () => {
-      // Simulate a 1MB+ result from video_multi job
-      const bigResult = { data: "x".repeat(1_000_000) };
-
-      const job = createMockJob({
-        status: "completed",
-        job_type: "video_multi",
-        results: bigResult,
-      });
-
-      render(<ResultsPanel mode="job" job={job} />);
-
-      // For video_multi we should NOT call JSON.stringify on the huge result
-      expect(stringifySpy).not.toHaveBeenCalledWith(
-        bigResult,
-        expect.anything(),
-        expect.anything()
-      );
+    afterEach(() => {
+        stringifySpy.mockRestore();
     });
 
-    it("should display message for video_multi instead of rendering JSON", () => {
-      const bigResult = { data: "x".repeat(1_000_000) };
+    describe("Clean Break - Artifact Pattern", () => {
+        it("should NOT have inline results field in job", () => {
+            // Clean Break: Jobs no longer have inline results
+            const job = createMockJob({
+                status: "completed",
+                job_type: "video",
+                result_url: "/v1/jobs/test-job/result",
+                summary: { frame_count: 1000, detection_count: 5000 },
+            });
 
-      const job = createMockJob({
-        status: "completed",
-        job_type: "video_multi",
-        results: bigResult,
-      });
+            render(<ResultsPanel mode="job" job={job} />);
 
-      render(<ResultsPanel mode="job" job={job} />);
+            // Should display summary (small JSON)
+            expect(screen.getByText(/Summary/)).toBeInTheDocument();
 
-      // Should show job type in meta info
-      const videoMultiElements = screen.getAllByText(/video_multi/);
-      expect(videoMultiElements.length).toBeGreaterThanOrEqual(1);
+            // Should use ArtifactViewer for results
+            expect(screen.getByTestId("artifact-viewer")).toBeInTheDocument();
+        });
 
-      // Should show message about large result in the pre block
-      expect(
-        screen.getByText(/too large to render/i)
-      ).toBeInTheDocument();
+        it("should NOT stringify large results - uses pagination instead", () => {
+            // Large video job - results are paginated, not loaded into memory
+            const job = createMockJob({
+                status: "completed",
+                job_type: "video",
+                result_url: "/v1/jobs/test-job/result",
+                summary: {
+                    frame_count: 10000,
+                    detection_count: 50000,
+                    classes: ["player", "ball", "referee"],
+                },
+            });
+
+            render(<ResultsPanel mode="job" job={job} />);
+
+            // Should only stringify the small summary
+            // NOT a huge result object
+            const bigResult = { data: "x".repeat(1_000_000) };
+            expect(stringifySpy).not.toHaveBeenCalledWith(
+                bigResult,
+                expect.anything(),
+                expect.anything()
+            );
+        });
+
+        it("should display summary without loading full results", () => {
+            const job = createMockJob({
+                status: "completed",
+                job_type: "video_multi",
+                result_url: "/v1/jobs/test-job/result",
+                summary: {
+                    frame_count: 5000,
+                    detection_count: 25000,
+                    classes: ["person", "car", "bicycle"],
+                },
+            });
+
+            render(<ResultsPanel mode="job" job={job} />);
+
+            // Summary should be visible immediately
+            expect(screen.getByText(/frame_count/)).toBeInTheDocument();
+            expect(screen.getByText(/5000/)).toBeInTheDocument();
+            expect(screen.getByText(/detection_count/)).toBeInTheDocument();
+            expect(screen.getByText(/25000/)).toBeInTheDocument();
+        });
+
+        it("should use ArtifactViewer for result_url", () => {
+            const job = createMockJob({
+                status: "completed",
+                job_type: "video",
+                result_url: "/v1/jobs/video-123/result",
+                summary: { frame_count: 100 },
+            });
+
+            render(<ResultsPanel mode="job" job={job} />);
+
+            // ArtifactViewer should be rendered
+            const artifactViewer = screen.getByTestId("artifact-viewer");
+            expect(artifactViewer).toBeInTheDocument();
+            expect(artifactViewer).toHaveAttribute(
+                "data-url",
+                "/v1/jobs/video-123/result"
+            );
+        });
+
+        it("should show 'No result available' when no result_url or summary", () => {
+            const job = createMockJob({
+                status: "completed",
+                result_url: undefined,
+                summary: undefined,
+            });
+
+            render(<ResultsPanel mode="job" job={job} />);
+
+            expect(screen.getByText(/No result available/)).toBeInTheDocument();
+        });
     });
-  });
 
-  describe("normal job results", () => {
-    it("should stringify normal job results", () => {
-      const result = { foo: "bar" };
+    describe("Summary rendering", () => {
+        it("should stringify summary for display", () => {
+            const summary = {
+                frame_count: 100,
+                detection_count: 200,
+                classes: ["a", "b"],
+            };
 
-      const job = createMockJob({
-        status: "completed",
-        job_type: "image",
-        results: result,
-      });
+            const job = createMockJob({
+                status: "completed",
+                job_type: "video",
+                result_url: "/v1/jobs/test-job/result",
+                summary,
+            });
 
-      render(<ResultsPanel mode="job" job={job} />);
+            render(<ResultsPanel mode="job" job={job} />);
 
-      // Normal jobs should stringify the result
-      expect(stringifySpy).toHaveBeenCalledWith(
-        result,
-        null,
-        2
-      );
+            // Summary is a small object, safe to stringify
+            expect(stringifySpy).toHaveBeenCalledWith(summary, null, 2);
+        });
+
+        it("should handle missing summary gracefully", () => {
+            const job = createMockJob({
+                status: "completed",
+                job_type: "video",
+                result_url: "/v1/jobs/test-job/result",
+                summary: undefined,
+            });
+
+            render(<ResultsPanel mode="job" job={job} />);
+
+            // Should still render ArtifactViewer
+            expect(screen.getByTestId("artifact-viewer")).toBeInTheDocument();
+        });
     });
-
-    it("should use memoization for repeated renders", () => {
-      const result = { foo: "bar" };
-
-      const job = createMockJob({
-        status: "completed",
-        job_type: "image",
-        results: result,
-      });
-
-      const { rerender } = render(<ResultsPanel mode="job" job={job} />);
-
-      // Clear the spy after initial render
-      const initialCallCount = stringifySpy.mock.calls.length;
-
-      // Re-render with same job (result reference unchanged)
-      rerender(<ResultsPanel mode="job" job={job} />);
-
-      // Stringify should not be called again for the same result
-      // (memoization should prevent re-stringifying)
-      expect(stringifySpy.mock.calls.length).toBe(initialCallCount);
-    });
-  });
 });

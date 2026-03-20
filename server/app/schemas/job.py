@@ -36,12 +36,13 @@ class JobResultsResponse(BaseModel):
     Issue #296: Added plugin_id, fixed progress type to int.
     v0.15.1: Replaced tool_list with tools from job_tools table.
     Issue #350: Added result_url and summary for Artifact Pattern (lazy loading).
+    Clean Break: Removed inline 'results' field - all results stored as artifacts.
     """
 
     job_id: UUID
     status: str  # "pending", "running", "completed", "failed"
     plugin_id: str  # Issue #296: Was missing, DB has NOT NULL
-    results: dict | None
+    # Clean Break: No inline results - use result_url for lazy loading
     result_url: Optional[str] = None  # Issue #350: URL for lazy loading video results
     summary: Optional[dict] = None  # Issue #350: Derived metadata (frame_count, etc.)
     tool: Optional[str] = None  # First tool (for backward compatibility)
@@ -69,6 +70,7 @@ class JobListItem(BaseModel):
 
     Issue #296: Fixed progress type to match DB model (Integer, not float).
     Issue #350: Added result_url and summary for Artifact Pattern (lazy loading).
+    Clean Break: Removed inline 'result' field - all results stored as artifacts.
     """
 
     job_id: str
@@ -76,7 +78,7 @@ class JobListItem(BaseModel):
     plugin: str  # plugin_id
     created_at: datetime
     completed_at: Optional[datetime] = None
-    result: Optional[dict] = None
+    # Clean Break: No inline result - use result_url for lazy loading
     result_url: Optional[str] = None  # Issue #350: URL for lazy loading video results
     summary: Optional[dict] = None  # Issue #350: Derived metadata (frame_count, etc.)
     error: Optional[str] = None

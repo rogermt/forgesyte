@@ -143,34 +143,22 @@ async def list_jobs(
         # Calculate progress
         progress = _calculate_progress(job.status)
 
-        # Issue #350: Handle video jobs differently
-        is_video_job = job.job_type in ("video", "video_multi")
-
-        result = None
         result_url = None
         summary = None
 
+        # Clean Break: All completed jobs return result_url + summary
+        # No more inline results for any job type
         if job.status == JobStatus.completed and job.output_path:
-            if is_video_job:
-                # Video jobs: return result_url and derive summary
-                try:
-                    result_url = storage.get_signed_url(job.output_path)
-                    # Load results to derive summary
-                    file_path = storage.load_file(job.output_path)
-                    with open(file_path, "r") as f:
-                        results = json.load(f)
-                    summary = _derive_video_summary(results)
-                except (FileNotFoundError, json.JSONDecodeError):
-                    result_url = None
-                    summary = None
-            else:
-                # Image jobs: return inline result (backward compatible)
-                try:
-                    file_path = storage.load_file(job.output_path)
-                    with open(file_path, "r") as f:
-                        result = json.load(f)
-                except (FileNotFoundError, json.JSONDecodeError):
-                    result = None
+            try:
+                result_url = storage.get_signed_url(job.output_path)
+                # Load results to derive summary
+                file_path = storage.load_file(job.output_path)
+                with open(file_path, "r") as f:
+                    results = json.load(f)
+                summary = _derive_video_summary(results)
+            except (FileNotFoundError, json.JSONDecodeError):
+                result_url = None
+                summary = None
 
         # Build job item
         job_items.append(
@@ -184,7 +172,6 @@ async def list_jobs(
                     if job.status in (JobStatus.completed, JobStatus.failed)
                     else None
                 ),
-                result=result,
                 result_url=result_url,  # Issue #350
                 summary=summary,  # Issue #350
                 error=job.error_message,
@@ -270,7 +257,6 @@ async def get_job(job_id: UUID, db: Session = Depends(get_db)) -> JobResultsResp
             job_id=job.job_id,
             status=job.status.value,  # Issue #211: Include status
             plugin_id=job.plugin_id,  # Issue #296: Was missing
-            results=None,
             result_url=None,  # Issue #350
             summary=None,  # Issue #350
             tool=tools[0] if tools else None,
@@ -285,10 +271,10 @@ async def get_job(job_id: UUID, db: Session = Depends(get_db)) -> JobResultsResp
             updated_at=job.updated_at,
         )
 
-    # Issue #350: Handle video jobs differently
-    is_video_job = job.job_type in ("video", "video_multi")
+    # Clean Break: All completed jobs return result_url + summary
+    # No more inline results for any job type
 
-    # Load results from storage
+    # Load results from storage to derive summary
     try:
         results_path = job.output_path
         file_path = storage.load_file(results_path)
@@ -299,42 +285,20 @@ async def get_job(job_id: UUID, db: Session = Depends(get_db)) -> JobResultsResp
     except json.JSONDecodeError as err:
         raise HTTPException(status_code=500, detail="Invalid results file") from err
 
-    # Issue #350: For video jobs, return result_url and summary
-    if is_video_job:
-        result_url = storage.get_signed_url(job.output_path)
-        summary = _derive_video_summary(results)
-        return JobResultsResponse(
-            job_id=job.job_id,
-            status=job.status.value,
-            plugin_id=job.plugin_id,
-            results=None,  # Don't return inline results for video
-            result_url=result_url,
-            summary=summary,
-            tool=tools[0] if tools else None,
-            tools=tools if len(tools) > 1 else None,
-            job_type=job.job_type,
-            error_message=job.error_message,
-            progress=job.progress,
-            current_tool=current_tool,
-            tools_total=tools_total,
-            tools_completed=tools_completed,
-            created_at=job.created_at,
-            updated_at=job.updated_at,
-        )
-
-    # Image jobs: return inline results (backward compatible)
+    # Return result_url and summary for all completed jobs
+    result_url = storage.get_signed_url(job.output_path)
+    summary = _derive_video_summary(results)
     return JobResultsResponse(
         job_id=job.job_id,
-        status=job.status.value,  # Issue #211: Include status
-        plugin_id=job.plugin_id,  # Issue #296: Was missing
-        results=results,
-        result_url=None,  # Issue #350: Not needed for image jobs
-        summary=None,  # Issue #350: Not needed for image jobs
+        status=job.status.value,
+        plugin_id=job.plugin_id,
+        result_url=result_url,
+        summary=summary,
         tool=tools[0] if tools else None,
         tools=tools if len(tools) > 1 else None,
         job_type=job.job_type,
         error_message=job.error_message,
-        progress=job.progress,  # Issue #296: Return int directly, DB stores Integer
+        progress=job.progress,
         current_tool=current_tool,
         tools_total=tools_total,
         tools_completed=tools_completed,
@@ -454,3 +418,78 @@ async def get_job_result(
         return JobResultResponse(result_url=result_url)
     except FileNotFoundError:
         raise HTTPException(status_code=404, detail="Results file not found") from None
+
+
+class JobResultPageResponse(BaseModel):
+    """Response for GET /v1/jobs/{job_id}/result/page endpoint.
+
+    Clean Break (Issue #350): Paginated access to large video results.
+    """
+
+    offset: int
+    limit: int
+    total: int
+    frames: List[dict]
+
+
+@router.get("/v1/jobs/{job_id}/result/page")
+async def get_job_result_page(
+    job_id: UUID,
+    offset: int = Query(0, ge=0, description="Number of frames to skip"),
+    limit: int = Query(200, ge=1, le=1000, description="Max frames to return"),
+    db: Session = Depends(get_db),
+) -> JobResultPageResponse:
+    """Get paginated frames from video job results.
+
+    Clean Break (Issue #350): Pagination for large video results.
+    Returns frames array with offset/limit pagination.
+
+    Args:
+        job_id: UUID of the job
+        offset: Number of frames to skip (default 0)
+        limit: Max frames to return (default 200, max 1000)
+        db: Database session
+
+    Returns:
+        JobResultPageResponse with offset, limit, total, frames
+
+    Raises:
+        HTTPException: 404 if job not found, no results, or file missing
+    """
+    job = db.query(Job).filter(Job.job_id == job_id).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    # Check if job has results
+    if job.status != JobStatus.completed:
+        raise HTTPException(status_code=404, detail="Job has no results yet")
+
+    if not job.output_path:
+        raise HTTPException(status_code=404, detail="Job has no results file")
+
+    # Load results file
+    try:
+        file_path = storage.load_file(job.output_path)
+        with open(file_path, "r") as f:
+            results = json.load(f)
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="Results file not found") from None
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=500, detail="Invalid results file") from None
+
+    # Extract frames array
+    frames = results.get("frames", [])
+    if not isinstance(frames, list):
+        frames = []
+
+    total = len(frames)
+
+    # Apply pagination
+    paginated_frames = frames[offset : offset + limit]
+
+    return JobResultPageResponse(
+        offset=offset,
+        limit=limit,
+        total=total,
+        frames=paginated_frames,
+    )

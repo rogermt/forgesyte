@@ -34,11 +34,9 @@ export interface Job {
     tool_list?: string[];  // DEPRECATED: Use tools instead (kept for backward compatibility)
     job_type?: "image" | "image_multi" | "video" | "video_multi";  // v0.9.8: added video_multi
     plugin?: string;  // Legacy: kept for backward compatibility
-    results?: Record<string, unknown>;  // v0.9.2: results from server
-    result?: Record<string, unknown>;  // Legacy: kept for backward compatibility
-    // Issue #350: Artifact Pattern - lazy loading for video jobs
-    result_url?: string;  // v0.15.9: URL to fetch large video results on-demand
-    summary?: Record<string, unknown>;  // v0.15.9: Lightweight summary (frame_count, detection_count, classes)
+    // Clean Break (Issue #350): No more inline results - use result_url for lazy loading
+    result_url?: string;  // URL to fetch results on-demand
+    summary?: Record<string, unknown>;  // Lightweight summary (frame_count, detection_count, classes)
     error_message?: string | null;  // v0.9.2: error_message from server
     error?: string | null;  // Legacy: kept for backward compatibility
     created_at: string;
