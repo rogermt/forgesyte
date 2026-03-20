@@ -225,26 +225,45 @@ describe("ArtifactViewer", () => {
     });
 
     it("disables next button on last page", async () => {
-        // On last page, offset + limit >= total
+        // Start on page 0 with 500 total frames (3 pages)
         mockGetJobResultPage.mockResolvedValueOnce({
-            offset: 400,
+            offset: 0,
             limit: 200,
-            total: 500,  // offset 400 + limit 200 = 600 > 500, so last page
+            total: 500,
             frames: [],
         });
 
         render(<ArtifactViewer jobId="test-job-last-page" />);
 
         await waitFor(() => {
-            // The component calculates canNext = (page + 1) * PAGE_SIZE < total
-            // For page 0 with offset 400: (0 + 1) * 200 = 200 < 500, so next is enabled
-            // But the response has offset=400, meaning the component should be on page 2
-            // Let me check: page 2 * 200 = 400 offset, (2+1)*200 = 600 > 500, so disabled
-            // But the component starts at page 0 regardless of response offset
+            expect(screen.getByText(/Page 1 of 3/)).toBeInTheDocument();
+        });
+
+        // Navigate to page 2 (last page)
+        mockGetJobResultPage.mockResolvedValueOnce({
+            offset: 200,
+            limit: 200,
+            total: 500,
+            frames: [],
+        });
+        fireEvent.click(screen.getByText(/next/i));
+
+        await waitFor(() => {
+            expect(screen.getByText(/Page 2 of 3/)).toBeInTheDocument();
+        });
+
+        mockGetJobResultPage.mockResolvedValueOnce({
+            offset: 400,
+            limit: 200,
+            total: 500,
+            frames: [],
+        });
+        fireEvent.click(screen.getByText(/next/i));
+
+        await waitFor(() => {
+            expect(screen.getByText(/Page 3 of 3/)).toBeInTheDocument();
             const nextButton = screen.getByText(/next/i);
-            // Since component starts at page 0, canNext = 200 < 500 = true
-            // So next should be enabled. Let me fix the test.
-            expect(nextButton).not.toBeDisabled();
+            expect(nextButton).toBeDisabled();
         });
     });
 
@@ -295,9 +314,9 @@ describe("ArtifactViewer", () => {
     });
 
     it("fetches previous page when prev button clicked", async () => {
-        // Start on page 1
+        // Start on page 0
         mockGetJobResultPage.mockResolvedValueOnce({
-            offset: 200,
+            offset: 0,
             limit: 200,
             total: 500,
             frames: [],
@@ -309,7 +328,21 @@ describe("ArtifactViewer", () => {
             expect(mockGetJobResultPage).toHaveBeenCalledTimes(1);
         });
 
-        // Mock prev page fetch
+        // Navigate to page 1 first
+        mockGetJobResultPage.mockResolvedValueOnce({
+            offset: 200,
+            limit: 200,
+            total: 500,
+            frames: [],
+        });
+
+        fireEvent.click(screen.getByText(/next/i));
+
+        await waitFor(() => {
+            expect(mockGetJobResultPage).toHaveBeenCalledWith("test-job-prev", 200, 200);
+        });
+
+        // Now click prev to go back to page 0
         mockGetJobResultPage.mockResolvedValueOnce({
             offset: 0,
             limit: 200,
@@ -344,6 +377,97 @@ describe("ArtifactViewer", () => {
             const preBlock = container.querySelector("pre");
             expect(preBlock?.textContent).toContain("person");
             expect(preBlock?.textContent).toContain("car");
+        });
+    });
+
+    // Discussion #353: Page should reset when jobId changes
+    describe("page reset on jobId change (Discussion #353)", () => {
+        it("should reset page to 0 when jobId prop changes", async () => {
+            // First job - fetch page 0, then navigate to page 2
+            mockGetJobResultPage.mockResolvedValueOnce({
+                offset: 0,
+                limit: 200,
+                total: 600,
+                frames: [],
+            });
+
+            const { rerender } = render(<ArtifactViewer jobId="job-A" />);
+
+            await waitFor(() => {
+                expect(mockGetJobResultPage).toHaveBeenCalledWith("job-A", 0, 200);
+            });
+
+            // Navigate to page 2 (click next twice)
+            mockGetJobResultPage.mockResolvedValueOnce({
+                offset: 200,
+                limit: 200,
+                total: 600,
+                frames: [],
+            });
+            fireEvent.click(screen.getByText(/next/i));
+
+            await waitFor(() => {
+                expect(mockGetJobResultPage).toHaveBeenCalledWith("job-A", 200, 200);
+            });
+
+            mockGetJobResultPage.mockResolvedValueOnce({
+                offset: 400,
+                limit: 200,
+                total: 600,
+                frames: [],
+            });
+            fireEvent.click(screen.getByText(/next/i));
+
+            await waitFor(() => {
+                expect(mockGetJobResultPage).toHaveBeenCalledWith("job-A", 400, 200);
+            });
+
+            // Now switch to a different job - should reset to page 0
+            mockGetJobResultPage.mockResolvedValueOnce({
+                offset: 0,
+                limit: 200,
+                total: 100,
+                frames: [],
+            });
+
+            rerender(<ArtifactViewer jobId="job-B" />);
+
+            await waitFor(() => {
+                // Should fetch page 0 for the new job, NOT page 2
+                expect(mockGetJobResultPage).toHaveBeenCalledWith("job-B", 0, 200);
+            });
+        });
+
+        it("should clear data when jobId changes", async () => {
+            // First job with specific data
+            mockGetJobResultPage.mockResolvedValueOnce({
+                offset: 0,
+                limit: 200,
+                total: 500,
+                frames: [{ frame: 0, data: "job-A-data" }],
+            });
+
+            const { rerender, container } = render(<ArtifactViewer jobId="job-A" />);
+
+            await waitFor(() => {
+                expect(container.querySelector("pre")?.textContent).toContain("job-A-data");
+            });
+
+            // Switch to new job with different data
+            mockGetJobResultPage.mockResolvedValueOnce({
+                offset: 0,
+                limit: 200,
+                total: 100,
+                frames: [{ frame: 0, data: "job-B-data" }],
+            });
+
+            rerender(<ArtifactViewer jobId="job-B" />);
+
+            await waitFor(() => {
+                // Should show new job's data, not old job's data
+                expect(container.querySelector("pre")?.textContent).toContain("job-B-data");
+                expect(container.querySelector("pre")?.textContent).not.toContain("job-A-data");
+            });
         });
     });
 });

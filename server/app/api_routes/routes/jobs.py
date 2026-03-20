@@ -52,6 +52,8 @@ def _derive_video_summary(results: dict) -> dict:
     Issue #350: Extract lightweight metadata from large video results
     for display in job list without loading full results.
 
+    Discussion #353: Added defensive checks for malformed data.
+
     Args:
         results: Full video results dict
 
@@ -62,24 +64,47 @@ def _derive_video_summary(results: dict) -> dict:
     detection_count = 0
     classes: List[str] = []
 
+    # Known frame keys that are NOT tool payloads (from _merge_video_frames)
+    KNOWN_FRAME_KEYS = {"frame_idx", "timestamp", "detections"}
+
     # Handle frames array (most common structure)
     frames = results.get("frames", [])
-    if frames:
+    if isinstance(frames, list):
         frame_count = len(frames)
 
         classes_set: set = set()
         for frame in frames:
+            # Discussion #353: Defensive check - frame must be a dict
+            if not isinstance(frame, dict):
+                continue
             detections = frame.get("detections", [])
-            detection_count += len(detections)
-            for det in detections:
-                if "class" in det:
-                    classes_set.add(det["class"])
+            # Discussion #353: Defensive check - detections must be a list
+            if isinstance(detections, list):
+                detection_count += len(detections)
+                for det in detections:
+                    # Discussion #353: Defensive check - det must be a dict
+                    if isinstance(det, dict) and "class" in det:
+                        classes_set.add(det["class"])
+
+            # Discussion #353: Handle video_multi merged frames structure
+            # Each frame may have tool-specific keys (e.g., "player_tracker", "ball_detector")
+            for key in frame:
+                if key not in KNOWN_FRAME_KEYS:
+                    # This is a tool payload
+                    tool_payload = frame[key]
+                    if isinstance(tool_payload, dict):
+                        tool_dets = tool_payload.get("detections", [])
+                        if isinstance(tool_dets, list):
+                            detection_count += len(tool_dets)
+                            for det in tool_dets:
+                                if isinstance(det, dict) and "class" in det:
+                                    classes_set.add(det["class"])
 
         classes = sorted(classes_set)
 
-    # Handle tools structure (multi-tool video jobs)
+    # Handle tools structure (legacy multi-tool video jobs)
     tools = results.get("tools", {})
-    if tools:
+    if isinstance(tools, dict):
         tool_detections = 0
         tool_classes: set = set()
 
@@ -92,11 +117,17 @@ def _derive_video_summary(results: dict) -> dict:
             if not isinstance(tool_frames, list):
                 continue
             for frame in tool_frames:
+                # Discussion #353: Defensive check - frame must be a dict
+                if not isinstance(frame, dict):
+                    continue
                 detections = frame.get("detections", [])
-                tool_detections += len(detections)
-                for det in detections:
-                    if "class" in det:
-                        tool_classes.add(det["class"])
+                # Discussion #353: Defensive check - detections must be a list
+                if isinstance(detections, list):
+                    tool_detections += len(detections)
+                    for det in detections:
+                        # Discussion #353: Defensive check - det must be a dict
+                        if isinstance(det, dict) and "class" in det:
+                            tool_classes.add(det["class"])
 
         # Add to existing counts
         detection_count += tool_detections

@@ -75,6 +75,14 @@ export function ArtifactViewer({ jobId, resultUrl }: ArtifactViewerProps): React
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
+    // Discussion #353: Reset pagination when jobId changes
+    // Prevents showing wrong page when switching between jobs
+    useEffect(() => {
+        setPage(0);
+        setData(null);
+        setError(null);
+    }, [jobId]);
+
     const fetchData = useCallback(async () => {
         if (!jobId) return;
 

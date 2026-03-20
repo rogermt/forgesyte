@@ -71,10 +71,15 @@ export const JobStatus: React.FC<Props> = ({ jobId }) => {
         setPollError(null);
 
         // Clean Break (Issue #350): Results are fetched via result_url, not inline
+        // Discussion #353: Skip streaming for video/video_multi jobs (large payloads)
+        // Video jobs should use summary/artifact flow instead
         if (job.status === "completed" && job.result_url) {
-          // Fetch results from result_url endpoint
-          const resultData = await apiClient.getJobResult(job.job_id, "stream");
-          setResults(resultData as JobResultsData);
+          const isVideoJob = job.job_type === "video" || job.job_type === "video_multi";
+          if (!isVideoJob) {
+            // Only stream results for non-video jobs (image jobs are small)
+            const resultData = await apiClient.getJobResult(job.job_id, "stream");
+            setResults(resultData as JobResultsData);
+          }
           return;
         }
 
