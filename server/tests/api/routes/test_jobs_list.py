@@ -4,8 +4,10 @@ Tests verify:
 1. List endpoint returns jobs with correct pagination
 2. Status values are returned correctly (Issue #212 alignment)
 3. Progress is calculated correctly
-4. Results are loaded only for completed jobs
+4. Results are loaded via result_url for all jobs
 5. Empty database returns empty list
+
+Clean Break (Issue #350): All jobs use result_url, no inline results.
 """
 
 import json
@@ -129,7 +131,10 @@ def test_list_jobs_pagination(client, session):
 
 
 def test_list_jobs_with_results(client, session, storage):
-    """Test GET /v1/jobs loads results for completed jobs."""
+    """Test GET /v1/jobs returns result_url for completed jobs.
+
+    Clean Break (Issue #350): All jobs use result_url, no inline results.
+    """
     # Clean database
     session.query(Job).delete()
     session.commit()
@@ -142,7 +147,7 @@ def test_list_jobs_with_results(client, session, storage):
     results_json = json.dumps(results_data)
     storage.save_file(BytesIO(results_json.encode()), "jobs/output.json")
 
-    # Create pending job (should not have results)
+    # Create pending job (should not have result_url)
     create_job(session, JobStatus.pending)
 
     response = client.get("/v1/jobs?limit=10&skip=0")
@@ -153,12 +158,13 @@ def test_list_jobs_with_results(client, session, storage):
     # Find completed job
     completed_job = next((j for j in data["jobs"] if j["status"] == "completed"), None)
     assert completed_job is not None
-    assert completed_job["result"] is not None
+    # Clean Break: result_url instead of inline result
+    assert completed_job["result_url"] is not None
 
     # Find pending job
     pending_job = next((j for j in data["jobs"] if j["status"] == "pending"), None)
     assert pending_job is not None
-    assert pending_job["result"] is None
+    assert pending_job["result_url"] is None
 
 
 def test_list_jobs_includes_plugin_and_tool(client, session):
@@ -207,13 +213,13 @@ def test_list_jobs_ordering(client, session):
     assert job_ids[2] == job1_id
 
 
-# Issue #350: Artifact Pattern - video jobs return result_url, not result
+# Issue #350: Artifact Pattern - all jobs return result_url
 
 
 def test_list_jobs_video_returns_result_url(client, session, storage):
-    """Test GET /v1/jobs returns result_url for video jobs, not inline result.
+    """Test GET /v1/jobs returns result_url for video jobs.
 
-    Issue #350: Video jobs should return a URL for lazy loading.
+    Issue #350: Video jobs return a URL for lazy loading.
     """
     # Clean database
     session.query(Job).delete()
@@ -249,17 +255,17 @@ def test_list_jobs_video_returns_result_url(client, session, storage):
 
     video_job = next((j for j in data["jobs"] if j["job_id"] == str(job_id)), None)
     assert video_job is not None
-    # Video job should NOT have inline result
-    assert video_job["result"] is None
     # Video job should have result_url
     assert video_job["result_url"] is not None
     assert "/result" in video_job["result_url"]
+    # Clean Break: no inline result field
+    assert "result" not in video_job or video_job.get("result") is None
 
 
-def test_list_jobs_image_returns_inline_result(client, session, storage):
-    """Test GET /v1/jobs returns inline result for image jobs (backward compat).
+def test_list_jobs_image_returns_result_url(client, session, storage):
+    """Test GET /v1/jobs returns result_url for image jobs.
 
-    Issue #350: Image jobs should continue returning inline results.
+    Clean Break (Issue #350): All jobs use result_url.
     """
     # Clean database
     session.query(Job).delete()
@@ -290,11 +296,10 @@ def test_list_jobs_image_returns_inline_result(client, session, storage):
 
     image_job = next((j for j in data["jobs"] if j["job_id"] == str(job_id)), None)
     assert image_job is not None
-    # Image job should have inline result
-    assert image_job["result"] is not None
-    assert image_job["result"]["text"] == "extracted text"
-    # Image job should NOT have result_url (not needed for small results)
-    assert image_job["result_url"] is None
+    # Clean Break: image job uses result_url
+    assert image_job["result_url"] is not None
+    # Clean Break: no inline result field
+    assert "result" not in image_job or image_job.get("result") is None
 
 
 def test_list_jobs_video_includes_summary(client, session, storage):

@@ -6,6 +6,8 @@ Tests the complete flow:
 3. Run worker to process both jobs
 4. Fetch results via unified /v1/jobs/{id}
 5. Verify JSON output format
+
+Clean Break (Issue #350): All jobs return result_url, not inline results.
 """
 
 from io import BytesIO
@@ -117,19 +119,19 @@ def test_e2e_ocr_image_and_yolo_video(client, storage, plugin_service, session):
     assert resp.status_code == 200
     data = resp.json()
     assert data["job_id"] == image_job_id
-    assert data["results"] is not None
-    assert "results" in data["results"]  # Nested results structure
+    # Clean Break: result_url instead of inline results
+    assert data["result_url"] is not None
 
     # YOLO video job
     resp = client.get(f"/v1/jobs/{video_job_id}")
     assert resp.status_code == 200
     data = resp.json()
     assert data["job_id"] == video_job_id
-    assert data["results"] is not None
-    assert "results" in data["results"]  # Nested results structure
+    # Clean Break: result_url instead of inline results
+    assert data["result_url"] is not None
 
 
-def test_e2e_image_job_storage_paths(client, storage, plugin_service, session):
+def test_e2e_image_job_storage_path(client, storage, plugin_service, session):
     """Test that image jobs use correct storage paths."""
     # Submit image job
     fake_png = b"\x89PNG\r\n\x1a\n" + b"\x00" * 100
@@ -152,7 +154,7 @@ def test_e2e_image_job_storage_paths(client, storage, plugin_service, session):
 
 
 @requires_yolo
-def test_e2e_video_job_storage_paths(client, storage, plugin_service, session):
+def test_e2e_video_job_storage_path(client, storage, plugin_service, session):
     """Test that video jobs use correct storage paths."""
     # Submit video job
     fake_mp4 = b"ftyp" + b"\x00" * 100
@@ -175,7 +177,7 @@ def test_e2e_video_job_storage_paths(client, storage, plugin_service, session):
 
 
 def test_e2e_unified_endpoint_returns_null_for_pending(client, session):
-    """Test that unified endpoint returns None for results when job is pending."""
+    """Test that unified endpoint returns None for result_url when job is pending."""
     # Submit image job
     fake_png = b"\x89PNG\r\n\x1a\n" + b"\x00" * 100
     with BytesIO(fake_png) as f:
@@ -191,7 +193,8 @@ def test_e2e_unified_endpoint_returns_null_for_pending(client, session):
     assert resp.status_code == 200
     data = resp.json()
     assert data["job_id"] == job_id
-    assert data["results"] is None  # Pending jobs return None for results
+    # Clean Break: pending jobs return None for result_url
+    assert data["result_url"] is None
 
 
 def test_e2e_tool_validation_prevents_wrong_type(
