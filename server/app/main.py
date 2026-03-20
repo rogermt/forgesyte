@@ -421,12 +421,24 @@ def create_app() -> FastAPI:
 
     # Discussion #355: CORS preflight middleware
     # Handles OPTIONS requests before routing to avoid 405 on undefined routes.
-    # Placed after CORSMiddleware so it only fires for OPTIONS.
+    # Must wrap BOTH OPTIONS and normal requests.
     @app.middleware("http")
     async def options_preflight_middleware(request: Request, call_next):
+        # Handle OPTIONS preflight
         if request.method == "OPTIONS":
-            return Response(status_code=200)
-        return await call_next(request)
+            return Response(
+                status_code=200,
+                headers={
+                    "Access-Control-Allow-Origin": "*",
+                    "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+                    "Access-Control-Allow-Headers": "*",
+                },
+            )
+
+        # Normal request
+        response = await call_next(request)
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        return response
 
     # Routing
     app.include_router(api_router, prefix=settings.api_prefix)
