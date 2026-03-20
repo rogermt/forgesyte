@@ -12,6 +12,7 @@ It provides:
 - A CLI entrypoint using run_server()
 """
 
+import asyncio
 import logging
 import logging.handlers
 import os
@@ -339,7 +340,11 @@ async def lifespan(app: FastAPI):
     if os.getenv("FORGESYTE_ENABLE_WORKERS", "1") == "1":
         try:
             # v0.15.0: Ray initialization removed - JobWorker runs without Ray
+            # Discussion #355: Store event loop reference for progress broadcast
+            from .workers.progress import set_main_event_loop
             from .workers.run_job_worker import run_worker_forever
+
+            set_main_event_loop(asyncio.get_running_loop())
 
             worker_thread = threading.Thread(
                 target=run_worker_forever,

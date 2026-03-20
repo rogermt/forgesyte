@@ -1,16 +1,41 @@
 """Progress callback module for WebSocket job progress streaming.
 
 v0.10.0: Emits real-time progress events for video jobs.
+v0.15.9: Fixed broadcast from sync worker thread (Discussion #355).
 
 This module provides:
 - ProgressEvent: Dataclass for progress event data
 - progress_callback: Function to create and broadcast progress events
+- set_main_event_loop: Set the main event loop for thread-safe broadcast
 """
 
+import asyncio
+import logging
 from dataclasses import dataclass
 from typing import Optional
 
 from app.websocket_manager import ws_manager
+
+logger = logging.getLogger(__name__)
+
+# Module-level reference to the main event loop
+# Set during startup via set_main_event_loop()
+_main_event_loop: Optional[asyncio.AbstractEventLoop] = None
+
+
+def set_main_event_loop(loop: asyncio.AbstractEventLoop) -> None:
+    """Store reference to the main event loop for thread-safe broadcast.
+
+    Discussion #355: The worker runs in a sync thread without an event loop.
+    This function is called during startup to store a reference to the main
+    event loop, allowing the worker to broadcast via run_coroutine_threadsafe.
+
+    Args:
+        loop: The main asyncio event loop (from asyncio.get_running_loop())
+    """
+    global _main_event_loop
+    _main_event_loop = loop
+    logger.info("Progress callback: main event loop reference stored")
 
 
 @dataclass
@@ -94,18 +119,36 @@ def progress_callback(
     )
 
     # Broadcast to job topic subscribers
-    # Note: ws_manager.broadcast is async, but we use create_task
-    # to avoid blocking the worker. The broadcast happens in the
-    # background via the existing event loop.
-    import asyncio
+    # Discussion #355: Support broadcast from sync worker thread
+    # Three cases:
+    # 1. Running in async context - use create_task
+    # 2. In sync thread with main loop reference - use run_coroutine_threadsafe
+    # 3. No loop available - silently skip broadcast (fallback to HTTP polling)
+    broadcast_done = False
 
+    # Case 1: Already in async context
     try:
         loop = asyncio.get_running_loop()
         loop.create_task(ws_manager.broadcast(event.to_dict(), topic=f"job:{job_id}"))
+        broadcast_done = True
     except RuntimeError:
-        # No running event loop - this can happen in sync contexts
-        # Progress still returned, just not broadcast
-        pass
+        pass  # No running loop, try thread-safe approach
+
+    # Case 2: In sync thread with main loop reference
+    if not broadcast_done and _main_event_loop is not None:
+        try:
+            asyncio.run_coroutine_threadsafe(
+                ws_manager.broadcast(event.to_dict(), topic=f"job:{job_id}"),
+                _main_event_loop,
+            )
+            broadcast_done = True
+        except Exception as e:
+            logger.warning(
+                f"Progress broadcast failed via run_coroutine_threadsafe: {e}"
+            )
+
+    # Case 3: No loop available - broadcast silently skipped
+    # Frontend will still get progress via HTTP polling
 
     return event
 
