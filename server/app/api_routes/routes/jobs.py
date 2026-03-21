@@ -10,6 +10,7 @@ Issue #350: Added GET /v1/jobs/{job_id}/result endpoint for lazy loading.
 """
 
 import json
+import logging
 from typing import List, Literal
 from uuid import UUID
 
@@ -24,6 +25,7 @@ from app.schemas.job import JobListItem, JobListResponse, JobResultsResponse
 from app.services.storage.factory import get_storage_service
 from app.settings import settings
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
 storage = get_storage_service(settings)
 
@@ -227,6 +229,8 @@ async def get_job(job_id: UUID, db: Session = Depends(get_db)) -> JobResultsResp
 
     Issue #350: Video jobs return result_url and summary instead of inline results.
 
+    Discussion #356: Debug logging for diagnosing fetch issues.
+
     Args:
         job_id: UUID of the job
         db: Database session
@@ -243,6 +247,9 @@ async def get_job(job_id: UUID, db: Session = Depends(get_db)) -> JobResultsResp
         - Video jobs return result_url and summary instead of results
         - Progress is calculated from job status
     """
+    # Discussion #356: Debug logging for diagnosing fetch issues
+    logger.debug("[JOB POLL] job_id=%s", job_id)
+
     from app.models.job_tool import JobTool
 
     job = db.query(Job).filter(Job.job_id == job_id).first()

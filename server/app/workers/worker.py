@@ -448,6 +448,15 @@ class JobWorker:
             total_tools: v0.9.7: Total number of tools
             tool_name: v0.9.7: Current tool name
         """
+        # Discussion #356: Debug logging for diagnosing frame processing issues
+        logger.debug(
+            "[WORKER] job=%s tool=%s frame=%s/%s",
+            job_id,
+            tool_name,
+            current_frame,
+            total_frames,
+        )
+
         if total_frames <= 0:
             logger.warning("Progress update skipped: total_frames <= 0")
             return

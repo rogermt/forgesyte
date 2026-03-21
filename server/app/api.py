@@ -221,14 +221,19 @@ async def run_plugin_tool(
             "processing_time_ms": 42
         }
     """
+    # Discussion #356: Debug logging for diagnosing fetch issues
+    logger.debug("[PLUGIN TOOLS] plugin_id=%s tool_name=%s", plugin_id, tool_name)
+
     try:
         # Record start time
         start_time = time.time()
 
         # Execute tool
         logger.debug(
-            f"Executing tool '{tool_name}' on plugin '{plugin_id}' "
-            f"with {len(request.args)} args"
+            "[PLUGIN TOOLS] plugin_id=%s tool_name=%s args_count=%d",
+            plugin_id,
+            tool_name,
+            len(request.args),
         )
 
         result = plugin_service.run_plugin_tool(

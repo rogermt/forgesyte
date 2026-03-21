@@ -109,6 +109,16 @@ def progress_callback(
     Returns:
         ProgressEvent that was broadcast
     """
+    # Discussion #356: Debug logging for diagnosing fetch issues
+    logger.debug(
+        "[PROGRESS] job=%s tool=%s percent=%s frame=%s/%s",
+        job_id,
+        current_tool,
+        int((current_frame / total_frames) * 100) if total_frames > 0 else 0,
+        current_frame,
+        total_frames,
+    )
+
     event = ProgressEvent(
         job_id=job_id,
         current_frame=current_frame,
