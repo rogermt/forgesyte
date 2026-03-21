@@ -1,11 +1,16 @@
 """Test unified jobs endpoint for v0.9.2.
 
 Tests that:
-1. GET /v1/jobs/{id} returns job status and results
-2. GET /v1/jobs/{id} returns None for results when job is not completed
-3. GET /v1/jobs/{id} returns results when job is completed
+1. GET /v1/jobs/{id} returns job status
+2. GET /v1/jobs/{id} returns result_url for completed jobs
+3. GET /v1/jobs/{id} returns summary for completed jobs
 4. GET /v1/jobs/{id} works for both image and video jobs
 5. GET /v1/jobs/{id} returns 404 for non-existent jobs
+
+Clean Break (Issue #350):
+- No more inline results field
+- All jobs return result_url for lazy loading
+- Summary contains derived metadata
 """
 
 import json
@@ -52,7 +57,10 @@ def test_get_job_not_found(client):
 
 
 def test_get_job_pending(client, session):
-    """Test GET /v1/jobs/{id} for pending job."""
+    """Test GET /v1/jobs/{id} for pending job.
+
+    Clean Break: Pending jobs have no result_url or summary.
+    """
     # Create a pending job
     job = Job(
         job_id=uuid4(),
@@ -69,13 +77,20 @@ def test_get_job_pending(client, session):
     assert response.status_code == 200
     data = response.json()
     assert data["job_id"] == str(job.job_id)
-    assert data["results"] is None
+    # Clean Break: No inline results field
+    assert "result_url" in data
+    assert data["result_url"] is None
+    assert "summary" in data
+    assert data["summary"] is None
     assert "created_at" in data
     assert "updated_at" in data
 
 
 def test_get_job_running(client, session):
-    """Test GET /v1/jobs/{id} for running job."""
+    """Test GET /v1/jobs/{id} for running job.
+
+    Clean Break: Running jobs have no result_url or summary.
+    """
     # Create a running job
     job = Job(
         job_id=uuid4(),
@@ -92,11 +107,16 @@ def test_get_job_running(client, session):
     assert response.status_code == 200
     data = response.json()
     assert data["job_id"] == str(job.job_id)
-    assert data["results"] is None
+    # Clean Break: No inline results field
+    assert data["result_url"] is None
+    assert data["summary"] is None
 
 
 def test_get_job_completed(client, session, storage):
-    """Test GET /v1/jobs/{id} for completed job with results."""
+    """Test GET /v1/jobs/{id} for completed job with results.
+
+    Clean Break: Completed jobs return result_url, not inline results.
+    """
     # Create a completed job
     job_id = uuid4()
     job = Job(
@@ -111,7 +131,7 @@ def test_get_job_completed(client, session, storage):
     session.commit()
 
     # Create results file
-    results_data = {"results": {"text": "extracted text"}}
+    results_data = {"text": "extracted text"}
     results_json = json.dumps(results_data)
     storage.save_file(BytesIO(results_json.encode()), "image/output/test.json")
 
@@ -120,12 +140,18 @@ def test_get_job_completed(client, session, storage):
     assert response.status_code == 200
     data = response.json()
     assert data["job_id"] == str(job_id)
-    assert data["results"] is not None
-    assert data["results"]["results"]["text"] == "extracted text"
+    # Clean Break: Completed jobs return result_url, not inline results
+    assert data["result_url"] is not None
+    assert data["summary"] is not None
+    # No inline results field
+    assert "results" not in data
 
 
 def test_get_job_failed(client, session):
-    """Test GET /v1/jobs/{id} for failed job."""
+    """Test GET /v1/jobs/{id} for failed job.
+
+    Clean Break: Failed jobs have no result_url or summary.
+    """
     # Create a failed job
     job = Job(
         job_id=uuid4(),
@@ -143,11 +169,17 @@ def test_get_job_failed(client, session):
     assert response.status_code == 200
     data = response.json()
     assert data["job_id"] == str(job.job_id)
-    assert data["results"] is None
+    # Clean Break: No inline results field
+    assert data["result_url"] is None
+    assert data["summary"] is None
+    assert data["error_message"] == "Processing failed"
 
 
 def test_get_job_image_type(client, session, storage):
-    """Test GET /v1/jobs/{id} for image job."""
+    """Test GET /v1/jobs/{id} for image job.
+
+    Clean Break: Image jobs also use result_url for consistency.
+    """
     # Create a completed image job
     job_id = uuid4()
     job = Job(
@@ -162,7 +194,7 @@ def test_get_job_image_type(client, session, storage):
     session.commit()
 
     # Create results file
-    results_data = {"results": {"text": "OCR result"}}
+    results_data = {"text": "OCR result"}
     results_json = json.dumps(results_data)
     storage.save_file(BytesIO(results_json.encode()), "image/output/test.json")
 
@@ -170,11 +202,18 @@ def test_get_job_image_type(client, session, storage):
 
     assert response.status_code == 200
     data = response.json()
-    assert data["results"]["results"]["text"] == "OCR result"
+    # Clean Break: All jobs return result_url
+    assert data["result_url"] is not None
+    assert data["summary"] is not None
+    # No inline results field
+    assert "results" not in data
 
 
 def test_get_job_video_type(client, session, storage):
-    """Test GET /v1/jobs/{id} for video job."""
+    """Test GET /v1/jobs/{id} for video job.
+
+    Issue #350: Video jobs return result_url instead of inline results.
+    """
     # Create a completed video job
     job_id = uuid4()
     job = Job(
@@ -189,7 +228,7 @@ def test_get_job_video_type(client, session, storage):
     session.commit()
 
     # Create results file
-    results_data = {"results": {"objects": []}}
+    results_data = {"frames": [{"detections": []}]}
     results_json = json.dumps(results_data)
     storage.save_file(BytesIO(results_json.encode()), "video/output/test.json")
 
@@ -197,7 +236,11 @@ def test_get_job_video_type(client, session, storage):
 
     assert response.status_code == 200
     data = response.json()
-    assert data["results"]["results"]["objects"] == []
+    # Clean Break: Video jobs return result_url, not inline results
+    assert data["result_url"] is not None
+    assert data["summary"] is not None
+    # No inline results field
+    assert "results" not in data
 
 
 def test_get_job_results_file_not_found(client, session):
@@ -243,3 +286,115 @@ def test_get_job_results_invalid_json(client, session, storage):
 
     assert response.status_code == 500
     assert "invalid results file" in response.json()["detail"].lower()
+
+
+# Issue #350: Artifact Pattern - video jobs return result_url, not results
+
+
+def test_get_job_video_returns_result_url(client, session, storage):
+    """Test GET /v1/jobs/{id} returns result_url for video jobs.
+
+    Issue #350: Video jobs should return a URL for lazy loading.
+    """
+    job_id = uuid4()
+    job = Job(
+        job_id=job_id,
+        status=JobStatus.completed,
+        plugin_id="yolo-tracker",
+        input_path="video/input/test.mp4",
+        output_path=f"video/output/{job_id}.json",
+        job_type="video",
+    )
+    session.add(job)
+    session.commit()
+
+    # Create a test results file with large data
+    results_data = {
+        "frames": [
+            {"frame": i, "detections": [{"class": "player"}, {"class": "ball"}]}
+            for i in range(100)
+        ]
+    }
+    results_json = json.dumps(results_data)
+    storage.save_file(BytesIO(results_json.encode()), f"video/output/{job_id}.json")
+
+    response = client.get(f"/v1/jobs/{job_id}")
+
+    assert response.status_code == 200
+    data = response.json()
+    # Video job should have result_url
+    assert data["result_url"] is not None
+    # Clean Break: No inline results field
+    assert "results" not in data
+    # Video job should have summary
+    assert data["summary"] is not None
+
+
+def test_get_job_video_includes_summary(client, session, storage):
+    """Test GET /v1/jobs/{id} includes summary for video jobs.
+
+    Issue #350: Summary contains derived metadata.
+    """
+    job_id = uuid4()
+    job = Job(
+        job_id=job_id,
+        status=JobStatus.completed,
+        plugin_id="yolo-tracker",
+        input_path="video/input/test.mp4",
+        output_path=f"video/output/{job_id}.json",
+        job_type="video",
+    )
+    session.add(job)
+    session.commit()
+
+    # Create a test results file
+    results_data = {
+        "frames": [
+            {"frame": i, "detections": [{"class": "player"}, {"class": "ball"}]}
+            for i in range(50)
+        ]
+    }
+    results_json = json.dumps(results_data)
+    storage.save_file(BytesIO(results_json.encode()), f"video/output/{job_id}.json")
+
+    response = client.get(f"/v1/jobs/{job_id}")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["summary"] is not None
+    assert data["summary"]["frame_count"] == 50
+    assert data["summary"]["detection_count"] == 100
+    assert "player" in data["summary"]["classes"]
+    assert "ball" in data["summary"]["classes"]
+
+
+def test_get_job_video_multi_returns_result_url(client, session, storage):
+    """Test GET /v1/jobs/{id} returns result_url for video_multi jobs.
+
+    Issue #350: video_multi jobs should also use lazy loading.
+    """
+    job_id = uuid4()
+    job = Job(
+        job_id=job_id,
+        status=JobStatus.completed,
+        plugin_id="multi-tool-plugin",
+        input_path="video/input/test.mp4",
+        output_path=f"video/output/{job_id}.json",
+        job_type="video_multi",
+    )
+    session.add(job)
+    session.commit()
+
+    # Create a test results file
+    results_data = {"tools": {"yolo": {"frames": []}, "ocr": {"frames": []}}}
+    results_json = json.dumps(results_data)
+    storage.save_file(BytesIO(results_json.encode()), f"video/output/{job_id}.json")
+
+    response = client.get(f"/v1/jobs/{job_id}")
+
+    assert response.status_code == 200
+    data = response.json()
+    # video_multi job should have result_url
+    assert data["result_url"] is not None
+    # Clean Break: No inline results field
+    assert "results" not in data

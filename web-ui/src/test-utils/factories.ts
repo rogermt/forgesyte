@@ -37,7 +37,7 @@ export function resetMockJobCounter(): void {
  * Usage:
  * ```typescript
  * const job = createMockJob(); // All defaults with unique ID
- * const doneJob = createMockJob({ status: "done" });
+ * const doneJob = createMockJob({ status: "completed" });
  * const customJob = createMockJob({ job_id: "custom-123" });
  * ```
  */
@@ -49,7 +49,8 @@ export function createMockJob(overrides?: Partial<Job>): Job {
         tool: "analyze",
         created_at: "2026-01-12T21:00:00Z",
         updated_at: "2026-01-12T21:00:00Z",
-        results: undefined,
+        result_url: undefined,  // Clean Break: Use result_url instead of inline results
+        summary: undefined,
         error_message: undefined,
         progress: 0,
     };
@@ -58,7 +59,7 @@ export function createMockJob(overrides?: Partial<Job>): Job {
 }
 
 /**
- * Create a mock completed Job (status: "done")
+ * Create a mock completed Job (status: "completed")
  *
  * Usage:
  * ```typescript
@@ -70,9 +71,11 @@ export function createMockJobDone(overrides?: Partial<Job>): Job {
     return createMockJob({
         status: "completed",
         updated_at: "2026-01-12T21:00:30Z",
-        results: {
-            text: "Extracted text from image",
-            confidence: 0.95,
+        result_url: "/v1/jobs/test-job-id/result",  // Clean Break: Use result_url
+        summary: {
+            frame_count: 1,
+            detection_count: 0,
+            classes: [],
         },
         progress: 100,
         ...overrides,

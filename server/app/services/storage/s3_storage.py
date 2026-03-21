@@ -123,3 +123,32 @@ class S3StorageService(StorageService):
             if error_code in ("404", "NoSuchKey"):
                 return False
             raise  # Re-raise permission/network/service errors
+
+    def get_signed_url(self, path: str, expires_in: int = 3600) -> str:
+        """Generate a presigned URL for direct S3 access.
+
+        Issue #350: Artifact Pattern - lazy loading video results.
+
+        Args:
+            path: Path relative to storage root (S3 key)
+            expires_in: URL expiration time in seconds (default 1 hour)
+
+        Returns:
+            Presigned URL for direct download
+
+        Raises:
+            FileNotFoundError: If file does not exist
+        """
+        self._ensure_bucket()  # Lazy bucket verification (Issue #247)
+
+        # Check if file exists first
+        if not self.file_exists(path):
+            raise FileNotFoundError(f"File not found in S3: {path}")
+
+        # Generate presigned URL
+        url = self.client.generate_presigned_url(
+            "get_object",
+            Params={"Bucket": self.bucket, "Key": path},
+            ExpiresIn=expires_in,
+        )
+        return url

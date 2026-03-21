@@ -12,6 +12,7 @@ It provides:
 - A CLI entrypoint using run_server()
 """
 
+import asyncio
 import logging
 import logging.handlers
 import os
@@ -31,7 +32,9 @@ from fastapi import (
     WebSocketDisconnect,
 )
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import RedirectResponse
+from fastapi.responses import RedirectResponse, Response
+from starlette.datastructures import MutableHeaders
+from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 # Routers
 from .api import router as api_router
@@ -71,6 +74,57 @@ from .websocket_manager import ws_manager
 
 # Use settings for CORS and other configuration
 cors_settings = settings
+
+
+# ---------------------------------------------------------------------------
+# CORS Middleware (ASGI-level for reliable header modification)
+# ---------------------------------------------------------------------------
+
+
+class CORSHeadersMiddleware:
+    """ASGI middleware that adds CORS headers to all responses.
+
+    Discussion #356: The @app.middleware("http") decorator doesn't allow
+    reliable header modification for streaming responses. This ASGI-level
+    middleware wraps the 'send' callable to intercept 'http.response.start'
+    messages and add CORS headers before they're sent to the client.
+
+    This ensures headers are properly set for ALL response types:
+    - Regular Response (JSONResponse, etc.)
+    - StreamingResponse
+    - FileResponse
+    """
+
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        # Handle OPTIONS preflight directly
+        if scope["method"] == "OPTIONS":
+            response = Response(
+                status_code=200,
+                headers={
+                    "Access-Control-Allow-Origin": "*",
+                    "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+                    "Access-Control-Allow-Headers": "*",
+                },
+            )
+            await response(scope, receive, send)
+            return
+
+        # Wrap send to add CORS headers to response.start message
+        async def send_wrapper(message: Message) -> None:
+            if message["type"] == "http.response.start":
+                # Use MutableHeaders to modify the headers in the message
+                headers = MutableHeaders(scope=message)
+                headers["Access-Control-Allow-Origin"] = "*"
+            await send(message)
+
+        await self.app(scope, receive, send_wrapper)
 
 
 # ---------------------------------------------------------------------------
@@ -339,7 +393,11 @@ async def lifespan(app: FastAPI):
     if os.getenv("FORGESYTE_ENABLE_WORKERS", "1") == "1":
         try:
             # v0.15.0: Ray initialization removed - JobWorker runs without Ray
+            # Discussion #355: Store event loop reference for progress broadcast
+            from .workers.progress import set_main_event_loop
             from .workers.run_job_worker import run_worker_forever
+
+            set_main_event_loop(asyncio.get_running_loop())
 
             worker_thread = threading.Thread(
                 target=run_worker_forever,
@@ -404,7 +462,9 @@ def create_app() -> FastAPI:
             },
         )
 
-    # CORS
+    # CORS - Note: CORSMiddleware only works if cors_origins is configured
+    # Discussion #356: We use our own ASGI middleware (CORSHeadersMiddleware)
+    # to ensure CORS headers are added for ALL responses including streaming.
     app.add_middleware(
         CORSMiddleware,
         allow_origins=cors_settings.cors_origins,
@@ -412,6 +472,11 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    # Discussion #356: ASGI-level CORS middleware for reliable header modification
+    # This ensures headers are set for ALL response types (regular, streaming, file)
+    # by intercepting the 'send' callable and modifying headers before they reach the client.
+    app.add_middleware(CORSHeadersMiddleware)
 
     # Routing
     app.include_router(api_router, prefix=settings.api_prefix)

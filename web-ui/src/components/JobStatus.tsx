@@ -70,8 +70,16 @@ export const JobStatus: React.FC<Props> = ({ jobId }) => {
         setPollProgress(job.progress ?? null);
         setPollError(null);
 
-        if (job.status === "completed" && job.results) {
-          setResults(job.results as JobResultsData);
+        // Clean Break (Issue #350): Results are fetched via result_url, not inline
+        // Discussion #353: Skip streaming for video/video_multi jobs (large payloads)
+        // Video jobs should use summary/artifact flow instead
+        if (job.status === "completed" && job.result_url) {
+          const isVideoJob = job.job_type === "video" || job.job_type === "video_multi";
+          if (!isVideoJob) {
+            // Only stream results for non-video jobs (image jobs are small)
+            const resultData = await apiClient.getJobResult(job.job_id, "stream");
+            setResults(resultData as JobResultsData);
+          }
           return;
         }
 
@@ -82,7 +90,7 @@ export const JobStatus: React.FC<Props> = ({ jobId }) => {
 
         // Continue polling if:
         // - Not completed yet (running/pending)
-        // - Completed but no results yet (race condition where results file not written)
+        // - Completed but no result_url yet (race condition where results file not written)
         if (!isConnected) {
           timer = window.setTimeout(poll, 2000);
         }

@@ -2,6 +2,9 @@
  * Tests for JobStatus component with WebSocket progress streaming
  *
  * Tests WebSocket integration with HTTP polling fallback.
+ *
+ * Clean Break (Issue #350): No more inline results.
+ * All results are loaded via result_url with lazy loading.
  */
 
 import { vi } from "vitest";
@@ -14,12 +17,22 @@ import { useJobProgress } from "../hooks/useJobProgress";
 vi.mock("../api/client", () => ({
   apiClient: {
     getJob: vi.fn(),
+    getJobResult: vi.fn(),
   },
 }));
 
 // Mock useJobProgress hook
 vi.mock("../hooks/useJobProgress", () => ({
   useJobProgress: vi.fn(),
+}));
+
+// Mock JobResults component
+vi.mock("./JobResults", () => ({
+  JobResults: ({ results }: { results: unknown }) => (
+    <div data-testid="job-results">
+      Job Results: {JSON.stringify(results, null, 2)}
+    </div>
+  ),
 }));
 
 describe("JobStatus", () => {
@@ -171,7 +184,7 @@ describe("JobStatus", () => {
   });
 
   describe("completion", () => {
-    it("shows completed state", async () => {
+    it("shows completed state with result_url", async () => {
       mockUseJobProgress.mockReturnValue({
         progress: null,
         status: "completed",
@@ -180,7 +193,8 @@ describe("JobStatus", () => {
       });
       mockGetJob.mockResolvedValue({
         status: "completed",
-        results: { job_id: "job-123", results: null },
+        result_url: "/v1/jobs/job-123/result",
+        summary: { frame_count: 100 },
       });
 
       render(<JobStatus jobId="job-123" />);
@@ -212,10 +226,9 @@ describe("JobStatus", () => {
     });
   });
 
-  describe("results display", () => {
-    it("handles flattened video results (total_frames at top level)", async () => {
-      // v0.10.0: Backend now returns {total_frames, frames} at top level
-      // JobResults displays all result data as JSON
+  describe("Clean Break - result_url pattern", () => {
+    it("handles video job with result_url and summary", async () => {
+      // Clean Break: Video jobs return result_url + summary, not inline results
       mockUseJobProgress.mockReturnValue({
         progress: null,
         status: "completed",
@@ -223,13 +236,14 @@ describe("JobStatus", () => {
         isConnected: true,
       });
       mockGetJob.mockResolvedValue({
+        job_id: "job-123",
         status: "completed",
-        results: {
-          job_id: "job-123",
-          total_frames: 100,
-          frames: [
-            { frame_index: 0, detections: { tracked_objects: [] } },
-          ],
+        job_type: "video",
+        result_url: "/v1/jobs/job-123/result",
+        summary: {
+          frame_count: 100,
+          detection_count: 500,
+          classes: ["player", "ball"],
         },
       });
 
@@ -238,18 +252,9 @@ describe("JobStatus", () => {
       await waitFor(() => {
         expect(screen.getByText(/completed/i)).toBeInTheDocument();
       });
-      
-      // Should display results in JobResults (JSON format)
-      await waitFor(() => {
-        expect(screen.getByText(/Job Results/i)).toBeInTheDocument();
-      });
-
-      // Should display the total_frames in the JSON output
-      expect(screen.getByText(/total_frames/i)).toBeInTheDocument();
     });
 
-    it("handles video results with undefined results.results gracefully", async () => {
-      // Edge case: results.results is undefined but results has total_frames
+    it("handles video_multi job with result_url", async () => {
       mockUseJobProgress.mockReturnValue({
         progress: null,
         status: "completed",
@@ -257,68 +262,44 @@ describe("JobStatus", () => {
         isConnected: true,
       });
       mockGetJob.mockResolvedValue({
-        status: "completed",
-        results: {
-          job_id: "job-123",
-          total_frames: 100,
-          frames: [],
-        },
-      });
-
-      // This should NOT throw - wrap in act() to handle async state updates
-      await act(async () => {
-        render(<JobStatus jobId="job-123" />);
-      });
-    });
-  });
-
-  // Race condition: results not fetched when status=completed but results=null
-  describe("Race condition: results fetching after completed", () => {
-    it("should continue polling for results when status=completed but results=null", async () => {
-      // This test catches the bug where polling stops after status=completed
-      // even if results is still null (results file not yet written)
-      
-      mockUseJobProgress.mockReturnValue({
-        progress: null,
-        status: "pending",
-        error: null,
-        isConnected: false, // WebSocket disconnected - polling will run
-      });
-
-      // First poll: status=completed, results=null (race condition)
-      mockGetJob.mockResolvedValueOnce({
         job_id: "job-123",
         status: "completed",
-        results: null,
-        created_at: new Date().toISOString(),
-      });
-
-      // Second poll: status=completed, results populated
-      // Note: results must have nested 'results' property or total_frames/frames for JobResults
-      mockGetJob.mockResolvedValueOnce({
-        job_id: "job-123",
-        status: "completed",
-        results: {
-          job_id: "job-123",
-          results: { detections: [{ label: "person", confidence: 0.95 }] },
+        job_type: "video_multi",
+        result_url: "/v1/jobs/job-123/result",
+        summary: {
+          frame_count: 500,
+          detection_count: 2500,
+          classes: ["person", "car"],
         },
-        created_at: new Date().toISOString(),
       });
 
       render(<JobStatus jobId="job-123" />);
-
-      // Wait for completed status to appear
+      
       await waitFor(() => {
         expect(screen.getByText(/completed/i)).toBeInTheDocument();
-      }, { timeout: 3000 });
+      });
+    });
 
-      // Wait for results to appear (should poll again after first null)
+    it("handles image job with result_url", async () => {
+      // Clean Break: Even image jobs use result_url now
+      mockUseJobProgress.mockReturnValue({
+        progress: null,
+        status: "completed",
+        error: null,
+        isConnected: true,
+      });
+      mockGetJob.mockResolvedValue({
+        job_id: "job-123",
+        status: "completed",
+        job_type: "image",
+        result_url: "/v1/jobs/job-123/result",
+      });
+
+      render(<JobStatus jobId="job-123" />);
+      
       await waitFor(() => {
-        expect(screen.getByText(/person/)).toBeInTheDocument();
-      }, { timeout: 5000 });
-
-      // Verify getJob was called at least twice (continued polling)
-      expect(mockGetJob.mock.calls.length).toBeGreaterThanOrEqual(2);
+        expect(screen.getByText(/completed/i)).toBeInTheDocument();
+      });
     });
   });
 
@@ -343,7 +324,7 @@ describe("JobStatus", () => {
       mockGetJob.mockResolvedValue({
         status: "completed",
         progress: 100,
-        results: { job_id: "job-123" },
+        result_url: "/v1/jobs/job-123/result",
       });
 
       render(<JobStatus jobId="job-123" />);
@@ -360,9 +341,6 @@ describe("JobStatus", () => {
         error: null,
         isConnected: true, // Now connected
       });
-
-      // Trigger re-render by causing a state change
-      // The status should remain "completed" because pollStatus is locked
 
       // Status should still be completed (locked)
       expect(screen.getByText(/completed/i)).toBeInTheDocument();
@@ -411,12 +389,12 @@ describe("JobStatus", () => {
       mockGetJob.mockResolvedValue({
         status: "completed",
         progress: 100,
-        results: { job_id: "job-123" },
+        result_url: "/v1/jobs/job-123/result",
       });
 
       render(<JobStatus jobId="job-123" />);
 
-      // When WebSocket reports completed, polling runs to fetch results
+      // When WebSocket reports completed, polling runs to verify
       await waitFor(() => {
         expect(mockGetJob).toHaveBeenCalledWith("job-123");
       });
@@ -469,7 +447,7 @@ describe("JobStatus", () => {
       mockGetJob.mockResolvedValue({
         status: "completed",
         progress: 100,
-        results: { job_id: "job-123" },
+        result_url: "/v1/jobs/job-123/result",
       });
 
       render(<JobStatus jobId="job-123" />);
@@ -490,6 +468,87 @@ describe("JobStatus", () => {
       // Status should REMAIN completed (locked by pollStatus)
       // This is the core fix for Issue #231
       expect(screen.getByText(/completed/i)).toBeInTheDocument();
+    });
+  });
+
+  // Discussion #353: Video jobs should NOT stream full results
+  describe("Discussion #353: Video jobs skip streaming", () => {
+    const mockGetJobResult = client.apiClient.getJobResult as ReturnType<typeof vi.fn>;
+
+    beforeEach(() => {
+      mockGetJobResult.mockReset();
+    });
+
+    it("should NOT call getJobResult for video jobs (prevents large payload download)", async () => {
+      mockUseJobProgress.mockReturnValue({
+        progress: null,
+        status: "completed",
+        error: null,
+        isConnected: true,
+      });
+      mockGetJob.mockResolvedValue({
+        job_id: "job-123",
+        status: "completed",
+        job_type: "video",
+        result_url: "/v1/jobs/job-123/result",
+        summary: { frame_count: 100 },
+      });
+
+      render(<JobStatus jobId="job-123" />);
+
+      await waitFor(() => {
+        expect(screen.getByText(/completed/i)).toBeInTheDocument();
+      });
+
+      // Should NOT call getJobResult with "stream" for video jobs
+      expect(mockGetJobResult).not.toHaveBeenCalled();
+    });
+
+    it("should NOT call getJobResult for video_multi jobs", async () => {
+      mockUseJobProgress.mockReturnValue({
+        progress: null,
+        status: "completed",
+        error: null,
+        isConnected: true,
+      });
+      mockGetJob.mockResolvedValue({
+        job_id: "job-123",
+        status: "completed",
+        job_type: "video_multi",
+        result_url: "/v1/jobs/job-123/result",
+        summary: { frame_count: 500 },
+      });
+
+      render(<JobStatus jobId="job-123" />);
+
+      await waitFor(() => {
+        expect(screen.getByText(/completed/i)).toBeInTheDocument();
+      });
+
+      // Should NOT call getJobResult with "stream" for video_multi jobs
+      expect(mockGetJobResult).not.toHaveBeenCalled();
+    });
+
+    it("should call getJobResult for image jobs (small payloads OK)", async () => {
+      mockUseJobProgress.mockReturnValue({
+        progress: null,
+        status: "completed",
+        error: null,
+        isConnected: true,
+      });
+      mockGetJob.mockResolvedValue({
+        job_id: "job-123",
+        status: "completed",
+        job_type: "image",
+        result_url: "/v1/jobs/job-123/result",
+      });
+      mockGetJobResult.mockResolvedValue({ text: "OCR result" });
+
+      render(<JobStatus jobId="job-123" />);
+
+      await waitFor(() => {
+        expect(mockGetJobResult).toHaveBeenCalledWith("job-123", "stream");
+      });
     });
   });
 });

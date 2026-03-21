@@ -30,6 +30,7 @@ def test_jobs_table_has_all_expected_columns(test_engine):
     With proper migration handling, all columns should exist.
     """
     # v0.15.1: tool and tool_list columns removed, stored in job_tools table
+    # v0.15.x: summary added for pre-computed video summary (Discussion #354)
     expected_columns = [
         "job_id",
         "status",
@@ -42,6 +43,7 @@ def test_jobs_table_has_all_expected_columns(test_engine):
         "updated_at",
         "progress",  # Added in migration 006
         "ray_future_id",  # Added in migration 007
+        "summary",  # Added in migration 012 (Discussion #354)
     ]
 
     with test_engine.connect() as conn:
@@ -87,10 +89,10 @@ def test_jobs_table_column_count(test_engine):
         )
         count = result.fetchone()[0]
 
-    # v0.15.1: Expected 11 columns (tool/tool_list dropped)
+    # v0.15.x: Expected 12 columns (summary added in migration 012)
     # See test_jobs_table_has_all_expected_columns for list
-    assert count == 11, (
-        f"Expected 11 columns in jobs table, got {count}. "
+    assert count == 12, (
+        f"Expected 12 columns in jobs table, got {count}. "
         f"This may indicate missing migrations (Issue #293)."
     )
 

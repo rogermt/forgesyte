@@ -6,6 +6,7 @@ Provides:
 Uses dependency injection for PluginManagementService and ManifestCacheService.
 """
 
+import json
 import logging
 from typing import Any, Dict
 
@@ -90,6 +91,12 @@ async def get_manifest(
     except HTTPException:
         # Re-raise HTTP exceptions
         raise
+    except json.JSONDecodeError as e:
+        logger.error(f"Invalid JSON in manifest for plugin '{plugin_id}': {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Invalid JSON in manifest: {str(e)}",
+        ) from e
     except Exception as e:
         logger.exception(
             f"Failed to retrieve manifest for '{plugin_id}'",

@@ -56,3 +56,21 @@ class StorageService(ABC):
             True if file exists, False otherwise
         """
         raise NotImplementedError
+
+    @abstractmethod
+    def get_signed_url(self, path: str, expires_in: int = 3600) -> str:
+        """Get a signed URL for direct access to a stored file.
+
+        Issue #350: Artifact Pattern - lazy loading video results.
+
+        Args:
+            path: Path relative to storage root
+            expires_in: URL expiration time in seconds (default 1 hour)
+
+        Returns:
+            Signed URL that can be used to fetch the file directly
+
+        Raises:
+            FileNotFoundError: If file does not exist
+        """
+        raise NotImplementedError

@@ -5,11 +5,28 @@
  * API References:
  * - Job: GET /v1/jobs/{id} (fixtures/api-responses.json)
  * - FrameResult: WebSocket /v1/stream (fixtures/api-responses.json)
+ *
+ * Clean Break (Issue #350): No more inline results - use result_url and ArtifactViewer
  */
 
+import { vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import { ResultsPanel } from "./ResultsPanel";
 import { createMockFrameResult, createMockJobDone } from "../test-utils/factories";
+
+// Mock ArtifactViewer component
+// Discussion #352: ArtifactViewer now receives jobId (required) and resultUrl (optional)
+vi.mock("./ArtifactViewer", () => ({
+    ArtifactViewer: ({ jobId, resultUrl }: { jobId: string; resultUrl?: string }) => (
+        <div
+            data-testid="artifact-viewer"
+            data-job-id={jobId}
+            data-result-url={resultUrl || ""}
+        >
+            ArtifactViewer: jobId={jobId}
+        </div>
+    ),
+}));
 
 describe("ResultsPanel - Styling Updates", () => {
     describe("heading and layout", () => {
@@ -85,21 +102,29 @@ describe("ResultsPanel - Styling Updates", () => {
         const mockJob = createMockJobDone();
 
         it("should display job ID and status", () => {
+            // Use a job without result_url to avoid ArtifactViewer showing jobId again
+            const mockJobNoResult = createMockJobDone({
+                result_url: undefined,
+                summary: undefined,
+            });
+
             render(
-                <ResultsPanel mode="job" job={mockJob} />
+                <ResultsPanel mode="job" job={mockJobNoResult} />
             );
 
-            expect(screen.getByText(new RegExp(mockJob.job_id))).toBeInTheDocument();
+            expect(screen.getByText(new RegExp(mockJobNoResult.job_id))).toBeInTheDocument();
             expect(screen.getByText(/Status: completed/)).toBeInTheDocument();
         });
 
-        it("should display JSON result in code block", () => {
+        it("should display summary in code block for completed jobs", () => {
             const { container } = render(
                 <ResultsPanel mode="job" job={mockJob} />
             );
 
             const preBlock = container.querySelector("pre");
             expect(preBlock).toBeInTheDocument();
+            // Summary should be displayed
+            expect(preBlock?.textContent).toContain("frame_count");
         });
 
         it("should show prompt when no job selected", () => {
@@ -149,6 +174,87 @@ describe("ResultsPanel - Styling Updates", () => {
                     overflowY: "auto"
                 });
             }, { timeout: 10000 });
+        });
+    });
+
+    // Issue #350: Clean Break - Artifact Pattern
+    describe("Clean Break - Artifact Pattern", () => {
+        it("should show summary for job with result_url", () => {
+            const mockJob = createMockJobDone({
+                job_type: "video",
+                result_url: "/v1/jobs/video-123/result",
+                summary: { frame_count: 100, detection_count: 50, classes: ["player", "ball"] },
+            });
+
+            render(<ResultsPanel mode="job" job={mockJob} />);
+
+            // Summary should be displayed
+            expect(screen.getByText(/Summary/)).toBeInTheDocument();
+            expect(screen.getByText(/frame_count/)).toBeInTheDocument();
+            expect(screen.getByText(/100/)).toBeInTheDocument();
+        });
+
+        it("should use ArtifactViewer for job with result_url", () => {
+            const mockJob = createMockJobDone({
+                job_id: "video-123",
+                job_type: "video",
+                result_url: "/v1/jobs/video-123/result",
+                summary: { frame_count: 100 },
+            });
+
+            render(<ResultsPanel mode="job" job={mockJob} />);
+
+            // ArtifactViewer should be rendered
+            expect(screen.getByTestId("artifact-viewer")).toBeInTheDocument();
+            // Discussion #352: Should pass jobId (required) and resultUrl (optional)
+            expect(screen.getByTestId("artifact-viewer")).toHaveAttribute(
+                "data-job-id",
+                "video-123"
+            );
+            expect(screen.getByTestId("artifact-viewer")).toHaveAttribute(
+                "data-result-url",
+                "/v1/jobs/video-123/result"
+            );
+        });
+
+        // Discussion #352: Verify jobId is passed (required prop for pagination)
+        it("should pass jobId to ArtifactViewer for pagination", () => {
+            const mockJob = createMockJobDone({
+                job_id: "job-pagination-test",
+                job_type: "video",
+                result_url: "/v1/jobs/job-pagination-test/result",
+                summary: { frame_count: 500 },
+            });
+
+            render(<ResultsPanel mode="job" job={mockJob} />);
+
+            const artifactViewer = screen.getByTestId("artifact-viewer");
+            // jobId must be passed for API-based pagination
+            expect(artifactViewer).toHaveAttribute("data-job-id", "job-pagination-test");
+        });
+
+        it("should show 'No result available' for job without result_url or summary", () => {
+            const mockJob = createMockJobDone({
+                result_url: undefined,
+                summary: undefined,
+            });
+
+            render(<ResultsPanel mode="job" job={mockJob} />);
+
+            expect(screen.getByText(/No result available/)).toBeInTheDocument();
+        });
+
+        it("should NOT have inline results field", () => {
+            const mockJob = createMockJobDone({
+                job_type: "video",
+                result_url: "/v1/jobs/video-123/result",
+                summary: { frame_count: 100 },
+            });
+
+            render(<ResultsPanel mode="job" job={mockJob} />);
+
+            // Should not show old "Raw Result" or inline JSON display
+            expect(screen.queryByText(/Raw Result/)).not.toBeInTheDocument();
         });
     });
 });

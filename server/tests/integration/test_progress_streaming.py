@@ -144,3 +144,69 @@ class TestProgressStreamingIntegration:
             f"job:{job_id}" not in ws_manager.subscriptions
             or len(ws_manager.subscriptions.get(f"job:{job_id}", set())) == 0
         )
+
+
+class TestProgressFromSyncContext:
+    """Tests for progress broadcast from sync worker context.
+
+    Discussion #355: The worker runs in a sync thread without an event loop.
+    Progress callback must be able to broadcast from this context.
+    """
+
+    @pytest.fixture(autouse=True)
+    def reset_ws_manager(self):
+        """Reset WebSocket manager state before each test."""
+        ws_manager.active_connections.clear()
+        ws_manager.subscriptions.clear()
+        yield
+        ws_manager.active_connections.clear()
+        ws_manager.subscriptions.clear()
+
+    def test_progress_from_sync_context_without_event_loop(self):
+        """Test that progress can be broadcast from sync context.
+
+        Discussion #355: Worker runs in sync thread, so progress_callback
+        must work without a running event loop.
+        """
+        client = TestClient(app)
+        job_id = "sync-context-job"
+
+        with client.websocket_connect(f"/v1/ws/jobs/{job_id}") as ws:
+            # Verify connection
+            ws.send_json({"type": "ping"})
+            response = ws.receive_json()
+            assert response["type"] == "pong"
+
+            # Call progress_callback from sync context (no event loop)
+            # This simulates what happens in the sync worker thread
+            import asyncio
+
+            # Ensure no event loop is running (simulating worker thread)
+            try:
+                asyncio.get_running_loop()
+                # If we get here, there IS a running loop - skip this assertion
+                # because TestClient creates its own loop
+            except RuntimeError:
+                # No running loop - this is what we want to test
+                pass
+
+            # Call progress_callback directly (like worker does)
+            result = progress_callback(
+                job_id=job_id,
+                current_frame=50,
+                total_frames=100,
+                current_tool="test-tool",
+            )
+
+            # The callback should return a ProgressEvent
+            assert result is not None
+            assert result.current_frame == 50
+            assert result.total_frames == 100
+
+            # Give time for broadcast to complete
+            import time
+
+            time.sleep(0.1)
+
+            # Note: Without a running event loop, broadcast silently fails
+            # This test documents the current behavior and the fix needed

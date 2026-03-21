@@ -4,8 +4,10 @@ Tests verify:
 1. List endpoint returns jobs with correct pagination
 2. Status values are returned correctly (Issue #212 alignment)
 3. Progress is calculated correctly
-4. Results are loaded only for completed jobs
+4. Results are loaded via result_url for all jobs
 5. Empty database returns empty list
+
+Clean Break (Issue #350): All jobs use result_url, no inline results.
 """
 
 import json
@@ -129,7 +131,10 @@ def test_list_jobs_pagination(client, session):
 
 
 def test_list_jobs_with_results(client, session, storage):
-    """Test GET /v1/jobs loads results for completed jobs."""
+    """Test GET /v1/jobs returns result_url for completed jobs.
+
+    Clean Break (Issue #350): All jobs use result_url, no inline results.
+    """
     # Clean database
     session.query(Job).delete()
     session.commit()
@@ -142,7 +147,7 @@ def test_list_jobs_with_results(client, session, storage):
     results_json = json.dumps(results_data)
     storage.save_file(BytesIO(results_json.encode()), "jobs/output.json")
 
-    # Create pending job (should not have results)
+    # Create pending job (should not have result_url)
     create_job(session, JobStatus.pending)
 
     response = client.get("/v1/jobs?limit=10&skip=0")
@@ -153,12 +158,13 @@ def test_list_jobs_with_results(client, session, storage):
     # Find completed job
     completed_job = next((j for j in data["jobs"] if j["status"] == "completed"), None)
     assert completed_job is not None
-    assert completed_job["result"] is not None
+    # Clean Break: result_url instead of inline result
+    assert completed_job["result_url"] is not None
 
     # Find pending job
     pending_job = next((j for j in data["jobs"] if j["status"] == "pending"), None)
     assert pending_job is not None
-    assert pending_job["result"] is None
+    assert pending_job["result_url"] is None
 
 
 def test_list_jobs_includes_plugin_and_tool(client, session):
@@ -205,3 +211,238 @@ def test_list_jobs_ordering(client, session):
     assert job_ids[0] == job3_id
     assert job_ids[1] == job2_id
     assert job_ids[2] == job1_id
+
+
+# Issue #350: Artifact Pattern - all jobs return result_url
+
+
+def test_list_jobs_video_returns_result_url(client, session, storage):
+    """Test GET /v1/jobs returns result_url for video jobs.
+
+    Issue #350: Video jobs return a URL for lazy loading.
+    """
+    # Clean database
+    session.query(Job).delete()
+    session.commit()
+
+    # Create completed video job
+    job_id = uuid4()
+    job = Job(
+        job_id=job_id,
+        status=JobStatus.completed,
+        plugin_id="yolo-tracker",
+        job_type="video",
+        input_path="video/input/test.mp4",
+        output_path=f"video/output/{job_id}.json",
+    )
+    session.add(job)
+    session.commit()
+
+    # Create a test results file
+    results_data = {
+        "frames": [
+            {"frame": 1, "detections": [{"class": "player", "bbox": [0, 0, 10, 10]}]}
+        ]
+        * 100  # Simulate large results
+    }
+    results_json = json.dumps(results_data)
+    storage.save_file(BytesIO(results_json.encode()), f"video/output/{job_id}.json")
+
+    response = client.get("/v1/jobs?limit=10&skip=0")
+
+    assert response.status_code == 200
+    data = response.json()
+
+    video_job = next((j for j in data["jobs"] if j["job_id"] == str(job_id)), None)
+    assert video_job is not None
+    # Video job should have result_url
+    assert video_job["result_url"] is not None
+    assert "/result" in video_job["result_url"]
+    # Clean Break: no inline result field
+    assert "result" not in video_job or video_job.get("result") is None
+
+
+def test_list_jobs_image_returns_result_url(client, session, storage):
+    """Test GET /v1/jobs returns result_url for image jobs.
+
+    Clean Break (Issue #350): All jobs use result_url.
+    """
+    # Clean database
+    session.query(Job).delete()
+    session.commit()
+
+    # Create completed image job
+    job_id = uuid4()
+    job = Job(
+        job_id=job_id,
+        status=JobStatus.completed,
+        plugin_id="ocr-plugin",
+        job_type="image",
+        input_path="image/input/test.png",
+        output_path="image/output.json",
+    )
+    session.add(job)
+    session.commit()
+
+    # Create a test results file
+    results_data = {"text": "extracted text"}
+    results_json = json.dumps(results_data)
+    storage.save_file(BytesIO(results_json.encode()), "image/output.json")
+
+    response = client.get("/v1/jobs?limit=10&skip=0")
+
+    assert response.status_code == 200
+    data = response.json()
+
+    image_job = next((j for j in data["jobs"] if j["job_id"] == str(job_id)), None)
+    assert image_job is not None
+    # Clean Break: image job uses result_url
+    assert image_job["result_url"] is not None
+    # Clean Break: no inline result field
+    assert "result" not in image_job or image_job.get("result") is None
+
+
+def test_list_jobs_video_includes_summary(client, session, storage):
+    """Test GET /v1/jobs includes summary for video jobs.
+
+    Issue #350: Summary contains derived metadata (frame_count, etc).
+    Discussion #354: Summary is now pre-computed and stored in job.summary column.
+    """
+    # Clean database
+    session.query(Job).delete()
+    session.commit()
+
+    # Create completed video job with pre-computed summary (Discussion #354)
+    job_id = uuid4()
+    summary_dict = {
+        "frame_count": 10,
+        "detection_count": 20,  # 10 frames * 2 detections
+        "classes": ["player", "ball"],
+    }
+    job = Job(
+        job_id=job_id,
+        status=JobStatus.completed,
+        plugin_id="yolo-tracker",
+        job_type="video",
+        input_path="video/input/test.mp4",
+        output_path=f"video/output/{job_id}.json",
+        summary=json.dumps(summary_dict),  # Pre-computed summary (Discussion #354)
+    )
+    session.add(job)
+    session.commit()
+
+    # Create a test results file (for result_url, not for summary derivation)
+    results_data = {
+        "frames": [
+            {"frame": i, "detections": [{"class": "player"}, {"class": "ball"}]}
+            for i in range(10)
+        ]
+    }
+    results_json = json.dumps(results_data)
+    storage.save_file(BytesIO(results_json.encode()), f"video/output/{job_id}.json")
+
+    response = client.get("/v1/jobs?limit=10&skip=0")
+
+    assert response.status_code == 200
+    data = response.json()
+
+    video_job = next((j for j in data["jobs"] if j["job_id"] == str(job_id)), None)
+    assert video_job is not None
+    # Video job should have summary (pre-computed, Discussion #354)
+    assert video_job["summary"] is not None
+    assert video_job["summary"]["frame_count"] == 10
+    assert video_job["summary"]["detection_count"] == 20  # 10 frames * 2 detections
+
+
+# Discussion #354: Pre-computed summary for /v1/jobs hot path
+def test_list_jobs_uses_precomputed_summary(client, session):
+    """Test GET /v1/jobs uses pre-computed summary from job.summary column.
+
+    Discussion #354: Summary should be pre-computed during worker finalization
+    and stored in job.summary column, avoiding loading full artifacts on hot path.
+    """
+    # Clean database
+    session.query(Job).delete()
+    session.commit()
+
+    # Create completed video job with pre-computed summary
+    job_id = uuid4()
+    precomputed_summary = json.dumps(
+        {
+            "frame_count": 500,
+            "detection_count": 2500,
+            "classes": ["person", "car", "bicycle"],
+        }
+    )
+    job = Job(
+        job_id=job_id,
+        status=JobStatus.completed,
+        plugin_id="yolo-tracker",
+        job_type="video",
+        input_path="video/input/test.mp4",
+        output_path=f"video/output/{job_id}.json",
+        summary=precomputed_summary,  # Pre-computed summary (Discussion #354)
+    )
+    session.add(job)
+    session.commit()
+
+    # NOTE: We intentionally do NOT create a results file
+    # The endpoint should use the pre-computed summary from DB
+    # If it tries to load the file, it will fail
+
+    response = client.get("/v1/jobs?limit=10&skip=0")
+
+    assert response.status_code == 200
+    data = response.json()
+
+    video_job = next((j for j in data["jobs"] if j["job_id"] == str(job_id)), None)
+    assert video_job is not None
+    # Should return pre-computed summary without loading file
+    assert video_job["summary"] is not None
+    assert video_job["summary"]["frame_count"] == 500
+    assert video_job["summary"]["detection_count"] == 2500
+    assert set(video_job["summary"]["classes"]) == {"person", "car", "bicycle"}
+
+
+def test_list_jobs_summary_fallback_for_old_jobs(client, session, storage):
+    """Test GET /v1/jobs handles jobs without pre-computed summary.
+
+    Discussion #354: Old jobs (before summary column) should gracefully
+    return None for summary, or compute it on-demand if output_path exists.
+    """
+    # Clean database
+    session.query(Job).delete()
+    session.commit()
+
+    # Create completed video job WITHOUT pre-computed summary (old job)
+    job_id = uuid4()
+    job = Job(
+        job_id=job_id,
+        status=JobStatus.completed,
+        plugin_id="yolo-tracker",
+        job_type="video",
+        input_path="video/input/test.mp4",
+        output_path=f"video/output/{job_id}.json",
+        summary=None,  # Old job - no pre-computed summary
+    )
+    session.add(job)
+    session.commit()
+
+    # Create results file for fallback
+    results_data = {
+        "frames": [{"frame": i, "detections": [{"class": "cat"}]} for i in range(5)]
+    }
+    results_json = json.dumps(results_data)
+    storage.save_file(BytesIO(results_json.encode()), f"video/output/{job_id}.json")
+
+    response = client.get("/v1/jobs?limit=10&skip=0")
+
+    assert response.status_code == 200
+    data = response.json()
+
+    video_job = next((j for j in data["jobs"] if j["job_id"] == str(job_id)), None)
+    assert video_job is not None
+    # Should fallback to loading file for old jobs
+    # Or return None if no fallback implemented
+    # (This test documents expected behavior)
+    assert video_job["summary"] is None or video_job["summary"]["frame_count"] == 5

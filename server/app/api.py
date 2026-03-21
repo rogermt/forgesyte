@@ -169,67 +169,8 @@ async def reload_all_plugins(
 
 
 # ============================================================================
-# Video Tracker Endpoints (Manifest & Tool Execution)
+# Video Tracker Endpoints (Tool Execution)
 # ============================================================================
-
-
-@router.get("/plugins/{plugin_id}/manifest")
-async def get_plugin_manifest(
-    plugin_id: str,
-    plugin_service: PluginManagementService = Depends(get_plugin_service),
-) -> Dict[str, Any]:
-    """Get plugin manifest including tool schemas.
-
-    The manifest describes what tools a plugin exposes, their input schemas,
-    and output schemas. This enables the web-ui to dynamically discover and
-    call tools without hardcoding plugin logic.
-
-    Args:
-        plugin_service: Plugin management service (injected)
-
-    Returns:
-        Manifest dict:
-        {
-            "name": "YOLO Football Tracker",
-            "version": "1.0.0",
-            "description": "...",
-            "tools": {
-                "player_detection": {
-                    "description": "...",
-                    "inputs": {...},
-                    "outputs": {...}
-                },
-                ...
-            }
-        }
-
-    Raises:
-        HTTPException(404): Plugin not found or has no manifest
-        HTTPException(500): Error reading manifest file
-
-    Example:
-        → 200 OK
-        {
-            "name": "YOLO Football Tracker",
-            "tools": { ... }
-        }
-    """
-    try:
-        manifest = plugin_service.get_plugin_manifest(plugin_id)
-        if not manifest:
-            raise HTTPException(
-                status_code=404,
-                detail=f"Plugin '{plugin_id}' not found or has no manifest",
-            )
-        return manifest
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error getting manifest for plugin '{plugin_id}': {e}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Error reading manifest: {str(e)}",
-        ) from e
 
 
 @router.post(
@@ -280,14 +221,19 @@ async def run_plugin_tool(
             "processing_time_ms": 42
         }
     """
+    # Discussion #356: Debug logging for diagnosing fetch issues
+    logger.debug("[PLUGIN TOOLS] plugin_id=%s tool_name=%s", plugin_id, tool_name)
+
     try:
         # Record start time
         start_time = time.time()
 
         # Execute tool
         logger.debug(
-            f"Executing tool '{tool_name}' on plugin '{plugin_id}' "
-            f"with {len(request.args)} args"
+            "[PLUGIN TOOLS] plugin_id=%s tool_name=%s args_count=%d",
+            plugin_id,
+            tool_name,
+            len(request.args),
         )
 
         result = plugin_service.run_plugin_tool(

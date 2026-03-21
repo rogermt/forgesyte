@@ -52,14 +52,17 @@ describe("Mock Factories", () => {
             const job = createMockJobDone();
             expect(job.status).toBe("completed");
             expect(job.updated_at).toBeDefined();
-            expect(job.results).toBeDefined();
+            // Clean Break: Use result_url instead of inline results
+            expect(job.result_url).toBeDefined();
             expect(job.progress).toBe(100);
         });
 
-        it("should have result data", () => {
+        it("should have summary data", () => {
             const job = createMockJobDone();
-            expect(job.results).toHaveProperty("text");
-            expect(job.results).toHaveProperty("confidence");
+            // Clean Break: Summary contains derived metadata
+            expect(job.summary).toBeDefined();
+            expect(job.summary).toHaveProperty("frame_count");
+            expect(job.summary).toHaveProperty("detection_count");
         });
     });
 

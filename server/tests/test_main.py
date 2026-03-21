@@ -372,3 +372,50 @@ def test_websocket_stream_subscribe_topic(mock_vision_service):
             assert response["type"] == "pong"
     finally:
         app.dependency_overrides.clear()
+
+
+# Discussion #355: Global OPTIONS handler for CORS preflight
+# Ensures tunnels/proxies that mishandle OPTIONS still see 200
+
+
+def test_options_handler_returns_200():
+    """Test that OPTIONS requests return 200 for any path.
+
+    Discussion #355: CORS preflight requests should always succeed
+    to prevent Next button delays when using tunnels/proxies.
+    """
+    client = TestClient(app)
+
+    # Test various paths
+    for path in ["/v1/jobs", "/v1/plugins", "/some/random/path", "/"]:
+        response = client.options(path)
+        assert response.status_code == 200, f"OPTIONS {path} should return 200"
+
+
+# Discussion #356: CORS headers on GET responses
+def test_cors_headers_on_get_response():
+    """Test that GET responses include Access-Control-Allow-Origin header.
+
+    Discussion #356: Browser was reporting "No 'Access-Control-Allow-Origin'
+    header is present" even though server returned 200 OK. The middleware
+    was setting headers but they weren't reaching the client.
+
+    This test verifies that GET responses have the CORS header set.
+    """
+    client = TestClient(app)
+
+    # Test root endpoint
+    response = client.get("/")
+    assert response.status_code == 200
+    assert (
+        "access-control-allow-origin" in response.headers
+    ), "GET / should have Access-Control-Allow-Origin header"
+
+    # Test debug/cors endpoint
+    response = client.get("/v1/debug/cors")
+    assert response.status_code == 200
+    assert (
+        "access-control-allow-origin" in response.headers
+    ), "GET /v1/debug/cors should have Access-Control-Allow-Origin header"
+
+    # Note: /v1/jobs endpoint requires database, tested separately in test_jobs.py

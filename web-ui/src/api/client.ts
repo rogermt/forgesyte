@@ -34,8 +34,9 @@ export interface Job {
     tool_list?: string[];  // DEPRECATED: Use tools instead (kept for backward compatibility)
     job_type?: "image" | "image_multi" | "video" | "video_multi";  // v0.9.8: added video_multi
     plugin?: string;  // Legacy: kept for backward compatibility
-    results?: Record<string, unknown>;  // v0.9.2: results from server
-    result?: Record<string, unknown>;  // Legacy: kept for backward compatibility
+    // Clean Break (Issue #350): No more inline results - use result_url for lazy loading
+    result_url?: string;  // URL to fetch results on-demand
+    summary?: Record<string, unknown>;  // Lightweight summary (frame_count, detection_count, classes)
     error_message?: string | null;  // v0.9.2: error_message from server
     error?: string | null;  // Legacy: kept for backward compatibility
     created_at: string;
@@ -153,6 +154,30 @@ export class ForgeSyteAPIClient {
             status: (result.status as string) || "cancelled",
             job_id: (result.job_id as string) || jobId,
         };
+    }
+
+    // Issue #350: Get job results on-demand (lazy loading for video jobs)
+    async getJobResult(
+        jobId: string,
+        mode: "redirect" | "stream" = "redirect"
+    ): Promise<Record<string, unknown>> {
+        const result = (await this.fetch(
+            `/jobs/${jobId}/result?mode=${mode}`
+        )) as Record<string, unknown>;
+        return result;
+    }
+
+    // Discussion #352: Paginated result fetching via API client
+    // Returns a page of frames for large video job results
+    async getJobResultPage(
+        jobId: string,
+        offset: number,
+        limit: number
+    ): Promise<{ offset: number; limit: number; total: number; frames: unknown[] }> {
+        const result = (await this.fetch(
+            `/jobs/${jobId}/result/page?offset=${offset}&limit=${limit}`
+        )) as { offset: number; limit: number; total: number; frames: unknown[] };
+        return result;
     }
 
     async getHealth(): Promise<{

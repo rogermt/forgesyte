@@ -1,4 +1,7 @@
-"""Tests for GET /video/results/{job_id} endpoint."""
+"""Tests for GET /video/results/{job_id} endpoint.
+
+Clean Break (Issue #350): All jobs return result_url, not inline results.
+"""
 
 import json
 
@@ -13,11 +16,16 @@ class TestJobResultsEndpoint:
     """Tests for job results endpoint."""
 
     async def test_results_completed(self, client, session) -> None:
-        """Assert completed job returns results."""
+        """Assert completed job returns result_url and summary."""
         from pathlib import Path
 
         # Create results file first
-        results_data = {"results": [{"frame_index": 0, "result": {"text": "test"}}]}
+        results_data = {
+            "frames": [
+                {"frame_index": 0, "detections": [{"class": "player"}]},
+                {"frame_index": 1, "detections": [{"class": "ball"}]},
+            ]
+        }
         results_file = "video/output/test_results.json"
         results_path = Path("./data/jobs") / results_file
         results_path.parent.mkdir(parents=True, exist_ok=True)
@@ -42,7 +50,10 @@ class TestJobResultsEndpoint:
 
         data = response.json()
         assert data["job_id"] == str(job.job_id)
-        assert "results" in data
+        # Clean Break: result_url instead of inline results
+        assert "result_url" in data
+        assert data["result_url"] is not None
+        assert "summary" in data
         assert "created_at" in data
         assert "updated_at" in data
 

@@ -78,3 +78,12 @@ class Job(Base):
         nullable=True,
         default=None,
     )
+
+    # v0.15.x: Pre-computed summary for /v1/jobs hot path (Discussion #354)
+    # Summary is computed once during worker finalization and stored here
+    # to avoid loading full artifacts on the list endpoint.
+    summary = Column(
+        String,
+        nullable=True,
+        default=None,
+    )
