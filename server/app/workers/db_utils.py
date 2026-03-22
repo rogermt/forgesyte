@@ -15,6 +15,7 @@ logger = logging.getLogger(__name__)
 
 SESSION_TRACKER: dict[int, float] = {}
 SESSION_WARN_THRESHOLD = 10  # seconds
+_tracker_lock = threading.Lock()
 
 
 def log_pool_status(tag: str = "") -> None:
@@ -97,13 +98,17 @@ def adaptive_backoff() -> None:
 
 
 def track_session_start() -> None:
+    """Record session start time for the current thread."""
     tid = threading.get_ident()
-    SESSION_TRACKER[tid] = time.time()
+    with _tracker_lock:
+        SESSION_TRACKER[tid] = time.time()
 
 
 def track_session_end() -> None:
+    """Remove session tracking for the current thread and warn if held too long."""
     tid = threading.get_ident()
-    start = SESSION_TRACKER.pop(tid, None)
+    with _tracker_lock:
+        start = SESSION_TRACKER.pop(tid, None)
     if start is None:
         return
     age = time.time() - start
@@ -114,9 +119,11 @@ def track_session_end() -> None:
 
 
 def dump_session_map() -> None:
+    """Log all active DB sessions."""
     now = time.time()
     logger.warning("=== ACTIVE DB SESSIONS ===")
-    for tid, ts in SESSION_TRACKER.items():
-        age = now - ts
-        logger.warning(f"Thread {tid} holding session for {age:.2f}s")
+    with _tracker_lock:
+        for tid, ts in SESSION_TRACKER.items():
+            age = now - ts
+            logger.warning(f"Thread {tid} holding session for {age:.2f}s")
     logger.warning("==========================")
