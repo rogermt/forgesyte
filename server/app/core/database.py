@@ -2,11 +2,13 @@
 
 import logging
 import os
+from contextlib import contextmanager
 from pathlib import Path
-from typing import Any
+from typing import Any, Generator
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import declarative_base, sessionmaker
+from sqlalchemy.pool import QueuePool
 
 logger = logging.getLogger(__name__)
 
@@ -19,9 +21,16 @@ data_dir.mkdir(exist_ok=True)
 # DB URL configurable via environment (tests use in-memory, prod uses file)
 DATABASE_URL = os.getenv("FORGESYTE_DATABASE_URL", "duckdb:///data/foregsyte.duckdb")
 
+# Issue #357: DB pool configuration
+# pool_size=20, max_overflow=40, pool_timeout=60, pool_pre_ping=True
 engine = create_engine(
     DATABASE_URL,
     future=True,
+    poolclass=QueuePool,
+    pool_size=20,
+    max_overflow=40,
+    pool_timeout=60,
+    pool_pre_ping=True,
 )
 
 SessionLocal = sessionmaker(
@@ -98,4 +107,26 @@ def get_db():
     try:
         yield db
     finally:
+        db.close()
+
+
+@contextmanager
+def get_db_session() -> Generator[Any, None, None]:
+    """Context manager for DB sessions with session tracking.
+
+    Issue #357: Ensures every DB session is properly tracked and released.
+    Uses track_session_start/end from db_utils for leak detection.
+    """
+    from ..workers.db_utils import track_session_end, track_session_start
+
+    track_session_start()
+    db = SessionLocal()
+    try:
+        yield db
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+    finally:
+        track_session_end()
         db.close()

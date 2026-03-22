@@ -39,6 +39,7 @@ from starlette.types import ASGIApp, Message, Receive, Scope, Send
 # Routers
 from .api import router as api_router
 from .api_plugins import router as plugins_router
+from .api_routes.routes.debug import router as debug_router
 from .api_routes.routes.execution import router as execution_router
 from .api_routes.routes.image_submit import router as image_submit_router
 from .api_routes.routes.job_results import router as job_results_router
@@ -485,6 +486,7 @@ def create_app() -> FastAPI:
     app.include_router(realtime_router, prefix=settings.api_prefix)
     app.include_router(health_router)
     app.include_router(worker_health_router)
+    app.include_router(debug_router)
     app.include_router(execution_router)
     app.include_router(init_pipeline_routes())
     app.include_router(pipelines_router, prefix=settings.api_prefix)
