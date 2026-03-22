@@ -4,7 +4,40 @@ Discussion #354: Pre-compute summary for /v1/jobs hot path.
 Discussion #357: Handle YOLO tracked_objects format in all frame structures.
 """
 
-from typing import List
+from typing import List, Optional
+
+
+def _extract_class_name(det: dict) -> Optional[str]:
+    """Extract class name from detection, handling multiple formats.
+
+    Handles:
+    - "class": "player" (string format)
+    - "label": "player" (alternative key)
+    - "class_id": 0 (integer format, returns "class_0")
+
+    Args:
+        det: Detection dict (or any value, returns None if not dict)
+
+    Returns:
+        Class name string, or None if not found
+    """
+    # Defensive: det must be a dict
+    if not isinstance(det, dict):
+        return None
+
+    # Priority 1: "class" key (string)
+    if "class" in det and isinstance(det["class"], str):
+        return det["class"]
+
+    # Priority 2: "label" key (alternative)
+    if "label" in det and isinstance(det["label"], str):
+        return det["label"]
+
+    # Priority 3: "class_id" key (integer, convert to "class_N")
+    if "class_id" in det:
+        return f"class_{det['class_id']}"
+
+    return None
 
 
 def extract_detections(frame: dict) -> List[dict]:
@@ -70,8 +103,9 @@ def derive_video_summary(results: dict) -> dict:
             detections = extract_detections(frame)
             detection_count += len(detections)
             for det in detections:
-                if isinstance(det, dict) and "class" in det:
-                    classes_set.add(det["class"])
+                class_name = _extract_class_name(det)
+                if class_name:
+                    classes_set.add(class_name)
 
             # Discussion #357: Handle video_multi merged frames structure
             # Each frame may have tool-specific keys (e.g., "player_tracker")
@@ -84,8 +118,9 @@ def derive_video_summary(results: dict) -> dict:
                         tool_dets = extract_detections(tool_payload)
                         detection_count += len(tool_dets)
                         for det in tool_dets:
-                            if isinstance(det, dict) and "class" in det:
-                                classes_set.add(det["class"])
+                            class_name = _extract_class_name(det)
+                            if class_name:
+                                classes_set.add(class_name)
 
         classes = sorted(classes_set)
 
@@ -110,8 +145,9 @@ def derive_video_summary(results: dict) -> dict:
                 detections = extract_detections(frame)
                 tool_detections += len(detections)
                 for det in detections:
-                    if isinstance(det, dict) and "class" in det:
-                        tool_classes.add(det["class"])
+                    class_name = _extract_class_name(det)
+                    if class_name:
+                        tool_classes.add(class_name)
 
         # Add to existing counts
         detection_count += tool_detections

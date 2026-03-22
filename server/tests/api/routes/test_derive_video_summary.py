@@ -315,3 +315,46 @@ class TestDeriveVideoSummaryDefensive:
         assert summary["frame_count"] == 1
         assert summary["detection_count"] == 2  # 1 player + 1 ball
         assert summary["classes"] == ["ball", "player"]
+
+    # TDD: Test for YOLO class_id format (integer, not string)
+    # Discussion #357: Real YOLO plugin outputs "class_id": 0, not "class": "player"
+    def test_merged_frames_with_class_id_integer_format(self):
+        """Should handle YOLO's class_id (integer) format.
+
+        Real YOLO plugin outputs:
+        {"track_id": 1, "class_id": 0, "xyxy": [...]}
+        NOT:
+        {"class": "player"}
+
+        class_id should be converted to "class_N" string.
+        """
+        results = {
+            "frames": [
+                {
+                    "frame_idx": 0,
+                    "player_tracker": {
+                        "detections": {
+                            "tracked_objects": [
+                                {"track_id": 1, "class_id": 0, "xyxy": [1, 2, 3, 4]},
+                                {"track_id": 2, "class_id": 1, "xyxy": [5, 6, 7, 8]},
+                            ]
+                        }
+                    },
+                },
+                {
+                    "frame_idx": 1,
+                    "player_tracker": {
+                        "detections": {
+                            "tracked_objects": [
+                                {"track_id": 1, "class_id": 0, "xyxy": [1, 2, 3, 4]},
+                            ]
+                        }
+                    },
+                },
+            ]
+        }
+        summary = derive_video_summary(results)
+        assert summary["frame_count"] == 2
+        assert summary["detection_count"] == 3
+        assert "class_0" in summary["classes"]
+        assert "class_1" in summary["classes"]
