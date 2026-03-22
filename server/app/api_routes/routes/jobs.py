@@ -22,33 +22,12 @@ from app.core.database import get_db
 from app.models.job import Job, JobStatus
 from app.schemas.job import JobListItem, JobListResponse, JobResultsResponse
 from app.services.storage.factory import get_storage_service
+from app.services.video_summary_service import derive_video_summary
 from app.settings import settings
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
 storage = get_storage_service(settings)
-
-
-def _extract_detections(frame: dict) -> List[dict]:
-    """Extract detections list from frame, handling multiple formats.
-
-    Handles:
-    - detections: [...] (standard format)
-    - detections: {"tracked_objects": [...]} (YOLO tracker format)
-
-    Args:
-        frame: Frame dict containing detections
-
-    Returns:
-        List of detection dicts, or empty list if not found/invalid
-    """
-    detections = frame.get("detections", [])
-    if isinstance(detections, list):
-        return detections
-    if isinstance(detections, dict):
-        # YOLO tracker format: {"tracked_objects": [...]}
-        return detections.get("tracked_objects", [])
-    return []
 
 
 def _calculate_progress(status: JobStatus) -> int:
@@ -67,96 +46,6 @@ def _calculate_progress(status: JobStatus) -> int:
         return 50
     else:  # completed or failed
         return 100
-
-
-def _derive_video_summary(results: dict) -> dict:
-    """Derive summary metadata from video job results.
-
-    Issue #350: Extract lightweight metadata from large video results
-    for display in job list without loading full results.
-
-    Discussion #353: Added defensive checks for malformed data.
-
-    Args:
-        results: Full video results dict
-
-    Returns:
-        Summary dict with frame_count, detection_count, classes
-    """
-    frame_count = 0
-    detection_count = 0
-    classes: List[str] = []
-
-    # Known frame keys that are NOT tool payloads (from _merge_video_frames)
-    KNOWN_FRAME_KEYS = {"frame_idx", "timestamp", "detections"}
-
-    # Handle frames array (most common structure)
-    frames = results.get("frames", [])
-    if isinstance(frames, list):
-        frame_count = len(frames)
-
-        classes_set: set = set()
-        for frame in frames:
-            # Discussion #353: Defensive check - frame must be a dict
-            if not isinstance(frame, dict):
-                continue
-            detections = _extract_detections(frame)
-            detection_count += len(detections)
-            for det in detections:
-                # Discussion #353: Defensive check - det must be a dict
-                if isinstance(det, dict) and "class" in det:
-                    classes_set.add(det["class"])
-
-            # Discussion #353: Handle video_multi merged frames structure
-            # Each frame may have tool-specific keys (e.g., "player_tracker", "ball_detector")
-            for key in frame:
-                if key not in KNOWN_FRAME_KEYS:
-                    # This is a tool payload
-                    tool_payload = frame[key]
-                    if isinstance(tool_payload, dict):
-                        tool_dets = tool_payload.get("detections", [])
-                        if isinstance(tool_dets, list):
-                            detection_count += len(tool_dets)
-                            for det in tool_dets:
-                                if isinstance(det, dict) and "class" in det:
-                                    classes_set.add(det["class"])
-
-        classes = sorted(classes_set)
-
-    # Handle tools structure (legacy multi-tool video jobs)
-    tools = results.get("tools", {})
-    if isinstance(tools, dict):
-        tool_detections = 0
-        tool_classes: set = set()
-
-        for _tool_name, tool_results in tools.items():
-            # Defensive: skip if tool_results is not a dict (malformed data)
-            if not isinstance(tool_results, dict):
-                continue
-            tool_frames = tool_results.get("frames", [])
-            # Defensive: skip if tool_frames is not a list
-            if not isinstance(tool_frames, list):
-                continue
-            for frame in tool_frames:
-                # Discussion #353: Defensive check - frame must be a dict
-                if not isinstance(frame, dict):
-                    continue
-                detections = _extract_detections(frame)
-                tool_detections += len(detections)
-                for det in detections:
-                    # Discussion #353: Defensive check - det must be a dict
-                    if isinstance(det, dict) and "class" in det:
-                        tool_classes.add(det["class"])
-
-        # Add to existing counts
-        detection_count += tool_detections
-        classes = sorted(set(classes) | tool_classes)
-
-    return {
-        "frame_count": frame_count,
-        "detection_count": detection_count,
-        "classes": classes,
-    }
 
 
 @router.get("/v1/jobs", response_model=JobListResponse)
@@ -346,7 +235,7 @@ async def get_job(job_id: UUID, db: Session = Depends(get_db)) -> JobResultsResp
 
     # Return result_url and summary for all completed jobs
     result_url = storage.get_signed_url(job.output_path)
-    summary = _derive_video_summary(results)
+    summary = derive_video_summary(results)
     return JobResultsResponse(
         job_id=job.job_id,
         status=job.status.value,

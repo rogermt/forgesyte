@@ -21,101 +21,9 @@ from ..core.database import SessionLocal
 from ..models.job import Job, JobStatus
 from ..services.queue.memory_queue import InMemoryQueueService
 from ..services.tool_router import iter_manifest_tools
+from ..services.video_summary_service import derive_video_summary
 from .progress import send_job_completed
 from .worker_state import worker_last_heartbeat
-
-
-def _extract_detections(frame: dict) -> List[dict]:
-    """Extract detections list from frame, handling multiple formats.
-
-    Handles:
-    - detections: [...] (standard format)
-    - detections: {"tracked_objects": [...]} (YOLO tracker format)
-
-    Args:
-        frame: Frame dict containing detections
-
-    Returns:
-        List of detection dicts, or empty list if not found/invalid
-    """
-    detections = frame.get("detections", [])
-    if isinstance(detections, list):
-        return detections
-    if isinstance(detections, dict):
-        # YOLO tracker format: {"tracked_objects": [...]}
-        return detections.get("tracked_objects", [])
-    return []
-
-
-def _derive_video_summary(results: dict) -> dict:
-    """Derive summary metadata from video job results.
-
-    Discussion #354: Extract lightweight metadata from video results
-    for pre-computed storage to avoid loading full artifacts on hot path.
-
-    Args:
-        results: Full video results dict
-
-    Returns:
-        Summary dict with frame_count, detection_count, classes
-    """
-    frame_count = 0
-    detection_count = 0
-    classes: List[str] = []
-
-    # Handle frames array (most common structure)
-    frames = results.get("frames", [])
-    if isinstance(frames, list):
-        frame_count = len(frames)
-
-        classes_set: set = set()
-        for frame in frames:
-            # Defensive: skip non-dict frames (malformed data)
-            if not isinstance(frame, dict):
-                continue
-            detections = _extract_detections(frame)
-            detection_count += len(detections)
-            for det in detections:
-                # Defensive: ensure det is a dict before key access
-                if isinstance(det, dict) and "class" in det:
-                    classes_set.add(det["class"])
-
-        classes = sorted(classes_set)
-
-    # Handle tools structure (multi-tool video jobs)
-    tools = results.get("tools", {})
-    if isinstance(tools, dict):
-        tool_detections = 0
-        tool_classes: set = set()
-
-        for _tool_name, tool_results in tools.items():
-            # Defensive: skip if tool_results is not a dict (malformed data)
-            if not isinstance(tool_results, dict):
-                continue
-            tool_frames = tool_results.get("frames", [])
-            # Defensive: skip if tool_frames is not a list
-            if not isinstance(tool_frames, list):
-                continue
-            for frame in tool_frames:
-                # Defensive: skip non-dict frames
-                if not isinstance(frame, dict):
-                    continue
-                detections = _extract_detections(frame)
-                tool_detections += len(detections)
-                for det in detections:
-                    if isinstance(det, dict) and "class" in det:
-                        tool_classes.add(det["class"])
-
-        # Add to existing counts
-        detection_count += tool_detections
-        classes = sorted(set(classes) | tool_classes)
-
-    return {
-        "frame_count": frame_count,
-        "detection_count": detection_count,
-        "classes": classes,
-    }
-
 
 logger = logging.getLogger(__name__)
 
@@ -768,7 +676,7 @@ class JobWorker:
             if job.job_type in ("video", "video_multi"):
                 job.progress = 100
             # Discussion #354: Pre-compute summary for /v1/jobs hot path
-            summary_dict = _derive_video_summary(output_data)
+            summary_dict = derive_video_summary(output_data)
             job.summary = json.dumps(summary_dict)
             db.commit()
             send_job_completed(str(job.job_id))
@@ -1079,7 +987,7 @@ class JobWorker:
             if job.job_type in ("video", "video_multi"):
                 job.progress = 100
             # Discussion #354: Pre-compute summary for /v1/jobs hot path
-            summary_dict = _derive_video_summary(output_data)
+            summary_dict = derive_video_summary(output_data)
             job.summary = json.dumps(summary_dict)
             db.commit()
 

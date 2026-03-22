@@ -8,7 +8,8 @@
     },
      "toktoken": {
       "command": "toktoken",
-      "args": ["serve"]
+      "args": ["serve"],
+      "description": "Toktoken MCP Server provides precise symbol search, dependency tracking, and an MCP server. TokToken reduces LLM context token usage by 88-99% by retrieving exact code symbols instead of reading entire files"
     }
   }
 }
