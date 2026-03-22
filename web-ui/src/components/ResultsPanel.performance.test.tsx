@@ -1,8 +1,8 @@
 /**
  * Performance tests for ResultsPanel component
  *
- * Clean Break (Issue #350): No more inline results.
- * All results are loaded via ArtifactViewer with pagination.
+ * v0.16.1: Removed JSON frame results - only summary is displayed.
+ * Download button uses result_url for full JSON download.
  *
  * These tests ensure the UI doesn't freeze when handling large results
  * (e.g., video jobs with ~1.7MB JSON results).
@@ -15,20 +15,6 @@ import { render, screen } from "@testing-library/react";
 import { ResultsPanel } from "./ResultsPanel";
 import { createMockJob } from "../test-utils/factories";
 
-// Mock ArtifactViewer component
-// Discussion #352: ArtifactViewer now receives jobId (required) and resultUrl (optional)
-vi.mock("./ArtifactViewer", () => ({
-    ArtifactViewer: ({ jobId, resultUrl }: { jobId: string; resultUrl?: string }) => (
-        <div
-            data-testid="artifact-viewer"
-            data-job-id={jobId}
-            data-result-url={resultUrl || ""}
-        >
-            ArtifactViewer: jobId={jobId}
-        </div>
-    ),
-}));
-
 describe("ResultsPanel performance guards", () => {
     let stringifySpy: ReturnType<typeof vi.spyOn>;
 
@@ -40,9 +26,9 @@ describe("ResultsPanel performance guards", () => {
         stringifySpy.mockRestore();
     });
 
-    describe("Clean Break - Artifact Pattern", () => {
+    describe("Summary display", () => {
         it("should NOT have inline results field in job", () => {
-            // Clean Break: Jobs no longer have inline results
+            // v0.16.1: Jobs show summary only, download button for full JSON
             const job = createMockJob({
                 status: "completed",
                 job_type: "video",
@@ -55,12 +41,12 @@ describe("ResultsPanel performance guards", () => {
             // Should display summary (small JSON)
             expect(screen.getByText(/Summary/)).toBeInTheDocument();
 
-            // Should use ArtifactViewer for results
-            expect(screen.getByTestId("artifact-viewer")).toBeInTheDocument();
+            // Should have download button
+            expect(screen.getByText(/Download Full JSON/)).toBeInTheDocument();
         });
 
-        it("should NOT stringify large results - uses pagination instead", () => {
-            // Large video job - results are paginated, not loaded into memory
+        it("should NOT stringify large results - uses download button instead", () => {
+            // Large video job - results downloaded via button, not loaded into memory
             const summary = {
                 frame_count: 10000,
                 detection_count: 50000,
@@ -110,7 +96,7 @@ describe("ResultsPanel performance guards", () => {
             expect(screen.getByText(/25000/)).toBeInTheDocument();
         });
 
-        it("should use ArtifactViewer for result_url", () => {
+        it("should show download button for result_url", () => {
             const job = createMockJob({
                 job_id: "video-123",
                 status: "completed",
@@ -121,18 +107,8 @@ describe("ResultsPanel performance guards", () => {
 
             render(<ResultsPanel mode="job" job={job} />);
 
-            // ArtifactViewer should be rendered
-            const artifactViewer = screen.getByTestId("artifact-viewer");
-            expect(artifactViewer).toBeInTheDocument();
-            // Discussion #352: Should pass jobId and resultUrl
-            expect(artifactViewer).toHaveAttribute(
-                "data-job-id",
-                "video-123"
-            );
-            expect(artifactViewer).toHaveAttribute(
-                "data-result-url",
-                "/v1/jobs/video-123/result"
-            );
+            // Download button should be rendered
+            expect(screen.getByText(/Download Full JSON/)).toBeInTheDocument();
         });
 
         it("should show 'No result available' when no result_url or summary", () => {
@@ -179,8 +155,8 @@ describe("ResultsPanel performance guards", () => {
 
             render(<ResultsPanel mode="job" job={job} />);
 
-            // Should still render ArtifactViewer
-            expect(screen.getByTestId("artifact-viewer")).toBeInTheDocument();
+            // Should still show download button
+            expect(screen.getByText(/Download Full JSON/)).toBeInTheDocument();
         });
     });
 });

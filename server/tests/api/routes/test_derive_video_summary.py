@@ -212,3 +212,50 @@ class TestDeriveVideoSummaryDefensive:
         assert summary["frame_count"] == 0
         assert summary["detection_count"] == 1
         assert summary["classes"] == ["player"]
+
+    # TDD: Tests for YOLO tracked_objects format (Discussion #357)
+    def test_derive_video_summary_handles_tracked_objects_format(self):
+        """Should handle YOLO's tracked_objects format.
+
+        YOLO tracker produces:
+        {"detections": {"tracked_objects": [{"class": "player"}]}}
+        instead of:
+        {"detections": [{"class": "player"}]}
+        """
+        results = {
+            "frames": [
+                {
+                    "frame_index": 0,
+                    "detections": {"tracked_objects": [{"class": "player"}]},
+                },
+                {
+                    "frame_index": 1,
+                    "detections": {
+                        "tracked_objects": [{"class": "ball"}, {"class": "player"}]
+                    },
+                },
+            ]
+        }
+        summary = _derive_video_summary(results)
+        assert summary["frame_count"] == 2
+        assert summary["detection_count"] == 3
+        assert summary["classes"] == ["ball", "player"]
+
+    def test_derive_video_summary_mixed_detection_formats(self):
+        """Should handle mixed formats in same results.
+
+        Some tools produce list format, others produce tracked_objects format.
+        """
+        results = {
+            "frames": [
+                {"frame_idx": 0, "detections": [{"class": "person"}]},  # List format
+                {
+                    "frame_index": 1,
+                    "detections": {"tracked_objects": [{"class": "car"}]},
+                },  # Dict format
+            ]
+        }
+        summary = _derive_video_summary(results)
+        assert summary["frame_count"] == 2
+        assert summary["detection_count"] == 2
+        assert summary["classes"] == ["car", "person"]

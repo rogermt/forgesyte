@@ -25,6 +25,28 @@ from .progress import send_job_completed
 from .worker_state import worker_last_heartbeat
 
 
+def _extract_detections(frame: dict) -> List[dict]:
+    """Extract detections list from frame, handling multiple formats.
+
+    Handles:
+    - detections: [...] (standard format)
+    - detections: {"tracked_objects": [...]} (YOLO tracker format)
+
+    Args:
+        frame: Frame dict containing detections
+
+    Returns:
+        List of detection dicts, or empty list if not found/invalid
+    """
+    detections = frame.get("detections", [])
+    if isinstance(detections, list):
+        return detections
+    if isinstance(detections, dict):
+        # YOLO tracker format: {"tracked_objects": [...]}
+        return detections.get("tracked_objects", [])
+    return []
+
+
 def _derive_video_summary(results: dict) -> dict:
     """Derive summary metadata from video job results.
 
@@ -51,10 +73,7 @@ def _derive_video_summary(results: dict) -> dict:
             # Defensive: skip non-dict frames (malformed data)
             if not isinstance(frame, dict):
                 continue
-            detections = frame.get("detections", [])
-            # Defensive: ensure detections is a list
-            if not isinstance(detections, list):
-                continue
+            detections = _extract_detections(frame)
             detection_count += len(detections)
             for det in detections:
                 # Defensive: ensure det is a dict before key access
@@ -81,9 +100,7 @@ def _derive_video_summary(results: dict) -> dict:
                 # Defensive: skip non-dict frames
                 if not isinstance(frame, dict):
                     continue
-                detections = frame.get("detections", [])
-                if not isinstance(detections, list):
-                    continue
+                detections = _extract_detections(frame)
                 tool_detections += len(detections)
                 for det in detections:
                     if isinstance(det, dict) and "class" in det:

@@ -42,7 +42,6 @@ from .api_plugins import router as plugins_router
 from .api_routes.routes.debug import router as debug_router
 from .api_routes.routes.execution import router as execution_router
 from .api_routes.routes.image_submit import router as image_submit_router
-from .api_routes.routes.job_results import router as job_results_router
 from .api_routes.routes.job_status import router as job_status_router
 from .api_routes.routes.jobs import router as jobs_router
 from .api_routes.routes.video_file_processing import router as video_router
@@ -495,7 +494,6 @@ def create_app() -> FastAPI:
     app.include_router(image_submit_router, prefix="")
     app.include_router(jobs_router, prefix="")
     app.include_router(job_status_router, prefix="")
-    app.include_router(job_results_router, prefix="")
     app.include_router(job_progress_router)
 
     return app
