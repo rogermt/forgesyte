@@ -317,16 +317,14 @@ class TestDeriveVideoSummaryDefensive:
         assert summary["classes"] == ["ball", "player"]
 
     # TDD: Test for YOLO class_id format (integer, not string)
-    # Discussion #357: Real YOLO plugin outputs "class_id": 0, not "class": "player"
+    # Discussion #357: YOLO plugin now outputs BOTH class_id AND class
     def test_merged_frames_with_class_id_integer_format(self):
-        """Should handle YOLO's class_id (integer) format.
+        """Should handle YOLO's class_id (integer) format with class name.
 
-        Real YOLO plugin outputs:
-        {"track_id": 1, "class_id": 0, "xyxy": [...]}
-        NOT:
-        {"class": "player"}
+        Real YOLO plugin now outputs:
+        {"track_id": 1, "class_id": 0, "class": "player", "xyxy": [...]}
 
-        class_id should be converted to "class_N" string.
+        The "class" field is the human-readable name from CLASS_NAMES mapping.
         """
         results = {
             "frames": [
@@ -335,8 +333,18 @@ class TestDeriveVideoSummaryDefensive:
                     "player_tracker": {
                         "detections": {
                             "tracked_objects": [
-                                {"track_id": 1, "class_id": 0, "xyxy": [1, 2, 3, 4]},
-                                {"track_id": 2, "class_id": 1, "xyxy": [5, 6, 7, 8]},
+                                {
+                                    "track_id": 1,
+                                    "class_id": 0,
+                                    "class": "player",
+                                    "xyxy": [1, 2, 3, 4],
+                                },
+                                {
+                                    "track_id": 2,
+                                    "class_id": 1,
+                                    "class": "goalkeeper",
+                                    "xyxy": [5, 6, 7, 8],
+                                },
                             ]
                         }
                     },
@@ -346,7 +354,12 @@ class TestDeriveVideoSummaryDefensive:
                     "player_tracker": {
                         "detections": {
                             "tracked_objects": [
-                                {"track_id": 1, "class_id": 0, "xyxy": [1, 2, 3, 4]},
+                                {
+                                    "track_id": 1,
+                                    "class_id": 0,
+                                    "class": "player",
+                                    "xyxy": [1, 2, 3, 4],
+                                },
                             ]
                         }
                     },
@@ -356,5 +369,5 @@ class TestDeriveVideoSummaryDefensive:
         summary = derive_video_summary(results)
         assert summary["frame_count"] == 2
         assert summary["detection_count"] == 3
-        assert "class_0" in summary["classes"]
-        assert "class_1" in summary["classes"]
+        assert "player" in summary["classes"]
+        assert "goalkeeper" in summary["classes"]
