@@ -70,10 +70,18 @@ async def list_jobs(
     Returns:
         JobListResponse with jobs array and total count
     """
+    # Issue #368: Debug logging for tracing JobList flow
+    logger.info("[JOBLIST] Request received: limit=%d, skip=%d", limit, skip)
+
     # Query jobs with pagination
     query = db.query(Job).order_by(Job.created_at.desc())
     total_count = query.count()
     jobs = query.offset(skip).limit(limit).all()
+
+    # Issue #368: Debug logging
+    logger.info(
+        "[JOBLIST] Query returned: %d jobs (total_count=%d)", len(jobs), total_count
+    )
 
     # Transform jobs to response format
     job_items: List[JobListItem] = []
@@ -122,6 +130,8 @@ async def list_jobs(
             )
         )
 
+    # Issue #368: Debug logging for response
+    logger.info("[JOBLIST] Returning %d job items", len(job_items))
     return JobListResponse(jobs=job_items, count=total_count)
 
 

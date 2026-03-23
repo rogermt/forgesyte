@@ -566,12 +566,16 @@ function App() {
                     : "var(--border-light)",
               }}
               onClick={() => {
+                // Issue #368: Debug logging for navigation state changes
+                console.log("[NAV] viewMode changing:", viewMode, "->", mode);
+                console.log("[NAV] selectedJob before:", selectedJob?.job_id, selectedJob?.status);
                 setViewMode(mode);
                 // PERFORMANCE: Clear selectedJob when entering video modes
                 // to prevent dragging huge video_multi jobs into the video flow
                 // which would cause UI freeze in ResultsPanel
                 if (mode === "video-upload" || mode === "video-stream") {
                   setSelectedJob(null);
+                  console.log("[NAV] selectedJob cleared");
                 }
               }}
             >
