@@ -7,14 +7,18 @@ import { apiClient, Job } from "../api/client";
 
 export interface JobListProps {
     onJobSelect: (job: Job) => void;
+    viewMode?: string;  // Issue #365: Trigger re-fetch when switching to jobs view
 }
 
-export function JobList({ onJobSelect }: JobListProps) {
+export function JobList({ onJobSelect, viewMode }: JobListProps) {
     const [jobs, setJobs] = useState<Job[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
+        // Issue #365: Only fetch when viewMode is 'jobs' (or not provided for backward compat)
+        if (viewMode !== undefined && viewMode !== "jobs") return;
+
         const loadJobs = async () => {
             try {
                 const data = await apiClient.listJobs();
@@ -31,7 +35,7 @@ export function JobList({ onJobSelect }: JobListProps) {
         };
 
         loadJobs();
-    }, []);
+    }, [viewMode]);  // Re-fetch when viewMode changes
 
     const getStatusColor = (status: string) => {
         switch (status) {

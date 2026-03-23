@@ -613,7 +613,7 @@ function App() {
 
           {viewMode === "jobs" && (
             <div style={styles.panel}>
-              <JobList onJobSelect={setSelectedJob} />
+              <JobList onJobSelect={setSelectedJob} viewMode={viewMode} />
             </div>
           )}
         </aside>
