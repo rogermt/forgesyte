@@ -659,7 +659,7 @@ class JobWorker:
                     "results": results.get(tools_to_run[0]),
                 }
 
-            output_json = json.dumps(output_data)
+            output_json = json.dumps(output_data, indent=2)
             if not self._storage:
                 logger.error(f"No storage service for job {job_id}")
                 self._fail_job(
@@ -969,7 +969,7 @@ class JobWorker:
                     "results": results[tools_to_run[0]],
                 }
 
-            output_json = json.dumps(output_data)
+            output_json = json.dumps(output_data, indent=2)
             output_bytes = BytesIO(output_json.encode())
 
             # Save results to storage with job_type subdirectory
