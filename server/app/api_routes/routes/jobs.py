@@ -291,3 +291,39 @@ async def get_job_video(job_id: UUID, db: Session = Depends(get_db)) -> FileResp
         media_type="video/mp4",
         filename=f"{job_id}.mp4",
     )
+
+
+@router.get("/v1/jobs/{job_id}/result")
+async def get_job_result(job_id: UUID, db: Session = Depends(get_db)) -> FileResponse:
+    """Get the JSON result file for download.
+
+    Issue #350: Artifact Pattern - lazy loading video results.
+    Serves the JSON output file for a completed job.
+
+    Args:
+        job_id: UUID of the job
+        db: Database session
+
+    Returns:
+        FileResponse with application/json content type
+
+    Raises:
+        HTTPException: 404 if job not found or result file not found
+    """
+    job = db.query(Job).filter(Job.job_id == job_id).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    if not job.output_path:
+        raise HTTPException(status_code=404, detail="Result not found")
+
+    try:
+        result_path = storage.load_file(job.output_path)
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="Result file not found") from None
+
+    return FileResponse(
+        path=result_path,
+        media_type="application/json",
+        filename=f"{job_id}.json",
+    )

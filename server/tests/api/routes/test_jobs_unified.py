@@ -398,3 +398,64 @@ def test_get_job_video_multi_returns_result_url(client, session, storage):
     assert data["result_url"] is not None
     # Clean Break: No inline results field
     assert "results" not in data
+
+
+# Issue #350: GET /v1/jobs/{job_id}/result endpoint for lazy loading
+
+
+def test_get_job_result_returns_json_file(client, session, storage):
+    """Test GET /v1/jobs/{job_id}/result returns JSON file for download.
+
+    TDD: This test should fail initially (endpoint doesn't exist).
+    """
+    job_id = uuid4()
+    job = Job(
+        job_id=job_id,
+        status=JobStatus.completed,
+        plugin_id="test-plugin",
+        input_path="video/input/test.mp4",
+        output_path=f"video/output/{job_id}.json",
+        job_type="video",
+    )
+    session.add(job)
+    session.commit()
+
+    # Create a test results file
+    results_data = {"frames": [{"detections": [{"class": "player"}]}]}
+    results_json = json.dumps(results_data)
+    storage.save_file(BytesIO(results_json.encode()), f"video/output/{job_id}.json")
+
+    response = client.get(f"/v1/jobs/{job_id}/result")
+
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "application/json"
+    # Should return the JSON content
+    data = response.json()
+    assert "frames" in data
+
+
+def test_get_job_result_not_found(client, session):
+    """Test GET /v1/jobs/{job_id}/result returns 404 for non-existent job."""
+    fake_job_id = uuid4()
+
+    response = client.get(f"/v1/jobs/{fake_job_id}/result")
+
+    assert response.status_code == 404
+
+
+def test_get_job_result_no_output_path(client, session):
+    """Test GET /v1/jobs/{job_id}/result returns 404 if job has no output_path."""
+    job_id = uuid4()
+    job = Job(
+        job_id=job_id,
+        status=JobStatus.pending,  # Pending jobs have no output
+        plugin_id="test-plugin",
+        input_path="video/input/test.mp4",  # Required field
+        job_type="video",
+    )
+    session.add(job)
+    session.commit()
+
+    response = client.get(f"/v1/jobs/{job_id}/result")
+
+    assert response.status_code == 404
