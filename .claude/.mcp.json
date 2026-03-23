@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "toktoken": {
+      "command": "toktoken",
+      "args": [
+        "serve"
+      ]
+    }
+  }
+}

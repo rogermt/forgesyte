@@ -1,14 +1,12 @@
 /**
  * Results panel component (plugin-agnostic for v0.9.4).
  *
- * Clean Break (Issue #350): No more inline results.
- * All results are viewed via ArtifactViewer component with pagination.
+ * v0.16.1: Removed JSON frame results - only summary is displayed.
  */
 
 import React, { useMemo } from "react";
 import { FrameResult } from "../hooks/useWebSocket";
 import { Job } from "../api/client";
-import { ArtifactViewer } from "./ArtifactViewer";
 
 export interface ResultsPanelProps {
     mode?: "stream" | "job";
@@ -163,7 +161,24 @@ export function ResultsPanel({
                             </div>
                         </div>
 
-                        {/* Clean Break: Show summary if available */}
+                        {/* Download Full JSON button */}
+                        {job.result_url && (
+                            <button
+                                style={{
+                                    marginBottom: 8,
+                                    padding: "6px 12px",
+                                    cursor: "pointer",
+                                }}
+                                onClick={() => {
+                                    // Security: noopener,noreferrer prevents tab-opener attacks
+                                    window.open(job.result_url, "_blank", "noopener,noreferrer");
+                                }}
+                            >
+                                Download Full JSON
+                            </button>
+                        )}
+
+                        {/* v0.16.1: Show summary if available */}
                         {job.summary && (
                             <div style={{ ...styles.codeBlock, marginBottom: "12px" }}>
                                 <div style={styles.label}>Summary</div>
@@ -171,15 +186,6 @@ export function ResultsPanel({
                                     {JSON.stringify(job.summary, null, 2)}
                                 </pre>
                             </div>
-                        )}
-
-                        {/* Clean Break: Use ArtifactViewer for all jobs */}
-                        {/* Discussion #352: Pass jobId for API-based pagination */}
-                        {job.result_url && (
-                            <ArtifactViewer
-                                jobId={job.job_id}
-                                resultUrl={job.result_url}
-                            />
                         )}
 
                         {/* No result available */}

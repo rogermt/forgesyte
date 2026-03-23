@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from "react";
 import { apiClient } from "../api/client";
-import { JobResults } from "./JobResults";
 import { ProgressBar } from "./ProgressBar";
 import { useJobProgress } from "../hooks/useJobProgress";
 
@@ -9,15 +8,6 @@ type Props = {
 };
 
 type Status = "pending" | "running" | "completed" | "failed";
-
-type JobResultsData = {
-  job_id: string;
-  results?: Record<string, unknown> | null;
-  total_frames?: number;
-  frames?: unknown[];
-  created_at?: string;
-  updated_at?: string;
-};
 
 export const JobStatus: React.FC<Props> = ({ jobId }) => {
   // WebSocket progress (primary source)
@@ -31,7 +21,6 @@ export const JobStatus: React.FC<Props> = ({ jobId }) => {
   // HTTP polling fallback
   const [pollProgress, setPollProgress] = useState<number | null>(null);
   const [pollStatus, setPollStatus] = useState<Status>("pending");
-  const [results, setResults] = useState<JobResultsData | null>(null);
   const [pollError, setPollError] = useState<string | null>(null);
 
   // Determine which source to use
@@ -48,15 +37,12 @@ export const JobStatus: React.FC<Props> = ({ jobId }) => {
   const currentError = isDone ? pollError : (wsError || pollError);
 
   // HTTP polling fallback (when WebSocket not connected)
-  // OR fetch results when WebSocket reports completed
   useEffect(() => {
     if (!jobId) return;
 
     // v0.10.1 Issue #231: Stop polling forever once we reach a terminal state
-    // EXCEPTION: If completed but results is null, continue polling (race condition
-    // where server marks job complete before results file is written)
     if (pollStatus === "failed") return;
-    if (pollStatus === "completed" && results !== null) return;
+    if (pollStatus === "completed") return;
 
     // Skip polling if WebSocket is connected AND not completed
     if (isConnected && wsStatus !== "completed") return;
@@ -70,27 +56,17 @@ export const JobStatus: React.FC<Props> = ({ jobId }) => {
         setPollProgress(job.progress ?? null);
         setPollError(null);
 
-        // Clean Break (Issue #350): Results are fetched via result_url, not inline
-        // Discussion #353: Skip streaming for video/video_multi jobs (large payloads)
-        // Video jobs should use summary/artifact flow instead
-        if (job.status === "completed" && job.result_url) {
-          const isVideoJob = job.job_type === "video" || job.job_type === "video_multi";
-          if (!isVideoJob) {
-            // Only stream results for non-video jobs (image jobs are small)
-            const resultData = await apiClient.getJobResult(job.job_id, "stream");
-            setResults(resultData as JobResultsData);
-          }
-          return;
-        }
-
         if (job.status === "failed") {
           setPollError(job.error_message || job.error || "Job failed.");
           return;
         }
 
-        // Continue polling if:
-        // - Not completed yet (running/pending)
-        // - Completed but no result_url yet (race condition where results file not written)
+        // Stop polling for completed jobs
+        if (job.status === "completed") {
+          return;
+        }
+
+        // Continue polling if not completed yet (running/pending)
         if (!isConnected) {
           timer = window.setTimeout(poll, 2000);
         }
@@ -104,7 +80,7 @@ export const JobStatus: React.FC<Props> = ({ jobId }) => {
     return () => {
       if (timer) window.clearTimeout(timer);
     };
-  }, [jobId, isConnected, wsStatus, pollStatus, results]); // v0.10.1 Issue #231: added pollStatus; added results for race condition fix
+  }, [jobId, isConnected, wsStatus, pollStatus]);
 
   // Render progress info from WebSocket
   const renderProgressInfo = () => {
@@ -162,11 +138,6 @@ export const JobStatus: React.FC<Props> = ({ jobId }) => {
 
       {/* Error display */}
       {currentError && <div style={{ color: "red" }}>{currentError}</div>}
-      
-      {/* Results display */}
-      {currentStatus === "completed" && results && (
-        <JobResults results={results} />
-      )}
     </div>
   );
 };

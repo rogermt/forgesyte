@@ -11,18 +11,18 @@ Issue #350: Added GET /v1/jobs/{job_id}/result endpoint for lazy loading.
 
 import json
 import logging
-from typing import List, Literal
+from typing import List
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import FileResponse
-from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.models.job import Job, JobStatus
 from app.schemas.job import JobListItem, JobListResponse, JobResultsResponse
 from app.services.storage.factory import get_storage_service
+from app.services.video_summary_service import derive_video_summary
 from app.settings import settings
 
 logger = logging.getLogger(__name__)
@@ -46,100 +46,6 @@ def _calculate_progress(status: JobStatus) -> int:
         return 50
     else:  # completed or failed
         return 100
-
-
-def _derive_video_summary(results: dict) -> dict:
-    """Derive summary metadata from video job results.
-
-    Issue #350: Extract lightweight metadata from large video results
-    for display in job list without loading full results.
-
-    Discussion #353: Added defensive checks for malformed data.
-
-    Args:
-        results: Full video results dict
-
-    Returns:
-        Summary dict with frame_count, detection_count, classes
-    """
-    frame_count = 0
-    detection_count = 0
-    classes: List[str] = []
-
-    # Known frame keys that are NOT tool payloads (from _merge_video_frames)
-    KNOWN_FRAME_KEYS = {"frame_idx", "timestamp", "detections"}
-
-    # Handle frames array (most common structure)
-    frames = results.get("frames", [])
-    if isinstance(frames, list):
-        frame_count = len(frames)
-
-        classes_set: set = set()
-        for frame in frames:
-            # Discussion #353: Defensive check - frame must be a dict
-            if not isinstance(frame, dict):
-                continue
-            detections = frame.get("detections", [])
-            # Discussion #353: Defensive check - detections must be a list
-            if isinstance(detections, list):
-                detection_count += len(detections)
-                for det in detections:
-                    # Discussion #353: Defensive check - det must be a dict
-                    if isinstance(det, dict) and "class" in det:
-                        classes_set.add(det["class"])
-
-            # Discussion #353: Handle video_multi merged frames structure
-            # Each frame may have tool-specific keys (e.g., "player_tracker", "ball_detector")
-            for key in frame:
-                if key not in KNOWN_FRAME_KEYS:
-                    # This is a tool payload
-                    tool_payload = frame[key]
-                    if isinstance(tool_payload, dict):
-                        tool_dets = tool_payload.get("detections", [])
-                        if isinstance(tool_dets, list):
-                            detection_count += len(tool_dets)
-                            for det in tool_dets:
-                                if isinstance(det, dict) and "class" in det:
-                                    classes_set.add(det["class"])
-
-        classes = sorted(classes_set)
-
-    # Handle tools structure (legacy multi-tool video jobs)
-    tools = results.get("tools", {})
-    if isinstance(tools, dict):
-        tool_detections = 0
-        tool_classes: set = set()
-
-        for _tool_name, tool_results in tools.items():
-            # Defensive: skip if tool_results is not a dict (malformed data)
-            if not isinstance(tool_results, dict):
-                continue
-            tool_frames = tool_results.get("frames", [])
-            # Defensive: skip if tool_frames is not a list
-            if not isinstance(tool_frames, list):
-                continue
-            for frame in tool_frames:
-                # Discussion #353: Defensive check - frame must be a dict
-                if not isinstance(frame, dict):
-                    continue
-                detections = frame.get("detections", [])
-                # Discussion #353: Defensive check - detections must be a list
-                if isinstance(detections, list):
-                    tool_detections += len(detections)
-                    for det in detections:
-                        # Discussion #353: Defensive check - det must be a dict
-                        if isinstance(det, dict) and "class" in det:
-                            tool_classes.add(det["class"])
-
-        # Add to existing counts
-        detection_count += tool_detections
-        classes = sorted(set(classes) | tool_classes)
-
-    return {
-        "frame_count": frame_count,
-        "detection_count": detection_count,
-        "classes": classes,
-    }
 
 
 @router.get("/v1/jobs", response_model=JobListResponse)
@@ -329,7 +235,7 @@ async def get_job(job_id: UUID, db: Session = Depends(get_db)) -> JobResultsResp
 
     # Return result_url and summary for all completed jobs
     result_url = storage.get_signed_url(job.output_path)
-    summary = _derive_video_summary(results)
+    summary = derive_video_summary(results)
     return JobResultsResponse(
         job_id=job.job_id,
         status=job.status.value,
@@ -384,154 +290,4 @@ async def get_job_video(job_id: UUID, db: Session = Depends(get_db)) -> FileResp
         path=video_path,
         media_type="video/mp4",
         filename=f"{job_id}.mp4",
-    )
-
-
-class JobResultResponse(BaseModel):
-    """Response for GET /v1/jobs/{job_id}/result endpoint.
-
-    Issue #350: Artifact Pattern for video job lazy loading.
-    """
-
-    result_url: str
-
-
-@router.get("/v1/jobs/{job_id}/result")
-async def get_job_result(
-    job_id: UUID,
-    mode: Literal["redirect", "stream"] = Query(
-        "redirect", description="'redirect' returns URL, 'stream' returns JSON"
-    ),
-    db: Session = Depends(get_db),
-):
-    """Get job results on-demand (lazy loading for video jobs).
-
-    Issue #350: Artifact Pattern - video jobs use lazy loading to prevent
-    UI freeze from large JSON payloads (~1.7 MB).
-
-    Two modes:
-    - redirect (default): Returns a signed URL for the client to fetch directly
-    - stream: Returns the JSON content directly (for local dev or small results)
-
-    Args:
-        job_id: UUID of the job
-        mode: 'redirect' returns URL, 'stream' returns JSON content
-        db: Database session
-
-    Returns:
-        For mode=redirect: {"result_url": "<signed_url>"}
-        For mode=stream: The actual JSON results
-
-    Raises:
-        HTTPException: 404 if job not found, no results, or file missing
-    """
-    from fastapi.responses import JSONResponse
-
-    job = db.query(Job).filter(Job.job_id == job_id).first()
-    if not job:
-        raise HTTPException(status_code=404, detail="Job not found")
-
-    # Check if job has results
-    if job.status != JobStatus.completed:
-        raise HTTPException(status_code=404, detail="Job has no results yet")
-
-    if not job.output_path:
-        raise HTTPException(status_code=404, detail="Job has no results file")
-
-    # Handle stream mode - return JSON content directly
-    if mode == "stream":
-        try:
-            file_path = storage.load_file(job.output_path)
-            with open(file_path, "r") as f:
-                results = json.load(f)
-            return JSONResponse(content=results)
-        except FileNotFoundError:
-            raise HTTPException(
-                status_code=404, detail="Results file not found"
-            ) from None
-        except json.JSONDecodeError:
-            raise HTTPException(
-                status_code=500, detail="Invalid results file"
-            ) from None
-
-    # Handle redirect mode (default) - return signed URL
-    try:
-        result_url = storage.get_signed_url(job.output_path)
-        return JobResultResponse(result_url=result_url)
-    except FileNotFoundError:
-        raise HTTPException(status_code=404, detail="Results file not found") from None
-
-
-class JobResultPageResponse(BaseModel):
-    """Response for GET /v1/jobs/{job_id}/result/page endpoint.
-
-    Clean Break (Issue #350): Paginated access to large video results.
-    """
-
-    offset: int
-    limit: int
-    total: int
-    frames: List[dict]
-
-
-@router.get("/v1/jobs/{job_id}/result/page")
-async def get_job_result_page(
-    job_id: UUID,
-    offset: int = Query(0, ge=0, description="Number of frames to skip"),
-    limit: int = Query(200, ge=1, le=1000, description="Max frames to return"),
-    db: Session = Depends(get_db),
-) -> JobResultPageResponse:
-    """Get paginated frames from video job results.
-
-    Clean Break (Issue #350): Pagination for large video results.
-    Returns frames array with offset/limit pagination.
-
-    Args:
-        job_id: UUID of the job
-        offset: Number of frames to skip (default 0)
-        limit: Max frames to return (default 200, max 1000)
-        db: Database session
-
-    Returns:
-        JobResultPageResponse with offset, limit, total, frames
-
-    Raises:
-        HTTPException: 404 if job not found, no results, or file missing
-    """
-    job = db.query(Job).filter(Job.job_id == job_id).first()
-    if not job:
-        raise HTTPException(status_code=404, detail="Job not found")
-
-    # Check if job has results
-    if job.status != JobStatus.completed:
-        raise HTTPException(status_code=404, detail="Job has no results yet")
-
-    if not job.output_path:
-        raise HTTPException(status_code=404, detail="Job has no results file")
-
-    # Load results file
-    try:
-        file_path = storage.load_file(job.output_path)
-        with open(file_path, "r") as f:
-            results = json.load(f)
-    except FileNotFoundError:
-        raise HTTPException(status_code=404, detail="Results file not found") from None
-    except json.JSONDecodeError:
-        raise HTTPException(status_code=500, detail="Invalid results file") from None
-
-    # Extract frames array
-    frames = results.get("frames", [])
-    if not isinstance(frames, list):
-        frames = []
-
-    total = len(frames)
-
-    # Apply pagination
-    paginated_frames = frames[offset : offset + limit]
-
-    return JobResultPageResponse(
-        offset=offset,
-        limit=limit,
-        total=total,
-        frames=paginated_frames,
     )

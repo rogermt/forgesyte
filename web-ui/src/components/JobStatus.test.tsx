@@ -17,7 +17,6 @@ import { useJobProgress } from "../hooks/useJobProgress";
 vi.mock("../api/client", () => ({
   apiClient: {
     getJob: vi.fn(),
-    getJobResult: vi.fn(),
   },
 }));
 
@@ -468,87 +467,6 @@ describe("JobStatus", () => {
       // Status should REMAIN completed (locked by pollStatus)
       // This is the core fix for Issue #231
       expect(screen.getByText(/completed/i)).toBeInTheDocument();
-    });
-  });
-
-  // Discussion #353: Video jobs should NOT stream full results
-  describe("Discussion #353: Video jobs skip streaming", () => {
-    const mockGetJobResult = client.apiClient.getJobResult as ReturnType<typeof vi.fn>;
-
-    beforeEach(() => {
-      mockGetJobResult.mockReset();
-    });
-
-    it("should NOT call getJobResult for video jobs (prevents large payload download)", async () => {
-      mockUseJobProgress.mockReturnValue({
-        progress: null,
-        status: "completed",
-        error: null,
-        isConnected: true,
-      });
-      mockGetJob.mockResolvedValue({
-        job_id: "job-123",
-        status: "completed",
-        job_type: "video",
-        result_url: "/v1/jobs/job-123/result",
-        summary: { frame_count: 100 },
-      });
-
-      render(<JobStatus jobId="job-123" />);
-
-      await waitFor(() => {
-        expect(screen.getByText(/completed/i)).toBeInTheDocument();
-      });
-
-      // Should NOT call getJobResult with "stream" for video jobs
-      expect(mockGetJobResult).not.toHaveBeenCalled();
-    });
-
-    it("should NOT call getJobResult for video_multi jobs", async () => {
-      mockUseJobProgress.mockReturnValue({
-        progress: null,
-        status: "completed",
-        error: null,
-        isConnected: true,
-      });
-      mockGetJob.mockResolvedValue({
-        job_id: "job-123",
-        status: "completed",
-        job_type: "video_multi",
-        result_url: "/v1/jobs/job-123/result",
-        summary: { frame_count: 500 },
-      });
-
-      render(<JobStatus jobId="job-123" />);
-
-      await waitFor(() => {
-        expect(screen.getByText(/completed/i)).toBeInTheDocument();
-      });
-
-      // Should NOT call getJobResult with "stream" for video_multi jobs
-      expect(mockGetJobResult).not.toHaveBeenCalled();
-    });
-
-    it("should call getJobResult for image jobs (small payloads OK)", async () => {
-      mockUseJobProgress.mockReturnValue({
-        progress: null,
-        status: "completed",
-        error: null,
-        isConnected: true,
-      });
-      mockGetJob.mockResolvedValue({
-        job_id: "job-123",
-        status: "completed",
-        job_type: "image",
-        result_url: "/v1/jobs/job-123/result",
-      });
-      mockGetJobResult.mockResolvedValue({ text: "OCR result" });
-
-      render(<JobStatus jobId="job-123" />);
-
-      await waitFor(() => {
-        expect(mockGetJobResult).toHaveBeenCalledWith("job-123", "stream");
-      });
     });
   });
 });
