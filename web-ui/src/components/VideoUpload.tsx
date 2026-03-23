@@ -27,8 +27,6 @@ export const VideoUpload: React.FC<VideoUploadProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState<number>(0);
-  // v0.16.4: Issue #366 - Store uploaded video path for re-use
-  const [videoPath, setVideoPath] = useState<string | null>(null);
 
   // v0.9.5: Filter tools that support video input
   const availableVideoTools = useMemo(() => {
@@ -78,7 +76,7 @@ export const VideoUpload: React.FC<VideoUploadProps> = ({
     }
   }, [file, pluginId]);
 
-  // v0.16.4: Issue #366 - Upload then start streaming, or re-use existing videoPath
+  // v0.13.11: Upload then start streaming
   // FIX: Pass values directly to callback to avoid state race condition
   const handleStartStreaming = useCallback(async () => {
     if (!lockedTools.length) {
@@ -86,15 +84,7 @@ export const VideoUpload: React.FC<VideoUploadProps> = ({
       return;
     }
     
-    // v0.16.4: Re-use existing videoPath if available
-    let path = videoPath;
-    if (!path) {
-      path = await uploadVideo();
-      if (path) {
-        setVideoPath(path);
-      }
-    }
-    
+    const path = await uploadVideo();
     if (path && file) {
       if (onVideoUploaded) {
         onVideoUploaded(path, file);
@@ -103,9 +93,9 @@ export const VideoUpload: React.FC<VideoUploadProps> = ({
         onStartStreaming(path, file, lockedTools);
       }
     }
-  }, [uploadVideo, file, lockedTools, onVideoUploaded, onStartStreaming, videoPath]);
+  }, [uploadVideo, file, lockedTools, onVideoUploaded, onStartStreaming]);
 
-  // v0.16.4: Issue #366 - Upload then run job, or re-use existing videoPath
+  // v0.13.11: Upload then run job
   // FIX: Pass values directly to callback to avoid state race condition
   const handleRunJob = useCallback(async () => {
     if (!lockedTools.length) {
@@ -113,15 +103,7 @@ export const VideoUpload: React.FC<VideoUploadProps> = ({
       return;
     }
     
-    // v0.16.4: Re-use existing videoPath if available
-    let path = videoPath;
-    if (!path) {
-      path = await uploadVideo();
-      if (path) {
-        setVideoPath(path);
-      }
-    }
-    
+    const path = await uploadVideo();
     if (path && file) {
       if (onVideoUploaded) {
         onVideoUploaded(path, file);
@@ -130,7 +112,7 @@ export const VideoUpload: React.FC<VideoUploadProps> = ({
         onRunJob(path, file, lockedTools);
       }
     }
-  }, [uploadVideo, file, lockedTools, onVideoUploaded, onRunJob, videoPath]);
+  }, [uploadVideo, file, lockedTools, onVideoUploaded, onRunJob]);
 
   const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0] ?? null;
@@ -139,20 +121,13 @@ export const VideoUpload: React.FC<VideoUploadProps> = ({
 
     if (!f) {
       setFile(null);
-      setVideoPath(null); // v0.16.4: Clear videoPath when file cleared
       return;
     }
 
     if (f.type !== "video/mp4") {
       setError("Only MP4 videos are supported.");
       setFile(null);
-      setVideoPath(null); // v0.16.4: Clear videoPath on invalid file
       return;
-    }
-
-    // v0.16.4: Clear videoPath if different file selected
-    if (file && (f.name !== file.name || f.size !== file.size)) {
-      setVideoPath(null);
     }
 
     setFile(f);
@@ -225,13 +200,6 @@ export const VideoUpload: React.FC<VideoUploadProps> = ({
       {file && !uploading && (
         <div style={{ marginTop: "10px", fontSize: "12px", color: "var(--text-secondary)" }}>
           Selected: {file.name} ({(file.size / 1024 / 1024).toFixed(2)} MB)
-        </div>
-      )}
-
-      {/* v0.16.4: Issue #366 - Show uploaded status */}
-      {videoPath && !uploading && (
-        <div style={{ marginTop: "10px", fontSize: "12px", color: "var(--accent-green)" }}>
-          Video uploaded ✓
         </div>
       )}
     </div>
