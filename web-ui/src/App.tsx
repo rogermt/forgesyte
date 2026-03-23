@@ -681,7 +681,7 @@ function App() {
                   />
                   {isUploading && <p>Analyzing...</p>}
                   {uploadResult?.job_id && (
-                    <JobStatus jobId={uploadResult.job_id} />
+                    <JobStatus jobId={uploadResult.job_id} initialStatus={uploadResult.status} />
                   )}
                 </div>
               )}
@@ -716,7 +716,7 @@ function App() {
               <h3>Job Details</h3>
               {selectedJob ? (
                 <>
-                  <JobStatus jobId={selectedJob.job_id} />
+                  <JobStatus jobId={selectedJob.job_id} initialStatus={selectedJob.status} />
                 </>
               ) : (
                 <p>Select a job</p>
@@ -737,7 +737,7 @@ function App() {
               {uploadResult?.job_id && lockedTools && (
                 <div style={{ marginTop: "20px", borderTop: "1px solid var(--border-light)", paddingTop: "20px" }}>
                   <h3>Job Processing</h3>
-                  <JobStatus jobId={uploadResult.job_id} />
+                  <JobStatus jobId={uploadResult.job_id} initialStatus={uploadResult.status} />
                 </div>
               )}
             </div>
