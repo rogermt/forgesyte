@@ -8,7 +8,7 @@ from app.realtime.websocket_router import connection_manager, router
 
 
 @pytest.fixture
-def app():
+def app() -> FastAPI:
     """Create a FastAPI app with the realtime router."""
     app = FastAPI()
     app.include_router(router)
@@ -16,7 +16,7 @@ def app():
 
 
 @pytest.fixture
-def client(app):
+def client(app: FastAPI) -> TestClient:
     """Create a test client."""
     return TestClient(app)
 
@@ -105,28 +105,21 @@ class TestWebsocketConnectionManager:
         # After disconnect, should no longer be tracked
         assert not connection_manager.is_connected("session-1")
 
-        def test_connection_manager_tracks_multiple_sessions(
-            self, client: TestClient
-        ) -> None:
-            """Test ConnectionManager tracks multiple concurrent sessions."""
+    def test_connection_manager_tracks_multiple_sessions(
+        self, client: TestClient
+    ) -> None:
+        """Test ConnectionManager tracks multiple concurrent sessions."""
+        connection_manager.active_connections.clear()
 
-            connection_manager.active_connections.clear()
+        with client.websocket_connect("/v1/realtime?session_id=session-a"):
+            with client.websocket_connect("/v1/realtime?session_id=session-b"):
+                assert connection_manager.is_connected("session-a")
+                assert connection_manager.is_connected("session-b")
+                assert len(connection_manager.get_active_connections()) == 2
 
-            with client.websocket_connect("/v1/realtime?session_id=session-a"):
-
-                with client.websocket_connect("/v1/realtime?session_id=session-b"):
-
-                    assert connection_manager.is_connected("session-a")
-
-                    assert connection_manager.is_connected("session-b")
-
-                    assert len(connection_manager.get_active_connections()) == 2
-
-            # Both should be disconnected after context exits
-
-            assert not connection_manager.is_connected("session-a")
-
-            assert not connection_manager.is_connected("session-b")
+        # Both should be disconnected after context exits
+        assert not connection_manager.is_connected("session-a")
+        assert not connection_manager.is_connected("session-b")
 
 
 @pytest.mark.unit

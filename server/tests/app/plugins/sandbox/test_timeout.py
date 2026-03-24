@@ -181,3 +181,114 @@ class TestTimeoutIntegration:
 
         assert result.ok is True
         assert result.result == {"key": "value", "number": 123}
+
+    def test_function_returns_none_explicitly(self) -> None:
+        """Function that explicitly returns None is handled correctly."""
+
+        def none_fn() -> None:
+            pass
+
+        result = run_with_timeout(none_fn, timeout_seconds=5.0)
+
+        assert result.ok is True
+        assert result.result is None
+
+    def test_zero_timeout_immediate_timeout(self) -> None:
+        """Zero timeout should trigger immediate timeout."""
+        # Note: Even with zero timeout, the function might start executing
+        # before the timeout check, so we test with a slow function
+
+        def slow_fn() -> str:
+            time.sleep(0.5)
+            return "done"
+
+        result = run_with_timeout(slow_fn, timeout_seconds=0.0)
+
+        # With zero timeout, should either timeout or complete very fast
+        # The behavior depends on implementation details
+        assert result.ok is False or result.timed_out is True
+
+    def test_negative_timeout_handles_gracefully(self) -> None:
+        """Negative timeout value should be handled gracefully."""
+        # Note: The implementation may treat negative as invalid or use default
+
+        def quick_fn() -> str:
+            return "done"
+
+        # Should not raise an exception - implementation should handle gracefully
+        result = run_with_timeout(quick_fn, timeout_seconds=-1.0)
+
+        # Either it succeeds (implementation allows negative) or fails gracefully
+        assert result.ok is True or result.error is not None
+
+    def test_concurrent_timeouts_no_interference(self) -> None:
+        """Concurrent timeout executions don't interfere with each other."""
+        import concurrent.futures
+
+        results = []
+
+        def run_quick_task(task_id: int) -> tuple[int, bool, str | None]:
+            def fn() -> int:
+                return task_id * 2
+
+            result = run_with_timeout(fn, timeout_seconds=5.0)
+            return (task_id, result.ok, result.result)
+
+        def run_slow_task(task_id: int) -> tuple[int, bool, str | None]:
+            def fn() -> str:
+                time.sleep(2)
+                return "done"
+
+            result = run_with_timeout(fn, timeout_seconds=0.1)
+            return (task_id, result.ok, result.result)
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+            # Mix quick and slow tasks
+            futures = []
+            for i in range(5):
+                futures.append(executor.submit(run_quick_task, i))
+            for i in range(5, 10):
+                futures.append(executor.submit(run_slow_task, i))
+
+            for future in concurrent.futures.as_completed(futures):
+                results.append(future.result())
+
+        # Verify quick tasks completed successfully
+        quick_results = [r for r in results if r[0] < 5]
+        for task_id, ok, result in quick_results:
+            assert ok is True
+            assert result == task_id * 2
+
+        # Verify slow tasks timed out
+        slow_results = [r for r in results if r[0] >= 5]
+        for _task_id, ok, _result in slow_results:
+            assert ok is False
+
+        # Total should be 10 results
+        assert len(results) == 10
+
+    def test_concurrent_mixed_success_and_timeout(self) -> None:
+        """Concurrent execution with mix of success and timeout cases."""
+        import concurrent.futures
+
+        def run_task(succeed: bool, delay: float, timeout: float) -> bool:
+            def fn() -> str:
+                time.sleep(delay)
+                return "done"
+
+            result = run_with_timeout(fn, timeout_seconds=timeout)
+            return result.ok
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
+            futures = [
+                executor.submit(run_task, True, 0.0, 1.0),  # Should succeed
+                executor.submit(run_task, True, 0.0, 1.0),  # Should succeed
+                executor.submit(run_task, False, 1.0, 0.1),  # Should timeout
+                executor.submit(run_task, False, 1.0, 0.1),  # Should timeout
+            ]
+
+            results = [f.result() for f in concurrent.futures.as_completed(futures)]
+
+        # Should have 2 successes and 2 timeouts
+        assert sum(results) == 2
+        assert len(results) == 4

@@ -34,7 +34,7 @@ class TestInitDb:
             # Mock alembic.ini not existing to trigger fallback
             mock_alembic_path = MagicMock()
             mock_alembic_path.exists.return_value = False
-            mock_path.return_value.parent.parent.__truediv__ = MagicMock(
+            mock_path.return_value.parent.parent.parent.__truediv__ = MagicMock(
                 return_value=mock_alembic_path
             )
 
@@ -49,7 +49,7 @@ class TestInitDb:
         with patch("app.core.database.Path") as mock_path:
             mock_alembic_path = MagicMock()
             mock_alembic_path.exists.return_value = True
-            mock_path.return_value.parent.parent.__truediv__ = MagicMock(
+            mock_path.return_value.parent.parent.parent.__truediv__ = MagicMock(
                 return_value=mock_alembic_path
             )
 
@@ -82,21 +82,21 @@ class TestGetDb:
 
     def test_get_db_closes_session_after_use(self) -> None:
         """Test that get_db closes the session after use."""
-        db_gen = get_db()
-        db = next(db_gen)
+        mock_session = MagicMock(spec=Session)
+        mock_session.is_active = True
 
-        # Session should be active while in use
-        assert db.is_active
+        with patch("app.core.database.SessionLocal") as mock_session_local:
+            mock_session_local.return_value = mock_session
 
-        # Exhaust generator (simulates FastAPI dependency cleanup)
-        try:
-            next(db_gen)
-        except StopIteration:
-            pass
+            db_gen = get_db()
+            _ = next(db_gen)
 
-        # After generator completes, session should be closed
-        # Note: SQLAlchemy sessions have different states, checking connection works
-        assert True  # Generator completed without error
+            # Exhaust generator (simulates FastAPI dependency cleanup)
+            with pytest.raises(StopIteration):
+                next(db_gen)
+
+        # Verify close was called on the session
+        mock_session.close.assert_called_once()
 
 
 @pytest.mark.unit
@@ -115,27 +115,34 @@ class TestGetDbSession:
 
     def test_get_db_session_commits_on_success(self) -> None:
         """Test that get_db_session commits on successful exit."""
+        mock_session = MagicMock(spec=Session)
+
         with patch("app.workers.db_utils.track_session_start"):
             with patch("app.workers.db_utils.track_session_end"):
-                with patch.object(Session, "commit"):
-                    # Create a real session but mock commit
+                with patch("app.core.database.SessionLocal") as mock_session_local:
+                    mock_session_local.return_value = mock_session
+
                     with get_db_session():
                         pass  # No exception
 
-                    # Session should be committed
-                    # Note: The actual commit is called on the session instance
-                    assert True  # Context manager completed successfully
+        # Verify commit was called on the session
+        mock_session.commit.assert_called_once()
 
     def test_get_db_session_rollback_on_exception(self) -> None:
         """Test that get_db_session rolls back on exception."""
+        mock_session = MagicMock(spec=Session)
+
         with patch("app.workers.db_utils.track_session_start"):
             with patch("app.workers.db_utils.track_session_end"):
-                with pytest.raises(ValueError):
-                    with get_db_session():
-                        raise ValueError("Test error")
+                with patch("app.core.database.SessionLocal") as mock_session_local:
+                    mock_session_local.return_value = mock_session
 
-                # The rollback should have been called
-                # (tested implicitly by the context manager handling the exception)
+                    with pytest.raises(ValueError):
+                        with get_db_session():
+                            raise ValueError("Test error")
+
+        # Verify rollback was called on the session
+        mock_session.rollback.assert_called_once()
 
     def test_get_db_session_calls_tracking_functions(self) -> None:
         """Test that get_db_session calls session tracking functions."""
