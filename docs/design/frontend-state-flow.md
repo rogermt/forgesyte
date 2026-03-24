@@ -409,7 +409,7 @@ useEffect(() => {
 
 **Fix:** Consolidate to single job state, or derive one from the other.
 
-### 3. Polling in Multiple Layers
+### 4. Polling in Multiple Layers
 **Problem:** App.tsx polls AND JobStatus.tsx polls. No coordination.
 
 **Fix:** JobStatus should only poll if parent is not polling.

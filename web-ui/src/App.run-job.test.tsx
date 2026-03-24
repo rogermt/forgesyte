@@ -410,6 +410,14 @@ describe("App - Consecutive job uploads (Issue #369)", () => {
 
     await waitFor(() => expect(mockSubmitVideoJob).toHaveBeenCalledTimes(1), { timeout: 3000 });
 
+    // First run should render Job Processing section
+    await waitFor(
+      () => {
+        expect(screen.getByText(/job processing/i)).toBeInTheDocument();
+      },
+      { timeout: 2000 }
+    );
+
     // Now the first job is done, state has job_id = "first-job-id"
     // User clicks Run Job again for a SECOND job
 
@@ -430,10 +438,22 @@ describe("App - Consecutive job uploads (Issue #369)", () => {
     // But we haven't resolved it yet
     expect(mockSubmitVideoJob).toHaveBeenCalledTimes(2);
 
+    // CRITICAL ASSERTION: Old job UI must be cleared BEFORE second response arrives
+    // This proves Issue #369 fix - state is cleared immediately when button clicked
+    expect(screen.queryByText(/job processing/i)).not.toBeInTheDocument();
+
     // Now resolve the second job
     await act(async () => {
       resolveSecondJob!({ job_id: "second-job-id" });
     });
+
+    // After second job resolves, Job Processing section should reappear
+    await waitFor(
+      () => {
+        expect(screen.getByText(/job processing/i)).toBeInTheDocument();
+      },
+      { timeout: 2000 }
+    );
 
     // Verify the flow completed
     expect(mockSubmitVideoJob).toHaveBeenCalledTimes(2);
