@@ -5,11 +5,12 @@ import { useJobProgress } from "../hooks/useJobProgress";
 
 type Props = {
   jobId: string;
+  initialStatus?: Status;  // Issue #363: Pass known status to prevent unnecessary polling
 };
 
 type Status = "pending" | "running" | "completed" | "failed";
 
-export const JobStatus: React.FC<Props> = ({ jobId }) => {
+export const JobStatus: React.FC<Props> = ({ jobId, initialStatus }) => {
   // WebSocket progress (primary source)
   const {
     progress: wsProgress,
@@ -20,7 +21,8 @@ export const JobStatus: React.FC<Props> = ({ jobId }) => {
 
   // HTTP polling fallback
   const [pollProgress, setPollProgress] = useState<number | null>(null);
-  const [pollStatus, setPollStatus] = useState<Status>("pending");
+  // Issue #363: Initialize from initialStatus prop to prevent polling for completed jobs
+  const [pollStatus, setPollStatus] = useState<Status>(initialStatus || "pending");
   const [pollError, setPollError] = useState<string | null>(null);
 
   // Determine which source to use

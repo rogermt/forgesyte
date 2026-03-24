@@ -332,4 +332,76 @@ describe("JobList", () => {
             });
         });
     });
+
+    // Issue #365: viewMode prop triggers re-fetch when switching to jobs view
+    describe("Issue #365: viewMode prop and re-fetch on view change", () => {
+        it("should re-fetch jobs when viewMode changes to 'jobs'", async () => {
+            const mockListJobs = client.apiClient.listJobs as ReturnType<typeof vi.fn>;
+            
+            // First call fails (simulating network error when Jobs clicked after video upload)
+            mockListJobs.mockRejectedValueOnce(new Error("failed to fetch"));
+            // Second call succeeds (simulating re-fetch after viewMode change)
+            const mockJob = createMockJobDone();
+            mockListJobs.mockResolvedValueOnce([mockJob]);
+
+            // Render with viewMode='jobs' initially
+            const { rerender } = render(
+                <JobList onJobSelect={vi.fn()} viewMode="jobs" />
+            );
+
+            // Should show error from first fetch
+            await waitFor(() => {
+                expect(screen.getByText(/failed to fetch/i)).toBeInTheDocument();
+            });
+
+            // First call happened
+            expect(mockListJobs).toHaveBeenCalledTimes(1);
+
+            // Simulate user clicking away and back to jobs view
+            // (viewMode changes from 'jobs' to something else and back)
+            rerender(<JobList onJobSelect={vi.fn()} viewMode="upload" />);
+            rerender(<JobList onJobSelect={vi.fn()} viewMode="jobs" />);
+
+            // Should re-fetch and show job
+            await waitFor(() => {
+                expect(screen.getByText("completed")).toBeInTheDocument();
+            });
+
+            // Should have been called again (re-fetch)
+            expect(mockListJobs).toHaveBeenCalledTimes(2);
+        });
+
+        it("should NOT fetch when viewMode is not 'jobs'", () => {
+            const mockListJobs = client.apiClient.listJobs as ReturnType<typeof vi.fn>;
+            mockListJobs.mockResolvedValue([]);
+
+            render(<JobList onJobSelect={vi.fn()} viewMode="upload" />);
+
+            // Should not fetch when viewMode is not 'jobs'
+            expect(mockListJobs).not.toHaveBeenCalled();
+        });
+
+        it("should fetch on initial render when viewMode is 'jobs'", async () => {
+            const mockListJobs = client.apiClient.listJobs as ReturnType<typeof vi.fn>;
+            mockListJobs.mockResolvedValue([]);
+
+            render(<JobList onJobSelect={vi.fn()} viewMode="jobs" />);
+
+            await waitFor(() => {
+                expect(mockListJobs).toHaveBeenCalledTimes(1);
+            });
+        });
+
+        it("should work without viewMode prop (backward compatibility)", async () => {
+            // Without viewMode prop, should behave as before (fetch on mount)
+            const mockListJobs = client.apiClient.listJobs as ReturnType<typeof vi.fn>;
+            mockListJobs.mockResolvedValue([]);
+
+            render(<JobList onJobSelect={vi.fn()} />);
+
+            await waitFor(() => {
+                expect(mockListJobs).toHaveBeenCalledTimes(1);
+            });
+        });
+    });
 });

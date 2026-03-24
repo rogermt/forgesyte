@@ -469,4 +469,104 @@ describe("JobStatus", () => {
       expect(screen.getByText(/completed/i)).toBeInTheDocument();
     });
   });
+
+  // Issue #363: initialStatus prop prevents polling for completed jobs
+  describe("Issue #363: initialStatus prop", () => {
+    it("should NOT poll when initialStatus is 'completed'", async () => {
+      // The bug: JobStatus always initializes pollStatus to "pending"
+      // even when the job is already completed.
+      // Fix: Accept initialStatus prop and use it to initialize state.
+
+      mockUseJobProgress.mockReturnValue({
+        progress: null,
+        status: "pending",
+        error: null,
+        isConnected: false, // WebSocket disconnected
+      });
+
+      // This should NEVER be called if initialStatus="completed"
+      mockGetJob.mockResolvedValue({
+        status: "completed",
+        progress: 100,
+        result_url: "/v1/jobs/job-123/result",
+      });
+
+      // Pass initialStatus="completed" to indicate job is already done
+      render(<JobStatus jobId="job-123" initialStatus="completed" />);
+
+      // Should show completed immediately from initialStatus
+      expect(screen.getByText(/completed/i)).toBeInTheDocument();
+
+      // Wait a bit to ensure polling doesn't start
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
+      // CRITICAL: getJob should NOT be called because initialStatus is terminal
+      expect(mockGetJob).not.toHaveBeenCalled();
+    });
+
+    it("should NOT poll when initialStatus is 'failed'", async () => {
+      mockUseJobProgress.mockReturnValue({
+        progress: null,
+        status: "pending",
+        error: null,
+        isConnected: false,
+      });
+
+      mockGetJob.mockResolvedValue({
+        status: "failed",
+        error_message: "Job failed",
+      });
+
+      render(<JobStatus jobId="job-123" initialStatus="failed" />);
+
+      expect(screen.getByText(/failed/i)).toBeInTheDocument();
+
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
+      expect(mockGetJob).not.toHaveBeenCalled();
+    });
+
+    it("should poll when initialStatus is 'pending' (default behavior)", async () => {
+      mockUseJobProgress.mockReturnValue({
+        progress: null,
+        status: "pending",
+        error: null,
+        isConnected: false,
+      });
+
+      mockGetJob.mockResolvedValue({
+        status: "running",
+        progress: 50,
+      });
+
+      render(<JobStatus jobId="job-123" initialStatus="pending" />);
+
+      // Should start polling for pending jobs
+      await waitFor(() => {
+        expect(mockGetJob).toHaveBeenCalledWith("job-123");
+      });
+    });
+
+    it("should work without initialStatus prop (backward compatibility)", async () => {
+      // Without initialStatus, should behave as before (poll starting from "pending")
+      mockUseJobProgress.mockReturnValue({
+        progress: null,
+        status: "pending",
+        error: null,
+        isConnected: false,
+      });
+
+      mockGetJob.mockResolvedValue({
+        status: "completed",
+        progress: 100,
+      });
+
+      render(<JobStatus jobId="job-123" />);
+
+      // Should start polling (backward compatible)
+      await waitFor(() => {
+        expect(mockGetJob).toHaveBeenCalledWith("job-123");
+      });
+    });
+  });
 });
