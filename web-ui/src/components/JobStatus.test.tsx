@@ -472,6 +472,14 @@ describe("JobStatus", () => {
 
   // Issue #363: initialStatus prop prevents polling for completed jobs
   describe("Issue #363: initialStatus prop", () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
     it("should NOT poll when initialStatus is 'completed'", async () => {
       // The bug: JobStatus always initializes pollStatus to "pending"
       // even when the job is already completed.
@@ -497,8 +505,8 @@ describe("JobStatus", () => {
       // Should show completed immediately from initialStatus
       expect(screen.getByText(/completed/i)).toBeInTheDocument();
 
-      // Wait a bit to ensure polling doesn't start
-      await new Promise((resolve) => setTimeout(resolve, 100));
+      // Advance timers to ensure polling doesn't start
+      await vi.advanceTimersByTimeAsync(100);
 
       // CRITICAL: getJob should NOT be called because initialStatus is terminal
       expect(mockGetJob).not.toHaveBeenCalled();
@@ -521,9 +529,17 @@ describe("JobStatus", () => {
 
       expect(screen.getByText(/failed/i)).toBeInTheDocument();
 
-      await new Promise((resolve) => setTimeout(resolve, 100));
+      await vi.advanceTimersByTimeAsync(100);
 
       expect(mockGetJob).not.toHaveBeenCalled();
+    });
+
+    it("should NOT connect WebSocket when initialStatus is terminal (Issue #368)", async () => {
+      // Issue #368: WebSocket should not connect for completed/failed jobs
+      render(<JobStatus jobId="job-123" initialStatus="completed" />);
+
+      // useJobProgress should be called with null (no connection)
+      expect(mockUseJobProgress).toHaveBeenCalledWith(null);
     });
 
     it("should poll when initialStatus is 'pending' (default behavior)", async () => {
@@ -541,10 +557,11 @@ describe("JobStatus", () => {
 
       render(<JobStatus jobId="job-123" initialStatus="pending" />);
 
+      // Advance timers to allow polling to start
+      await vi.advanceTimersByTimeAsync(100);
+
       // Should start polling for pending jobs
-      await waitFor(() => {
-        expect(mockGetJob).toHaveBeenCalledWith("job-123");
-      });
+      expect(mockGetJob).toHaveBeenCalledWith("job-123");
     });
 
     it("should work without initialStatus prop (backward compatibility)", async () => {
@@ -563,10 +580,11 @@ describe("JobStatus", () => {
 
       render(<JobStatus jobId="job-123" />);
 
+      // Advance timers to allow polling to start
+      await vi.advanceTimersByTimeAsync(100);
+
       // Should start polling (backward compatible)
-      await waitFor(() => {
-        expect(mockGetJob).toHaveBeenCalledWith("job-123");
-      });
+      expect(mockGetJob).toHaveBeenCalledWith("job-123");
     });
   });
 });

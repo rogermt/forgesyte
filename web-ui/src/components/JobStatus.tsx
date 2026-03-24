@@ -11,13 +11,17 @@ type Props = {
 type Status = "pending" | "running" | "completed" | "failed";
 
 export const JobStatus: React.FC<Props> = ({ jobId, initialStatus }) => {
+  // Issue #368: Skip WebSocket for terminal jobs (completed/failed)
+  // Prevents unnecessary WebSocket connections that would fail through tunnels
+  const skipWebSocket = initialStatus === "completed" || initialStatus === "failed";
+
   // WebSocket progress (primary source)
   const {
     progress: wsProgress,
     status: wsStatus,
     error: wsError,
     isConnected,
-  } = useJobProgress(jobId);
+  } = useJobProgress(skipWebSocket ? null : jobId);
 
   // HTTP polling fallback
   const [pollProgress, setPollProgress] = useState<number | null>(null);

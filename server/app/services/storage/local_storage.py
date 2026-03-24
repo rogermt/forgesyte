@@ -107,5 +107,5 @@ class LocalStorageService(StorageService):
             job_id = match.group(1)
             return f"/v1/jobs/{job_id}/result?mode=stream"
 
-        # Fallback for unexpected path formats - should not happen in production
-        return f"/v1/jobs/result?path={path}"
+        # Invalid path format - raise error instead of returning invalid URL
+        raise ValueError(f"Cannot extract job_id from path: {path}")

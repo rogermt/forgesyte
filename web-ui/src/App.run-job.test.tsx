@@ -259,57 +259,59 @@ describe("App - Run Job Flow (Issues #347, #348)", () => {
     // (The real assertion is that we didn't timeout above)
   });
 
-  it("interval count should stay bounded during re-renders", async () => {
-    // Increase timeout due to multiple tab clicks and re-renders
-    vi.setConfig({ testTimeout: 15000 });
-    await act(async () => {
-      render(<App />);
-    });
+  it(
+    "interval count should stay bounded during re-renders",
+    { timeout: 15000 },
+    async () => {
+      await act(async () => {
+        render(<App />);
+      });
 
-    await waitFor(
-      () => {
-        expect(mockGetPlugins).toHaveBeenCalled();
-      },
-      { timeout: 3000 }
-    );
+      await waitFor(
+        () => {
+          expect(mockGetPlugins).toHaveBeenCalled();
+        },
+        { timeout: 3000 }
+      );
 
-    // Select plugin (required - fail if missing)
-    const pluginSelect = screen.getByRole("combobox");
-    await act(async () => {
-      fireEvent.change(pluginSelect, { target: { value: "test-plugin" } });
-    });
+      // Select plugin (required - fail if missing)
+      const pluginSelect = screen.getByRole("combobox");
+      await act(async () => {
+        fireEvent.change(pluginSelect, { target: { value: "test-plugin" } });
+      });
 
-    await waitFor(
-      () => {
-        expect(mockGetPluginManifest).toHaveBeenCalled();
-      },
-      { timeout: 2000 }
-    );
+      await waitFor(
+        () => {
+          expect(mockGetPluginManifest).toHaveBeenCalled();
+        },
+        { timeout: 2000 }
+      );
 
-    // Clear count after initial mount
-    setIntervalSpy.mockClear();
+      // Clear count after initial mount
+      setIntervalSpy.mockClear();
 
-    // Trigger multiple re-renders by clicking around (required - fail if missing)
-    const tabs = ["Stream", "Upload", "Jobs"];
-    for (let i = 0; i < 3; i++) {
-      for (const tabName of tabs) {
-        const tab = screen.getByRole("button", { name: new RegExp(`^${tabName}$`, "i") });
-        await act(async () => {
-          fireEvent.click(tab);
-        });
-        await new Promise((resolve) => setTimeout(resolve, 50));
+      // Trigger multiple re-renders by clicking around (required - fail if missing)
+      const tabs = ["Stream", "Upload", "Jobs"];
+      for (let i = 0; i < 3; i++) {
+        for (const tabName of tabs) {
+          const tab = screen.getByRole("button", { name: new RegExp(`^${tabName}$`, "i") });
+          await act(async () => {
+            fireEvent.click(tab);
+          });
+          await new Promise((resolve) => setTimeout(resolve, 50));
+        }
       }
+
+      // Check interval creation after re-renders
+      const rerenderIntervals = setIntervalSpy.mock.calls.length;
+
+      console.log(`Intervals after re-renders: ${rerenderIntervals}`);
+
+      // Issue #347/348 bug would cause massive interval growth on re-renders
+      // Fixed code should have very few new intervals
+      expect(rerenderIntervals).toBeLessThan(15);
     }
-
-    // Check interval creation after re-renders
-    const rerenderIntervals = setIntervalSpy.mock.calls.length;
-
-    console.log(`Intervals after re-renders: ${rerenderIntervals}`);
-
-    // Issue #347/348 bug would cause massive interval growth on re-renders
-    // Fixed code should have very few new intervals
-    expect(rerenderIntervals).toBeLessThan(15);
-  });
+  );
 });
 
 describe("App - Consecutive job uploads (Issue #369)", () => {
