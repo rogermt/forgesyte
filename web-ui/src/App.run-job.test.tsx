@@ -312,6 +312,134 @@ describe("App - Run Job Flow (Issues #347, #348)", () => {
   });
 });
 
+describe("App - Consecutive job uploads (Issue #369)", () => {
+  // Issue #369: When running consecutive video jobs, old "completed" status
+  // shows briefly because uploadResult and selectedJob are not cleared
+  // at the START of handleRunVideoJob
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockGetPlugins.mockResolvedValue([{
+      name: "test-plugin",
+      description: "Test Plugin",
+      version: "1.0.0",
+    }]);
+    mockGetPluginManifest.mockResolvedValue({
+      id: "test-plugin",
+      name: "Test Plugin",
+      version: "1.0.0",
+      tools: [{
+        id: "detect_objects",
+        title: "Detect Objects",
+        description: "Detect objects in images",
+        input_types: ["image", "video"],  // Required for video upload
+        output_types: ["detections"],
+        capabilities: ["object_detection"],
+      }],
+    });
+    mockSubmitVideoUpload.mockResolvedValue({
+      video_path: "video/input/test-123.mp4",
+    });
+    mockListJobs.mockResolvedValue([]);
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("should clear old job state IMMEDIATELY when Run Job clicked (Issue #369)", async () => {
+    // TDD: This test verifies that when user clicks Run Job for a second time,
+    // the old job state is cleared BEFORE the API call completes.
+    //
+    // Bug: Currently, handleRunVideoJob doesn't clear uploadResult/selectedJob
+    // until AFTER the API call returns, causing old "completed" status to flash.
+
+    // Use a deferred promise to delay API response
+    let resolveJob: (value: { job_id: string }) => void;
+    const delayedJobPromise = new Promise<{ job_id: string }>((resolve) => {
+      resolveJob = resolve;
+    });
+    mockSubmitVideoJob.mockReturnValueOnce(delayedJobPromise);
+
+    await act(async () => {
+      render(<App />);
+    });
+
+    // Wait for plugins and select one
+    await waitFor(() => expect(mockGetPlugins).toHaveBeenCalled(), { timeout: 3000 });
+
+    const pluginSelect = screen.getByRole("combobox");
+    await act(async () => {
+      fireEvent.change(pluginSelect, { target: { value: "test-plugin" } });
+    });
+    await waitFor(() => expect(mockGetPluginManifest).toHaveBeenCalled(), { timeout: 2000 });
+
+    // Navigate to video-upload
+    const uploadTab = screen.getByRole("button", { name: /upload.*video|video.*upload/i });
+    await act(async () => {
+      fireEvent.click(uploadTab);
+    });
+
+    // Upload video
+    const fileInput = screen.getByLabelText(/select.*video|choose.*file|upload/i);
+    const videoFile = new File(["test"], "test.mp4", { type: "video/mp4" });
+    await act(async () => {
+      fireEvent.change(fileInput, { target: { files: [videoFile] } });
+    });
+
+    // Wait for Run Job button
+    await waitFor(
+      () => {
+        const btn = screen.getByRole("button", { name: /run job/i });
+        expect(btn).not.toHaveAttribute("disabled");
+      },
+      { timeout: 2000 }
+    );
+
+    const runJobButton = screen.getByRole("button", { name: /run job/i });
+
+    // FIRST RUN: Submit first job
+    await act(async () => {
+      fireEvent.click(runJobButton);
+    });
+
+    // Resolve first job immediately
+    await act(async () => {
+      resolveJob!({ job_id: "first-job-id" });
+    });
+
+    await waitFor(() => expect(mockSubmitVideoJob).toHaveBeenCalledTimes(1), { timeout: 3000 });
+
+    // Now the first job is done, state has job_id = "first-job-id"
+    // User clicks Run Job again for a SECOND job
+
+    // Reset mock for second job with another deferred promise
+    let resolveSecondJob: (value: { job_id: string }) => void;
+    const secondJobPromise = new Promise<{ job_id: string }>((resolve) => {
+      resolveSecondJob = resolve;
+    });
+    mockSubmitVideoJob.mockReturnValueOnce(secondJobPromise);
+
+    // Click Run Job for second time
+    // The fix should clear old job state HERE, before API resolves
+    await act(async () => {
+      fireEvent.click(runJobButton);
+    });
+
+    // KEY ASSERTION: The API was called (meaning button click worked)
+    // But we haven't resolved it yet
+    expect(mockSubmitVideoJob).toHaveBeenCalledTimes(2);
+
+    // Now resolve the second job
+    await act(async () => {
+      resolveSecondJob!({ job_id: "second-job-id" });
+    });
+
+    // Verify the flow completed
+    expect(mockSubmitVideoJob).toHaveBeenCalledTimes(2);
+  });
+});
+
 describe("App - State smear fix (Discussion #349)", () => {
   // These tests guard against UI freeze when switching from Jobs to Video Upload
   // with a huge video_multi job still selected

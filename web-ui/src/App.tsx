@@ -430,7 +430,12 @@ function App() {
   const handleRunVideoJob = useCallback(
     async (videoPath: string, _videoFile: File, lockedTools: string[]) => {
       if (!lockedTools.length || !videoPath || !selectedPlugin) return;
-    
+
+      // Issue #369: Clear old job state BEFORE starting new job
+      // This prevents old "completed" status from flashing when running consecutive jobs
+      setUploadResult(null);
+      setSelectedJob(null);
+
       // Set all state synchronously
       setLockedTools(lockedTools);
       setStreamEnabled(false);
