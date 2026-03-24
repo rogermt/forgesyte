@@ -320,16 +320,24 @@ async def get_job_result(job_id: UUID, db: Session = Depends(get_db)) -> FileRes
     Raises:
         HTTPException: 404 if job not found or result file not found
     """
+    logger.debug("[JOB RESULT] job_id=%s", job_id)
+
     job = db.query(Job).filter(Job.job_id == job_id).first()
     if not job:
+        logger.debug("[JOB RESULT] job_id=%s not found in database", job_id)
         raise HTTPException(status_code=404, detail="Job not found")
 
     if not job.output_path:
+        logger.debug("[JOB RESULT] job_id=%s has no output_path", job_id)
         raise HTTPException(status_code=404, detail="Result not found")
 
     try:
         result_path = storage.load_file(job.output_path)
+        logger.debug("[JOB RESULT] job_id=%s result_path=%s", job_id, result_path)
     except FileNotFoundError:
+        logger.debug(
+            "[JOB RESULT] job_id=%s file not found: %s", job_id, job.output_path
+        )
         raise HTTPException(status_code=404, detail="Result file not found") from None
 
     return FileResponse(
