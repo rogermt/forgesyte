@@ -124,16 +124,16 @@ def test_get_job_completed(client, session, storage):
         status=JobStatus.completed,
         plugin_id="ocr",
         input_path="image/input/test.png",
-        output_path="image/output/test.json",
+        output_path=f"image/output/{job_id}.json",
         job_type="image",
     )
     session.add(job)
     session.commit()
 
-    # Create results file
+    # Create results file at the correct path
     results_data = {"text": "extracted text"}
     results_json = json.dumps(results_data)
-    storage.save_file(BytesIO(results_json.encode()), "image/output/test.json")
+    storage.save_file(BytesIO(results_json.encode()), f"image/output/{job_id}.json")
 
     response = client.get(f"/v1/jobs/{job_id}")
 
@@ -187,16 +187,16 @@ def test_get_job_image_type(client, session, storage):
         status=JobStatus.completed,
         plugin_id="ocr",
         input_path="image/input/test.png",
-        output_path="image/output/test.json",
+        output_path=f"image/output/{job_id}.json",
         job_type="image",
     )
     session.add(job)
     session.commit()
 
-    # Create results file
+    # Create results file at the correct path
     results_data = {"text": "OCR result"}
     results_json = json.dumps(results_data)
-    storage.save_file(BytesIO(results_json.encode()), "image/output/test.json")
+    storage.save_file(BytesIO(results_json.encode()), f"image/output/{job_id}.json")
 
     response = client.get(f"/v1/jobs/{job_id}")
 
@@ -221,16 +221,16 @@ def test_get_job_video_type(client, session, storage):
         status=JobStatus.completed,
         plugin_id="yolo",
         input_path="video/input/test.mp4",
-        output_path="video/output/test.json",
+        output_path=f"video/output/{job_id}.json",
         job_type="video",
     )
     session.add(job)
     session.commit()
 
-    # Create results file
+    # Create results file at the correct path
     results_data = {"frames": [{"detections": []}]}
     results_json = json.dumps(results_data)
-    storage.save_file(BytesIO(results_json.encode()), "video/output/test.json")
+    storage.save_file(BytesIO(results_json.encode()), f"video/output/{job_id}.json")
 
     response = client.get(f"/v1/jobs/{job_id}")
 

@@ -90,16 +90,16 @@ class TestJobResultsResponseStatusField:
             status=JobStatus.completed,
             plugin_id="ocr",
             input_path="image/input/test.png",
-            output_path="image/output/test.json",
+            output_path=f"image/output/{job_id}.json",
             job_type="image",
         )
         session.add(job)
         session.commit()
 
-        # Create results file
+        # Create results file at the correct path
         results_data = {"results": {"text": "extracted text"}}
         results_json = json.dumps(results_data)
-        storage.save_file(BytesIO(results_json.encode()), "image/output/test.json")
+        storage.save_file(BytesIO(results_json.encode()), f"image/output/{job_id}.json")
 
         response = client.get(f"/v1/jobs/{job_id}")
 

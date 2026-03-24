@@ -46,13 +46,14 @@ def storage():
 
 def create_job(session, status: JobStatus, plugin_id="ocr", with_result=False):
     """Helper to create a test job."""
+    job_id = uuid4()
     job = Job(
-        job_id=uuid4(),
+        job_id=job_id,
         status=status,
         plugin_id=plugin_id,
         job_type="image",
         input_path="jobs/input.png",
-        output_path="jobs/output.json" if with_result else None,
+        output_path=f"jobs/output/{job_id}.json" if with_result else None,
         error_message="test error" if status == JobStatus.failed else None,
     )
     session.add(job)
@@ -140,12 +141,12 @@ def test_list_jobs_with_results(client, session, storage):
     session.commit()
 
     # Create completed job with results
-    create_job(session, JobStatus.completed, with_result=True)
+    job = create_job(session, JobStatus.completed, with_result=True)
 
-    # Create results file
+    # Create results file at the correct path (matching output_path with job_id)
     results_data = {"text": "OCR result"}
     results_json = json.dumps(results_data)
-    storage.save_file(BytesIO(results_json.encode()), "jobs/output.json")
+    storage.save_file(BytesIO(results_json.encode()), f"jobs/output/{job.job_id}.json")
 
     # Create pending job (should not have result_url)
     create_job(session, JobStatus.pending)
@@ -279,15 +280,15 @@ def test_list_jobs_image_returns_result_url(client, session, storage):
         plugin_id="ocr-plugin",
         job_type="image",
         input_path="image/input/test.png",
-        output_path="image/output.json",
+        output_path=f"image/output/{job_id}.json",
     )
     session.add(job)
     session.commit()
 
-    # Create a test results file
+    # Create a test results file at the correct path
     results_data = {"text": "extracted text"}
     results_json = json.dumps(results_data)
-    storage.save_file(BytesIO(results_json.encode()), "image/output.json")
+    storage.save_file(BytesIO(results_json.encode()), f"image/output/{job_id}.json")
 
     response = client.get("/v1/jobs?limit=10&skip=0")
 
