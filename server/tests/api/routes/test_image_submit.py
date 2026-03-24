@@ -184,7 +184,7 @@ class TestImageSubmitValidation:
     def test_submit_image_valid_jpeg(self, session: Session, client_with_mocks):
         """Test that JPEG files are accepted."""
         # Create a valid JPEG (minimal header)
-        jpeg_data = b"\xFF\xD8\xFF" + b"\x00" * 100  # JPEG magic bytes + padding
+        jpeg_data = b"\xff\xd8\xff" + b"\x00" * 100  # JPEG magic bytes + padding
 
         response = client_with_mocks.post(
             "/v1/image/submit?plugin_id=ocr&tool=analyze",

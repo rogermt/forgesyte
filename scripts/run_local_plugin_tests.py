@@ -3,7 +3,7 @@
 
 Usage:
     uv run scripts/run_local_plugin_tests.py
-    
+
 These tests require forgesyte-plugins repo at /home/rogermt/forgesyte-plugins
 """
 

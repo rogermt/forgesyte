@@ -53,49 +53,41 @@ class TestMetricsSchema:
 
     def test_job_metrics_table_exists(self, metrics_db):
         """Verify job_metrics table exists."""
-        result = metrics_db.execute(
-            """
+        result = metrics_db.execute("""
             SELECT table_name
             FROM information_schema.tables
             WHERE table_name = 'job_metrics'
-        """
-        ).fetchall()
+        """).fetchall()
 
         assert len(result) == 1, "job_metrics table does not exist"
 
     def test_plugin_metrics_table_exists(self, metrics_db):
         """Verify plugin_metrics table exists."""
-        result = metrics_db.execute(
-            """
+        result = metrics_db.execute("""
             SELECT table_name
             FROM information_schema.tables
             WHERE table_name = 'plugin_metrics'
-        """
-        ).fetchall()
+        """).fetchall()
 
         assert len(result) == 1, "plugin_metrics table does not exist"
 
     def test_overlay_metrics_table_exists(self, metrics_db):
         """Verify overlay_metrics table exists."""
-        result = metrics_db.execute(
-            """
+        result = metrics_db.execute("""
             SELECT table_name
             FROM information_schema.tables
             WHERE table_name = 'overlay_metrics'
-        """
-        ).fetchall()
+        """).fetchall()
 
         assert len(result) == 1, "overlay_metrics table does not exist"
 
     def test_device_usage_table_exists(self, metrics_db):
         """Verify device_usage table exists."""
-        result = metrics_db.execute(
-            """
+        result = metrics_db.execute("""
             SELECT table_name
             FROM information_schema.tables
             WHERE table_name = 'device_usage'
-        """
-        ).fetchall()
+        """).fetchall()
 
         assert len(result) == 1, "device_usage table does not exist"
 
@@ -108,13 +100,11 @@ class TestMetricsSchema:
             "device_usage",
         }
 
-        result = metrics_db.execute(
-            """
+        result = metrics_db.execute("""
             SELECT table_name
             FROM information_schema.tables
             WHERE table_type = 'BASE TABLE'
-        """
-        ).fetchall()
+        """).fetchall()
 
         existing_tables = {row[0] for row in result}
 

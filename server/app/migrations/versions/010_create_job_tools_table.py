@@ -52,18 +52,14 @@ def upgrade() -> None:
 
     # Create job_tools table WITHOUT foreign key constraint
     # DuckDB has issues with FK constraints that block updates to parent table
-    conn.execute(
-        sa.text(
-            """
+    conn.execute(sa.text("""
             CREATE TABLE job_tools (
                 id UUID PRIMARY KEY,
                 job_id UUID NOT NULL,
                 tool_id VARCHAR NOT NULL,
                 tool_order INTEGER NOT NULL DEFAULT 0
             )
-            """
-        )
-    )
+            """))
 
     # Create index on job_id for faster lookups
     conn.execute(sa.text("CREATE INDEX idx_job_tools_job_id ON job_tools (job_id)"))

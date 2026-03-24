@@ -12,7 +12,7 @@ from app.main import app
 ROUTE = "app.api_routes.routes.image_submit"
 
 FAKE_PNG = b"\x89PNG\r\n\x1a\n" + b"\x00" * 10
-FAKE_JPEG = b"\xFF\xD8\xFF" + b"\x00" * 10
+FAKE_JPEG = b"\xff\xd8\xff" + b"\x00" * 10
 FAKE_MANIFEST = {
     "tools": {
         "analyze": {

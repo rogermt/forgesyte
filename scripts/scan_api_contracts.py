@@ -13,7 +13,6 @@ import sys
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
-
 # Expected field contracts for each API response
 EXPECTED_CONTRACTS = {
     "AnalyzeResponse": {
