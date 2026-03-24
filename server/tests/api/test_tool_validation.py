@@ -122,7 +122,7 @@ def test_image_submit_validates_against_plugin_tools(
 
     try:
         # Valid tool from Plugin.tools
-        jpeg_data = b"\xFF\xD8\xFF" + b"\x00" * 100
+        jpeg_data = b"\xff\xd8\xff" + b"\x00" * 100
         response = client.post(
             "/v1/image/submit",
             files={"file": ("test.jpg", BytesIO(jpeg_data))},

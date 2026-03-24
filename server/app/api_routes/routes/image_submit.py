@@ -92,7 +92,7 @@ def validate_image_magic_bytes(data: bytes) -> None:
         return
 
     # JPEG magic bytes: FF D8 FF
-    if data.startswith(b"\xFF\xD8\xFF"):
+    if data.startswith(b"\xff\xd8\xff"):
         return
 
     raise HTTPException(

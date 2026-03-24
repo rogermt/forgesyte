@@ -102,16 +102,14 @@ class DeviceTracker:
             RuntimeError: If query fails.
         """
         try:
-            result = self.db.execute(
-                """
+            result = self.db.execute("""
                 SELECT
                     COUNT(*) as total_jobs,
                     COUNT(CASE WHEN device_used = 'cpu' THEN 1 END) as cpu_jobs,
                     COUNT(CASE WHEN device_used = 'gpu' THEN 1 END) as gpu_jobs,
                     COUNT(CASE WHEN fallback = true THEN 1 END) as fallback_count
                 FROM device_usage
-                """
-            ).fetchall()
+                """).fetchall()
 
             if not result:
                 return {
