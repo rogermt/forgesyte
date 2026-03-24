@@ -194,9 +194,7 @@ class TestTimeoutIntegration:
         assert result.result is None
 
     def test_zero_timeout_immediate_timeout(self) -> None:
-        """Zero timeout should trigger immediate timeout."""
-        # Note: Even with zero timeout, the function might start executing
-        # before the timeout check, so we test with a slow function
+        """Zero timeout should trigger immediate timeout for slow functions."""
 
         def slow_fn() -> str:
             time.sleep(0.5)
@@ -204,22 +202,24 @@ class TestTimeoutIntegration:
 
         result = run_with_timeout(slow_fn, timeout_seconds=0.0)
 
-        # With zero timeout, should either timeout or complete very fast
-        # The behavior depends on implementation details
-        assert result.ok is False or result.timed_out is True
+        # With zero timeout, slow function should timeout
+        assert result.ok is False
+        assert result.timed_out is True
+        assert result.error_type == "TimeoutError"
 
-    def test_negative_timeout_handles_gracefully(self) -> None:
-        """Negative timeout value should be handled gracefully."""
-        # Note: The implementation may treat negative as invalid or use default
+    def test_negative_timeout_triggers_timeout(self) -> None:
+        """Negative timeout value should trigger timeout for slow functions."""
 
-        def quick_fn() -> str:
+        def slow_fn() -> str:
+            time.sleep(0.5)
             return "done"
 
-        # Should not raise an exception - implementation should handle gracefully
-        result = run_with_timeout(quick_fn, timeout_seconds=-1.0)
+        # Negative timeout should cause timeout behavior
+        result = run_with_timeout(slow_fn, timeout_seconds=-1.0)
 
-        # Either it succeeds (implementation allows negative) or fails gracefully
-        assert result.ok is True or result.error is not None
+        assert result.ok is False
+        assert result.timed_out is True
+        assert result.error_type == "TimeoutError"
 
     def test_concurrent_timeouts_no_interference(self) -> None:
         """Concurrent timeout executions don't interfere with each other."""
