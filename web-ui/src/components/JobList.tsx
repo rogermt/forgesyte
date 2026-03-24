@@ -17,14 +17,24 @@ export function JobList({ onJobSelect, viewMode }: JobListProps) {
 
     useEffect(() => {
         // Issue #365: Only fetch when viewMode is 'jobs' (or not provided for backward compat)
-        if (viewMode !== undefined && viewMode !== "jobs") return;
+        if (viewMode !== undefined && viewMode !== "jobs") {
+            setLoading(false);  // Prevent stuck loading state when not in jobs view
+            return;
+        }
+
+        setLoading(true);  // Reset loading when starting fetch
+        // Issue #368: Debug logging for JobList fetch
+        console.log("[JOBLIST] useEffect triggered, viewMode:", viewMode);
 
         const loadJobs = async () => {
+            console.log("[JOBLIST] Fetching jobs...");
             try {
                 const data = await apiClient.listJobs();
+                console.log("[JOBLIST] Success:", data.length, "jobs");
                 setJobs(data);
                 setError(null);
             } catch (err) {
+                console.error("[JOBLIST] Error:", err);
                 setError(
                     err instanceof Error ? err.message : "Failed to load jobs"
                 );
