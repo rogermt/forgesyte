@@ -34,7 +34,7 @@
 | `JobList` | `loading` | `boolean` | `true` |
 | `JobList` | `error` | `string \| null` | `null` |
 | `JobStatus` | `pollProgress` | `number \| null` | `null` |
-| `JobStatus` | `pollStatus` | `Status` | **`"pending"`** |
+| `JobStatus` | `pollStatus` | `Status` | `initialStatus ?? "pending"` |
 | `JobStatus` | `pollError` | `string \| null` | `null` |
 
 ---
@@ -167,7 +167,7 @@ useEffect(() => {
 #### 4c. JobStatus.tsx HTTP Polling (Line 39-77)
 
 ```typescript
-const [pollStatus, setPollStatus] = useState<Status>("pending"); // ALWAYS "pending" on mount!
+const [pollStatus, setPollStatus] = useState<Status>(initialStatus ?? "pending"); // Uses initialStatus if provided
 
 useEffect(() => {
   if (!jobId) return;
@@ -189,9 +189,10 @@ useEffect(() => {
 
 **Stops When:** `pollStatus` is `"completed"` or `"failed"`
 
-**BUG:** `pollStatus` initializes to `"pending"` on EVERY mount/remount!
-- If job is already completed, but JobStatus remounts (e.g., view mode switch), polling restarts
-- This causes duplicate polling even for completed jobs
+**Previous bug (fixed in PR #364):** `pollStatus` used to initialize to `"pending"` on every mount/remount!
+- If job was already completed, but JobStatus remounted (e.g., view mode switch), polling would restart
+- This caused duplicate polling even for completed jobs
+- **Fix:** Now uses `initialStatus` prop to skip polling for already-completed jobs
 
 ---
 
@@ -468,7 +469,7 @@ useEffect(() => {
               ┌───────────────────────┐
               │    JobStatus.tsx      │
               │  ┌─────────────────┐  │
-              │  │ pollStatus="pending" │◄── BUG: Always "pending"!
+              │  │ pollStatus=initialStatus ?? "pending" │◄── Uses initialStatus if provided
               │  └─────────────────┘  │
               └───────────────────────┘
 ```
@@ -478,7 +479,7 @@ useEffect(() => {
 ## Action Items
 
 1. **[x] Fix JobStatus initialStatus** - Add prop, pass from parent ✅ PR #364
-2. **[ ] Fix JobList fetch-once bug** - Re-fetch on viewMode change (Issue #365)
-3. **[ ] Add tests for polling stop conditions** - TDD approach
+2. **[x] Fix JobList fetch-once bug** - Re-fetch on viewMode change ✅ Issue #365
+3. **[x] Add tests for polling stop conditions** - TDD approach ✅ Issue #369
 4. **[x] Document polling behavior** - This document
 5. **[ ] Consider consolidating job state** - Future refactor
