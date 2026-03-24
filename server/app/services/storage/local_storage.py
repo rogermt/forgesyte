@@ -3,6 +3,7 @@
 import re
 from pathlib import Path
 from typing import BinaryIO
+from urllib.parse import quote
 
 from app.services.storage.base import StorageService
 
@@ -108,4 +109,4 @@ class LocalStorageService(StorageService):
             return f"/v1/jobs/{job_id}/result?mode=stream"
 
         # Fallback for unexpected path formats - should not happen in production
-        return f"/v1/jobs/result?path={path}"
+        return f"/v1/jobs/result?path={quote(path, safe='')}"
