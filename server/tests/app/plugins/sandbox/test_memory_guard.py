@@ -2,6 +2,8 @@
 
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from app.plugins.sandbox.memory_guard import (
     DEFAULT_MEMORY_LIMIT_BYTES,
     MemoryGuardResult,
@@ -12,6 +14,7 @@ from app.plugins.sandbox.memory_guard import (
 )
 
 
+@pytest.mark.integration
 class TestGetMemoryUsageBytes:
     """Tests for get_memory_usage_bytes function."""
 
@@ -34,6 +37,7 @@ class TestGetMemoryUsageBytes:
         assert result > 0  # Process should use some memory
 
 
+@pytest.mark.unit
 class TestRunWithMemoryGuard:
     """Tests for run_with_memory_guard function."""
 
@@ -81,7 +85,6 @@ class TestRunWithMemoryGuard:
         mock_get_memory.side_effect = [
             100 * 1024 * 1024,  # start memory
             2 * 1024 * 1024 * 1024,  # peak memory (2GB > 1GB limit)
-            2 * 1024 * 1024 * 1024,  # for peak in result
         ]
 
         def allocate_fn() -> str:
@@ -135,6 +138,7 @@ class TestRunWithMemoryGuard:
         assert result.peak_memory_bytes >= 0
 
 
+@pytest.mark.unit
 class TestCheckMemoryLimit:
     """Tests for check_memory_limit function."""
 
@@ -163,6 +167,7 @@ class TestCheckMemoryLimit:
         assert DEFAULT_MEMORY_LIMIT_BYTES == 1024 * 1024 * 1024
 
 
+@pytest.mark.unit
 class TestFormatMemoryBytes:
     """Tests for format_memory_bytes function."""
 
@@ -186,6 +191,7 @@ class TestFormatMemoryBytes:
         assert format_memory_bytes(2 * 1024 * 1024 * 1024) == "2.00 GB"
 
 
+@pytest.mark.unit
 class TestMemoryGuardResult:
     """Tests for MemoryGuardResult dataclass."""
 

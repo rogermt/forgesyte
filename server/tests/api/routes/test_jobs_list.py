@@ -44,16 +44,18 @@ def storage():
     return LocalStorageService()
 
 
-def create_job(session, status: JobStatus, plugin_id="ocr", with_result=False):
+def create_job(
+    session, status: JobStatus, plugin_id="ocr", with_result=False, job_type="image"
+):
     """Helper to create a test job."""
     job_id = uuid4()
     job = Job(
         job_id=job_id,
         status=status,
         plugin_id=plugin_id,
-        job_type="image",
+        job_type=job_type,
         input_path="jobs/input.png",
-        output_path=f"jobs/output/{job_id}.json" if with_result else None,
+        output_path=f"{job_type}/output/{job_id}.json" if with_result else None,
         error_message="test error" if status == JobStatus.failed else None,
     )
     session.add(job)
@@ -146,7 +148,7 @@ def test_list_jobs_with_results(client, session, storage):
     # Create results file at the correct path (matching output_path with job_id)
     results_data = {"text": "OCR result"}
     results_json = json.dumps(results_data)
-    storage.save_file(BytesIO(results_json.encode()), f"jobs/output/{job.job_id}.json")
+    storage.save_file(BytesIO(results_json.encode()), job.output_path)
 
     # Create pending job (should not have result_url)
     create_job(session, JobStatus.pending)

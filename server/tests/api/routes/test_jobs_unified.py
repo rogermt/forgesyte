@@ -119,12 +119,13 @@ def test_get_job_completed(client, session, storage):
     """
     # Create a completed job
     job_id = uuid4()
+    output_path = f"image/output/{job_id}.json"
     job = Job(
         job_id=job_id,
         status=JobStatus.completed,
         plugin_id="ocr",
         input_path="image/input/test.png",
-        output_path=f"image/output/{job_id}.json",
+        output_path=output_path,
         job_type="image",
     )
     session.add(job)
@@ -133,7 +134,7 @@ def test_get_job_completed(client, session, storage):
     # Create results file at the correct path
     results_data = {"text": "extracted text"}
     results_json = json.dumps(results_data)
-    storage.save_file(BytesIO(results_json.encode()), f"image/output/{job_id}.json")
+    storage.save_file(BytesIO(results_json.encode()), output_path)
 
     response = client.get(f"/v1/jobs/{job_id}")
 
@@ -182,12 +183,13 @@ def test_get_job_image_type(client, session, storage):
     """
     # Create a completed image job
     job_id = uuid4()
+    output_path = f"image/output/{job_id}.json"
     job = Job(
         job_id=job_id,
         status=JobStatus.completed,
         plugin_id="ocr",
         input_path="image/input/test.png",
-        output_path=f"image/output/{job_id}.json",
+        output_path=output_path,
         job_type="image",
     )
     session.add(job)
@@ -196,7 +198,7 @@ def test_get_job_image_type(client, session, storage):
     # Create results file at the correct path
     results_data = {"text": "OCR result"}
     results_json = json.dumps(results_data)
-    storage.save_file(BytesIO(results_json.encode()), f"image/output/{job_id}.json")
+    storage.save_file(BytesIO(results_json.encode()), output_path)
 
     response = client.get(f"/v1/jobs/{job_id}")
 
@@ -216,12 +218,13 @@ def test_get_job_video_type(client, session, storage):
     """
     # Create a completed video job
     job_id = uuid4()
+    output_path = f"video/output/{job_id}.json"
     job = Job(
         job_id=job_id,
         status=JobStatus.completed,
         plugin_id="yolo",
         input_path="video/input/test.mp4",
-        output_path=f"video/output/{job_id}.json",
+        output_path=output_path,
         job_type="video",
     )
     session.add(job)
@@ -230,7 +233,7 @@ def test_get_job_video_type(client, session, storage):
     # Create results file at the correct path
     results_data = {"frames": [{"detections": []}]}
     results_json = json.dumps(results_data)
-    storage.save_file(BytesIO(results_json.encode()), f"video/output/{job_id}.json")
+    storage.save_file(BytesIO(results_json.encode()), output_path)
 
     response = client.get(f"/v1/jobs/{job_id}")
 
@@ -297,12 +300,13 @@ def test_get_job_video_returns_result_url(client, session, storage):
     Issue #350: Video jobs should return a URL for lazy loading.
     """
     job_id = uuid4()
+    output_path = f"video/output/{job_id}.json"
     job = Job(
         job_id=job_id,
         status=JobStatus.completed,
         plugin_id="yolo-tracker",
         input_path="video/input/test.mp4",
-        output_path=f"video/output/{job_id}.json",
+        output_path=output_path,
         job_type="video",
     )
     session.add(job)
@@ -316,7 +320,7 @@ def test_get_job_video_returns_result_url(client, session, storage):
         ]
     }
     results_json = json.dumps(results_data)
-    storage.save_file(BytesIO(results_json.encode()), f"video/output/{job_id}.json")
+    storage.save_file(BytesIO(results_json.encode()), output_path)
 
     response = client.get(f"/v1/jobs/{job_id}")
 
@@ -336,12 +340,13 @@ def test_get_job_video_includes_summary(client, session, storage):
     Issue #350: Summary contains derived metadata.
     """
     job_id = uuid4()
+    output_path = f"video/output/{job_id}.json"
     job = Job(
         job_id=job_id,
         status=JobStatus.completed,
         plugin_id="yolo-tracker",
         input_path="video/input/test.mp4",
-        output_path=f"video/output/{job_id}.json",
+        output_path=output_path,
         job_type="video",
     )
     session.add(job)
@@ -355,7 +360,7 @@ def test_get_job_video_includes_summary(client, session, storage):
         ]
     }
     results_json = json.dumps(results_data)
-    storage.save_file(BytesIO(results_json.encode()), f"video/output/{job_id}.json")
+    storage.save_file(BytesIO(results_json.encode()), output_path)
 
     response = client.get(f"/v1/jobs/{job_id}")
 
@@ -374,12 +379,13 @@ def test_get_job_video_multi_returns_result_url(client, session, storage):
     Issue #350: video_multi jobs should also use lazy loading.
     """
     job_id = uuid4()
+    output_path = f"video/output/{job_id}.json"
     job = Job(
         job_id=job_id,
         status=JobStatus.completed,
         plugin_id="multi-tool-plugin",
         input_path="video/input/test.mp4",
-        output_path=f"video/output/{job_id}.json",
+        output_path=output_path,
         job_type="video_multi",
     )
     session.add(job)
@@ -388,7 +394,7 @@ def test_get_job_video_multi_returns_result_url(client, session, storage):
     # Create a test results file
     results_data = {"tools": {"yolo": {"frames": []}, "ocr": {"frames": []}}}
     results_json = json.dumps(results_data)
-    storage.save_file(BytesIO(results_json.encode()), f"video/output/{job_id}.json")
+    storage.save_file(BytesIO(results_json.encode()), output_path)
 
     response = client.get(f"/v1/jobs/{job_id}")
 
@@ -409,12 +415,13 @@ def test_get_job_result_returns_json_file(client, session, storage):
     TDD: This test should fail initially (endpoint doesn't exist).
     """
     job_id = uuid4()
+    output_path = f"video/output/{job_id}.json"
     job = Job(
         job_id=job_id,
         status=JobStatus.completed,
         plugin_id="test-plugin",
         input_path="video/input/test.mp4",
-        output_path=f"video/output/{job_id}.json",
+        output_path=output_path,
         job_type="video",
     )
     session.add(job)
@@ -423,7 +430,7 @@ def test_get_job_result_returns_json_file(client, session, storage):
     # Create a test results file
     results_data = {"frames": [{"detections": [{"class": "player"}]}]}
     results_json = json.dumps(results_data)
-    storage.save_file(BytesIO(results_json.encode()), f"video/output/{job_id}.json")
+    storage.save_file(BytesIO(results_json.encode()), output_path)
 
     response = client.get(f"/v1/jobs/{job_id}/result")
 

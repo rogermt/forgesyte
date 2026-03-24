@@ -1,5 +1,7 @@
 """Tests for error_envelope.py - Phase 12 structured error handling."""
 
+import pytest
+
 from app.core.errors.error_envelope import (
     ErrorType,
     build_error_envelope,
@@ -7,6 +9,7 @@ from app.core.errors.error_envelope import (
 )
 
 
+@pytest.mark.unit
 class TestClassifyError:
     """Tests for classify_error function."""
 
@@ -40,6 +43,7 @@ class TestClassifyError:
         assert result == "ExecutionError"
 
 
+@pytest.mark.unit
 class TestBuildErrorEnvelope:
     """Tests for build_error_envelope function."""
 
@@ -124,6 +128,7 @@ class TestBuildErrorEnvelope:
         assert isinstance(envelope["_internal"]["traceback"], str)
 
 
+@pytest.mark.unit
 class TestErrorType:
     """Tests for ErrorType alias usage."""
 

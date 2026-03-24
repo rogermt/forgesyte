@@ -1,5 +1,9 @@
 """Tests for timeout.py - Phase 11 timeout protection."""
 
+import time
+
+import pytest
+
 from app.plugins.sandbox.timeout import (
     DEFAULT_TIMEOUT_SECONDS,
     TimeoutGuardResult,
@@ -8,6 +12,7 @@ from app.plugins.sandbox.timeout import (
 )
 
 
+@pytest.mark.unit
 class TestRunWithTimeout:
     """Tests for run_with_timeout function."""
 
@@ -37,7 +42,6 @@ class TestRunWithTimeout:
 
     def test_timeout_exceeded(self) -> None:
         """Timeout exceeded returns timed_out=True."""
-        import time
 
         def slow_fn() -> str:
             time.sleep(2)  # Sleep longer than timeout
@@ -78,6 +82,7 @@ class TestRunWithTimeout:
         assert DEFAULT_TIMEOUT_SECONDS == 60.0
 
 
+@pytest.mark.unit
 class TestRunSandboxedWithTimeout:
     """Tests for run_sandboxed_with_timeout function."""
 
@@ -95,7 +100,6 @@ class TestRunSandboxedWithTimeout:
 
     def test_timeout_returns_timeout_error(self) -> None:
         """Timeout returns error_type='TimeoutError'."""
-        import time
 
         def slow_fn() -> str:
             time.sleep(2)
@@ -120,6 +124,7 @@ class TestRunSandboxedWithTimeout:
         assert result.error_type == "RuntimeError"
 
 
+@pytest.mark.unit
 class TestTimeoutGuardResult:
     """Tests for TimeoutGuardResult dataclass."""
 
@@ -151,6 +156,7 @@ class TestTimeoutGuardResult:
         assert result.timeout_seconds == 30.0
 
 
+@pytest.mark.integration
 class TestTimeoutIntegration:
     """Integration tests for timeout behavior."""
 
