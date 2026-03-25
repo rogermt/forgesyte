@@ -629,13 +629,19 @@ def test_worker_stores_summary_on_completion(test_engine, session):
     mock_plugin_service.get_plugin_manifest.return_value = {
         "tools": [{"id": "detect", "input_types": ["video"]}]
     }
-    # Return video results with frames and detections
+    # Return video results with frames, detections, and plugin-computed summary
+    # Plugin (yolo-tracker) computes summary via compute_video_summary()
     mock_plugin_service.run_plugin_tool.return_value = {
         "total_frames": 10,
         "frames": [
             {"frame_idx": i, "detections": [{"class": "person"}, {"class": "car"}]}
             for i in range(10)
         ],
+        "summary": {
+            "frame_count": 10,
+            "detection_count": 20,
+            "classes": ["person", "car"],
+        },
     }
 
     # Run worker
@@ -651,11 +657,12 @@ def test_worker_stores_summary_on_completion(test_engine, session):
     # Discussion #354: Summary should be stored
     assert updated_job.summary is not None, "Worker should compute and store summary"
 
-    # Verify summary content
+    # Verify summary content (from plugin-provided summary)
     summary = json.loads(updated_job.summary)
     assert "frame_count" in summary
     assert "detection_count" in summary
     assert "classes" in summary
-    # 10 frames * 2 detections each = 20 total
+    # Verify plugin's summary is used (not recomputed)
+    assert summary["frame_count"] == 10
     assert summary["detection_count"] == 20
-    assert set(summary["classes"]) == {"person", "car"}
+    assert summary["classes"] == ["person", "car"]
