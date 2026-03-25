@@ -285,12 +285,13 @@ def test_get_job_results_invalid_json(client, session, storage):
     """
     # Create a completed job with pre-computed summary
     job_id = uuid4()
+    output_path = f"image/output/{job_id}.json"
     job = Job(
         job_id=job_id,
         status=JobStatus.completed,
         plugin_id="ocr",
         input_path="image/input/test.png",
-        output_path="image/output/invalid.json",
+        output_path=output_path,
         job_type="image",
         summary=json.dumps({"text_length": 0, "word_count": 0}),
     )
@@ -298,7 +299,7 @@ def test_get_job_results_invalid_json(client, session, storage):
     session.commit()
 
     # Create a file (even with invalid JSON - API doesn't parse it)
-    storage.save_file(BytesIO(b"invalid json"), "image/output/invalid.json")
+    storage.save_file(BytesIO(b"invalid json"), output_path)
 
     response = client.get(f"/v1/jobs/{job_id}")
 
