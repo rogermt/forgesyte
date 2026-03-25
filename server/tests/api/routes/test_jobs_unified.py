@@ -116,8 +116,9 @@ def test_get_job_completed(client, session, storage):
     """Test GET /v1/jobs/{id} for completed job with results.
 
     Clean Break: Completed jobs return result_url, not inline results.
+    v0.16.8: Summary is pre-computed by worker and stored in job.summary.
     """
-    # Create a completed job
+    # Create a completed job with pre-computed summary (set by worker)
     job_id = uuid4()
     output_path = f"image/output/{job_id}.json"
     job = Job(
@@ -127,6 +128,8 @@ def test_get_job_completed(client, session, storage):
         input_path="image/input/test.png",
         output_path=output_path,
         job_type="image",
+        # v0.16.8: Pre-computed summary from worker (plugin provides this)
+        summary=json.dumps({"text_length": 14, "word_count": 2}),
     )
     session.add(job)
     session.commit()
@@ -180,8 +183,9 @@ def test_get_job_image_type(client, session, storage):
     """Test GET /v1/jobs/{id} for image job.
 
     Clean Break: Image jobs also use result_url for consistency.
+    v0.16.8: Summary is pre-computed by worker and stored in job.summary.
     """
-    # Create a completed image job
+    # Create a completed image job with pre-computed summary
     job_id = uuid4()
     output_path = f"image/output/{job_id}.json"
     job = Job(
@@ -191,6 +195,8 @@ def test_get_job_image_type(client, session, storage):
         input_path="image/input/test.png",
         output_path=output_path,
         job_type="image",
+        # v0.16.8: Pre-computed summary from worker
+        summary=json.dumps({"text_length": 10, "word_count": 2}),
     )
     session.add(job)
     session.commit()
@@ -215,8 +221,9 @@ def test_get_job_video_type(client, session, storage):
     """Test GET /v1/jobs/{id} for video job.
 
     Issue #350: Video jobs return result_url instead of inline results.
+    v0.16.8: Summary is pre-computed by worker and stored in job.summary.
     """
-    # Create a completed video job
+    # Create a completed video job with pre-computed summary
     job_id = uuid4()
     output_path = f"video/output/{job_id}.json"
     job = Job(
@@ -226,6 +233,8 @@ def test_get_job_video_type(client, session, storage):
         input_path="video/input/test.mp4",
         output_path=output_path,
         job_type="video",
+        # v0.16.8: Pre-computed summary from worker
+        summary=json.dumps({"frame_count": 1, "detection_count": 0, "classes": []}),
     )
     session.add(job)
     session.commit()
@@ -268,8 +277,13 @@ def test_get_job_results_file_not_found(client, session):
 
 
 def test_get_job_results_invalid_json(client, session, storage):
-    """Test GET /v1/jobs/{id} when results file contains invalid JSON."""
-    # Create a completed job with invalid JSON results
+    """Test GET /v1/jobs/{id} when results file contains invalid JSON.
+
+    v0.16.8: API no longer parses the JSON file for summary - it comes from
+    job.summary (pre-computed by worker). API just checks file existence.
+    Invalid JSON would have been caught by the worker when saving results.
+    """
+    # Create a completed job with pre-computed summary
     job_id = uuid4()
     job = Job(
         job_id=job_id,
@@ -278,17 +292,21 @@ def test_get_job_results_invalid_json(client, session, storage):
         input_path="image/input/test.png",
         output_path="image/output/invalid.json",
         job_type="image",
+        summary=json.dumps({"text_length": 0, "word_count": 0}),
     )
     session.add(job)
     session.commit()
 
-    # Create invalid JSON file
+    # Create a file (even with invalid JSON - API doesn't parse it)
     storage.save_file(BytesIO(b"invalid json"), "image/output/invalid.json")
 
     response = client.get(f"/v1/jobs/{job_id}")
 
-    assert response.status_code == 500
-    assert "invalid results file" in response.json()["detail"].lower()
+    # v0.16.8: API returns 200 because file exists, summary comes from DB
+    assert response.status_code == 200
+    data = response.json()
+    assert data["result_url"] is not None
+    assert data["summary"] is not None
 
 
 # Issue #350: Artifact Pattern - video jobs return result_url, not results
@@ -298,6 +316,7 @@ def test_get_job_video_returns_result_url(client, session, storage):
     """Test GET /v1/jobs/{id} returns result_url for video jobs.
 
     Issue #350: Video jobs should return a URL for lazy loading.
+    v0.16.8: Summary is pre-computed by worker and stored in job.summary.
     """
     job_id = uuid4()
     output_path = f"video/output/{job_id}.json"
@@ -308,6 +327,10 @@ def test_get_job_video_returns_result_url(client, session, storage):
         input_path="video/input/test.mp4",
         output_path=output_path,
         job_type="video",
+        # v0.16.8: Pre-computed summary from worker
+        summary=json.dumps(
+            {"frame_count": 100, "detection_count": 200, "classes": ["player", "ball"]}
+        ),
     )
     session.add(job)
     session.commit()
@@ -338,6 +361,7 @@ def test_get_job_video_includes_summary(client, session, storage):
     """Test GET /v1/jobs/{id} includes summary for video jobs.
 
     Issue #350: Summary contains derived metadata.
+    v0.16.8: Summary is pre-computed by worker and stored in job.summary.
     """
     job_id = uuid4()
     output_path = f"video/output/{job_id}.json"
@@ -348,6 +372,10 @@ def test_get_job_video_includes_summary(client, session, storage):
         input_path="video/input/test.mp4",
         output_path=output_path,
         job_type="video",
+        # v0.16.8: Pre-computed summary from worker (matches test assertions)
+        summary=json.dumps(
+            {"frame_count": 50, "detection_count": 100, "classes": ["player", "ball"]}
+        ),
     )
     session.add(job)
     session.commit()

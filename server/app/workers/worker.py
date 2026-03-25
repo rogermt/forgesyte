@@ -676,11 +676,15 @@ class JobWorker:
             if job.job_type in ("video", "video_multi"):
                 job.progress = 100
             # Discussion #354: Pre-compute summary for /v1/jobs hot path
-            summary_dict = derive_video_summary(output_data)
+            # v0.16.8: Use plugin-provided summary if available (decoupled from server)
+            summary_dict = output_data.get("summary")
+            if not summary_dict:
+                # Fallback for plugins that don't provide summary
+                summary_dict = derive_video_summary(output_data)
             job.summary = json.dumps(summary_dict)
             db.commit()
             send_job_completed(str(job.job_id))
-            logger.info(f"Job {job.job_id} completed successfully via Ray")
+            logger.info(f"Job {job_id} completed successfully via Ray")
         finally:
             db.close()
 
@@ -987,7 +991,11 @@ class JobWorker:
             if job.job_type in ("video", "video_multi"):
                 job.progress = 100
             # Discussion #354: Pre-compute summary for /v1/jobs hot path
-            summary_dict = derive_video_summary(output_data)
+            # v0.16.8: Use plugin-provided summary if available (decoupled from server)
+            summary_dict = output_data.get("summary")
+            if not summary_dict:
+                # Fallback for plugins that don't provide summary
+                summary_dict = derive_video_summary(output_data)
             job.summary = json.dumps(summary_dict)
             db.commit()
 

@@ -22,7 +22,6 @@ from app.core.database import get_db
 from app.models.job import Job, JobStatus
 from app.schemas.job import JobListItem, JobListResponse, JobResultsResponse
 from app.services.storage.factory import get_storage_service
-from app.services.video_summary_service import derive_video_summary
 from app.settings import settings
 
 logger = logging.getLogger(__name__)
@@ -231,21 +230,18 @@ async def get_job(job_id: UUID, db: Session = Depends(get_db)) -> JobResultsResp
 
     # Clean Break: All completed jobs return result_url + summary
     # No more inline results for any job type
+    # v0.16.8: Summary comes from job.summary (pre-computed by worker)
 
-    # Load results from storage to derive summary
+    # Verify results file exists
     try:
-        results_path = job.output_path
-        file_path = storage.load_file(results_path)
-        with open(file_path, "r") as f:
-            results = json.load(f)
+        storage.load_file(job.output_path)
     except FileNotFoundError as err:
         raise HTTPException(status_code=404, detail="Results file not found") from err
-    except json.JSONDecodeError as err:
-        raise HTTPException(status_code=500, detail="Invalid results file") from err
 
     # Return result_url and summary for all completed jobs
     result_url = storage.get_signed_url(job.output_path)
-    summary = derive_video_summary(results)
+    # v0.16.8: Use pre-computed summary from job.summary (set by worker)
+    summary = json.loads(job.summary) if job.summary else None
     return JobResultsResponse(
         job_id=job.job_id,
         status=job.status.value,
