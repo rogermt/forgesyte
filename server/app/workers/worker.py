@@ -676,11 +676,16 @@ class JobWorker:
             if job.job_type in ("video", "video_multi"):
                 job.progress = 100
             # Discussion #354: Pre-compute summary for /v1/jobs hot path
-            summary_dict = derive_video_summary(output_data)
-            job.summary = json.dumps(summary_dict)
+            # v0.16.8: Use plugin-provided summary if available (decoupled from server)
+            # v0.16.9: Only use video summary fallback for video jobs
+            summary_dict = output_data.get("summary")
+            if not summary_dict and job.job_type in ("video", "video_multi"):
+                # Fallback for video plugins that don't provide summary
+                summary_dict = derive_video_summary(output_data)
+            job.summary = json.dumps(summary_dict) if summary_dict is not None else None
             db.commit()
             send_job_completed(str(job.job_id))
-            logger.info(f"Job {job.job_id} completed successfully via Ray")
+            logger.info(f"Job {job_id} completed successfully via Ray")
         finally:
             db.close()
 
@@ -987,8 +992,13 @@ class JobWorker:
             if job.job_type in ("video", "video_multi"):
                 job.progress = 100
             # Discussion #354: Pre-compute summary for /v1/jobs hot path
-            summary_dict = derive_video_summary(output_data)
-            job.summary = json.dumps(summary_dict)
+            # v0.16.8: Use plugin-provided summary if available (decoupled from server)
+            # v0.16.9: Only use video summary fallback for video jobs
+            summary_dict = output_data.get("summary")
+            if not summary_dict and job.job_type in ("video", "video_multi"):
+                # Fallback for video plugins that don't provide summary
+                summary_dict = derive_video_summary(output_data)
+            job.summary = json.dumps(summary_dict) if summary_dict is not None else None
             db.commit()
 
             # Notify WebSocket subscribers

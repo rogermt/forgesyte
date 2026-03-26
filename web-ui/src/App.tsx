@@ -216,48 +216,60 @@ function App() {
   }, [selectedPlugin]);
 
   // -------------------------------------------------------------------------
-  // v0.10.1: Job Polling - Poll selectedJob for progress updates
+  // v0.10.1: Job Polling - Single authoritative poller for job state
   // Discussion #234: Stop polling when job reaches completed/failed status
+  // FIX: Only ONE poller - serialized async polling prevents race conditions
   // -------------------------------------------------------------------------
   useEffect(() => {
-    if (!selectedJob?.job_id) return;
-    
+    const jobId = selectedJob?.job_id;
+    if (!jobId) return;
     // Stop polling if job already reached terminal state
     if (selectedJob?.status === "completed" || selectedJob?.status === "failed") return;
 
-    const interval = setInterval(async () => {
-      try {
-        const job = await apiClient.getJob(selectedJob.job_id);
-        setSelectedJob(job);
-      } catch (err) {
-        console.error("Job polling failed:", err);
-      }
-    }, 1000);
+    let cancelled = false;
+    let inFlight = false;
+    let timeoutId: ReturnType<typeof window.setTimeout> | undefined;
 
-    return () => clearInterval(interval);
+    const poll = async () => {
+      if (cancelled || inFlight) return;
+      inFlight = true;
+      try {
+        const job = await apiClient.getJob(jobId);
+        const isTerminal = job.status === "completed" || job.status === "failed";
+        if (!cancelled) {
+          setSelectedJob((current) =>
+            current?.job_id === jobId ? job : current
+          );
+        }
+        if (!cancelled && !isTerminal) {
+          timeoutId = window.setTimeout(poll, 1000);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          console.error("Job polling failed:", err);
+          timeoutId = window.setTimeout(poll, 1000);
+        }
+      } finally {
+        inFlight = false;
+      }
+    };
+
+    timeoutId = window.setTimeout(poll, 1000);
+    return () => {
+      cancelled = true;
+      if (timeoutId !== undefined) window.clearTimeout(timeoutId);
+    };
   }, [selectedJob?.job_id, selectedJob?.status]);
 
   // -------------------------------------------------------------------------
-  // v0.10.2: Poll uploadResult for progress updates (Upload / Video Upload)
-  // Discussion #234: Stop polling when job reaches completed/failed status
+  // v0.10.2: UploadResult Polling (DISABLED)
+  // Upload jobs are now handled by the main selectedJob poller above
+  // This eliminates duplicate polling and race conditions
   // -------------------------------------------------------------------------
   useEffect(() => {
-    if (!uploadResult?.job_id) return;
-    
-    // Stop polling if job already reached terminal state
-    if (uploadResult?.status === "completed" || uploadResult?.status === "failed") return;
-
-    const interval = setInterval(async () => {
-      try {
-        const job = await apiClient.getJob(uploadResult.job_id);
-        setUploadResult(job);
-      } catch (err) {
-        console.error("Upload job polling failed:", err);
-      }
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, [uploadResult?.job_id, uploadResult?.status]);
+    // No-op: uploadResult no longer has its own polling loop
+    return;
+  }, [uploadResult]);
 
   // -------------------------------------------------------------------------
   // v0.10.1: Unlock tools when job completes or fails
