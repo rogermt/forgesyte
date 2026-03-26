@@ -241,7 +241,13 @@ async def get_job(job_id: UUID, db: Session = Depends(get_db)) -> JobResultsResp
     # Return result_url and summary for all completed jobs
     result_url = storage.get_signed_url(job.output_path)
     # v0.16.8: Use pre-computed summary from job.summary (set by worker)
-    summary = json.loads(job.summary) if job.summary else None
+    # v0.16.9: Guard against malformed JSON (same as list_jobs)
+    summary = None
+    if job.summary:
+        try:
+            summary = json.loads(job.summary)
+        except json.JSONDecodeError:
+            logger.warning("Invalid summary JSON for job %s", job_id)
     return JobResultsResponse(
         job_id=job.job_id,
         status=job.status.value,
