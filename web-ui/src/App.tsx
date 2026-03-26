@@ -218,8 +218,7 @@ function App() {
   // -------------------------------------------------------------------------
   // v0.10.1: Job Polling - Single authoritative poller for job state
   // Discussion #234: Stop polling when job reaches completed/failed status
-  // FIX: Only ONE poller - prevents race conditions and stale state overwrites
-  // Terminal state checked inside interval to avoid restart on status change
+  // FIX: Only ONE poller - serialized async polling prevents race conditions
   // -------------------------------------------------------------------------
   useEffect(() => {
     const jobId = selectedJob?.job_id;
@@ -227,18 +226,39 @@ function App() {
     // Stop polling if job already reached terminal state
     if (selectedJob?.status === "completed" || selectedJob?.status === "failed") return;
 
-    const interval = setInterval(async () => {
+    let cancelled = false;
+    let inFlight = false;
+    let timeoutId: ReturnType<typeof window.setTimeout> | undefined;
+
+    const poll = async () => {
+      if (cancelled || inFlight) return;
+      inFlight = true;
       try {
         const job = await apiClient.getJob(jobId);
-        // Only update if this is STILL the selected job (prevents stale overwrites)
-        if (job.job_id === jobId) {
-          setSelectedJob(job);
+        const isTerminal = job.status === "completed" || job.status === "failed";
+        if (!cancelled) {
+          setSelectedJob((current) =>
+            current?.job_id === jobId ? job : current
+          );
+        }
+        if (!cancelled && !isTerminal) {
+          timeoutId = window.setTimeout(poll, 1000);
         }
       } catch (err) {
-        console.error("Job polling failed:", err);
+        if (!cancelled) {
+          console.error("Job polling failed:", err);
+          timeoutId = window.setTimeout(poll, 1000);
+        }
+      } finally {
+        inFlight = false;
       }
-    }, 1000);
-    return () => clearInterval(interval);
+    };
+
+    timeoutId = window.setTimeout(poll, 1000);
+    return () => {
+      cancelled = true;
+      if (timeoutId !== undefined) window.clearTimeout(timeoutId);
+    };
   }, [selectedJob?.job_id, selectedJob?.status]);
 
   // -------------------------------------------------------------------------
